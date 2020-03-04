@@ -1,12 +1,17 @@
-from typing import List, Union
-from pydantic import BaseModel, validator, ValidationError
+from typing import List, Union, Dict
+from pydantic import BaseModel, validator
 from qcportal import FractalClient
+import yaml
+import json
+
+import os
 
 import warnings
 import logging
 
 from qcsubmit.filters import StandardFilters, BaseFilter
-from qcsubmit.workflow_components.custom_componet import CustomWorkflowComponet, ComponentMissingError
+from qcsubmit import workflow_components
+from openforcefield.topology import Molecule
 
 """
 Tools for aiding the construction and submission of QCFractal datasets.
@@ -31,29 +36,32 @@ We also require some subclasses which can control there own options and operatio
 """
 
 
-class QMControler(BaseModel):
-    """
-    This is the QM options controller which acts as the metadata in the dataset factory.
-    """
+class UnsuportedFiletypeError(Exception):
+    pass
 
-    theory: str = 'B3LYP-D3BJ'  # the default level of theory for openff
-    basis: str = 'DZVP'  # the dfault basis for openff
-    program: str = 'psi4'
-    maxiter: int = 200
-    driver: str = 'gradient'
-    scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
-
-    class Config:
-        validate_assignment = True
-
-    @validator('driver')
-    def _check_driver(cls, driver):
-        "Make sure that the driver is supported."
-        available_drivers = ['energy', 'gradient', 'hessian']
-        if driver not in available_drivers:
-            raise ValidationError(f'The requested driver ({driver}) is not in the list of available drivers: '
-                                  f'{available_drivers}')
-        return driver
+# class QMControler(BaseModel):
+#     """
+#     This is the QM options controller which acts as the metadata in the dataset factory.
+#     """
+#
+#     theory: str = 'B3LYP-D3BJ'  # the default level of theory for openff
+#     basis: str = 'DZVP'  # the dfault basis for openff
+#     program: str = 'psi4'
+#     maxiter: int = 200
+#     driver: str = 'gradient'
+#     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
+#
+#     class Config:
+#         validate_assignment = True
+#
+#     @validator('driver')
+#     def _check_driver(cls, driver):
+#         "Make sure that the driver is supported."
+#         available_drivers = ['energy', 'gradient', 'hessian']
+#         if driver not in available_drivers:
+#             raise ValidationError(f'The requested driver ({driver}) is not in the list of available drivers: '
+#                                   f'{available_drivers}')
+#         return driver
 
 
 class QCFractalDatasetFactory(BaseModel):
@@ -84,70 +92,89 @@ class QCFractalDatasetFactory(BaseModel):
     """
 
     theory: str = 'B3LYP-D3BJ'  # the default level of theory for openff
-    basis: str = 'DZVP'  # the dfault basis for openff
+    basis: str = 'DZVP'  # the default basis for openff
     program: str = 'psi4'
     maxiter: int = 200
-    driver: str = 'gradient'
+    driver: str = 'energy'
     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
-    _workflow: List[CustomWorkflowComponet] = []
+    client: str = 'public'
+    workflow: Dict[str, workflow_components.CustomWorkflowComponet] = {}
+    # hidden variable not included in the schema
+    _file_readers = {'json': json.load, 'yaml': yaml.full_load}
+    _file_writers = {'json': json.dump, 'yaml': yaml.dump}
 
     class Config:
         validate_assignment = True
+        arbitrary_types_allowed = True
+        title = 'QCFractalDatasetFactory'
 
+    @validator('driver')
+    def _check_driver(cls, driver):
+        "Make sure that the driver is supported."
+        available_drivers = ['energy', 'gradient', 'hessian']
+        if driver not in available_drivers:
+            raise ValueError(f'The requested driver ({driver}) is not in the list of available '
+                             f'drivers: {available_drivers}')
+        return driver
 
-    @property
-    def workflow(self):
-        return self._workflow
-
-    @workflow.setter
-    def workflow(self, workflow):
-        raise ValidationError('The workflow should not be set this way instead use add_workflow_componet or '
-                              'insert_workflow_componet. If you wish to start again use clear_workflow.')
-
-    @workflow.deleter
-    def workflow(self):
-        self._workflow = []
+    @validator('client')
+    def _check_client(cls, client):
+        "Make sure the client is valid."
+        if isinstance(client, str):
+            if client == 'public' or os.path.exists(client):
+                return client
+        raise ValueError('The client must be set to public or a file path to some client settings.')
 
     def clear_workflow(self):
-        self._workflow = []
+        self.workflow = {}
 
-    def add_workflow_component(self, components: Union[List[CustomWorkflowComponet], CustomWorkflowComponet]):
+    def add_workflow_component(self, components: Union[List[workflow_components.CustomWorkflowComponet], workflow_components.CustomWorkflowComponet]):
         "Take the workflow components and insert them into the workflow."
 
-        if isinstance(components, CustomWorkflowComponet):
+        if not isinstance(components, list):
             # we have one componenet make it into a list
             components = [components]
 
         for component in components:
-            if isinstance(component, CustomWorkflowComponet):
-                self._workflow.append(component)
+            if isinstance(component, workflow_components.CustomWorkflowComponet):
+                if component.componet_name not in self.workflow.keys():
+                    self.workflow[component.componet_name] = component
+                else:
+                    # we should increment the name and add it to the workflow
+                    if '@' in component.componet_name:
+                        name, number = component.componet_name.split('@')
+                    else:
+                        name, number = component.componet_name, 0
+                    # set the new name
+                    component.componet_name = f'{name}@{int(number) + 1}'
+                    self.workflow[component.componet_name] = component
+
             else:
-                print(f'Component {component} rejected.')
+                print(f'Component {component} rejected as it is not subclass of CustomWorkflowComponent.')
 
-    def insert_workflow_component(self, component: CustomWorkflowComponet, index: int):
-        "Insert the component at the given index shifting values to the right."
-
-        if self._check_workflow(component):
-            self._workflow.insert(index=index, object=component)
+    # def insert_workflow_component(self, component: CustomWorkflowComponet, index: int):
+    #     "Insert the component at the given index shifting values to the right."
+    #
+    #     if self._check_workflow(component):
+    #         self._workflow.insert(index=index, object=component)
 
     def get_workflow_component(self, component_name: str):
-        "Find the workflow compneent by its compnent_name"
+        "Find the workflow compneent by its compnent_name."
 
-        for component in self._workflow:
-            if component.componet_name == component_name:
-                return component
-        else:
-            raise ComponentMissingError(f'The requested component {component_name} was not registeried into the workflow.')
+        component = self.workflow.get(component_name, None)
+        if component is None:
+            raise workflow_components.ComponentMissingError(f'The requested component {component_name} was not registeried into the workflow.')
+
+        return component
+
 
     def remove_workflow_component(self, component_name: str):
         "Find and remove the component via its name."
 
-        for component in self._workflow:
-            if component.componet_name == component_name:
-                self._workflow.remove(component)
-
-        else:
-            raise ComponentMissingError(f'The requested component {component_name} could not be removed as it was not registerd.')
+        try:
+            del self.workflow[component_name]
+        except KeyError:
+            raise workflow_components.ComponentMissingError(f'The requested component {component_name} could not be removed as it was not registerd.')
 
     def workflow_from_file(self, file):
         "create a workflow from file or object"
@@ -155,35 +182,73 @@ class QCFractalDatasetFactory(BaseModel):
 
         pass
 
-    @validator('driver')
-    def _check_driver(cls, driver):
-        "Make sure that the driver is supported."
-        available_drivers = ['energy', 'gradient', 'hessian']
-        if driver not in available_drivers:
-            raise ValidationError(f'The requested driver ({driver}) is not in the list of available drivers: '
-                                  f'{available_drivers}')
-        return True
+    def workflow_to_file(self, file):
+        "write the workflow components to file so that they can be loaded latter"
+        pass
 
-    @validator('_workflow', each_item=True)
-    def _check_workflow(cls, component):
-        if not isinstance(component, CustomWorkflowComponet):
-            raise ValidationError(f'The workflow component {component} could not be added as it is not a subclass '
-                                  f'of CustomWorkflowComponent')
-        return True
+    def _get_file_type(self, file: str) -> str:
+        "take the file name and work out the type of file we want to write to."
+
+        file_type = file.split('.')[-1]
+        return file_type
+
+    def export_settings(self, file):
+        "Export the current model to file this will include the workflow as well"
+        file_type = self._get_file_type(file=file)
+
+        # try and get the file writer
+        try:
+            writer = self._file_writers[file_type]
+            with open(file, 'w') as output:
+                writer(self.dict(), output)
+        except KeyError:
+            raise UnsuportedFiletypeError(f'The requested file type {file_type} is not supported, currently we can write to {self._file_writers}.')
+
+    def import_settings(self, file):
+        "import the settings in a file."
+        file_type = self._get_file_type(file)
+        try:
+            reader = self._file_readers[file_type]
+            with open(file) as input_data:
+                object = reader(input_data)
+                # take the workflow out and inport the settings
+                workflow = object.pop('workflow')
+                # this should change the settings
+                # now we need to be able to change the settings here
+                self.clear_workflow()
+                # now we want to add the workflow back in
+                for key, value in workflow.items():
+                    # check if this is not the first instance of the component
+                    if '@' in key:
+                        name = key.split('@')[0]
+                    else:
+                        name = key
+                    component = getattr(workflow_components, name, None)
+                    if component is not None:
+                        self.add_workflow_component(component.parse_obj(value))
+
+        except KeyError:
+            raise UnsuportedFiletypeError
+
+    def create_dataset(self, dataset_name: str, molecues: List[Molecule]):
+        "the main function which will create the dataset and the maetadata"
+
+        pass
+
+    def _create_cmiles_metadata(self, molecule: Molecule):
+        "Create the metadata for the molecule in this dataset."
+
+        pass
 
     # @validator('client')
     # def _validate_client(cls, client):
     #     """
     #     Here we try and instance the client if it is not already an instance of the FratalClient class.
     #     """
-    #     if client is not None:
-    #         if client == 'default':
-    #             return
-    #         elif not isinstance(client, FractalClient):
-    #             raise ValidationError('The clint must be a supported')
-
-    def test(self):
-        print('test method.')
+    #     if not isinstance(client, FractalClient) or client != 'public':
+    #         raise ValidationError('The client must be a supported')
+    #     else:
+    #         return client
 
 #     def apply_filter(self, oemols, filter_name):
 #         """

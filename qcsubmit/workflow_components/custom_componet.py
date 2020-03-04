@@ -3,8 +3,10 @@ import abc
 from pydantic import BaseModel, validator, ValidationError
 from openforcefield.topology import Molecule
 
+
 class ComponentMissingError(Exception):
     pass
+
 
 class CustomWorkflowComponet(BaseModel, abc.ABC):
     """
