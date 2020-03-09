@@ -1,10 +1,98 @@
-import fragmenter
-import cmiles
-import openeye
-
-import warnings
 import logging
 from typing import Any, Dict, List, Optional, Union
+from pydantic import BaseModel
+from openforcefield.topology import Molecule
+
+
+class MoleculeContainer:
+    """
+    This class contains the input molecules in an efficent way that should minimise the momory footprint and has some
+     methods which help process the molecules.
+    This is only for internal use during the workflow execution stage.
+    """
+
+    def __init__(self, molecules=None, input_file=None):
+        "Set up the class"
+
+        self._molecules: List[Dict] = {}
+        self._filtered: Dict[str, Dict] = {}
+
+    @property
+    def molecules(self):
+
+        for molecule in self._molecules:
+            yield Molecule.from_dict(molecule)
+
+    @property
+    def filtered(self):
+
+        for molecule in self._filtered:
+
+class DataSet(BaseModel):
+    """
+    The general qcfractal dataset class which contains all of the molecules and information about them prioir to submission.
+    The class is a simpler holder of the dataset and information about it and can do simple checks on the data before submitting it such as ensuring that the molecules have cmiles information
+    and a unique index to be indetified by.
+
+    It can not generate unqiue indexs for the molecules as this should be done by the factory as each factory has different requirements for the index.
+    """
+
+    theory: str = 'B3LYP-D3BJ'  # the default level of theory for openff
+    basis: str = 'DZVP'  # the default basis for openff
+    program: str = 'psi4'
+    maxiter: int = 200
+    driver: str = 'energy'
+    scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
+    client: str = 'public'
+    priority: str = 'normal'
+    tags: str = 'openff'
+    molecules: Dict[str, Dict[str,str]] = {}  # the molecules which are to be submitted
+    filtered: Dict[str, Dict[str, str]] = {}  # the molecules which have been filtered out
+
+    @property
+    def n_conformers(self):
+        """
+        Calculate the amount of conformers stored in the dataset this may be the same as the amount of molecules in some cases.
+        """
+
+        n_conformers = sum([molecule.n_conformers for molecule in self.molecules])
+        return n_conformers
+
+    @property
+    def n_molecules(self):
+        """
+        Calculate the total number of molecules/entries/records which will be generated note this will vary depending on
+        the factory that made the dataset.
+        """
+
+        n_molecules = len(self.molecules)
+        return n_molecules
+
+    @property
+    def n_filtered(self):
+        """
+        Return the amount of molecules that have be filtered from the dataset
+        """
+
+        n_filtered = len(self.filtered)
+        return n_filtered
+
+    def filter_molecule(self, molecule, reason):
+        """
+        Filter a molecule that has not passed a workflow component stage.
+        """
+
+        pass
+
+    def add_molecule(self, molecule: Molecule, index: str, cmiles: Union[Dict[str, str], None] = None):
+        """
+        Add a molecule to the dataset generating a unqie index for it if required.
+        """
+
+        # if index in self.molecules.keys():
+        #     # Now lets check we are not trying to add the same molecule twice
+        # self.molecules[]
+
 
 class QCFractalDataset(object):
     """
@@ -70,7 +158,7 @@ class QCFractalDataset(object):
             smiles = oechem.OEMolToSmiles(oemol)
             logging.info('cmiles failed to generate molecule ids {}'.format(smiles))
             self.cmiles_failures.add(smiles)
-            continue
+            #continue
 
         # Extract mapped SMILES
         mapped_smiles = cmiles_ids['canonical_isomeric_explicit_hydrogen_mapped_smiles']

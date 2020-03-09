@@ -1,15 +1,10 @@
 from typing import List, Union, Dict
 from pydantic import BaseModel, validator
-from qcportal import FractalClient
 import yaml
 import json
 
 import os
 
-import warnings
-import logging
-
-from qcsubmit.filters import StandardFilters, BaseFilter
 from qcsubmit import workflow_components
 from openforcefield.topology import Molecule
 
@@ -38,30 +33,6 @@ We also require some subclasses which can control there own options and operatio
 
 class UnsuportedFiletypeError(Exception):
     pass
-
-# class QMControler(BaseModel):
-#     """
-#     This is the QM options controller which acts as the metadata in the dataset factory.
-#     """
-#
-#     theory: str = 'B3LYP-D3BJ'  # the default level of theory for openff
-#     basis: str = 'DZVP'  # the dfault basis for openff
-#     program: str = 'psi4'
-#     maxiter: int = 200
-#     driver: str = 'gradient'
-#     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
-#
-#     class Config:
-#         validate_assignment = True
-#
-#     @validator('driver')
-#     def _check_driver(cls, driver):
-#         "Make sure that the driver is supported."
-#         available_drivers = ['energy', 'gradient', 'hessian']
-#         if driver not in available_drivers:
-#             raise ValidationError(f'The requested driver ({driver}) is not in the list of available drivers: '
-#                                   f'{available_drivers}')
-#         return driver
 
 
 class QCFractalDatasetFactory(BaseModel):
@@ -98,7 +69,10 @@ class QCFractalDatasetFactory(BaseModel):
     driver: str = 'energy'
     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
     client: str = 'public'
+    priority: str = 'normal'
+    tags: str = 'openff'
     workflow: Dict[str, workflow_components.CustomWorkflowComponet] = {}
+
     # hidden variable not included in the schema
     _file_readers = {'json': json.load, 'yaml': yaml.full_load}
     _file_writers = {'json': json.dump, 'yaml': yaml.dump}
@@ -176,13 +150,13 @@ class QCFractalDatasetFactory(BaseModel):
         except KeyError:
             raise workflow_components.ComponentMissingError(f'The requested component {component_name} could not be removed as it was not registerd.')
 
-    def workflow_from_file(self, file):
+    def import_workflow(self, file):
         "create a workflow from file or object"
         # how do we ensure we can create it from json, ymal, schema etc?
 
         pass
 
-    def workflow_to_file(self, file):
+    def export_workflow(self, file):
         "write the workflow components to file so that they can be loaded latter"
         pass
 
@@ -202,7 +176,8 @@ class QCFractalDatasetFactory(BaseModel):
             with open(file, 'w') as output:
                 writer(self.dict(), output)
         except KeyError:
-            raise UnsuportedFiletypeError(f'The requested file type {file_type} is not supported, currently we can write to {self._file_writers}.')
+            raise UnsuportedFiletypeError(f'The requested file type {file_type} is not supported, '
+                                          f'currently we can write to {self._file_writers}.')
 
     def import_settings(self, file):
         "import the settings in a file."
@@ -237,6 +212,11 @@ class QCFractalDatasetFactory(BaseModel):
 
     def _create_cmiles_metadata(self, molecule: Molecule):
         "Create the metadata for the molecule in this dataset."
+
+        pass
+
+    def _create_index(self, molecule: Molecule):
+        "Create an index for the molecule o be added to the dataset"
 
         pass
 

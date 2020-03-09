@@ -1,1 +1,2 @@
-from .custom_componet import StandardConformerGenerator, CustomWorkflowComponet, ComponentMissingError
+from .base_component import CustomWorkflowComponet, ComponentMissingError
+from .conformer_generation import StandardConformerGenerator
