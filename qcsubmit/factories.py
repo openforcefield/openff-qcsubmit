@@ -45,10 +45,10 @@ class QCFractalDatasetFactory(BaseModel):
 
     Attributes
     ----------
-    fragment : bool, default=False
-        If True, will fragment the molecule prior to submission
-    enumerate_stereochemistry : bool, default=True
-        If True, will enumerate unspecified stereochemistry
+    theory : str, default=B3LYP-D3BJ
+        The QM theory used during the calculation
+    basis : str, default=DZVP
+        The basis set to use during the calculation
     enumerate_tautomers : bool, default=False
         If True, will enumerate tautomers
     max_conformers : int, default=20
@@ -84,7 +84,7 @@ class QCFractalDatasetFactory(BaseModel):
 
     @validator('driver')
     def _check_driver(cls, driver):
-        "Make sure that the driver is supported."
+        """Make sure that the driver is supported."""
         available_drivers = ['energy', 'gradient', 'hessian']
         if driver not in available_drivers:
             raise ValueError(f'The requested driver ({driver}) is not in the list of available '
@@ -93,7 +93,7 @@ class QCFractalDatasetFactory(BaseModel):
 
     @validator('client')
     def _check_client(cls, client):
-        "Make sure the client is valid."
+        """Make sure the client is valid."""
         if isinstance(client, str):
             if client == 'public' or os.path.exists(client):
                 return client
@@ -103,7 +103,7 @@ class QCFractalDatasetFactory(BaseModel):
         self.workflow = {}
 
     def add_workflow_component(self, components: Union[List[workflow_components.CustomWorkflowComponet], workflow_components.CustomWorkflowComponet]):
-        "Take the workflow components and insert them into the workflow."
+        """Take the workflow components and insert them into the workflow."""
 
         if not isinstance(components, list):
             # we have one componenet make it into a list
@@ -137,28 +137,83 @@ class QCFractalDatasetFactory(BaseModel):
 
         component = self.workflow.get(component_name, None)
         if component is None:
-            raise workflow_components.ComponentMissingError(f'The requested component {component_name} was not registeried into the workflow.')
+            raise workflow_components.ComponentMissingError(f'The requested component {component_name} '
+                                                            f'was not registeried into the workflow.')
 
         return component
-
 
     def remove_workflow_component(self, component_name: str):
         "Find and remove the component via its name."
 
         try:
             del self.workflow[component_name]
+
         except KeyError:
-            raise workflow_components.ComponentMissingError(f'The requested component {component_name} could not be removed as it was not registerd.')
+            raise workflow_components.ComponentMissingError(f'The requested component {component_name} '
+                                                            f'could not be removed as it was not registerd.')
 
-    def import_workflow(self, file):
-        "create a workflow from file or object"
-        # how do we ensure we can create it from json, ymal, schema etc?
+    def import_workflow(self, workflow: Union[str, Dict], clear_exsisting: bool = True):
+        "Instance the workflow from a workflow object or from an input file."
 
-        pass
+        if clear_exsisting:
+            self.clear_workflow()
 
-    def export_workflow(self, file):
+        if isinstance(workflow, str):
+            workflow = self._read_file(workflow)
+
+        if isinstance(workflow, dict):
+            # this should be a workflow dict that we can just load
+            # if this is from the settings file make sure to unpack the dict first.
+            workflow = workflow.get('workflow', workflow)
+
+        # load in the workflow
+        for key, value in workflow.items():
+            # check if this is not the first instance of the component
+            if '@' in key:
+                name = key.split('@')[0]
+            else:
+                name = key
+            component = getattr(workflow_components, name, None)
+            if component is not None:
+                self.add_workflow_component(component.parse_obj(value))
+
+    def _read_file(self, file_name: str) -> Dict:
+        """
+        Method to help with file reading and returning the data object from the file.
+        """
+
+        # check that the file exists
+        if os.path.exists(file_name):
+            file_type = self._get_file_type(file_name)
+            try:
+                reader = self._file_readers[file_type]
+                with open(file_name) as input_data:
+                    data = reader(input_data)
+
+                    return data
+
+            except KeyError:
+                raise UnsuportedFiletypeError(f'The requested file type {file_type} is not supported currently we can write to {self._file_writers}.')
+        else:
+            raise RuntimeError(f'The file {file_name} could not be found.')
+
+    def export_workflow(self, file: str):
         "write the workflow components to file so that they can be loaded latter"
-        pass
+
+        file_type = self._get_file_type(file=file)
+
+        # try and get the file writer
+        workflow = self.dict()['workflow']
+        try:
+            writer = self._file_writers[file_type]
+            with open(file, 'w') as output:
+                if file_type == 'json':
+                    writer(workflow, output, indent=2)
+                else:
+                    writer(workflow, output)
+        except KeyError:
+            raise UnsuportedFiletypeError(f'The requested file type {file_type} is not supported, '
+                                          f'currently we can write to {self._file_writers}.')
 
     def _get_file_type(self, file: str) -> str:
         "take the file name and work out the type of file we want to write to."
@@ -166,7 +221,7 @@ class QCFractalDatasetFactory(BaseModel):
         file_type = file.split('.')[-1]
         return file_type
 
-    def export_settings(self, file):
+    def export_settings(self, file: str):
         "Export the current model to file this will include the workflow as well"
         file_type = self._get_file_type(file=file)
 
@@ -174,36 +229,40 @@ class QCFractalDatasetFactory(BaseModel):
         try:
             writer = self._file_writers[file_type]
             with open(file, 'w') as output:
-                writer(self.dict(), output)
+                if file_type == 'json':
+                    writer(self.dict(), output, indent=2)
+                else:
+                    writer(self.dict(), output)
         except KeyError:
             raise UnsuportedFiletypeError(f'The requested file type {file_type} is not supported, '
                                           f'currently we can write to {self._file_writers}.')
 
-    def import_settings(self, file):
+    def import_settings(self, settings: Union[str, Dict], clear_workflow: bool = True):
         "import the settings in a file."
-        file_type = self._get_file_type(file)
-        try:
-            reader = self._file_readers[file_type]
-            with open(file) as input_data:
-                object = reader(input_data)
-                # take the workflow out and inport the settings
-                workflow = object.pop('workflow')
-                # this should change the settings
-                # now we need to be able to change the settings here
-                self.clear_workflow()
-                # now we want to add the workflow back in
-                for key, value in workflow.items():
-                    # check if this is not the first instance of the component
-                    if '@' in key:
-                        name = key.split('@')[0]
-                    else:
-                        name = key
-                    component = getattr(workflow_components, name, None)
-                    if component is not None:
-                        self.add_workflow_component(component.parse_obj(value))
 
-        except KeyError:
-            raise UnsuportedFiletypeError
+        if isinstance(settings, str):
+            data = self._read_file(settings)
+
+            # take the workflow out and inport the settings
+            workflow = data.pop('workflow')
+
+        elif isinstance(settings, dict):
+            workflow = settings.pop('worklow')
+            data = settings
+
+        else:
+            raise RuntimeError(f'The input type could not be converted into a settings dictionary.')
+
+        # now set the factory meta settings
+        for key, value in data.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                continue
+
+        self.clear_workflow()
+        # now we want to add the workflow back in
+        self.import_workflow(workflow=workflow, clear_exsisting=clear_workflow)
 
     def create_dataset(self, dataset_name: str, molecues: List[Molecule]):
         "the main function which will create the dataset and the maetadata"

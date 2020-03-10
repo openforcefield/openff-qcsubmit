@@ -3,6 +3,8 @@ import abc
 from pydantic import BaseModel
 from openforcefield.topology import Molecule
 
+from qcsubmit.datasets import ComponentResult
+
 
 class ComponentMissingError(Exception):
     pass
@@ -24,7 +26,7 @@ class CustomWorkflowComponet(BaseModel, abc.ABC):
         arbitrary_types_allowed = True
 
     @abc.abstractmethod
-    def apply(self, molecule: Molecule):
+    def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         This is the main feature of the workflow component which should accept a molecule, perform the component action
         and then return the
@@ -37,9 +39,9 @@ class CustomWorkflowComponet(BaseModel, abc.ABC):
 
         Returns
         -------
-        pass_molecules:
-
-        fail_molecules:
+        results: ComponentResult,
+            An instance of the componentresult class which handles collecting to gether molecules that pass and fail
+            the component
         """
         ...
 
@@ -55,3 +57,11 @@ class CustomWorkflowComponet(BaseModel, abc.ABC):
             A dictionary containing the information about the component. Each program should have its own entry
         """
         ...
+
+    def fail_molecule(self, molecule: Molecule, component_result: ComponentResult):
+        """A helpful method to fail a molecule will fill in the reason it failed"""
+
+        component_result.filter_molecule(molecule,
+                                         component_name=self.componet_name,
+                                         component_description=self.componet_descripton,
+                                         reason=self.componet_fail_message)

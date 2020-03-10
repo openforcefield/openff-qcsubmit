@@ -1,32 +1,71 @@
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Set
 from pydantic import BaseModel
 from openforcefield.topology import Molecule
 
 
-class MoleculeContainer:
+class ComponentResult:
     """
-    This class contains the input molecules in an efficent way that should minimise the momory footprint and has some
-     methods which help process the molecules.
+    This class contains the input molecules in an efficient way that should minimise the memory footprint and has some
+    methods which help process the molecules.
+
+    The idea was keep the molecules as mapped smiles strings along with there coords arrays then convert them back to
+    molecules when they are needed.
+
+    Measuring the size of the molecules they seem quite small so for now keep the molecules in instance form.
+
+    The molecules are kept in dictionary format with the mapped smiles string and the coordinates in np.arrays.
+    When the molecules are needed they can be converted back to molecules.
+
     This is only for internal use during the workflow execution stage.
     """
 
-    def __init__(self, molecules=None, input_file=None):
-        "Set up the class"
+    def __init__(self, molecules: Union[List[Molecule], Molecule] = None, input_file: str = None):
+        """Register the list of molecules to process."""
 
-        self._molecules: List[Dict] = {}
-        self._filtered: Dict[str, Dict] = {}
+        # use a set to automatically remove duplicates
+        self.molecules: Set[Molecule] = set()
+        self.filtered: Dict[Molecule, Dict] = {}
 
-    @property
-    def molecules(self):
+        assert molecules or input_file is None, 'Provide either a list of molecules or an input file name.'
 
-        for molecule in self._molecules:
-            yield Molecule.from_dict(molecule)
+        # if we have an input file load it
+        if input_file is not None:
+            molecules = Molecule.from_file(file_path=input_file, allow_undefined_stereo=True)
 
-    @property
-    def filtered(self):
+        # now lets process the molecules and add them to the class
+        if molecules is not None:
+            for molecule in molecules:
+                self.add_molecule(molecule)
 
-        for molecule in self._filtered:
+    def add_molecule(self, molecule: Molecule):
+        "Add a molecule to the molecule list"
+
+        self.molecules.add(molecule)
+
+    def filter_molecule(self, molecule: Molecule, component_name: str, component_description: str, reason: str):
+        "filter out a molecule"
+
+        fail_reason = {'component_name': component_name,
+                       'component_description': component_description,
+                       'reason': reason}
+
+        self.filtered[molecule] = fail_reason
+
+    # @property
+    # def molecules(self):
+    #
+    #     for molecule in self._molecules:
+    #         offmol = Molecule.from_mapped_smiles(molecule['molecule'])
+    #         for conformer in molecule['conformers']:
+    #             offmol.add_conformer(conformer)
+    #         yield offmol
+
+    # @property
+    # def filtered(self):
+    #
+    #     return self._filtered
+
 
 class DataSet(BaseModel):
     """
@@ -46,8 +85,8 @@ class DataSet(BaseModel):
     client: str = 'public'
     priority: str = 'normal'
     tags: str = 'openff'
-    molecules: Dict[str, Dict[str,str]] = {}  # the molecules which are to be submitted
-    filtered: Dict[str, Dict[str, str]] = {}  # the molecules which have been filtered out
+    dataset: Dict[str, Dict] = {}  # the molecules which are to be submitted
+    filtered: Dict[str, Dict] = {}  # the molecules which have been filtered out
 
     @property
     def n_conformers(self):
@@ -55,7 +94,7 @@ class DataSet(BaseModel):
         Calculate the amount of conformers stored in the dataset this may be the same as the amount of molecules in some cases.
         """
 
-        n_conformers = sum([molecule.n_conformers for molecule in self.molecules])
+        n_conformers = sum([len(molecule['initial_moleules']) for molecule in self.dataset.values()])
         return n_conformers
 
     @property
@@ -65,8 +104,25 @@ class DataSet(BaseModel):
         the factory that made the dataset.
         """
 
-        n_molecules = len(self.molecules)
+        n_molecules = len(self.dataset)
         return n_molecules
+
+    @property
+    def molecules(self):
+        """A generator that creates the molecules one by one from the dataset note that editing the molecule will not
+        edit it in the dataset"""
+
+        from simtk import unit
+        import numpy as np
+
+        for id, molecule_data in self.dataset.items():
+            # create the molecule from the cmiles data
+            offmol = Molecule.from_mapped_smiles(mapped_smiles=molecule_data['attributes']['canonical_isomeric_explicit_hydrogen_mapped_smiles'])
+            offmol.name = id
+            for molecule in molecule_data['initial_molecules']:
+                geometry = unit.Quantity(np.array(molecule['geometry']), unit=unit.bohr)
+                offmol.add_conformer(geometry.in_units_of(unit.angstrom))
+            yield offmol
 
     @property
     def n_filtered(self):
@@ -77,14 +133,14 @@ class DataSet(BaseModel):
         n_filtered = len(self.filtered)
         return n_filtered
 
-    def filter_molecule(self, molecule, reason):
+    def add_filter_molecule(self, molecule, reason):
         """
         Filter a molecule that has not passed a workflow component stage.
         """
 
         pass
 
-    def add_molecule(self, molecule: Molecule, index: str, cmiles: Union[Dict[str, str], None] = None):
+    def add_molecule(self, index: str, molecule: Molecule, cmiles: Dict[str, str]):
         """
         Add a molecule to the dataset generating a unqie index for it if required.
         """

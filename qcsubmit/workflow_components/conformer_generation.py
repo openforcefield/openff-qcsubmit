@@ -5,6 +5,7 @@ from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import RDKitToolkitWrapper, OpenEyeToolkitWrapper
 
 from .base_component import CustomWorkflowComponet
+from qcsubmit.datasets import ComponentResult
 
 
 class StandardConformerGenerator(CustomWorkflowComponet):
@@ -30,11 +31,10 @@ class StandardConformerGenerator(CustomWorkflowComponet):
         else:
             return toolkit
 
-    def apply(self, molecules: List[Molecule]) -> List[List[Molecule]]:
+    def apply(self, molecules: List[Molecule]) -> ComponentResult:
         "test apply the conformers"
 
-        pass_molecules = []
-        fail_molecues = []
+        result = ComponentResult()
 
         # create the toolkit
         toolkit = self._toolkits[self.toolkit]()
@@ -44,12 +44,13 @@ class StandardConformerGenerator(CustomWorkflowComponet):
                 molecule.generate_conformers(n_conformers=self.max_conformers,
                                              clear_existing=self.clear_exsiting,
                                              toolkit_registry=toolkit)
-                pass_molecules.append(molecule)
+
+                result.add_molecule(molecule)
             # need to catch more specific exceptions here.
             except Exception:
-                fail_molecues.append(molecule)
+                self.fail_molecule(molecule=molecule, component_result=result)
 
-        return [pass_molecules, fail_molecues]
+        return result
 
     def provenance(self) -> Dict:
         """
