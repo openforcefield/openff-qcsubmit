@@ -34,7 +34,9 @@ class StandardConformerGenerator(CustomWorkflowComponet):
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         "test apply the conformers"
 
-        result = ComponentResult()
+        result = ComponentResult(component_name=self.componet_name,
+                                 component_description=self.componet_descripton,
+                                 component_fail_reason=self.componet_fail_message)
 
         # create the toolkit
         toolkit = self._toolkits[self.toolkit]()

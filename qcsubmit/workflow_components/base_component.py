@@ -61,7 +61,4 @@ class CustomWorkflowComponet(BaseModel, abc.ABC):
     def fail_molecule(self, molecule: Molecule, component_result: ComponentResult):
         """A helpful method to fail a molecule will fill in the reason it failed"""
 
-        component_result.filter_molecule(molecule,
-                                         component_name=self.componet_name,
-                                         component_description=self.componet_descripton,
-                                         reason=self.componet_fail_message)
+        component_result.filter_molecule(molecule)

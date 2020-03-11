@@ -6,6 +6,7 @@ import json
 import os
 
 from qcsubmit import workflow_components
+from qcsubmit.datasets import ComponentResult
 from openforcefield.topology import Molecule
 
 """
@@ -264,10 +265,43 @@ class QCFractalDatasetFactory(BaseModel):
         # now we want to add the workflow back in
         self.import_workflow(workflow=workflow, clear_exsisting=clear_workflow)
 
-    def create_dataset(self, dataset_name: str, molecues: List[Molecule]):
+    def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]):
         "the main function which will create the dataset and the maetadata"
 
-        pass
+        #  check if we have been given an input file with molecules inside
+        if isinstance(molecules, str):
+            if os.path.exists(molecules):
+                workflow_molecules = ComponentResult(component_name='inital',
+                                                     component_description='initial',
+                                                     component_fail_reason='none',
+                                                     input_file=molecules)
+
+        elif isinstance(molecules, Molecule):
+            workflow_molecules = ComponentResult(component_name='inital',
+                                                 component_description='initial',
+                                                 component_fail_reason='none',
+                                                 molecules=[molecules])
+
+        else:
+            workflow_molecules = ComponentResult(component_name='inital',
+                                                 component_description='initial',
+                                                 component_fail_reason='none',
+                                                 molecules=molecules)
+
+        # now we need to start passing the workflow molecules to each module in the workflow
+        filtered_molecules = {}
+        for componet_name, component in self.workflow.items():
+            workflow_molecules = component.apply(molecules=workflow_molecules.molecules)
+
+            filtered_molecules[workflow_molecules.component_name] = {'component_description': workflow_molecules.component_description,
+                                                                     'component_fail_message': workflow_molecules.component_fail_reason,
+                                                                     'molecules': workflow_molecules.filtered}
+
+        # now we should print out the final molecules
+        print('The final component result molecules', workflow_molecules.molecules)
+        print('The final component failed molecules', workflow_molecules.filtered)
+        print('The filtered molecules', filtered_molecules)
+
 
     def _create_cmiles_metadata(self, molecule: Molecule):
         "Create the metadata for the molecule in this dataset."

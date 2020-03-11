@@ -25,7 +25,9 @@ class MolecularWeightFilter(CustomWorkflowComponet):
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
 
-        result = ComponentResult()
+        result = ComponentResult(component_name=self.componet_name,
+                                 component_description=self.componet_descripton,
+                                 component_fail_reason=self.componet_fail_message)
 
         for molecule in molecules:
             total_weight = sum([atom.element.mass.value_in_unit(unit.daltons) for atom in molecule.atoms])
@@ -61,7 +63,10 @@ class ElementFilter(CustomWorkflowComponet):
         """
         from simtk.openmm.app import Element
 
-        result = ComponentResult()
+        result = ComponentResult(component_name=self.componet_name,
+                                 component_description=self.componet_descripton,
+                                 component_fail_reason=self.componet_fail_message)
+
         # First lets convert the allowed_elements list to ints as this is what is stored in the atom object
         _allowed_elements = [Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele for ele in self.allowed_elements]
 
