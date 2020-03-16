@@ -302,16 +302,49 @@ class QCFractalDatasetFactory(BaseModel):
         print('The final component failed molecules', workflow_molecules.filtered)
         print('The filtered molecules', filtered_molecules)
 
+    def _create_cmiles_metadata(self, molecule: Molecule) -> Dict[str, str]:
+        """
+        Create the Cmiles metadata for the molecule in this dataset.
 
-    def _create_cmiles_metadata(self, molecule: Molecule):
-        "Create the metadata for the molecule in this dataset."
+        Parameters:
+            molecule: openforcefield.topology.Molecule,
+                The molecule for which the cmiles data will be generated.
 
-        pass
+        Returns:
+            cmiles: dict[str, str]
+            The Cmiles index information generated for the input molecule.
+        """
+
+        cmiles = {'canonical_smiles': molecule.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False),
+                  'canonical_isomeric_smiles': molecule.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False),
+                  'canonical_explicit_hydrogen_smiles': molecule.to_smiles(isomeric=False, explicit_hydrogens=True, mapped=False),
+                  'canonical_isomeric_explicit_hydrogen_smiles': molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=False),
+                  'canonical_isomeric_explicit_hydrogen_mapped_smiles': molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True),
+                  'molecular_formula': molecule.hill_formula,
+                  'standard_inchi': molecule.to_inchi(fixed_hydrogens=False),
+                  'inchi_key': molecule.to_inchikey(fixed_hydrogens=False)}
+
+        return cmiles
 
     def _create_index(self, molecule: Molecule):
-        "Create an index for the molecule o be added to the dataset"
+        """
+        Create an index for the current molecule.
 
-        pass
+        Parameters:
+            molecule: openforcefield.topology.Molecule,
+                The molecule for which the dataset index will be generated.
+
+        Returns:
+            index: str
+                The canonical isomeric smiles for the molecule which is used as the dataset index.
+
+        Note:
+            Each dataset can have a different indexing system depending on the data, in this basic dataset each conformer
+            of a molecule is expanded into its own entry and submitted thus a unique index must be made.
+        """
+
+        index = molecule.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False)
+        return index
 
     # @validator('client')
     # def _validate_client(cls, client):

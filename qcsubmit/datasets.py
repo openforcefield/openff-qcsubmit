@@ -1,25 +1,18 @@
-from typing import Dict, List, Optional, Union, Set
+from typing import Dict, List, Optional, Union, Set, Optional
 from pydantic import BaseModel
 from openforcefield.topology import Molecule
 
 
 class ComponentResult:
     """
-    This class contains the input molecules in an efficient way that should minimise the memory footprint and has some
-    methods which help process the molecules.
+    Class to contain molecules after the execution of a workflow component this automatically applies de-duplication to
+    the molecules. For example if a molecule is already in the molecules list it will not be added but any conformers
+    will be kept and transfered.
 
-    The idea was keep the molecules as mapped smiles strings along with there coords arrays then convert them back to
-    molecules when they are needed.
-
-    Measuring the size of the molecules they seem quite small so for now keep the molecules in instance form.
-
-    The molecules are kept in dictionary format with the mapped smiles string and the coordinates in np.arrays.
-    When the molecules are needed they can be converted back to molecules.
-
-    This is only for internal use during the workflow execution stage.
+    If a molecule in the molecules list is then filtered it will be removed from the molecules list.
     """
 
-    def __init__(self, component_name: str,  component_description: str, component_fail_reason: str, molecules: Union[List[Molecule], Molecule] = None, input_file: str = None):
+    def __init__(self, component_name: str,  component_description: str, component_fail_reason: str, molecules: Optional[Union[List[Molecule], Molecule]] = None, input_file: Optional[str] = None):
         """Register the list of molecules to process."""
 
         # use a set to automatically remove duplicates
@@ -41,28 +34,51 @@ class ComponentResult:
                 self.add_molecule(molecule)
 
     def add_molecule(self, molecule: Molecule):
-        "Add a molecule to the molecule list"
+        """
+        Add a molecule to the molecule list after checking that it is not present already. If it is de-duplicate the
+        record and condense the conformers.
+        """
 
-        self.molecules.append(molecule)
+        import numpy as np
+        from simtk import unit
+
+        if molecule in self.molecules:
+            if molecule.n_conformers != 0:
+                # we need to align the molecules and transfer the coords
+                mol_id = self.molecules.index(molecule)
+                # get the mapping
+                isomorphic, mapping = Molecule.are_isomorphic(self.molecules[mol_id], molecule, return_atom_map=True)
+                assert isomorphic is True
+                for conformer in molecule.conformers:
+                    new_conformer = np.zeros((molecule.n_atoms, 3))
+                    for i in range(molecule.n_atoms):
+                        new_conformer[i] = conformer[mapping[i]].value_in_unit(unit.angstrom)
+                    self.molecules[mol_id].add_conformer(new_conformer * unit.angstrom)
+
+            else:
+                # molecule already in list and coords not present so just return
+                return
+
+        else:
+            self.molecules.append(molecule)
 
     def filter_molecule(self, molecule: Molecule):
-        "filter out a molecule"
+        """
+        Filter out a molecule that has not passed this workflow component. If the molecule is already in the pass list
+        remove it and ensure it is only in the filtered list.
+        """
 
-        self.filtered.append(molecule)
+        try:
+            self.molecules.remove(molecule)
 
-    # @property
-    # def molecules(self):
-    #
-    #     for molecule in self._molecules:
-    #         offmol = Molecule.from_mapped_smiles(molecule['molecule'])
-    #         for conformer in molecule['conformers']:
-    #             offmol.add_conformer(conformer)
-    #         yield offmol
+        except ValueError:
+            pass
 
-    # @property
-    # def filtered(self):
-    #
-    #     return self._filtered
+        finally:
+            if molecule not in self.filtered:
+                self.filtered.append(molecule)
+            else:
+                return
 
 
 class DataSet(BaseModel):
@@ -85,7 +101,7 @@ class DataSet(BaseModel):
     priority: str = 'normal'
     tags: str = 'openff'
     dataset: Dict[str, Dict] = {}  # the molecules which are to be submitted
-    filtered_molecules: Dict[Dict, List[str]] = {}  # the molecules which have been filtered out
+    filtered_molecules: Dict[str, Dict] = {}  # the molecules which have been filtered out
 
     class Config:
         arbitrary_types_allowed = True
@@ -140,7 +156,7 @@ class DataSet(BaseModel):
         Return the amount of molecules that have be filtered from the dataset
         """
 
-        n_filtered = len(self.filtered)
+        n_filtered = len(self.filtered_molecules)
         return n_filtered
 
     def add_filter_molecule(self, molecule, reason):
