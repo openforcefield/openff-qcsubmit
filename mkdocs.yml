@@ -1,0 +1,21 @@
+site_name: QCSubmit
+theme:
+  name: 'material'
+markdown_extensions:
+  - codehilite:
+      guess_lang: false
+repo_name: 'openforcefield/qcsubmit'
+repo_url: 'https://github.com/openforcefield/qcsubmit'
+plugins:
+  - mkdocstrings
+nav:
+  - Home: index.md
+  - Reference:
+      - Factories: factories.md
+      - Datasets: datasets.md
+      - Exceptions: exceptions.md
+      - Workflow Components:
+          - Base Component: base_component.md
+          - Filters: filters.md
+          - Conformer Generation: conformer_generation.md
+

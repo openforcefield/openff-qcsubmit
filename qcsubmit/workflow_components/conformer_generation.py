@@ -9,7 +9,7 @@ from qcsubmit.datasets import ComponentResult
 
 
 class StandardConformerGenerator(CustomWorkflowComponet):
-    # standard componets which must be defined
+    # standard components which must be defined
     componet_name = 'StandardConformerGenerator'
     componet_descripton = "Generate conformations for the given molecules"
     componet_fail_message = "Conformers could not be generated"

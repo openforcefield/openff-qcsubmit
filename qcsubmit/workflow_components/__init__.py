@@ -1,3 +1,3 @@
-from .base_component import CustomWorkflowComponet, ComponentMissingError
+from .base_component import CustomWorkflowComponet
 from .conformer_generation import StandardConformerGenerator
 from .filters import ElementFilter, MolecularWeightFilter
