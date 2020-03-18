@@ -5,8 +5,10 @@ import json
 
 import os
 
-from qcsubmit import workflow_components
-from qcsubmit.datasets import ComponentResult
+from qcsubmit import workflow_components, exceptions
+from qcsubmit.datasets import ComponentResult, DataSet
+from qcsubmit.exceptions import UnsupportedFiletypeError, InvalidWorkflowComponentError, MissingWorkflowComponentError, \
+    InvalidClientError, DriverError
 from openforcefield.topology import Molecule
 
 """
@@ -32,34 +34,28 @@ We also require some subclasses which can control there own options and operatio
 """
 
 
-class UnsuportedFiletypeError(Exception):
-    pass
-
-
 class QCFractalDatasetFactory(BaseModel):
     """
-    Base class to control the metadata settings used during generating the work flow.
-    This class should not need to be subclassed in order to add new componets or change the oder this should be done,
-    via the workflow componet functionality.
+    Basic dataset generator factory used to build work flows using workflow components before executing them to generate
+    a dataset.
+
+    The basic dataset is ideal for large collections of single point calculations using any of the energy, gradient or
+    hessian drivers.
 
     The main metadata features here are concerned with the QM settings to be used which includes the driver.
 
-    Attributes
-    ----------
-    theory : str, default=B3LYP-D3BJ
-        The QM theory used during the calculation
-    basis : str, default=DZVP
-        The basis set to use during the calculation
-    enumerate_tautomers : bool, default=False
-        If True, will enumerate tautomers
-    max_conformers : int, default=20
-        Maximum number of conformers generated per molecule
-    input_filters : list, default=[]
-        Filters to be applied to input molecules
-    submit_filters : list, default=[]
-        Filters to be applied to molecules prior to submission
-    compute_wbo : bool, default=False
-        If True, compute Wiberg-Lowdin bond orders
+    Attributes:
+        theory:  The QM theory to use during dataset calculations.
+        basis:   The basis set to use during dataset calculations.
+        program: The program which will be used during the calculations.
+        maxiter: The maximum amount of SCF cycles allowed.
+        driver:  The driver that should be used in the calculation ie energy/gradient/hessian.
+        scf_properties: A list of QM properties which should be calculated and collected during the driver calculation.
+        client:  The name of the client the data will be sent to for privet clusters this should be the file name where
+            the data is stored.
+        priority: The priority with which the dataset should be calculated.
+        tag: The tag name which should be given to the collection.
+        workflow: A dictionary which holds the workflow components to be executed in the set order.
 
     """
 
@@ -71,7 +67,7 @@ class QCFractalDatasetFactory(BaseModel):
     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
     client: str = 'public'
     priority: str = 'normal'
-    tags: str = 'openff'
+    tag: str = 'openff'
     workflow: Dict[str, workflow_components.CustomWorkflowComponet] = {}
 
     # hidden variable not included in the schema
@@ -88,8 +84,8 @@ class QCFractalDatasetFactory(BaseModel):
         """Make sure that the driver is supported."""
         available_drivers = ['energy', 'gradient', 'hessian']
         if driver not in available_drivers:
-            raise ValueError(f'The requested driver ({driver}) is not in the list of available '
-                             f'drivers: {available_drivers}')
+            raise DriverError(f'The requested driver ({driver}) is not in the list of available '
+                              f'drivers: {available_drivers}')
         return driver
 
     @validator('client')
@@ -98,16 +94,28 @@ class QCFractalDatasetFactory(BaseModel):
         if isinstance(client, str):
             if client == 'public' or os.path.exists(client):
                 return client
-        raise ValueError('The client must be set to public or a file path to some client settings.')
+        raise InvalidClientError('The client must be set to public or a file path to some client settings.')
 
-    def clear_workflow(self):
+    def clear_workflow(self) -> None:
+        """
+        Reset the workflow to by empty.
+        """
         self.workflow = {}
 
-    def add_workflow_component(self, components: Union[List[workflow_components.CustomWorkflowComponet], workflow_components.CustomWorkflowComponet]):
-        """Take the workflow components and insert them into the workflow."""
+    def add_workflow_component(self, components: Union[List[workflow_components.CustomWorkflowComponet], workflow_components.CustomWorkflowComponet]) -> None:
+        """
+        Take the workflow components validate them then insert them into the workflow.
+
+        Parameters:
+            components: A list of or an individual qcsubmit.workflow_compoents.CustomWokflowComponent which are to be
+                validated and added to the current workflow.
+
+        Raises:
+            InvalidWorkflowComponentError: If an invalid workflow component is attempted to be added to the workflow.
+        """
 
         if not isinstance(components, list):
-            # we have one componenet make it into a list
+            # we have one component make it into a list
             components = [components]
 
         for component in components:
@@ -125,38 +133,58 @@ class QCFractalDatasetFactory(BaseModel):
                     self.workflow[component.componet_name] = component
 
             else:
-                print(f'Component {component} rejected as it is not subclass of CustomWorkflowComponent.')
+                raise InvalidWorkflowComponentError(f'Component {component} rejected as it is not a sub '
+                                                    f'class of CustomWorkflowComponent.')
 
-    # def insert_workflow_component(self, component: CustomWorkflowComponet, index: int):
-    #     "Insert the component at the given index shifting values to the right."
-    #
-    #     if self._check_workflow(component):
-    #         self._workflow.insert(index=index, object=component)
+    def get_workflow_component(self, component_name: str) -> workflow_components.CustomWorkflowComponet:
+        """
+        Find the workflow component by its compnent_name attribute.
 
-    def get_workflow_component(self, component_name: str):
-        "Find the workflow compneent by its compnent_name."
+        Parameters:
+            component_name: The name of the component to be gathered from the workflow.
+
+        Returns:
+            component: The instance of the requested component from the workflow.
+
+        Raises:
+            MissingWorkflowComponentError: If the component could not be found by its component name in the workflow.
+        """
 
         component = self.workflow.get(component_name, None)
         if component is None:
-            raise workflow_components.ComponentMissingError(f'The requested component {component_name} '
-                                                            f'was not registeried into the workflow.')
+            raise MissingWorkflowComponentError(f'The requested component {component_name} '
+                                                f'was not registered into the workflow.')
 
         return component
 
-    def remove_workflow_component(self, component_name: str):
-        "Find and remove the component via its name."
+    def remove_workflow_component(self, component_name: str) -> None:
+        """
+        Find and remove the component via its component_name attribute.
+
+        Parameters:
+            component_name: The name of the component to be gathered from the workflow.
+
+        Raises:
+            MissingWorkflowComponentError: If the component could not be found by its component name in the workflow.
+        """
 
         try:
             del self.workflow[component_name]
 
         except KeyError:
-            raise workflow_components.ComponentMissingError(f'The requested component {component_name} '
-                                                            f'could not be removed as it was not registerd.')
+            raise MissingWorkflowComponentError(f'The requested component {component_name} '
+                                                f'could not be removed as it was not registered.')
 
-    def import_workflow(self, workflow: Union[str, Dict], clear_exsisting: bool = True):
-        "Instance the workflow from a workflow object or from an input file."
+    def import_workflow(self, workflow: Union[str, Dict], clear_existing: bool = True) -> None:
+        """
+        Instance the workflow from a workflow object or from an input file.
 
-        if clear_exsisting:
+        Parameters:
+            workflow: The name of the file the workflow should be created from or a workflow dictionary.
+            clear_existing: If the current workflow should be deleted and replaced or extended.
+        """
+
+        if clear_existing:
             self.clear_workflow()
 
         if isinstance(workflow, str):
@@ -181,6 +209,16 @@ class QCFractalDatasetFactory(BaseModel):
     def _read_file(self, file_name: str) -> Dict:
         """
         Method to help with file reading and returning the data object from the file.
+
+        Parameters:
+            file_name: The name of the file to be read.
+
+        Returns:
+            data: The dictionary representation of the json or yaml file.
+
+        Raises:
+            UnsupportedFiletypeError: The file give was not of the supported types ie json or yaml.
+            RuntimeError: The given file could not be found to be opened.
         """
 
         # check that the file exists
@@ -194,61 +232,94 @@ class QCFractalDatasetFactory(BaseModel):
                     return data
 
             except KeyError:
-                raise UnsuportedFiletypeError(f'The requested file type {file_type} is not supported currently we can write to {self._file_writers}.')
+                raise UnsupportedFiletypeError(f'The requested file type {file_type} is not supported '
+                                               f'currently we can write to {self._file_writers}.')
         else:
             raise RuntimeError(f'The file {file_name} could not be found.')
 
-    def export_workflow(self, file: str):
-        "write the workflow components to file so that they can be loaded latter"
+    def export_workflow(self, file_name: str) -> None:
+        """
+        Export the workflow components and their settings to file so that they can be loaded latter.
 
-        file_type = self._get_file_type(file=file)
+        Parameters:
+            file_name: The name of the file the workflow should be exported to.
+
+        Raises:
+            UnsupportedFiletypeError: If the file type is not supported.
+        """
+
+        file_type = self._get_file_type(file_name=file_name)
 
         # try and get the file writer
         workflow = self.dict()['workflow']
         try:
             writer = self._file_writers[file_type]
-            with open(file, 'w') as output:
+            with open(file_name, 'w') as output:
                 if file_type == 'json':
                     writer(workflow, output, indent=2)
                 else:
                     writer(workflow, output)
         except KeyError:
-            raise UnsuportedFiletypeError(f'The requested file type {file_type} is not supported, '
-                                          f'currently we can write to {self._file_writers}.')
+            raise UnsupportedFiletypeError(f'The requested file type {file_type} is not supported, '
+                                           f'currently we can write to {self._file_writers}.')
 
-    def _get_file_type(self, file: str) -> str:
-        "take the file name and work out the type of file we want to write to."
+    def _get_file_type(self, file_name: str) -> str:
+        """
+        Helper function to work out the file type being requested from the file name.
 
-        file_type = file.split('.')[-1]
+        Parameters:
+            file_name: The name of the file from which we should work out the file type.
+
+        Returns:
+            file_type: The file type extension.
+        """
+
+        file_type = file_name.split('.')[-1]
         return file_type
 
-    def export_settings(self, file: str):
-        "Export the current model to file this will include the workflow as well"
-        file_type = self._get_file_type(file=file)
+    def export_settings(self, file_name: str) -> None:
+        """
+        Export the current model to file this will include the workflow as well along with each components settings.
+
+        Parameters:
+            file_name: The name of the file the settings and workflow should be exported to.
+
+        Raises:
+            UnsupportedFiletypeError: When the file type requested is not supported.
+        """
+
+        file_type = self._get_file_type(file_name=file_name)
 
         # try and get the file writer
         try:
             writer = self._file_writers[file_type]
-            with open(file, 'w') as output:
+            with open(file_name, 'w') as output:
                 if file_type == 'json':
                     writer(self.dict(), output, indent=2)
                 else:
                     writer(self.dict(), output)
         except KeyError:
-            raise UnsuportedFiletypeError(f'The requested file type {file_type} is not supported, '
-                                          f'currently we can write to {self._file_writers}.')
+            raise UnsupportedFiletypeError(f'The requested file type {file_type} is not supported, '
+                                           f'currently we can write to {self._file_writers}.')
 
-    def import_settings(self, settings: Union[str, Dict], clear_workflow: bool = True):
-        "import the settings in a file."
+    def import_settings(self, settings: Union[str, Dict], clear_workflow: bool = True) -> None:
+        """
+        Import settings and workflow from a file.
+
+        Parameters:
+            settings: The name of the file the settings should be extracted from or the reference to a settings
+                dictionary.
+            clear_workflow: If the current workflow should be extended or replaced.
+        """
 
         if isinstance(settings, str):
             data = self._read_file(settings)
 
-            # take the workflow out and inport the settings
+            # take the workflow out and import the settings
             workflow = data.pop('workflow')
 
         elif isinstance(settings, dict):
-            workflow = settings.pop('worklow')
+            workflow = settings.pop('workflow')
             data = settings
 
         else:
@@ -261,58 +332,95 @@ class QCFractalDatasetFactory(BaseModel):
             else:
                 continue
 
-        self.clear_workflow()
         # now we want to add the workflow back in
-        self.import_workflow(workflow=workflow, clear_exsisting=clear_workflow)
+        self.import_workflow(workflow=workflow, clear_existing=clear_workflow)
 
-    def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]):
-        "the main function which will create the dataset and the maetadata"
+    def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> DataSet:
+        """
+        Process the input molecules through the given workflow then create and populate the dataset class which acts as
+        a local representation for the collection in qcarchive and has the ability to submit its self to a local or
+        public instance.
+
+        Parameters:
+             dataset_name: The name that will be given to the collection on submission to an archive instance.
+             molecules: The list of molecules which should be processed by the workflow and added to the dataset, this
+                can also be a file name which is to be unpacked by the openforcefield toolkit.
+
+        Returns:
+            dataset: A [qcsubmit.datasets.Dataset] instance populated with the molecules that have passed through the
+                workflow.
+
+        Important:
+            The dataset once created does not allow mutation.
+        """
 
         #  check if we have been given an input file with molecules inside
         if isinstance(molecules, str):
             if os.path.exists(molecules):
-                workflow_molecules = ComponentResult(component_name='inital',
+                workflow_molecules = ComponentResult(component_name='initial',
                                                      component_description='initial',
                                                      component_fail_reason='none',
                                                      input_file=molecules)
 
         elif isinstance(molecules, Molecule):
-            workflow_molecules = ComponentResult(component_name='inital',
+            workflow_molecules = ComponentResult(component_name='initial',
                                                  component_description='initial',
                                                  component_fail_reason='none',
                                                  molecules=[molecules])
 
         else:
-            workflow_molecules = ComponentResult(component_name='inital',
+            workflow_molecules = ComponentResult(component_name='initial',
                                                  component_description='initial',
                                                  component_fail_reason='none',
                                                  molecules=molecules)
 
         # now we need to start passing the workflow molecules to each module in the workflow
         filtered_molecules = {}
-        for componet_name, component in self.workflow.items():
-            workflow_molecules = component.apply(molecules=workflow_molecules.molecules)
+        # if the workflow has components run it
+        if self.workflow:
+            for component_name, component in self.workflow.items():
+                workflow_molecules = component.apply(molecules=workflow_molecules.molecules)
 
-            filtered_molecules[workflow_molecules.component_name] = {'component_description': workflow_molecules.component_description,
-                                                                     'component_fail_message': workflow_molecules.component_fail_reason,
-                                                                     'molecules': workflow_molecules.filtered}
+                filtered_molecules[workflow_molecules.component_name] = {'component_description': workflow_molecules.component_description,
+                                                                         'component_fail_message': workflow_molecules.component_fail_reason,
+                                                                         'molecules': workflow_molecules.filtered}
+
+        # first we need to instance the dataset and assign the metadata
+        dataset = DataSet.parse_obj(self.dict(exclude={'workflow'}, include={'dataset_name': dataset_name}))
+
+        # now add the molecules to the correct attributes
+        for molecule in workflow_molecules.molecules:
+            # order the molecule
+            order_mol = molecule.canonical_order_atoms()
+            # now submit the molecule
+            dataset.add_molecule(index=self._create_index(molecule=order_mol),
+                                 molecule=order_mol,
+                                 cmiles=self._create_cmiles_metadata(molecule=order_mol))
 
         # now we should print out the final molecules
         print('The final component result molecules', workflow_molecules.molecules)
         print('The final component failed molecules', workflow_molecules.filtered)
         print('The filtered molecules', filtered_molecules)
 
+        return dataset
+
     def _create_cmiles_metadata(self, molecule: Molecule) -> Dict[str, str]:
         """
         Create the Cmiles metadata for the molecule in this dataset.
 
         Parameters:
-            molecule: openforcefield.topology.Molecule,
-                The molecule for which the cmiles data will be generated.
+            molecule: The molecule for which the cmiles data will be generated.
 
         Returns:
-            cmiles: dict[str, str]
-            The Cmiles index information generated for the input molecule.
+            cmiles: The Cmiles information generated for the input molecule containing the following identifiers
+                - `canonical_smiles`
+                - `canonical_isomeric_smiles`
+                - `canonical_explicit_hydrogen_smiles`
+                - `canonical_isomeric_explicit_hydrogen_smiles`
+                - `canonical_isomeric_explicit_hydrogen_mapped_smiles`
+                - `molecular_formula`
+                - `standard_inchi`
+                - `inchi_key`
         """
 
         cmiles = {'canonical_smiles': molecule.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False),
@@ -326,21 +434,20 @@ class QCFractalDatasetFactory(BaseModel):
 
         return cmiles
 
-    def _create_index(self, molecule: Molecule):
+    def _create_index(self, molecule: Molecule) -> str:
         """
         Create an index for the current molecule.
 
         Parameters:
-            molecule: openforcefield.topology.Molecule,
-                The molecule for which the dataset index will be generated.
+            molecule: The molecule for which the dataset index will be generated.
 
         Returns:
-            index: str
-                The canonical isomeric smiles for the molecule which is used as the dataset index.
+            index: The canonical isomeric smiles for the molecule which is used as the dataset index.
 
         Note:
             Each dataset can have a different indexing system depending on the data, in this basic dataset each conformer
-            of a molecule is expanded into its own entry and submitted thus a unique index must be made.
+            of a molecule is expanded into its own entry separately indexed entry. This is handled by the dataset however
+            so we just generate a general index for the molecule before adding to the dataset.
         """
 
         index = molecule.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False)

@@ -6,10 +6,6 @@ from openforcefield.topology import Molecule
 from qcsubmit.datasets import ComponentResult
 
 
-class ComponentMissingError(Exception):
-    pass
-
-
 class CustomWorkflowComponet(BaseModel, abc.ABC):
     """
     This is an abstract base class which should be used to create all workflow componets, following the desgin of this
