@@ -80,6 +80,10 @@ class ComponentResult:
                 return
 
 
+class BasicResult(BaseModel):
+    pass
+
+
 class DataSet(BaseModel):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to submission.
@@ -122,6 +126,17 @@ class DataSet(BaseModel):
         for component, data in self.filtered_molecules.items():
             for smiles in data['molecules']:
                 yield Molecule.from_smiles(smiles, allow_undefined_stereo=True)
+
+    @property
+    def n_filtered(self) -> int:
+        """
+        Calculate the total number of molecules filtered by the components used in this workflow.
+
+        Returns:
+            The total number of molecules filtered.
+        """
+        filterd = sum([len(data['molecules']) for data in self.filtered_molecules.values()])
+        return filterd
 
     @property
     def n_records(self) -> int:
@@ -174,22 +189,33 @@ class DataSet(BaseModel):
             # create the molecule from the cmiles data
             offmol = Molecule.from_mapped_smiles(mapped_smiles=molecule_data['attributes']['canonical_isomeric_explicit_hydrogen_mapped_smiles'], allow_undefined_stereo=True)
             offmol.name = index_name
-            for molecule in molecule_data['initial_molecules']:
-                geometry = unit.Quantity(np.array(molecule.geometry), unit=unit.bohr)
-                offmol.add_conformer(geometry.in_units_of(unit.angstrom))
+            geometry = unit.Quantity(np.array(molecule_data['initial_molecule'].geometry), unit=unit.bohr)
+            offmol.add_conformer(geometry.in_units_of(unit.angstrom))
             yield offmol
 
     @property
-    def n_filtered(self) -> int:
+    def n_components(self) -> int:
         """
-        Return the amount of molecules that have be filtered from the dataset.
+        Return the amount of components that have been ran during generating the dataset.
 
         Returns:
-            The number of molecules that have been filtered from that dataset.
+            The number of components that were ran while generating the dataset.
         """
 
         n_filtered = len(self.filtered_molecules)
         return n_filtered
+
+    @property
+    def components(self) -> List[Dict]:
+        """
+        Gather the details of the components that were ran during the creation of this dataset.
+
+        Returns:
+            A list of dictionaries containing inormation about the components ran during the generation of the dataset.
+        """
+
+        components = [data['component_description'] for data in self.filtered_molecules.values()]
+        return components
 
     def filter_molecules(self, molecules: Union[Molecule, List[Molecule]], component_description: Dict) -> None:
         """
@@ -220,21 +246,30 @@ class DataSet(BaseModel):
             Each molecule in this basic dataset should have all of its conformers expanded out into separate entries.
             Thus here we take the general molecule index and increment it.
         """
-        from qcelemental import ValidationError
 
-        for conformer in range(molecule.n_conformers):
+        schema_mols = [molecule.to_qcschema(conformer=conformer) for conformer in range(molecule.n_conformers)]
 
-            try:
-                mol = molecule.to_qcschema(conformer=conformer)
-                if conformer != 0:
-                    index += f'_{conformer}'
+        self.dataset[index] = {'cmiles_identifiers': cmiles,
+                               'initial_molecule': schema_mols}
 
-                self.dataset[index] = {'attributes': cmiles,
-                                       'initial_molecules': mol}
-            except ValidationError:
-                print(molecule.to_dict())
-                print(molecule)
-                exit()
+    def submit(self, await_results: bool = False) -> Optional[None, BasicResult]:
+        """
+        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
+        corresponding result class.
+
+        Parameters:
+            await_results: If the user wants to wait for the calculation to finish before returning.
+
+        Returns:
+            Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
+            calculations.
+        """
+
+        pass
+
+    def molecules_to_file(self):
+        pass
+    
 
 
 
