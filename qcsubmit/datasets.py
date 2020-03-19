@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union, Set, Optional
+from typing import Dict, List, Union, Optional
 from pydantic import BaseModel
 from openforcefield.topology import Molecule
 
@@ -7,20 +7,19 @@ class ComponentResult:
     """
     Class to contain molecules after the execution of a workflow component this automatically applies de-duplication to
     the molecules. For example if a molecule is already in the molecules list it will not be added but any conformers
-    will be kept and transfered.
+    will be kept and transferred.
 
     If a molecule in the molecules list is then filtered it will be removed from the molecules list.
     """
 
-    def __init__(self, component_name: str,  component_description: str, component_fail_reason: str, molecules: Optional[Union[List[Molecule], Molecule]] = None, input_file: Optional[str] = None):
+    def __init__(self, component_name: str,  component_description: Dict, molecules: Optional[Union[List[Molecule], Molecule]] = None, input_file: Optional[str] = None):
         """Register the list of molecules to process."""
 
         # use a set to automatically remove duplicates
         self.molecules: List[Molecule] = []
         self.filtered: List[Molecule] = []
         self.component_name: str = component_name
-        self.component_description: str = component_description
-        self.component_fail_reason: str = component_fail_reason
+        self.component_description: Dict = component_description
 
         assert molecules or input_file is None, 'Provide either a list of molecules or an input file name.'
 
@@ -83,11 +82,12 @@ class ComponentResult:
 
 class DataSet(BaseModel):
     """
-    The general qcfractal dataset class which contains all of the molecules and information about them prioir to submission.
+    The general qcfractal dataset class which contains all of the molecules and information about them prior to submission.
     The class is a simple holder of the dataset and information about it and can do simple checks on the data before submitting it such as ensuring that the molecules have cmiles information
-    and a unique index to be indetified by.
+    and a unique index to be identified by.
 
-    It can not generate unqiue indexs for the molecules as this should be done by the factory as each factory has different requirements for the index.
+    Note:
+        The molecules in this dataset are all expanded so that different conformers are unique submissions.
     """
 
     dataset_name: str = 'BasicDataSet'
@@ -108,26 +108,53 @@ class DataSet(BaseModel):
         allow_mutation = False
 
     @property
-    def filtered(self):
-        "Convert the smiles strings back to molecules"
+    def filtered(self) -> Molecule:
+        """
+        A generator for the molecules that have been filtered.
 
-        for reason, molecules in self.filtered_molecules.items():
-            pass
+        Returns:
+            An openforcefield.topology.Molecule representation of the molecule that has been filtered.
+
+        Note:
+            Modifying the molecule will have no effect on the data stored.
+        """
+
+        for component, data in self.filtered_molecules.items():
+            for smiles in data['molecules']:
+                yield Molecule.from_smiles(smiles, allow_undefined_stereo=True)
 
     @property
-    def n_conformers(self):
+    def n_records(self) -> int:
         """
-        Calculate the amount of conformers stored in the dataset this may be the same as the amount of molecules in some cases.
+        Return the amount of records that will be created on submission of the dataset.
+
+        Returns:
+            The amount of records that will be added to the collection.
+
+        Note:
+            The number returned will be different depending on the dataset used.
+
+        Important:
+            The number of records and molecules added is not always the same this can be checked using `n_molecules`.
         """
 
-        n_conformers = sum([len(molecule['initial_moleules']) for molecule in self.dataset.values()])
-        return n_conformers
+        n_records = len(self.dataset)
+        return n_records
 
     @property
-    def n_molecules(self):
+    def n_molecules(self) -> int:
         """
-        Calculate the total number of molecules/entries/records which will be generated note this will vary depending on
-        the factory that made the dataset.
+        Calculate the total number of molecules which will be submitted as part of this dataset.
+
+        Returns:
+            The number of molecules in the dataset.
+
+        Important:
+            The number of molecule records submitted is not always the same as the amount of records created, this can
+            also be checked using `n_records`
+
+        Note:
+            The number returned will be different depending on the dataset submitted.
         """
 
         n_molecules = len(self.dataset)
@@ -135,40 +162,53 @@ class DataSet(BaseModel):
 
     @property
     def molecules(self):
-        """A generator that creates the molecules one by one from the dataset note that editing the molecule will not
-        edit it in the dataset"""
+        """
+        A generator that creates the molecules one by one from the dataset note that editing the molecule will not
+        edit it in the dataset.
+        """
 
         from simtk import unit
         import numpy as np
 
-        for id, molecule_data in self.dataset.items():
+        for index_name, molecule_data in self.dataset.items():
             # create the molecule from the cmiles data
-            offmol = Molecule.from_mapped_smiles(mapped_smiles=molecule_data['attributes']['canonical_isomeric_explicit_hydrogen_mapped_smiles'])
-            offmol.name = id
+            offmol = Molecule.from_mapped_smiles(mapped_smiles=molecule_data['attributes']['canonical_isomeric_explicit_hydrogen_mapped_smiles'], allow_undefined_stereo=True)
+            offmol.name = index_name
             for molecule in molecule_data['initial_molecules']:
-                geometry = unit.Quantity(np.array(molecule['geometry']), unit=unit.bohr)
+                geometry = unit.Quantity(np.array(molecule.geometry), unit=unit.bohr)
                 offmol.add_conformer(geometry.in_units_of(unit.angstrom))
             yield offmol
 
     @property
-    def n_filtered(self):
+    def n_filtered(self) -> int:
         """
-        Return the amount of molecules that have be filtered from the dataset
+        Return the amount of molecules that have be filtered from the dataset.
+
+        Returns:
+            The number of molecules that have been filtered from that dataset.
         """
 
         n_filtered = len(self.filtered_molecules)
         return n_filtered
 
-    def add_filter_molecule(self, molecule, reason):
+    def filter_molecules(self, molecules: Union[Molecule, List[Molecule]], component_description: Dict) -> None:
         """
-        Filter a molecule that has not passed a workflow component stage.
-        """
+        Filter a molecule or list of molecules by the component they failed.
 
-        pass
-
-    def add_molecule(self, index: str, molecule: Molecule, cmiles: Dict[str, str]):
+        Parameters:
+            molecules: A molecule or list of molecules to be filtered.
+            component_description: The dict representation of the component that filtered this set of molecules.
         """
-        Add a molecule to the dataset generating a unqie index for it if required.
+        if isinstance(molecules, Molecule):
+            # make into a list
+            molecules = [molecules]
+
+        self.filtered_molecules[component_description['component_name']] = {'component_description': component_description,
+                                                                            'molecules': [molecule.to_smiles(isomeric=True, explicit_hydrogens=True) for molecule in molecules]}
+
+    def add_molecule(self, index: str, molecule: Molecule, cmiles: Dict[str, str]) -> None:
+        """
+        Add a molecule to the dataset under the given index with the passed cmiles.
 
         Parameters:
             index: The molecule index that was generated by the factory.
@@ -180,11 +220,22 @@ class DataSet(BaseModel):
             Each molecule in this basic dataset should have all of its conformers expanded out into separate entries.
             Thus here we take the general molecule index and increment it.
         """
+        from qcelemental import ValidationError
 
-        if index in self.dataset.keys():
-            # here we could have the molecule more than once but with different starting conformations
-            # often this is seen in optimisations so add a number index to the index string
-            pass
+        for conformer in range(molecule.n_conformers):
+
+            try:
+                mol = molecule.to_qcschema(conformer=conformer)
+                if conformer != 0:
+                    index += f'_{conformer}'
+
+                self.dataset[index] = {'attributes': cmiles,
+                                       'initial_molecules': mol}
+            except ValidationError:
+                print(molecule.to_dict())
+                print(molecule)
+                exit()
+
 
 
 # class QCFractalDataset(object):

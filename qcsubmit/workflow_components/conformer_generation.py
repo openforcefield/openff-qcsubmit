@@ -4,15 +4,15 @@ from pydantic import validator
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import RDKitToolkitWrapper, OpenEyeToolkitWrapper
 
-from .base_component import CustomWorkflowComponet
+from .base_component import CustomWorkflowComponent
 from qcsubmit.datasets import ComponentResult
 
 
-class StandardConformerGenerator(CustomWorkflowComponet):
+class StandardConformerGenerator(CustomWorkflowComponent):
     # standard components which must be defined
-    componet_name = 'StandardConformerGenerator'
-    componet_descripton = "Generate conformations for the given molecules"
-    componet_fail_message = "Conformers could not be generated"
+    component_name = 'StandardConformerGenerator'
+    component_description = "Generate conformations for the given molecules"
+    component_fail_message = "Conformers could not be generated"
 
     # custom components for this class
     max_conformers: int = 20
@@ -34,9 +34,8 @@ class StandardConformerGenerator(CustomWorkflowComponet):
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         "test apply the conformers"
 
-        result = ComponentResult(component_name=self.componet_name,
-                                 component_description=self.componet_descripton,
-                                 component_fail_reason=self.componet_fail_message)
+        result = ComponentResult(component_name=self.component_name,
+                                 component_description=self.dict())
 
         # create the toolkit
         toolkit = self._toolkits[self.toolkit]()

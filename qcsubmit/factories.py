@@ -46,26 +46,16 @@ class QCFractalDatasetFactory(BaseModel):
 
     Attributes:
         theory:  The QM theory to use during dataset calculations.
-
         basis:   The basis set to use during dataset calculations.
-
         program: The program which will be used during the calculations.
-
         maxiter: The maximum amount of SCF cycles allowed.
-
         driver:  The driver that should be used in the calculation ie energy/gradient/hessian.
-
         scf_properties: A list of QM properties which should be calculated and collected during the driver calculation.
-
         client:  The name of the client the data will be sent to for privet clusters this should be the file name where
             the data is stored.
-
         priority: The priority with which the dataset should be calculated.
-
         tag: The tag name which should be given to the collection.
-
         workflow: A dictionary which holds the workflow components to be executed in the set order.
-
     """
 
     theory: str = 'B3LYP-D3BJ'  # the default level of theory for openff
@@ -77,7 +67,7 @@ class QCFractalDatasetFactory(BaseModel):
     client: str = 'public'
     priority: str = 'normal'
     tag: str = 'openff'
-    workflow: Dict[str, workflow_components.CustomWorkflowComponet] = {}
+    workflow: Dict[str, workflow_components.CustomWorkflowComponent] = {}
 
     # hidden variable not included in the schema
     _file_readers = {'json': json.load, 'yaml': yaml.full_load}
@@ -111,7 +101,7 @@ class QCFractalDatasetFactory(BaseModel):
         """
         self.workflow = {}
 
-    def add_workflow_component(self, components: Union[List[workflow_components.CustomWorkflowComponet], workflow_components.CustomWorkflowComponet]) -> None:
+    def add_workflow_component(self, components: Union[List[workflow_components.CustomWorkflowComponent], workflow_components.CustomWorkflowComponent]) -> None:
         """
         Take the workflow components validate them then insert them into the workflow.
 
@@ -128,24 +118,24 @@ class QCFractalDatasetFactory(BaseModel):
             components = [components]
 
         for component in components:
-            if isinstance(component, workflow_components.CustomWorkflowComponet):
-                if component.componet_name not in self.workflow.keys():
-                    self.workflow[component.componet_name] = component
+            if isinstance(component, workflow_components.CustomWorkflowComponent):
+                if component.component_name not in self.workflow.keys():
+                    self.workflow[component.component_name] = component
                 else:
                     # we should increment the name and add it to the workflow
-                    if '@' in component.componet_name:
-                        name, number = component.componet_name.split('@')
+                    if '@' in component.component_name:
+                        name, number = component.component_name.split('@')
                     else:
-                        name, number = component.componet_name, 0
+                        name, number = component.component_name, 0
                     # set the new name
-                    component.componet_name = f'{name}@{int(number) + 1}'
-                    self.workflow[component.componet_name] = component
+                    component.component_name = f'{name}@{int(number) + 1}'
+                    self.workflow[component.component_name] = component
 
             else:
                 raise InvalidWorkflowComponentError(f'Component {component} rejected as it is not a sub '
                                                     f'class of CustomWorkflowComponent.')
 
-    def get_workflow_component(self, component_name: str) -> workflow_components.CustomWorkflowComponet:
+    def get_workflow_component(self, component_name: str) -> workflow_components.CustomWorkflowComponent:
         """
         Find the workflow component by its component_name attribute.
 
@@ -379,25 +369,23 @@ class QCFractalDatasetFactory(BaseModel):
         Important:
             The dataset once created does not allow mutation.
         """
+        #TODO set up a logging system to report the components
 
         #  check if we have been given an input file with molecules inside
         if isinstance(molecules, str):
             if os.path.exists(molecules):
-                workflow_molecules = ComponentResult(component_name='initial',
-                                                     component_description='initial',
-                                                     component_fail_reason='none',
+                workflow_molecules = ComponentResult(component_name=self.Config.title,
+                                                     component_description={'component_name': self.Config.title},
                                                      input_file=molecules)
 
         elif isinstance(molecules, Molecule):
-            workflow_molecules = ComponentResult(component_name='initial',
-                                                 component_description='initial',
-                                                 component_fail_reason='none',
+            workflow_molecules = ComponentResult(component_name=self.Config.title,
+                                                 component_description={'component_name': self.Config.title},
                                                  molecules=[molecules])
 
         else:
-            workflow_molecules = ComponentResult(component_name='initial',
-                                                 component_description='initial',
-                                                 component_fail_reason='none',
+            workflow_molecules = ComponentResult(component_name=self.Config.title,
+                                                 component_description={'component_name': self.Config.title},
                                                  molecules=molecules)
 
         # now we need to start passing the workflow molecules to each module in the workflow
@@ -408,11 +396,14 @@ class QCFractalDatasetFactory(BaseModel):
                 workflow_molecules = component.apply(molecules=workflow_molecules.molecules)
 
                 filtered_molecules[workflow_molecules.component_name] = {'component_description': workflow_molecules.component_description,
-                                                                         'component_fail_message': workflow_molecules.component_fail_reason,
                                                                          'molecules': workflow_molecules.filtered}
 
         # first we need to instance the dataset and assign the metadata
-        dataset = DataSet.parse_obj(self.dict(exclude={'workflow'}, include={'dataset_name': dataset_name}))
+        object_meta = self.dict(exclude={'workflow'})
+
+        # the only data missing is the collection name so add it here.
+        object_meta['dataset_name'] = dataset_name
+        dataset = DataSet.parse_obj(object_meta)
 
         # now add the molecules to the correct attributes
         for molecule in workflow_molecules.molecules:
@@ -423,10 +414,9 @@ class QCFractalDatasetFactory(BaseModel):
                                  molecule=order_mol,
                                  cmiles=self.create_cmiles_metadata(molecule=order_mol))
 
-        # now we should print out the final molecules
-        print('The final component result molecules', workflow_molecules.molecules)
-        print('The final component failed molecules', workflow_molecules.filtered)
-        print('The filtered molecules', filtered_molecules)
+        # now we need to add the filtered molecules
+        for component_name, result in filtered_molecules.items():
+            dataset.filter_molecules(molecules=result['molecules'], component_description=result['component_description'])
 
         return dataset
 

@@ -6,16 +6,16 @@ from openforcefield.topology import Molecule
 from qcsubmit.datasets import ComponentResult
 
 
-class CustomWorkflowComponet(BaseModel, abc.ABC):
+class CustomWorkflowComponent(BaseModel, abc.ABC):
     """
-    This is an abstract base class which should be used to create all workflow componets, following the desgin of this
+    This is an abstract base class which should be used to create all workflow components, following the design of this
     class should allow users to easily create new work flow components with out needing to change much of the dataset
     factory code
     """
 
-    componet_name: str
-    componet_descripton: str
-    componet_fail_message: str
+    component_name: str
+    component_description: str
+    component_fail_message: str
 
     class Config:
         validate_assignment = True
@@ -27,10 +27,10 @@ class CustomWorkflowComponet(BaseModel, abc.ABC):
         This is the main feature of the workflow component which should accept a molecule, perform the component action
         and then return the
 
-        Prameters
+        Parameters
         ----------
 
-        molecule: List[openforcefield.topology.Molecules]:
+        molecules: List[openforcefield.topology.Molecules]:
             The list fof molecules to be processed by this component.
 
         Returns
@@ -54,7 +54,7 @@ class CustomWorkflowComponet(BaseModel, abc.ABC):
         """
         ...
 
-    def fail_molecule(self, molecule: Molecule, component_result: ComponentResult):
+    def fail_molecule(self, molecule: Molecule, component_result: ComponentResult) -> None:
         """A helpful method to fail a molecule will fill in the reason it failed"""
 
         component_result.filter_molecule(molecule)
