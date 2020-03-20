@@ -153,7 +153,7 @@ class DataSet(BaseModel):
             The number of records and molecules added is not always the same this can be checked using `n_molecules`.
         """
 
-        n_records = len(self.dataset)
+        n_records = sum([len(data['initial_molecules']) for data in self.dataset.values()])
         return n_records
 
     @property
@@ -166,7 +166,7 @@ class DataSet(BaseModel):
 
         Important:
             The number of molecule records submitted is not always the same as the amount of records created, this can
-            also be checked using `n_records`
+            also be checked using `n_records`. Here we give the number of unique molecules not excluding conformers.
 
         Note:
             The number returned will be different depending on the dataset submitted.
@@ -176,10 +176,13 @@ class DataSet(BaseModel):
         return n_molecules
 
     @property
-    def molecules(self):
+    def molecules(self) -> Molecule:
         """
         A generator that creates the molecules one by one from the dataset note that editing the molecule will not
         edit it in the dataset.
+
+        Returns:
+            The instance of the molecule from the dataset.
         """
 
         from simtk import unit
@@ -189,8 +192,9 @@ class DataSet(BaseModel):
             # create the molecule from the cmiles data
             offmol = Molecule.from_mapped_smiles(mapped_smiles=molecule_data['attributes']['canonical_isomeric_explicit_hydrogen_mapped_smiles'], allow_undefined_stereo=True)
             offmol.name = index_name
-            geometry = unit.Quantity(np.array(molecule_data['initial_molecule'].geometry), unit=unit.bohr)
-            offmol.add_conformer(geometry.in_units_of(unit.angstrom))
+            for conformer in molecule_data['initial_molecules']:
+                geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
+                offmol.add_conformer(geometry.in_units_of(unit.angstrom))
             yield offmol
 
     @property
@@ -249,10 +253,10 @@ class DataSet(BaseModel):
 
         schema_mols = [molecule.to_qcschema(conformer=conformer) for conformer in range(molecule.n_conformers)]
 
-        self.dataset[index] = {'cmiles_identifiers': cmiles,
-                               'initial_molecule': schema_mols}
+        self.dataset[index] = {'attributes': cmiles,
+                               'initial_molecules': schema_mols}
 
-    def submit(self, await_results: bool = False) -> Optional[None, BasicResult]:
+    def submit(self, await_results: bool = False) -> BasicResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
         corresponding result class.
@@ -267,10 +271,12 @@ class DataSet(BaseModel):
 
         pass
 
-    def molecules_to_file(self):
+    def molecules_to_file(self, file_name: str) -> None:
+        """
+
+        """
         pass
     
-
 
 
 # class QCFractalDataset(object):

@@ -34,7 +34,7 @@ We also require some subclasses which can control there own options and operatio
 """
 
 
-class QCFractalDatasetFactory(BaseModel):
+class BasicDatasetFactory(BaseModel):
     """
     Basic dataset generator factory used to build work flows using workflow components before executing them to generate
     a dataset.
@@ -60,7 +60,7 @@ class QCFractalDatasetFactory(BaseModel):
 
     theory: str = 'B3LYP-D3BJ'  # the default level of theory for openff
     basis: str = 'DZVP'  # the default basis for openff
-    program: str = 'psi4'
+    rogram: str = 'psi4'
     maxiter: int = 200
     driver: str = 'energy'
     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
@@ -349,10 +349,10 @@ class QCFractalDatasetFactory(BaseModel):
             How to make a dataset from a list of molecules
 
             ```python
-            >>> from qcsubmit import factories
+            >>> from qcsubmit.factories import BasicDatasetFactory
             >>> from qcsubmit import workflow_components
             >>> from openforcefield.topology import Molecule
-            >>> factory = QCFractalDatasetFactory()
+            >>> factory = BasicDatasetFactory()
             >>> gen = workflow_components.StandardConformerGenerator()
             >>> gen.clear_exsiting = True
             >>> gen.max_conformers = 1
@@ -472,3 +472,24 @@ class QCFractalDatasetFactory(BaseModel):
 
         index = molecule.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False)
         return index
+
+
+class OptimizationDatasetFactory(BasicDatasetFactory):
+    """
+    This factory produces OptimisationDatasets which include settings assocated with geometric which is used to run the
+    optimisation.
+
+    Attributes:
+
+    """
+
+    optimisation_program: str = 'geometric'
+    coordinate_system: str = 'tric'
+    enforce: float = 0.0
+    reset: bool = True
+    epsilon: float = 1e-5
+    q_chem_convergence: bool = False
+    molpro_convergence: bool = False
+    convergence_set: str = 'GAU'
+
+

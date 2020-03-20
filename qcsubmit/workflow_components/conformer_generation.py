@@ -17,7 +17,7 @@ class StandardConformerGenerator(CustomWorkflowComponent):
     # custom components for this class
     max_conformers: int = 20
     clear_exsiting: bool = True
-    toolkit: str = 'rdkit'
+    toolkit: str = 'openeye'
     _toolkits: Dict = {'rdkit': RDKitToolkitWrapper, 'openeye': OpenEyeToolkitWrapper}
 
     @validator('toolkit')
