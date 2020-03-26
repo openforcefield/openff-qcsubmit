@@ -1,6 +1,10 @@
 from typing import Dict, List, Union, Optional
+
+from qcsubmit.exceptions import UnsupportedFiletypeError
+
 from pydantic import BaseModel
 from openforcefield.topology import Molecule
+import qcportal as ptl
 
 
 class ComponentResult:
@@ -84,7 +88,7 @@ class BasicResult(BaseModel):
     pass
 
 
-class DataSet(BaseModel):
+class BasicDataSet(BaseModel):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to submission.
     The class is a simple holder of the dataset and information about it and can do simple checks on the data before submitting it such as ensuring that the molecules have cmiles information
@@ -95,15 +99,17 @@ class DataSet(BaseModel):
     """
 
     dataset_name: str = 'BasicDataSet'
-    theory: str = 'B3LYP-D3BJ'  # the default level of theory for openff
+    method: str = 'B3LYP-D3BJ'  # the default level of theory for openff
     basis: str = 'DZVP'  # the default basis for openff
     program: str = 'psi4'
     maxiter: int = 200
     driver: str = 'energy'
     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
+    spec_name: str = 'default'
+    spec_description: str = 'Standard OpenFF optimization quantum chemistry specification.'
     client: str = 'public'
     priority: str = 'normal'
-    tags: str = 'openff'
+    tag: str = 'openff'
     dataset: Dict[str, Dict] = {}  # the molecules which are to be submitted
     filtered_molecules: Dict[str, Dict] = {}  # the molecules which have been filtered out
 
@@ -256,27 +262,132 @@ class DataSet(BaseModel):
         self.dataset[index] = {'attributes': cmiles,
                                'initial_molecules': schema_mols}
 
-    def submit(self, await_results: bool = False) -> BasicResult:
+    def submit(self, await_result: bool = False) -> BasicResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
         corresponding result class.
 
         Parameters:
-            await_results: If the user wants to wait for the calculation to finish before returning.
+            await_result: If the user wants to wait for the calculation to finish before returning.
 
         Returns:
             Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
             calculations.
         """
 
-        pass
+        client = self._activate_client()
+        # work out if we are extending a collection
+        try:
+            collection = client.get_collection('Dataset', self.dataset_name)
+        except KeyError:
+            collection = ptl.collections.Dataset(name=self.dataset_name, client=client,
+                                                 default_driver=self.driver, default_program=self.program)
 
-    def molecules_to_file(self, file_name: str) -> None:
+        # store the keyword set into the collection
+        kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
+        collection.add_keywords(alias=self.spec_name, program=self.program, keyword=kw, default=True)
+
+        # save the keywords
+        collection.save()
+
+        # now add the molecules to the database
+        for index, data in self.dataset.items():
+            for i, molecule in enumerate(data['initial_molecules']):
+                name = index + f'_{i}'
+                collection.add_entry(name=name, molecule=molecule, attributes=data['attributes'])
+
+        # save the added entries
+        collection.save()
+
+        # submit the calculations
+        response = collection.compute(method=self.method, basis=self.basis, keywords=self.spec_name,
+                                      program=self.program, tag=self.tag, priority=self.priority)
+
+        result = BasicResult()
+        while await_result:
+
+            pass
+
+        return result
+
+    def coverage_report(self, forcefields: Union[str, List[str]]) -> Dict:
+        """
+        Produce a coverage report of all of the parameters that are exercised by the molecules in the dataset.
+
+        Parameters:
+            forcefields: The name of the openforcefield force field which should be included in the coverage report.
+
+        Returns:
+            A dictionary for each of the force fields which break down which parameters are exercised by their
+            parameter type.
         """
 
-        """
+        results = {}
+
         pass
+
+    def _activate_client(self) -> ptl.FractalClient:
+        """
+        Make the fractal client and connect to the requested instance.
+
+        Returns:
+            A qcportal.FractalClient instance.
+        """
+
+        if self.client == 'public':
+            return ptl.FractalClient()
+        else:
+            return ptl.FractalClient.from_file(self.client)
+
+    def molecules_to_file(self, file_name: str, file_type: str) -> None:
+        """
+        Write the molecules to the requested file type.
+
+        Important:
+            The supported file types are:
+
+            - SMI
+            - INCHI
+            - INCKIKEY
+        """
+
+        file_writers = {'smi': self._molecules_to_smiles, 'inchi': self._molecules_to_inchi,
+                        'inchikey': self._molecules_to_inchikey}
+
+        try:
+            # get the list of molecules
+            molecules = file_writers[file_type]()
+
+            with open(file_name, 'w') as output:
+                for molecule in molecules:
+                    output.write(f'{molecule}\n')
+        except KeyError:
+            raise UnsupportedFiletypeError(f'The requested file type {file_type} is not supported, supported types are'
+                                           f'{file_writers.keys()}.')
+
+    def _molecules_to_smiles(self) -> List[str]:
+        """
+        Create a list of molecules canonical smiles.
+        """
+
+        smiles = [data['attributes']['canonical_smiles'] for data in self.dataset.values()]
+        return smiles
     
+    def _molecules_to_inchi(self) -> List[str]:
+        """
+        Create a list of the molecules standard InChI.
+        """
+
+        inchi = [data['attributes']['standard_inchi'] for data in self.dataset.values()]
+        return inchi
+
+    def _molecules_to_inchikey(self) -> List[str]:
+        """
+        Create a list of the molecules standard InChIKey.
+        """
+
+        inchikey = [data['attributes']['inchi_key'] for data in self.dataset.values()]
+        return inchikey
 
 
 # class QCFractalDataset(object):

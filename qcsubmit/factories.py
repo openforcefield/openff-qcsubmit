@@ -6,9 +6,11 @@ import json
 import os
 
 from qcsubmit import workflow_components
-from qcsubmit.datasets import ComponentResult, DataSet
+from qcsubmit.datasets import ComponentResult, BasicDataSet
 from qcsubmit.exceptions import UnsupportedFiletypeError, InvalidWorkflowComponentError, MissingWorkflowComponentError, \
     InvalidClientError, DriverError
+from qcsubmit.procedures import GeometricProcedure
+
 from openforcefield.topology import Molecule
 
 """
@@ -58,12 +60,14 @@ class BasicDatasetFactory(BaseModel):
         workflow: A dictionary which holds the workflow components to be executed in the set order.
     """
 
-    theory: str = 'B3LYP-D3BJ'  # the default level of theory for openff
-    basis: str = 'DZVP'  # the default basis for openff
+    method: str = 'B3LYP-D3BJ'
+    basis: str = 'DZVP'
     rogram: str = 'psi4'
     maxiter: int = 200
     driver: str = 'energy'
     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
+    spec_name: str = 'default'
+    spec_description: str = 'Standard OpenFF optimization quantum chemistry specification.'
     client: str = 'public'
     priority: str = 'normal'
     tag: str = 'openff'
@@ -334,7 +338,7 @@ class BasicDatasetFactory(BaseModel):
         # now we want to add the workflow back in
         self.import_workflow(workflow=workflow, clear_existing=clear_workflow)
 
-    def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> DataSet:
+    def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> BasicDataSet:
         """
         Process the input molecules through the given workflow then create and populate the dataset class which acts as
         a local representation for the collection in qcarchive and has the ability to submit its self to a local or
@@ -403,7 +407,7 @@ class BasicDatasetFactory(BaseModel):
 
         # the only data missing is the collection name so add it here.
         object_meta['dataset_name'] = dataset_name
-        dataset = DataSet.parse_obj(object_meta)
+        dataset = BasicDataSet.parse_obj(object_meta)
 
         # now add the molecules to the correct attributes
         for molecule in workflow_molecules.molecules:
@@ -476,20 +480,27 @@ class BasicDatasetFactory(BaseModel):
 
 class OptimizationDatasetFactory(BasicDatasetFactory):
     """
-    This factory produces OptimisationDatasets which include settings assocated with geometric which is used to run the
+    This factory produces OptimisationDatasets which include settings associated with geometric which is used to run the
     optimisation.
 
     Attributes:
 
     """
 
-    optimisation_program: str = 'geometric'
-    coordinate_system: str = 'tric'
-    enforce: float = 0.0
-    reset: bool = True
-    epsilon: float = 1e-5
-    q_chem_convergence: bool = False
-    molpro_convergence: bool = False
-    convergence_set: str = 'GAU'
+    # set the driver to be gradient this should not be changed when running
+    driver = 'gradient'
+
+    # use the default geometric settings during optimisation
+    optimisation_program: GeometricProcedure = GeometricProcedure()
+
+
+class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
+    """
+    This factory produces TorsiondriveDatasets which include settings associated with geometric which is used to run
+    the optimisation.
+    """
+
+    # set the default settings for a torsiondrive calculation.
+    optimisation_program = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
 
 

@@ -14,6 +14,7 @@ nav:
       - Factories: factories.md
       - Datasets: datasets.md
       - Exceptions: exceptions.md
+      - Procedures: procedures.md
       - Workflow Components:
           - Base Component: base_component.md
           - Filters: filters.md
