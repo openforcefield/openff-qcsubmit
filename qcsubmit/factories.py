@@ -47,7 +47,7 @@ class BasicDatasetFactory(BaseModel):
     The main metadata features here are concerned with the QM settings to be used which includes the driver.
 
     Attributes:
-        theory:  The QM theory to use during dataset calculations.
+        method:  The QM theory to use during dataset calculations.
         basis:   The basis set to use during dataset calculations.
         program: The program which will be used during the calculations.
         maxiter: The maximum amount of SCF cycles allowed.
@@ -62,7 +62,7 @@ class BasicDatasetFactory(BaseModel):
 
     method: str = 'B3LYP-D3BJ'
     basis: str = 'DZVP'
-    rogram: str = 'psi4'
+    program: str = 'psi4'
     maxiter: int = 200
     driver: str = 'energy'
     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
@@ -338,6 +338,39 @@ class BasicDatasetFactory(BaseModel):
         # now we want to add the workflow back in
         self.import_workflow(workflow=workflow, clear_existing=clear_workflow)
 
+    def add_compute(self, dataset_name: str, await_result: bool = False) -> None:
+        """
+        A method that can add compute to an existing collection, this involves registering the QM settings and keywords
+        and running the compute.
+
+        Parameters:
+            dataset_name: The name of the collection in the qcarchive instance that the compute should be added to.
+            await_result: If the function should block until the calculations have finished.
+
+        """
+        import qcportal as ptl
+
+        if self.client == 'public':
+            client = ptl.FractalClient()
+        else:
+            client = ptl.FractalClient.from_file(self.client)
+
+        try:
+            collection = client.get_collection('Dataset', dataset_name)
+            kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
+            collection.add_keywords(alias=self.spec_name, program=self.program, keyword=kw, default=True)
+
+            # save the keywords
+            collection.save()
+
+            # submit the calculations
+            response = collection.compute(method=self.method, basis=self.basis, keywords=self.spec_name,
+                                          program=self.program, tag=self.tag, priority=self.priority)
+
+        except KeyError:
+            raise KeyError(f'The collection: {dataset_name} could not be found, you can only add compute to existing'
+                           f'collections.')
+
     def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> BasicDataSet:
         """
         Process the input molecules through the given workflow then create and populate the dataset class which acts as
@@ -500,7 +533,27 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     the optimisation.
     """
 
+    grid_spacings: List[int] = [15]
+
     # set the default settings for a torsiondrive calculation.
     optimisation_program = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
 
+    def create_index(self, molecule: Molecule) -> str:
+        """
+        Create a specific torsion index for the molecule, this will use the atom map on the molecule.
 
+        Parameters:
+            molecule:  The molecule for which the dataset index will be generated.
+
+        Returns:
+            The canonical mapped isomeric smiles, where the mapped indices are on the atoms in the torsion.
+
+        Important:
+            This dataset uses a non-standard indexing with 4 atom mapped indices representing the atoms in the torsion
+            to be rotated.
+        """
+
+        assert 'atom_map' in molecule.properties.keys()
+
+        index = molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
+        return index

@@ -1,4 +1,7 @@
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Union, Optional, Any
+import numpy as np
+import yaml
+import json
 
 from qcsubmit.exceptions import UnsupportedFiletypeError
 
@@ -112,10 +115,12 @@ class BasicDataSet(BaseModel):
     tag: str = 'openff'
     dataset: Dict[str, Dict] = {}  # the molecules which are to be submitted
     filtered_molecules: Dict[str, Dict] = {}  # the molecules which have been filtered out
+    _file_writers = {'json': json.dump}
 
     class Config:
-        arbitrary_types_allowed = True
-        allow_mutation = False
+        arbitrary_types_allowed: bool = True
+        allow_mutation: bool = False
+        json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
 
     @property
     def filtered(self) -> Molecule:
@@ -310,7 +315,45 @@ class BasicDataSet(BaseModel):
 
         return result
 
-    def coverage_report(self, forcefields: Union[str, List[str]]) -> Dict:
+    def export_dataset(self, file_name: str) -> None:
+        """
+        Export the dataset to file so that it can be used to make another dataset quickly.
+
+        Parameters:
+            file_name: The name of the file the dataset should be wrote to.
+
+        Note:
+            The supported file types are:
+
+            - `yaml`
+            - `json`
+
+        Raises:
+            UnsupportedFiletypeError: If the requested file type is not supported.
+        """
+
+        import copy
+
+        file_type = file_name.split('.')[-1]
+        data = self.dict(exclude={'dataset'})
+        data['dataset'] = {}
+
+        for index, molecule in self.dataset.items():
+            molecules = list(mol.dict(encoding='json') for mol in molecule['initial_molecules'])
+            mol_data = copy.deepcopy(molecule)
+            mol_data['initial_molecules'] = molecules
+            data['dataset'][index] = mol_data
+
+        try:
+            writer = self._file_writers[file_type]
+            with open(file_name, 'w') as output:
+                if file_type == 'json':
+                    writer(data, output, indent=2)
+        except KeyError:
+            raise UnsupportedFiletypeError(f'The requested file type {file_type} is not supported please use '
+                                           f'json or yaml')
+
+    def coverage_report(self, forcefields: List[str]) -> Dict:
         """
         Produce a coverage report of all of the parameters that are exercised by the molecules in the dataset.
 
@@ -322,9 +365,27 @@ class BasicDataSet(BaseModel):
             parameter type.
         """
 
-        results = {}
+        from openforcefield.typing.engines.smirnoff import ForceField
+        from openforcefield.utils.structure import get_molecule_parameterIDs
 
-        pass
+        coverage = {}
+        param_types = {'a': 'Angles', 'b': 'Bonds', 'c': 'Constraints', 't': 'ProperTorsions', 'i': 'ImproperTorsions',
+                       'n': 'vdW'}
+
+        for forcefield in forcefields:
+
+            result = {}
+            ff = ForceField(forcefield)
+            parameters_by_molecule, parameters_by_id = get_molecule_parameterIDs(list(self.molecules), ff)
+
+            # now create the the dict to store the ids used
+            for param_id in parameters_by_id.keys():
+                result.setdefault(param_types[param_id[0]], []).append(param_id)
+
+            # now store the force field dict into the main result
+            coverage[forcefield] = result
+
+        return coverage
 
     def _activate_client(self) -> ptl.FractalClient:
         """

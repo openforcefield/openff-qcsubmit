@@ -2,6 +2,7 @@
 File containing the filters workflow components.
 """
 from typing import Dict, List, Union
+from pydantic import validator
 
 import openforcefield
 from openforcefield.topology import Molecule
@@ -69,7 +70,7 @@ class MolecularWeightFilter(CustomWorkflowComponent):
 
         from simtk import openmm
 
-        provenance = {'toolkit': openforcefield.__version__, 'openmm_units': openmm.__version__}
+        provenance = {'OpenforcefieldToolkit': openforcefield.__version__, 'openmm_units': openmm.__version__}
 
         return provenance
 
@@ -105,6 +106,28 @@ class ElementFilter(CustomWorkflowComponent):
     component_fail_message = "Molecule contained elements not in the allowed elements list"
 
     allowed_elements: List[Union[int, str]] = ['H', 'C', 'N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I']
+
+    @validator('allowed_elements', each_item=True)
+    def check_allowed_elements(cls, element: Union[str, int]) -> Union[str, int]:
+        """
+        Check that each item can be cast to a valid element.
+
+        Parameters:
+            element: The element that should be checked.
+
+        Raises:
+            ValueError: If the element number or symbol passed could not be converted into a valid element.
+        """
+        from simtk.openmm.app import Element
+
+        if isinstance(element, int):
+            return element
+        else:
+            try:
+                e = Element.getBySymbol(element)
+                return element
+            except KeyError:
+                raise KeyError(f'An element could not be determined from symbol {element}, please eneter symbols only.')
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
