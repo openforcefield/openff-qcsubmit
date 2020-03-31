@@ -7,12 +7,12 @@ from qcsubmit import workflow_components
 from qcsubmit.datasets import ComponentResult
 from openforcefield.topology import Molecule
 from openforcefield.utils import get_data_file_path
-from openforcefield.utils.toolkits import UndefinedStereochemistryError
+from openforcefield.utils.toolkits import UndefinedStereochemistryError, RDKitToolkitWrapper, OpenEyeToolkitWrapper
 from functools import lru_cache
 
 
 @lru_cache()
-def molecues(incude_undefined_stereo: bool = False, include_conformers: bool = True):
+def get_molecues(incude_undefined_stereo: bool = False, include_conformers: bool = True):
     """
     Return a list of molecules meeting the required spec from the minidrugbank list.
     """
@@ -64,32 +64,74 @@ def test_custom_component():
     assert test.component_fail_message == 'Test fail'
 
 
-def test_standardconformer_generator_validators():
+@pytest.mark.parametrize('toolkit',
+                         [
+                             pytest.param(('openeye', OpenEyeToolkitWrapper), id='openeye'),
+                             pytest.param(('rdkit', RDKitToolkitWrapper), id='rdkit')
+                         ])
+def test_toolkit_mixin(toolkit):
+    """
+    Make sure the pydantic ToolkitValidator mixin is working correctly, it should provide provenance and toolkit name
+    validation.
+    """
+
+    toolkit_name, toolkit_class = toolkit
+    if toolkit_class.is_available():
+        class TestClass(workflow_components.ToolkitValidator, workflow_components.CustomWorkflowComponent):
+            """Should not need to implement the provenance."""
+
+            component_name = 'ToolkitValidator'
+            component_description = 'ToolkitValidator test class.'
+            component_fail_message = 'Test fail'
+
+            def apply(self, molecules: List[Molecule]) -> ComponentResult:
+                pass
+
+        test = TestClass()
+        with pytest.raises(ValueError):
+            test.toolkit = 'ambertools'
+
+        test.toolkit = toolkit_name
+        prov = test.provenance()
+        assert toolkit_name in prov
+        assert 'OpenforcefieldToolkit' in prov
+
+    else:
+        pytest.skip(f'Toolkit {toolkit_name} not avilable.')
+
+
+@pytest.mark.parametrize('toolkit',
+                         [
+                             pytest.param(('openeye', OpenEyeToolkitWrapper), id='openeye'),
+                             pytest.param(('rdkit', RDKitToolkitWrapper), id='rdkit')
+                         ])
+def test_standardconformer_generator_validators(toolkit):
     """
     Test the standard conformer generator which calls the OFFTK.
     """
 
-    conf_gen = workflow_components.StandardConformerGenerator()
+    toolkit_name, toolkit_class = toolkit
+    if toolkit_class.is_available():
 
-    # make sure we are casting to ints
-    conf_gen.max_conformers = 1.02
-    assert conf_gen.max_conformers == 1
+        conf_gen = workflow_components.StandardConformerGenerator()
 
-    # test the toolkit validator
-    with pytest.raises(ValueError):
-        conf_gen.toolkit = 'ambertools'
-    conf_gen.toolkit = 'rdkit'
-    assert 'rdkit' in conf_gen.provenance()
-    assert 'openeye' not in conf_gen.provenance()
+        # make sure we are casting to ints
+        conf_gen.max_conformers = 1.02
+        assert conf_gen.max_conformers == 1
 
-    conf_gen.toolkit = 'openeye'
-    assert 'openeye' in conf_gen.provenance()
-    assert 'rdkit' not in conf_gen.provenance()
+        # test the toolkit validator
+        with pytest.raises(ValueError):
+            conf_gen.toolkit = 'ambertools'
+        conf_gen.toolkit = toolkit_name
+        assert toolkit_name in conf_gen.provenance()
 
-    conf_gen.clear_exsiting = 'no'
-    assert conf_gen.clear_exsiting is False
+        conf_gen.clear_existing = 'no'
+        assert conf_gen.clear_existing is False
 
-    assert 'OpenforcefieldToolkit' in conf_gen.provenance()
+        assert 'OpenforcefieldToolkit' in conf_gen.provenance()
+
+    else:
+        pytest.skip(f'Toolkit {toolkit} not available.')
 
 
 def test_element_filter_validators():
@@ -127,7 +169,9 @@ def test_weight_filter_validator():
     [
         pytest.param((workflow_components.ElementFilter, 'allowed_elements', [1, 10, 100]), id='ElementFilter'),
         pytest.param((workflow_components.MolecularWeightFilter, 'minimum_weight', 1), id='WeightFilter'),
-        pytest.param((workflow_components.StandardConformerGenerator, 'max_conformers', 1), id='StandardConformers')
+        pytest.param((workflow_components.StandardConformerGenerator, 'max_conformers', 1), id='StandardConformers'),
+        pytest.param((workflow_components.EnumerateTautomers, 'max_tautomers', 2), id='EnumerateTautomers'),
+        pytest.param((workflow_components.EnumerateStereoisomers, 'undefined_only', True), id='EnumerateStereoisomers')
     ]
 )
 def test_to_from_object(data):
@@ -147,28 +191,43 @@ def test_to_from_object(data):
     assert copy_comp == active_comp
 
 
-def test_conformer_apply():
+@pytest.mark.parametrize('toolkit',
+                         [
+                             pytest.param(('openeye', OpenEyeToolkitWrapper), id='openeye'),
+                             pytest.param(('rdkit', RDKitToolkitWrapper), id='rdkit')
+                         ])
+def test_conformer_apply(toolkit):
     """
     Test applying the standard conformer generator to a workflow.
     """
 
-    conf_gen = workflow_components.StandardConformerGenerator()
-    conf_gen.toolkit = 'rdkit'
-    conf_gen.max_conformers = 1
-    conf_gen.clear_exsiting = True
+    toolkit_name, toolkit_class = toolkit
+    if toolkit_class.is_available():
 
-    mols = molecues(incude_undefined_stereo=False, include_conformers=False)
+        conf_gen = workflow_components.StandardConformerGenerator()
+        conf_gen.toolkit = toolkit_name
+        conf_gen.max_conformers = 1
+        conf_gen.clear_existing = True
 
-    result = conf_gen.apply(mols)
+        mols = get_molecues(incude_undefined_stereo=False, include_conformers=False)
 
-    assert result.component_name == conf_gen.component_name
-    assert result.component_description == conf_gen.dict()
-    # make sure each molecule has a conformer that passed
-    for molecule in result.molecules:
-        assert molecule.n_conformers == 1
+        result = conf_gen.apply(mols)
 
-    for molecule in result.filtered:
-        assert molecule.n_conformers == 0
+        assert result.component_name == conf_gen.component_name
+        assert result.component_description == conf_gen.dict()
+        # make sure each molecule has a conformer that passed
+        for molecule in result.molecules:
+            if molecule.n_conformers != 1:
+                assert molecule.conformers[0].to_list() == molecule.conformers[1].to_list()
+
+            assert molecule.n_conformers == conf_gen.max_conformers, print(molecule.conformers)
+
+        for molecule in result.filtered:
+            assert molecule.n_conformers == 0
+
+    else:
+        pytest.skip(f'Toolkit {toolkit_name} not available.')
+
 
 def test_elementfilter_apply():
     """
@@ -178,7 +237,7 @@ def test_elementfilter_apply():
     elem_filter = workflow_components.ElementFilter()
     elem_filter.allowed_elements = [1, 6, 7, 8]
 
-    mols = molecues(include_conformers=False)
+    mols = get_molecues(include_conformers=False)
 
     result = elem_filter.apply(mols)
 
@@ -191,5 +250,66 @@ def test_elementfilter_apply():
 
     for molecue in result.filtered:
         elements = set([atom.atomic_number for atom in molecue.atoms])
-        assert sorted(elements) != elem_filter.allowed_elements
+        assert sorted(elements) != sorted(elem_filter.allowed_elements)
+
+
+@pytest.mark.parametrize('toolkit',
+                         [
+                             pytest.param(('openeye', OpenEyeToolkitWrapper), id='openeye'),
+                             pytest.param(('rdkit', RDKitToolkitWrapper), id='rdkit')
+                         ])
+def test_enumerating_stereoisomers_validator(toolkit):
+    """
+    Test the validators in enumerating stereoisomers.
+    """
+
+    toolkit_name, toolkit_class = toolkit
+    if toolkit_class.is_available():
+
+        enumerate_stereo = workflow_components.EnumerateStereoisomers()
+        with pytest.raises(ValueError):
+            enumerate_stereo.toolkit = 'ambertools'
+
+        enumerate_stereo.toolkit = toolkit_name
+        assert toolkit_name in enumerate_stereo.provenance()
+
+        enumerate_stereo.undefined_only = 'y'
+        assert enumerate_stereo.undefined_only is True
+
+        enumerate_stereo.max_isomers = 1.1
+        assert enumerate_stereo.max_isomers == 1
+
+    else:
+        pytest.skip(f'Toolkit {toolkit_name} is not available.')
+
+
+@pytest.mark.parametrize('toolkit',
+                         [
+                             pytest.param(('openeye', OpenEyeToolkitWrapper), id='openeye'),
+                             pytest.param(('rdkit', RDKitToolkitWrapper), id='rdkit')
+                         ])
+def test_enumerating_tautomers_validator(toolkit):
+    """
+    Test the validators in enumerating tautomers.
+    """
+
+    toolkit_name, toolkit_class = toolkit
+
+    if toolkit_class.is_available():
+
+        enumerate_tautomers = workflow_components.EnumerateTautomers()
+
+        with pytest.raises(ValueError):
+            enumerate_tautomers.toolkit = 'ambertools'
+
+        enumerate_tautomers.toolkit = toolkit_name
+        enumerate_tautomers.max_tautomers = 1.1
+        assert enumerate_tautomers.max_tautomers == 1
+
+        assert toolkit_name in enumerate_tautomers.provenance()
+
+    else:
+        pytest.skip(f'Toolkit {toolkit_name} not available.')
+
+
 

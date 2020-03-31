@@ -4,6 +4,7 @@ channels:
   - conda-forge
   - omnia
   - defaults
+  - psi4
 
 dependencies:
     # Base depends
@@ -13,11 +14,15 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
+  - openforcefield
+  - openforcefields
+  - smirnoff99Frosst
+  - pyyaml
   - codecov
-  - cmiles
   - fragmenter
-  - openeye-toolkits
   - qcportal
+  - qcengine
+  - psi4
 
     # Pip-only installs
   #- pip:

@@ -1,6 +1,5 @@
 from typing import Dict, List, Union, Optional, Any
 import numpy as np
-import yaml
 import json
 
 from qcsubmit.exceptions import UnsupportedFiletypeError
@@ -59,8 +58,11 @@ class ComponentResult:
                     new_conformer = np.zeros((molecule.n_atoms, 3))
                     for i in range(molecule.n_atoms):
                         new_conformer[i] = conformer[mapping[i]].value_in_unit(unit.angstrom)
-                    self.molecules[mol_id].add_conformer(new_conformer * unit.angstrom)
-
+                    # check if the conformer is already on the molecule
+                    if new_conformer not in self.molecules[mol_id].conformers:
+                        self.molecules[mol_id].add_conformer(new_conformer * unit.angstrom)
+                    else:
+                        return
             else:
                 # molecule already in list and coords not present so just return
                 return
@@ -325,7 +327,6 @@ class BasicDataSet(BaseModel):
         Note:
             The supported file types are:
 
-            - `yaml`
             - `json`
 
         Raises:

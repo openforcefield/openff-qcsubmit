@@ -1,7 +1,8 @@
 from typing import List, Dict
 import abc
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from openforcefield.topology import Molecule
+from openforcefield.utils.toolkits import RDKitToolkitWrapper, OpenEyeToolkitWrapper
 
 from qcsubmit.datasets import ComponentResult
 
@@ -27,16 +28,12 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         This is the main feature of the workflow component which should accept a molecule, perform the component action
         and then return the
 
-        Parameters
-        ----------
+        Parameters:
+            molecules: The list of molecules to be processed by this component.
 
-        molecules: List[openforcefield.topology.Molecules]:
-            The list fof molecules to be processed by this component.
-
-        Returns
-        -------
-        results: ComponentResult,
-            An instance of the componentresult class which handles collecting to gether molecules that pass and fail
+        Returns:
+            An instance of the [ComponentResult][qcsubmit.datasets.ComponentResult]
+            class which handles collecting together molecules that pass and fail
             the component
         """
         ...
@@ -47,14 +44,64 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         This function should detail the programs with version information and procedures called during activation
         of the workflow component.
 
-        Returns
-        -------
-        provenance: Dict
-            A dictionary containing the information about the component. Each program should have its own entry
+        Returns:
+            A dictionary containing the information about the component and the functions called.
         """
         ...
 
     def fail_molecule(self, molecule: Molecule, component_result: ComponentResult) -> None:
-        """A helpful method to fail a molecule will fill in the reason it failed"""
+        """
+        A method to fail a molecule.
+
+        Parameters:
+            molecule: The instance of the molecule to be failed.
+            component_result: The [ComponentResult][qcsubmit.datasets.ComponentResult] instance that the molecule should
+                be added to.
+        """
 
         component_result.filter_molecule(molecule)
+
+
+class ToolkitValidator(BaseModel):
+    """
+    A pydantic mixin class that adds toolkit settings and validation along with provenance information.
+
+    Note:
+        The provenance information and toolkit settings are handled by the
+        [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
+    """
+
+    toolkit: str = 'openeye'
+    _toolkits: Dict = {'rdkit': RDKitToolkitWrapper, 'openeye': OpenEyeToolkitWrapper}
+
+    @validator('toolkit')
+    def _check_toolkit(cls, toolkit):
+        """
+        Make sure that toolkit is one of the supported types in the OFFTK.
+        """
+        if toolkit not in cls._toolkits.keys():
+            raise ValueError(f'The requested toolkit ({toolkit}) is not support by the OFFTK to generate conformers. '
+                             f'Please chose from {cls._toolkits.keys()}.')
+        else:
+            return toolkit
+
+    def provenance(self) -> Dict:
+        """
+        This component calls the OFFTK to perform the task and logs information on the backend toolkit used.
+
+        Returns:
+            A dictionary containing the version information about the backend toolkit called to perform the task.
+        """
+
+        import openforcefield
+
+        provenance = {'OpenforcefieldToolkit': openforcefield.__version__}
+        if self.toolkit == 'rdkit':
+            import rdkit
+            provenance['rdkit'] = rdkit.__version__
+
+        elif self.toolkit == 'openeye':
+            import openeye
+            provenance['openeye'] = openeye.__version__
+
+        return provenance

@@ -1,14 +1,20 @@
-from typing import List, Dict
-from pydantic import validator
+from typing import List
 
 from openforcefield.topology import Molecule
-from openforcefield.utils.toolkits import RDKitToolkitWrapper, OpenEyeToolkitWrapper
 
-from .base_component import CustomWorkflowComponent
+from .base_component import CustomWorkflowComponent, ToolkitValidator
 from qcsubmit.datasets import ComponentResult
 
 
-class StandardConformerGenerator(CustomWorkflowComponent):
+class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
+    """
+    Standard conformer generator using the OFFTK and the back end toolkits.
+
+    Note:
+        The provenance information and toolkit settings are handled by the
+        [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
+    """
+
     # standard components which must be defined
     component_name = 'StandardConformerGenerator'
     component_description = "Generate conformations for the given molecules"
@@ -16,20 +22,7 @@ class StandardConformerGenerator(CustomWorkflowComponent):
 
     # custom components for this class
     max_conformers: int = 20
-    clear_exsiting: bool = True
-    toolkit: str = 'openeye'
-    _toolkits: Dict = {'rdkit': RDKitToolkitWrapper, 'openeye': OpenEyeToolkitWrapper}
-
-    @validator('toolkit')
-    def _check_toolkit(cls, toolkit):
-        """
-        Make sure that toolkit is one of the supported types in the OFFTK.
-        """
-        if toolkit not in cls._toolkits.keys():
-            raise ValueError(f'The requested toolkit ({toolkit}) is not support by the OFFTK to generate conformers. '
-                             f'Please chose from {cls._toolkits.keys()}.')
-        else:
-            return toolkit
+    clear_existing: bool = True
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         "test apply the conformers"
@@ -43,31 +36,17 @@ class StandardConformerGenerator(CustomWorkflowComponent):
         for molecule in molecules:
             try:
                 molecule.generate_conformers(n_conformers=self.max_conformers,
-                                             clear_existing=self.clear_exsiting,
+                                             clear_existing=self.clear_existing,
                                              toolkit_registry=toolkit)
 
-                result.add_molecule(molecule)
             # need to catch more specific exceptions here.
             except Exception:
                 self.fail_molecule(molecule=molecule, component_result=result)
 
+            finally:
+                if molecule.n_conformers > self.max_conformers:
+                    self.fail_molecule(molecule=molecule, component_result=result)
+                else:
+                    result.add_molecule(molecule)
+
         return result
-
-    def provenance(self) -> Dict:
-        """
-        This component calls the OFFTK to do conformer generation.
-        """
-
-        import openforcefield
-
-        provenance = {'OpenforcefieldToolkit': openforcefield.__version__}
-        if self.toolkit == 'rdkit':
-            import rdkit
-            provenance['rdkit'] = rdkit.__version__
-
-        elif self.toolkit == 'openeye':
-            import openeye
-            provenance['openeye'] = openeye.__version__
-
-        return provenance
-
