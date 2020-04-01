@@ -44,7 +44,8 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
                 self.fail_molecule(molecule=molecule, component_result=result)
 
             finally:
-                if molecule.n_conformers > self.max_conformers:
+                # if we could not produce a conformer then fail the molecule
+                if molecule.n_conformers == 0:
                     self.fail_molecule(molecule=molecule, component_result=result)
                 else:
                     result.add_molecule(molecule)

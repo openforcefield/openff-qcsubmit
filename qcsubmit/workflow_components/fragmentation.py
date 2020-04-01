@@ -8,6 +8,8 @@ from .base_component import CustomWorkflowComponent, ToolkitValidator
 from ..datasets import ComponentResult
 from pydantic import validator
 from openforcefield.topology import Molecule
+import json
+import yaml
 
 
 class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
@@ -26,8 +28,9 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
     threshold: float = 0.03
     keep_non_rotor_ring_substituents: bool = False
-    functional_groups: Union[str, Dict, List] = None
+    functional_groups: Union[bool, str] = None
     heuristic: str = 'path_length'
+    _file_readers = {'json': json.load, 'yaml': yaml.safe_load_all}
 
     @validator('heuristic')
     def check_heuristic(cls, heuristic):
@@ -41,15 +44,40 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         else:
             return heuristic.lower()
 
-    @validator('functional_groups', each_item=True)
+    @validator('functional_groups')
     def check_functional_groups(cls, functional_group):
         """
         Check the functional groups which can be passed as a file name or as a dictionary are valid.
+
+        Note:
+            This check could be quite fragile.
         """
-        if functional_group is None:
+        if functional_group is None or functional_group is False:
             return functional_group
+        elif functional_group:
+            return None
+
         elif isinstance(functional_group, str):
-            pass
+            # if its a file we need to check the smarts inside
+            file_type = functional_group.split('.')[-1]
+            try:
+                fgroups = cls._file_readers[file_type](functional_group)
+            except KeyError:
+                raise ValueError(f'The given file type is not supported {file_type} please use one of the supported '
+                                 f'file types {cls._file_readers.keys()}')
+            except FileNotFoundError:
+                raise FileNotFoundError(f'The functional group file {functional_group} could not be found.')
+
+        else:
+            raise ValueError(f'The given input is not supported please give the path to a file containing the '
+                             f'functional group smarts.')
+
+        # simple check on the smarts
+        for smarts in fgroups.values():
+            if '[' not in smarts:
+                raise ValueError(f'Some functional group smarts were not valid {smarts}.')
+        else:
+            return functional_group
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -61,4 +89,47 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         Important:
             The input molecule will be removed from the dataset after fragmentation.
         """
-        pass
+
+        result = ComponentResult(component_name=self.component_name,
+                                 component_description=self.dict())
+
+        for molecule in molecules:
+            fragment_factory = fragment.WBOFragmenter(molecule=molecule.to_openeye(),
+                                                      functional_groups=self.functional_groups,
+                                                      verbose=False)
+
+            try:
+                fragment_factory.fragment(threshold=self.threshold,
+                                          keep_non_rotor_ring_substituents=self.keep_non_rotor_ring_substituents,
+                                          heuristic=self.heuristic)
+
+                # we need to store the central bond which was fragmented around
+                # to make sure this is the bond we torsiondrive around
+                fragmets_dict = fragment_factory.to_torsiondrive_json()
+
+                for fragment_data in fragmets_dict.values():
+                    frag_mol = Molecule.from_mapped_smiles(mapped_smiles=fragment_data['identifiers']['canonical_isomeric_explicit_hydrogen_mapped_smiles'])
+                    torsion_index = fragment_data['dihedral'][0]
+                    # this is stored back into the molecule and will be used when generating the cmiles tags latter
+                    frag_mol._properties['torsion_index'] = [torsion_index]
+                    result.add_molecule(frag_mol)
+
+            except RuntimeError:
+                self.fail_molecule(molecule=molecule, component_result=result)
+
+        return result
+
+    def provenance(self) -> Dict:
+        """
+        Collect the toolkit information and add the fragmenter version information.
+        """
+
+        import fragmenter
+
+        provenance = super().provenance()
+
+        provenance['fragmenter'] = fragmenter.__version__
+
+        return provenance
+
+

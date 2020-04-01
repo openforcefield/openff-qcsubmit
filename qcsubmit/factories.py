@@ -13,28 +13,6 @@ from qcsubmit.procedures import GeometricProcedure
 
 from openforcefield.topology import Molecule
 
-"""
-Tools for aiding the construction and submission of QCFractal datasets.
-
-TODO 
-
-Make a base class that has very basic functionality and would idealy be used in the case of a plain dataset submission.
-This class should be able to:
-    - generate an input for basic dataset
-    - expand states
-    - filter the molecules
-    - set the QM options from file
-    - serialise the current options to file
-    - generate the required number of conformers, we should not bin the input conformer if there are some, there must be atleast one for this to work.
-    - deduplicate submissions, condense the conformers down to one molecule if there are some on each molecule
-
-We also require some subclasses which can control there own options and operations:
-    - fragmenter
-    - QMOptions
-    - Geometric/optimisation options
-    - Torsiondrive/scan options
-"""
-
 
 class BasicDatasetFactory(BaseModel):
     """
@@ -74,8 +52,8 @@ class BasicDatasetFactory(BaseModel):
     workflow: Dict[str, workflow_components.CustomWorkflowComponent] = {}
 
     # hidden variable not included in the schema
-    _file_readers = {'json': json.load, 'yaml': yaml.full_load}
-    _file_writers = {'json': json.dump, 'yaml': yaml.dump}
+    _file_readers = {'json': json.load, 'yaml': yaml.safe_load_all, 'yml': yaml.safe_load_all}
+    _file_writers = {'json': json.dump, 'yaml': yaml.dump, 'yml': yaml.dump}
 
     class Config:
         validate_assignment = True
@@ -538,6 +516,27 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     # set the default settings for a torsiondrive calculation.
     optimisation_program = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
 
+    def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> BasicDataSet:
+        """
+        Process the input molecules through the given workflow then create and populate the torsiondrive
+        dataset class which acts as a local representation for the collection in qcarchive and has the ability to s
+        ubmit its self to a local or public instance.
+
+        Note:
+            The torsiondrive dataset allows for multipule starting geometries.
+
+        Important:
+            If fragmentation is used each molecule in the dataset will have the torsion indexes already set else indexes
+            are generated for each rotatable torsion in the molecule.
+
+        Parameters:
+             dataset_name: The name that will be given to the collection on submission to an archive instance.
+             molecules: The list of molecules which should be processed by the workflow and added to the dataset, this
+                can also be a file name which is to be unpacked by the openforcefield toolkit.
+        """
+
+        pass
+
     def create_index(self, molecule: Molecule) -> str:
         """
         Create a specific torsion index for the molecule, this will use the atom map on the molecule.
@@ -554,6 +553,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         """
 
         assert 'atom_map' in molecule.properties.keys()
+        assert len(molecule.properties) == 4
 
         index = molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
         return index

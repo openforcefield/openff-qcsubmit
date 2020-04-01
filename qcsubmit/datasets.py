@@ -48,21 +48,33 @@ class ComponentResult:
         from simtk import unit
 
         if molecule in self.molecules:
+            # we need to align the molecules and transfer the coords and properties
+            mol_id = self.molecules.index(molecule)
+            # get the mapping
+            isomorphic, mapping = Molecule.are_isomorphic(molecule, self.molecules[mol_id], return_atom_map=True)
+            assert isomorphic is True
+            # transfer any torsion indexs for similar fragments
+            if 'torsion_index' in molecule.properties:
+                for ids in molecule.properties['torsion_index']:
+                    new_ids = [mapping[index] for index in ids]
+                    self.molecules[mol_id].properties.setdefault('torsion_index', []).append(new_ids)
+
             if molecule.n_conformers != 0:
-                # we need to align the molecules and transfer the coords
-                mol_id = self.molecules.index(molecule)
-                # get the mapping
-                isomorphic, mapping = Molecule.are_isomorphic(self.molecules[mol_id], molecule, return_atom_map=True)
-                assert isomorphic is True
+
+                # transfer the coordinates
                 for conformer in molecule.conformers:
                     new_conformer = np.zeros((molecule.n_atoms, 3))
                     for i in range(molecule.n_atoms):
                         new_conformer[i] = conformer[mapping[i]].value_in_unit(unit.angstrom)
+
+                    new_conf = unit.Quantity(value=new_conformer, unit=unit.angstrom)
+
                     # check if the conformer is already on the molecule
-                    if new_conformer not in self.molecules[mol_id].conformers:
-                        self.molecules[mol_id].add_conformer(new_conformer * unit.angstrom)
+                    for old_conformer in self.molecules[mol_id].conformers:
+                        if old_conformer.tolist() == new_conf.tolist():
+                            break
                     else:
-                        return
+                        self.molecules[mol_id].add_conformer(new_conformer * unit.angstrom)
             else:
                 # molecule already in list and coords not present so just return
                 return

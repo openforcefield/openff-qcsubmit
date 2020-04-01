@@ -217,10 +217,7 @@ def test_conformer_apply(toolkit):
         assert result.component_description == conf_gen.dict()
         # make sure each molecule has a conformer that passed
         for molecule in result.molecules:
-            if molecule.n_conformers != 1:
-                assert molecule.conformers[0].to_list() == molecule.conformers[1].to_list()
-
-            assert molecule.n_conformers == conf_gen.max_conformers, print(molecule.conformers)
+            assert molecule.n_conformers == 1
 
         for molecule in result.filtered:
             assert molecule.n_conformers == 0
