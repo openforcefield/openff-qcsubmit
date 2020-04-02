@@ -125,3 +125,61 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
 
         return result
 
+
+class EnumerateFormalcharges(ToolkitValidator, CustomWorkflowComponent):
+    """
+    Enumerate the formal charges of the input molecule using the backend toolkits through the OFFTK.
+
+    Note:
+        Only Openeye is supported so far.
+    """
+
+    component_name = "EnumerateFormalcharges"
+    component_description = "Enumerate the protomers of the molecule if possible."
+    component_fail_message = "The molecules formal charges could not be enumerated possibly due to a missing toolkit."
+
+    max_states: int = 10
+
+    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+        """
+        Enumerate the formal charges of the molecule if possible if not only the input molecule is returned.
+
+        Parameters:
+            molecules: The list of molecules the component should be applied on.
+
+        Returns:
+            A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
+            that passed and were filtered by the component and details about the component which generated the result.
+
+        Important:
+            This is only possible using Openeye so far, if openeye is not available this step will fail.
+        """
+
+        from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
+
+        result = ComponentResult(component_name=self.component_name,
+                                 component_description=self.dict())
+
+        # must have openeye to use this feature
+        if OpenEyeToolkitWrapper.is_available():
+
+            for molecule in molecules:
+
+                try:
+                    protomers = molecule.enumerate_formalcharges(max_states=self.max_states)
+
+                    for protomer in protomers:
+                        result.add_molecule(protomer)
+                    result.add_molecule(molecule)
+
+                except Exception:
+                    self.fail_molecule(molecule=molecule, component_result=result)
+
+            return result
+
+        else:
+
+            for molecule in molecules:
+                self.fail_molecule(molecule=molecule, component_result=result)
+
+            return result

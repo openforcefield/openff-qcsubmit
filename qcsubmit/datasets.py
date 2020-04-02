@@ -3,6 +3,7 @@ import numpy as np
 import json
 
 from qcsubmit.exceptions import UnsupportedFiletypeError
+from .procedures import GeometricProcedure
 
 from pydantic import BaseModel
 from openforcefield.topology import Molecule
@@ -116,8 +117,8 @@ class BasicDataSet(BaseModel):
     """
 
     dataset_name: str = 'BasicDataSet'
-    method: str = 'B3LYP-D3BJ'  # the default level of theory for openff
-    basis: str = 'DZVP'  # the default basis for openff
+    method: str = 'B3LYP-D3BJ'
+    basis: str = 'DZVP'
     program: str = 'psi4'
     maxiter: int = 200
     driver: str = 'energy'
@@ -322,12 +323,13 @@ class BasicDataSet(BaseModel):
         response = collection.compute(method=self.method, basis=self.basis, keywords=self.spec_name,
                                       program=self.program, tag=self.tag, priority=self.priority)
 
-        result = BasicResult()
-        while await_result:
-
-            pass
-
-        return result
+        return response
+        # result = BasicResult()
+        # while await_result:
+        #
+        #     pass
+        #
+        # return result
 
     def export_dataset(self, file_name: str) -> None:
         """
@@ -463,6 +465,68 @@ class BasicDataSet(BaseModel):
         inchikey = [data['attributes']['inchi_key'] for data in self.dataset.values()]
         return inchikey
 
+
+class OptimisationDataset(BasicDataSet):
+    """
+    An optimisation dataset class which handles submission of settings differently from the basic dataset, and creates
+    optimisation datasets in the public or local qcarcive instance.
+    """
+
+    dataset_name = 'OptimisationDataset'
+    optimisation_program: GeometricProcedure = GeometricProcedure()
+
+    def submit(self, await_result: bool = False) -> BasicResult:
+        """
+        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
+        corresponding result class.
+
+        Parameters:
+            await_result: If the user wants to wait for the calculation to finish before returning.
+
+        Returns:
+            Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
+            calculations.
+        """
+
+        client = self._activate_client()
+        # work out if we are extending a collection
+        try:
+            collection = client.get_collection('OptimizationDataset', self.dataset_name)
+        except KeyError:
+            collection = ptl.collections.OptimizationDataset(name=self.dataset_name, client=client,
+                                                             default_driver=self.driver, default_program=self.program)
+
+        # store the keyword set into the collection
+        kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
+        opt_spec = {'program': self.optimisation_program.program,
+                    'keywords': self.optimisation_program.dict(exclude={'program'})}
+
+        qc_spec = self.dict(include={'driver', 'method', 'basis', 'program'})
+        qc_spec['keywords'] = kw
+
+        collection.add_specification(name=self.spec_name, optimization_spec=opt_spec, qc_spec=qc_spec,
+                                     description=self.spec_description)
+
+        # now add the molecules to the database
+        for index, data in self.dataset.items():
+            for i, molecule in enumerate(data['initial_molecules']):
+                name = index + f'_{i}'
+                collection.add_entry(name=name, molecule=molecule, attributes=data['attributes'], save=False)
+
+        # save the added entries
+        collection.save()
+
+        # submit the calculations
+        response = collection.compute(method=self.method, basis=self.basis, keywords=self.spec_name,
+                                      program=self.program, tag=self.tag, priority=self.priority)
+
+        return response
+        # result = BasicResult()
+        # while await_result:
+        #
+        #     pass
+        #
+        # return result
 
 # class QCFractalDataset(object):
 #     """

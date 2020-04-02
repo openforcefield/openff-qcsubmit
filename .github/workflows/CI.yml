@@ -12,7 +12,7 @@ on:
 
 jobs:
   test:
-
+    name: Test on ${{ matrix.cfg.os }}, Python ${{ matrix.python-version }}, RDKit=${{ matrix.cfg.rdkit }}, OpenEye=${{ matrix.cfg.openeye }}
     runs-on: ${{ matrix.cfg.os }}
     strategy:
       fail-fast: false
@@ -87,6 +87,16 @@ jobs:
             python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
           fi
           python -m pip install --no-deps .
+      - name: Get openforcefield branch
+        shell: bash
+        run: |
+          conda remove openforcefield --force
+          git clone https://github.com/openforcefield/openforcefield.git
+          cd openforcefield
+          python -m pip install --no-deps .
+          git checkout enumerate_states
+          cd -
+          cd qcsubmit
       - name: Test the package
         shell: bash
         run: |

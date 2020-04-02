@@ -493,9 +493,6 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
     """
     This factory produces OptimisationDatasets which include settings associated with geometric which is used to run the
     optimisation.
-
-    Attributes:
-
     """
 
     # set the driver to be gradient this should not be changed when running
@@ -519,11 +516,14 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> BasicDataSet:
         """
         Process the input molecules through the given workflow then create and populate the torsiondrive
-        dataset class which acts as a local representation for the collection in qcarchive and has the ability to s
-        ubmit its self to a local or public instance.
+        dataset class which acts as a local representation for the collection in qcarchive and has the ability to
+        submit its self to a local or public instance.
 
         Note:
-            The torsiondrive dataset allows for multipule starting geometries.
+            The torsiondrive dataset allows for multiple starting geometries.
+
+        Important:
+            Any molecules with linear torsions will be removed and failed from the workflow.
 
         Important:
             If fragmentation is used each molecule in the dataset will have the torsion indexes already set else indexes
