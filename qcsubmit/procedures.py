@@ -7,7 +7,7 @@ from pydantic import BaseModel, validator
 
 class GeometricProcedure(BaseModel):
     """
-    This is a settings class controlling the varius runtime options that can be used when running geometric.
+    This is a settings class controlling the various runtime options that can be used when running geometric.
 
     Attributes:
         program: The name of the procedure.

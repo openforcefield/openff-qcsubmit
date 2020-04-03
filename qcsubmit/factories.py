@@ -509,6 +509,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     """
 
     grid_spacings: List[int] = [15]
+    energy_upper_limit: float = 0.05
 
     # set the default settings for a torsiondrive calculation.
     optimization_program = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
@@ -571,6 +572,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             against the torsions which have been selected.
         """
 
+        # this is based on the past submissions to QCarchive which have failed
+        # highlight the central bond of a linear torsion
         linear_smarts = "[*!D1:1]-,#[$(*#*)&D2:2]"
 
         matches = molecule.chemical_environment_matches(linear_smarts)

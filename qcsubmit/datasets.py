@@ -310,13 +310,21 @@ class BasicDataSet(BaseModel):
         # save the keywords
         collection.save()
 
-        # now add the molecules to the database
-        for index, data in self.dataset.items():
+        # now add the molecules to the database, saving every 30 for speed
+        for j, (index, data) in enumerate(self.dataset.items()):
             for i, molecule in enumerate(data['initial_molecules']):
                 name = index + f'_{i}'
-                collection.add_entry(name=name, molecule=molecule, attributes=data['attributes'])
+                try:
+                    collection.add_entry(name=name, molecule=molecule, attributes=data['attributes'])
+                except KeyError:
+                    continue
 
-        # save the added entries
+                finally:
+                    if (j + i) % 30 == 0:
+                        # save the added entries
+                        collection.save()
+
+        # save the final dataset
         collection.save()
 
         # submit the calculations
