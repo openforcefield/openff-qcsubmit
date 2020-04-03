@@ -499,7 +499,7 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
     driver = 'gradient'
 
     # use the default geometric settings during optimisation
-    optimisation_program: GeometricProcedure = GeometricProcedure()
+    optimization_program: GeometricProcedure = GeometricProcedure()
 
 
 class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
@@ -511,7 +511,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     grid_spacings: List[int] = [15]
 
     # set the default settings for a torsiondrive calculation.
-    optimisation_program = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
+    optimization_program = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
 
     def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> BasicDataSet:
         """
@@ -523,7 +523,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             The torsiondrive dataset allows for multiple starting geometries.
 
         Important:
-            Any molecules with linear torsions will be removed and failed from the workflow.
+            Any molecules with linear torsions identified for torsion driving will be removed and failed from the
+            workflow.
 
         Important:
             If fragmentation is used each molecule in the dataset will have the torsion indexes already set else indexes
@@ -557,3 +558,21 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
         index = molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
         return index
+
+    def _detect_linear_torsions(self, molecule: Molecule) -> List:
+        """
+        Try and find any linear bonds in the molecule with torsions that should not be driven.
+
+        Parameters:
+            molecule: An openforcefield molecule instance
+
+        Returns:
+            A list of the central bond tuples in the molecule which should not be driven, this can then be compared
+            against the torsions which have been selected.
+        """
+
+        linear_smarts = "[*!D1:1]-,#[$(*#*)&D2:2]"
+
+        matches = molecule.chemical_environment_matches(linear_smarts)
+
+        return matches

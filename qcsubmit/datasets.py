@@ -466,14 +466,14 @@ class BasicDataSet(BaseModel):
         return inchikey
 
 
-class OptimisationDataset(BasicDataSet):
+class OptimizationDataset(BasicDataSet):
     """
     An optimisation dataset class which handles submission of settings differently from the basic dataset, and creates
     optimisation datasets in the public or local qcarcive instance.
     """
 
-    dataset_name = 'OptimisationDataset'
-    optimisation_program: GeometricProcedure = GeometricProcedure()
+    dataset_name = 'OptimizationDataset'
+    optimization_program: GeometricProcedure = GeometricProcedure()
 
     def submit(self, await_result: bool = False) -> BasicResult:
         """
@@ -517,10 +517,10 @@ class OptimisationDataset(BasicDataSet):
         collection.save()
 
         # submit the calculations
-        response = collection.compute(method=self.method, basis=self.basis, keywords=self.spec_name,
-                                      program=self.program, tag=self.tag, priority=self.priority)
+        response = collection.compute(specification=self.spec_name, tag=self.tag, priority=self.priority)
 
         return response
+
         # result = BasicResult()
         # while await_result:
         #
