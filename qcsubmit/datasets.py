@@ -1,4 +1,4 @@
-from typing import Dict, List, Union, Optional, Any
+from typing import Dict, List, Union, Optional, Any, Tuple
 import numpy as np
 import json
 
@@ -56,9 +56,8 @@ class ComponentResult:
             assert isomorphic is True
             # transfer any torsion indexs for similar fragments
             if 'torsion_index' in molecule.properties:
-                for ids in molecule.properties['torsion_index']:
-                    new_ids = [mapping[index] for index in ids]
-                    self.molecules[mol_id].properties.setdefault('torsion_index', []).append(new_ids)
+                for torsion_index, dihedral_range in molecule.properties['torsion_index'].items():
+                    self.molecules[mol_id].properties['torsion_index'][torsion_index] = dihedral_range
 
             if molecule.n_conformers != 0:
 
@@ -477,11 +476,39 @@ class BasicDataSet(BaseModel):
 class OptimizationDataset(BasicDataSet):
     """
     An optimisation dataset class which handles submission of settings differently from the basic dataset, and creates
-    optimisation datasets in the public or local qcarcive instance.
+    optimization datasets in the public or local qcarcive instance.
     """
 
     dataset_name = 'OptimizationDataset'
     optimization_program: GeometricProcedure = GeometricProcedure()
+
+    def _add_keywords(self, client: ptl.FractalClient) -> str:
+        """
+        Add the keywords to the client and return the index number of the keyword set.
+
+        Returns:
+            The keyword index number in the client.
+        """
+
+        kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
+        kw_id = client.add_keywords([kw])[0]
+        return kw_id
+
+    def get_qc_spec(self, keyword_id: str) -> Dict:
+        """
+        Create the QC specification for the computation.
+
+        Parameters:
+            keyword_id: The string of the keyword set id number.
+
+        Returns:
+            The dictionary representation of the QC specification
+        """
+
+        qc_spec = self.dict(include={'driver', 'method', 'basis', 'program'})
+        qc_spec['keywrods'] = keyword_id
+
+        return qc_spec
 
     def submit(self, await_result: bool = False) -> BasicResult:
         """
@@ -505,21 +532,27 @@ class OptimizationDataset(BasicDataSet):
                                                              default_driver=self.driver, default_program=self.program)
 
         # store the keyword set into the collection
-        kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
-        opt_spec = {'program': self.optimisation_program.program,
-                    'keywords': self.optimisation_program.dict(exclude={'program'})}
-
-        qc_spec = self.dict(include={'driver', 'method', 'basis', 'program'})
-        qc_spec['keywords'] = kw
-
+        kw_id = self._add_keywords(client)
+        # create the optimization specification
+        opt_spec = self.optimization_program.get_optimzation_spec()
+        # create the qc specification
+        qc_spec = self.get_qc_spec(keyword_id=kw_id)
         collection.add_specification(name=self.spec_name, optimization_spec=opt_spec, qc_spec=qc_spec,
                                      description=self.spec_description)
 
         # now add the molecules to the database
-        for index, data in self.dataset.items():
+        for j, (index, data) in enumerate(self.dataset.items()):
             for i, molecule in enumerate(data['initial_molecules']):
                 name = index + f'_{i}'
-                collection.add_entry(name=name, molecule=molecule, attributes=data['attributes'], save=False)
+                try:
+                    collection.add_entry(name=name, molecule=molecule, attributes=data['attributes'], save=False)
+                except KeyError:
+                    continue
+                    
+                finally:
+                    if (j + i) % 30 == 0:
+                        # save the added entries
+                        collection.save()
 
         # save the added entries
         collection.save()
@@ -535,6 +568,113 @@ class OptimizationDataset(BasicDataSet):
         #     pass
         #
         # return result
+    
+    
+class TorsiondriveDataset(OptimizationDataset):
+    """
+    An torsiondrive dataset class which handles submission of settings differently from the basic dataset, and creates
+    torsiondrive datasets in the public or local qcarcive instance.
+
+    Important:
+        The dihedral_ranges for the whole dataset can be defined here or if different scan ranges are required on a case
+         by case basis they can be defined for each torsion in a molecule separately in the properties attribute of the
+        molecule. For example `mol.properties['dihedral_range'] = (-165, 180)`
+    """
+    
+    dataset_name = "TorsionDriveDataset"
+    optimization_program: GeometricProcedure = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
+    grid_spacings: List[int] = [15]
+    energy_upper_limit: float = 0.05
+    dihedral_ranges: Optional[List[Tuple[int, int]]] = None
+    energy_decrease_thresh: Optional[float] = None
+
+    def submit(self, await_result: bool = False) -> BasicResult:
+        """
+        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
+        corresponding result class.
+
+        Parameters:
+            await_result: If the user wants to wait for the calculation to finish before returning.
+
+        Returns:
+            Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
+            calculations.
+        """
+        
+        client = self._activate_client()
+        # work out if we are extending a collection
+        try:
+            collection = client.get_collection('TorsionDriveDataset', self.dataset_name)
+        except KeyError:
+            collection = ptl.collections.TorsionDriveDataset(name=self.dataset_name, client=client,
+                                                             default_driver=self.driver, default_program=self.program)
+        # store the keyword set into the collection
+        kw_id = self._add_keywords(client)
+        # create the optimization specification
+        opt_spec = self.optimization_program.get_optimzation_spec()
+        # create the qc specification
+        qc_spec = self.get_qc_spec(keyword_id=kw_id)
+        collection.add_specification(name=self.spec_name, optimization_spec=opt_spec, qc_spec=qc_spec,
+                                     description=self.spec_description)
+
+        # start add the molecule to the dataset, multipule conformers/molecules can be used as the starting geometry
+        for i, (index, data) in enumerate(self.dataset.items()):
+            try:
+                collection.add_entry(name=index, initial_molecules=data['initial_molecules'], dihedrals=data['torsion_index'],
+                                     grid_spacing=self.grid_spacings, energy_upper_limit=self.energy_upper_limit,
+                                     attributes=data['attributes'], energy_decrease_thresh=self.energy_decrease_thresh)
+            except KeyError:
+                continue
+            finally:
+                if j % 30 == 0:
+                    collection.save()
+
+        collection.save()
+        # submit the calculations
+        response = collection.compute(specification=self.spec_name, tag=self.tag, priority=self.priority)
+
+        return response
+
+    def add_molecule(self, index: str, molecule: Molecule, cmiles: Dict[str, str], atom_indices: List[int]) -> None:
+        """
+        Add a molecule to the dataset under the given index with the passed cmiles.
+
+        Parameters:
+            index: The molecule index that was generated by the factory.
+            molecule: The instance of the [openforcefield.topology.Molecule][molecule] which contains its conformer
+                information.
+            cmiles: The cmiles dictionary containing all of the relevant identifier tags for the molecule.
+            atom_indices: The atom indices of the atoms to be restrained during the torsiondrive.
+
+        Important:
+            Each molecule in this basic dataset should have all of its conformers expanded out into separate entries.
+            Thus here we take the general molecule index and increment it.
+        """
+
+        schema_mols = [molecule.to_qcschema(conformer=conformer) for conformer in range(molecule.n_conformers)]
+
+        self.dataset[index] = {'attributes': cmiles,
+                               'initial_molecules': schema_mols,
+                               'atom_indices': atom_indices}
+
+    def filter_molecules(self, molecules: Union[Molecule, List[Molecule]], component_description: Dict) -> None:
+        """
+        Filter a molecule or list of molecules by the component they failed.
+
+        Note:
+            For torsiondrive datasets the torsion that was selected for driving can be found in the smiles tag.
+
+        Parameters:
+            molecules: A molecule or list of molecules to be filtered.
+            component_description: The dict representation of the component that filtered this set of molecules.
+        """
+        if isinstance(molecules, Molecule):
+            # make into a list
+            molecules = [molecules]
+
+        self.filtered_molecules[component_description['component_name']] = {'component_description': component_description,
+                                                                            'molecules': [molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True) for molecule in molecules]}
+
 
 # class QCFractalDataset(object):
 #     """

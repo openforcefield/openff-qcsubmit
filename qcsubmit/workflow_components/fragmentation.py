@@ -109,9 +109,13 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
                 for fragment_data in fragmets_dict.values():
                     frag_mol = Molecule.from_mapped_smiles(mapped_smiles=fragment_data['identifiers']['canonical_isomeric_explicit_hydrogen_mapped_smiles'])
-                    torsion_index = fragment_data['dihedral'][0]
+                    torsion_index = tuple(fragment_data['dihedral'][0])
                     # this is stored back into the molecule and will be used when generating the cmiles tags latter
-                    frag_mol._properties['torsion_index'] = [torsion_index]
+                    try:
+                        # none refers to the scan range and is the same as (-165, 180)
+                        frag_mol.properties['torsion_index'][torsion_index] = None
+                    except KeyError:
+                        frag_mol.properties['torsion_index'] = {torsion_index: None}
                     result.add_molecule(frag_mol)
 
             except RuntimeError:

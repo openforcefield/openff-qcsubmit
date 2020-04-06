@@ -1,4 +1,4 @@
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Optional, Tuple
 from pydantic import BaseModel, validator
 import yaml
 import json
@@ -6,7 +6,7 @@ import json
 import os
 
 from qcsubmit import workflow_components
-from qcsubmit.datasets import ComponentResult, BasicDataSet
+from qcsubmit.datasets import ComponentResult, BasicDataSet, OptimizationDataset, TorsiondriveDataset
 from qcsubmit.exceptions import UnsupportedFiletypeError, InvalidWorkflowComponentError, MissingWorkflowComponentError, \
     InvalidClientError, DriverError
 from qcsubmit.procedures import GeometricProcedure
@@ -50,6 +50,7 @@ class BasicDatasetFactory(BaseModel):
     priority: str = 'normal'
     tag: str = 'openff'
     workflow: Dict[str, workflow_components.CustomWorkflowComponent] = {}
+    _dataset_type: BasicDataSet = BasicDataSet
 
     # hidden variable not included in the schema
     _file_readers = {'json': json.load, 'yaml': yaml.safe_load_all, 'yml': yaml.safe_load_all}
@@ -418,7 +419,7 @@ class BasicDatasetFactory(BaseModel):
 
         # the only data missing is the collection name so add it here.
         object_meta['dataset_name'] = dataset_name
-        dataset = BasicDataSet.parse_obj(object_meta)
+        dataset = self._dataset_type.parse_obj(object_meta)
 
         # now add the molecules to the correct attributes
         for molecule in workflow_molecules.molecules:
@@ -497,6 +498,7 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
 
     # set the driver to be gradient this should not be changed when running
     driver = 'gradient'
+    _dataset_type = OptimizationDataset
 
     # use the default geometric settings during optimisation
     optimization_program: GeometricProcedure = GeometricProcedure()
@@ -510,11 +512,14 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
     grid_spacings: List[int] = [15]
     energy_upper_limit: float = 0.05
+    dihedral_ranges: Optional[List[Tuple[int, int]]] = None
+    energy_decrease_thresh: Optional[float] = None
+    _dataset_type = TorsiondriveDataset
 
     # set the default settings for a torsiondrive calculation.
     optimization_program = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
 
-    def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> BasicDataSet:
+    def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> TorsiondriveDataset:
         """
         Process the input molecules through the given workflow then create and populate the torsiondrive
         dataset class which acts as a local representation for the collection in qcarchive and has the ability to
@@ -535,9 +540,95 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
              dataset_name: The name that will be given to the collection on submission to an archive instance.
              molecules: The list of molecules which should be processed by the workflow and added to the dataset, this
                 can also be a file name which is to be unpacked by the openforcefield toolkit.
+
+        Returns:
+            A [DataSet][qcsubmit.datasets.TorsiondriveDataset] instance populated with the molecules that have passed
+            through the workflow.
         """
 
-        pass
+        #  check if we have been given an input file with molecules inside
+        if isinstance(molecules, str):
+            if os.path.exists(molecules):
+                workflow_molecules = ComponentResult(component_name=self.Config.title,
+                                                     component_description={'component_name': self.Config.title},
+                                                     input_file=molecules)
+
+        elif isinstance(molecules, Molecule):
+            workflow_molecules = ComponentResult(component_name=self.Config.title,
+                                                 component_description={'component_name': self.Config.title},
+                                                 molecules=[molecules])
+
+        else:
+            workflow_molecules = ComponentResult(component_name=self.Config.title,
+                                                 component_description={'component_name': self.Config.title},
+                                                 molecules=molecules)
+
+        # now we need to start passing the workflow molecules to each module in the workflow
+        filtered_molecules = {'LinearTorsionRemoval': {'component_description': "Remove any molecules with a linear torsions seclected to drive.",
+                              'molecules': []}}
+
+        # if the workflow has components run it
+        if self.workflow:
+            for component_name, component in self.workflow.items():
+                workflow_molecules = component.apply(molecules=workflow_molecules.molecules)
+
+                filtered_molecules[workflow_molecules.component_name] = {
+                    'component_description': workflow_molecules.component_description,
+                    'molecules': workflow_molecules.filtered}
+
+        # first we need to instance the dataset and assign the metadata
+        object_meta = self.dict(exclude={'workflow'})
+
+        # the only data missing is the collection name so add it here.
+        object_meta['dataset_name'] = dataset_name
+        dataset = self._dataset_type.parse_obj(object_meta)
+
+        # now add the molecules to the correct attributes
+        for molecule in workflow_molecules.molecules:
+
+            # check if there are any linear torsions in the molecule
+            linear_bonds = self._detect_linear_torsions(molecule)
+
+            # check if the molecule has an atom map or torsion_index defined
+            if 'atom_map' or 'torsion_index' in molecule.properties:
+                try:
+                    torsion_index = tuple(molecule.properties['atom_map'].keys())
+                    if torsion_index[1:3] in linear_bonds or torsion_index[2:0:-1] in linear_bonds:
+                        filtered_molecules['LinearTorsionRemoval'].append(molecule)
+                        continue
+                    else:
+                        # try and use the atom map if it present
+                        dataset.add_molecule(index=self.create_index(molecule=molecule),
+                                             molecule=molecule,
+                                             cmiles=self.create_cmiles_metadata(molecule=molecule),
+                                             atom_indices=tuple(molecule.properties['atom_map'].keys()))
+
+                except AssertionError:
+                    # use the torsion_index if the atom_map is not present.
+                    for torsion_index, torsion_range in molecule.properties['torsion_index'].iteams():
+                        # for each torsions identified submit a molecule
+                        molecule.properties['atom_map'] = {(atom, index) for index, atom in enumerate(torsion_index)}
+                        if torsion_index[1:3] in linear_bonds or torsion_index[2:0:-1] in linear_bonds:
+                            filtered_molecules['LinearTorsionRemoval'].append(molecule)
+                        else:
+                            molecule.properties['dihedral_range'] = torsion_range
+                            dataset.add_molecules(index=self.create_index(molecule=molecule),
+                                                  molecule=molecule,
+                                                  cmiles=self.create_cmiles_metadata(molecule=molecule),
+                                                  atom_indices=torsion_index)
+
+            else:
+                # the molecule has not had its atoms identified yet so process them here
+                # order the molecule
+                order_mol = molecule.canonical_order_atoms()
+
+
+            # now we need to add the filtered molecules
+        for component_name, result in filtered_molecules.items():
+            dataset.filter_molecules(molecules=result['molecules'],
+                                     component_description=result['component_description'])
+
+        return dataset
 
     def create_index(self, molecule: Molecule) -> str:
         """

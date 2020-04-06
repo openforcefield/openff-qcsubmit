@@ -3,6 +3,7 @@ The procedure settings controllers
 """
 
 from pydantic import BaseModel, validator
+from typing import Dict
 
 
 class GeometricProcedure(BaseModel):
@@ -98,3 +99,16 @@ class GeometricProcedure(BaseModel):
             return convergence.upper()
         else:
             raise ValueError(f'The requested convergence set {convergence} is not supported.')
+
+    def get_optimzation_spec(self) -> Dict:
+        """
+        Create the optimization specification to be used in qcarchive.
+
+        Returns:
+            A dictionary representation of the optimization specification.
+        """
+
+        opt_spec = {'program': self.program,
+                    'keywords': self.dict(exclude={'program'})}
+
+        return opt_spec

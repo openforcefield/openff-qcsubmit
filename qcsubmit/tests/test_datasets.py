@@ -43,13 +43,14 @@ def test_componetresult_deduplication_standard():
     assert result.component_name == 'Test deduplication'
 
     # test deduplication with no conformers
-    molecules = duplicated_molecules(include_conformers=False, duplicates=2)
+    duplicates = 2
+    molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)
 
     for molecule in molecules:
         result.add_molecule(molecule)
 
-    # make sure only 3 molecules were added to the component
-    assert len(result.molecules) == 3
+    # make sure only 1 copy of each molecule is added
+    assert len(result.molecules) == len(molecules) / duplicates
     assert len(result.filtered) == 0
 
 
@@ -63,12 +64,13 @@ def test_componentresult_deduplication_coordinates():
                              component_description={})
 
     # test using conformers, conformers that are the same will be condensed
-    molecules = duplicated_molecules(include_conformers=True, duplicates=2)
+    duplicates = 2
+    molecules = duplicated_molecules(include_conformers=True, duplicates=duplicates)
 
     for molecule in molecules:
         result.add_molecule(molecule)
 
-    assert len(result.molecules) == 3
+    assert len(result.molecules) == len(molecules) / duplicates
     for molecule in result.molecules:
         assert molecule.n_conformers == 1
 
@@ -116,16 +118,18 @@ def test_componentresult_deduplication_torsions():
     result = ComponentResult(component_name='Test deduplication',
                              component_description={})
 
-    molecules = duplicated_molecules(include_conformers=False, duplicates=2)
+    duplicates = 2
+    molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)
 
     for molecule in molecules:
-        molecule.properties['torsion_index'] = [np.random.randint(low=0, high=7, size=4).tolist()]
+        molecule.properties['torsion_index'] = {tuple(np.random.randint(low=0, high=7, size=4).tolist()):
+                                                    tuple(np.random.randint(low=-165, high=180, size=2).tolist())}
 
         result.add_molecule(molecule)
 
     for molecule in result.molecules:
         assert 'torsion_index' in molecule.properties
-        assert len(molecule.properties['torsion_index']) == 2
+        assert len(molecule.properties['torsion_index']) == duplicates
 
 
 def test_componentresult_filter_molecules():
