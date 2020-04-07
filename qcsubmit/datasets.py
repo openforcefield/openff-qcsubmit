@@ -626,7 +626,7 @@ class TorsiondriveDataset(OptimizationDataset):
             except KeyError:
                 continue
             finally:
-                if j % 30 == 0:
+                if i % 30 == 0:
                     collection.save()
 
         collection.save()
@@ -635,7 +635,7 @@ class TorsiondriveDataset(OptimizationDataset):
 
         return response
 
-    def add_molecule(self, index: str, molecule: Molecule, cmiles: Dict[str, str], atom_indices: List[int]) -> None:
+    def add_molecule(self, index: str, molecule: Molecule, cmiles: Dict[str, str], atom_indices: Tuple[int, int, int, int]) -> None:
         """
         Add a molecule to the dataset under the given index with the passed cmiles.
 

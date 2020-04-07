@@ -5,6 +5,7 @@ from typing import List, Dict
 import pytest
 from qcsubmit import workflow_components
 from qcsubmit.datasets import ComponentResult
+from qcsubmit.utils import get_data
 from openforcefield.topology import Molecule
 from openforcefield.utils import get_data_file_path
 from openforcefield.utils.toolkits import UndefinedStereochemistryError, RDKitToolkitWrapper, OpenEyeToolkitWrapper
@@ -34,6 +35,27 @@ def get_molecues(incude_undefined_stereo: bool = False, include_conformers: bool
     if not include_conformers:
         for mol in mols:
             mol._conformers = []
+
+    return mols
+
+
+@lru_cache()
+def get_stereoisomers():
+    """
+    Get a set of molecules that all have some undefined stereochemistry.
+    """
+    mols = Molecule.from_file(get_data('stereoisomers.smi'), allow_undefined_stereo=True)
+
+    return mols
+
+
+@lru_cache()
+def get_tautomers():
+    """
+    Get a set of molecules that all have tauomers
+    """
+
+    mols = Molecule.from_file(get_data('tautomers.smi'), allow_undefined_stereo=True)
 
     return mols
 
@@ -209,15 +231,19 @@ def test_conformer_apply(toolkit):
         conf_gen.max_conformers = 1
         conf_gen.clear_existing = True
 
-        mols = get_molecues(incude_undefined_stereo=False, include_conformers=False)
+        mols = get_tautomers()
+        # remove duplicates from the set
+        molecule_container = ComponentResult(component_name='intial',
+                                             component_description={'description': 'initial filter'},
+                                             molecules=mols)
 
-        result = conf_gen.apply(mols)
+        result = conf_gen.apply(molecule_container.molecules)
 
         assert result.component_name == conf_gen.component_name
         assert result.component_description == conf_gen.dict()
         # make sure each molecule has a conformer that passed
         for molecule in result.molecules:
-            assert molecule.n_conformers == 1
+            assert molecule.n_conformers == 1, print(molecule.conformers)
 
         for molecule in result.filtered:
             assert molecule.n_conformers == 0
@@ -275,6 +301,74 @@ def test_enumerating_stereoisomers_validator(toolkit):
 
         enumerate_stereo.max_isomers = 1.1
         assert enumerate_stereo.max_isomers == 1
+
+    else:
+        pytest.skip(f'Toolkit {toolkit_name} is not available.')
+
+
+@pytest.mark.parametrize('toolkit',
+                         [
+                             pytest.param(('openeye', OpenEyeToolkitWrapper), id='openeye'),
+                             pytest.param(('rdkit', RDKitToolkitWrapper), id='rdkit')
+                         ])
+def test_enumerating_stereoisomers_apply(toolkit):
+    """
+    Test the stereoisomer enumeration.
+    """
+
+    toolkit_name, toolkit_class = toolkit
+    if toolkit_class.is_available():
+
+        enumerate_stereo = workflow_components.EnumerateStereoisomers()
+        # set the options
+        enumerate_stereo.toolkit = toolkit_name
+        enumerate_stereo.include_input = False
+        enumerate_stereo.undefined_only = True
+        enumerate_stereo.rationalise = True
+
+        mols = get_stereoisomers()
+
+        result = enumerate_stereo.apply(mols)
+
+        # make sure the input molecules are not present
+        for mol in mols:
+            result.filter_molecule(mol)
+
+        # make sure no molecules have undefined stereo
+        for molecule in result.molecules:
+            assert Molecule.from_smiles(molecule.to_smiles()) == molecule
+            assert molecule.n_conformers >= 1
+
+    else:
+        pytest.skip(f'Toolkit {toolkit_name} is not available.')
+
+
+@pytest.mark.parametrize('toolkit',
+                         [
+                             pytest.param(('openeye', OpenEyeToolkitWrapper), id='openeye'),
+                             pytest.param(('rdkit', RDKitToolkitWrapper), id='rdkit')
+                         ])
+def test_enumerating_tautomers_apply(toolkit):
+    """
+    Test enumerating tautomers.
+    """
+
+    toolkit_name, toolkit_class = toolkit
+    if toolkit_class.is_available():
+
+        enumerate_tauts = workflow_components.EnumerateTautomers()
+        enumerate_tauts.toolkit = toolkit_name
+        enumerate_tauts.max_tautomers = 2
+
+        mols = get_tautomers()
+
+        result = enumerate_tauts.apply(mols)
+
+        # remove the input molecules by filtering
+        for mol in mols:
+            result.filter_molecule(mol)
+
+        assert len(result.molecules) > 0
 
     else:
         pytest.skip(f'Toolkit {toolkit_name} is not available.')

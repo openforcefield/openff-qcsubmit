@@ -11,7 +11,7 @@ from qcsubmit.exceptions import UnsupportedFiletypeError, InvalidWorkflowCompone
     InvalidClientError, DriverError
 from qcsubmit.procedures import GeometricProcedure
 
-from openforcefield.topology import Molecule
+from openforcefield.topology import Molecule, Atom
 
 
 class BasicDatasetFactory(BaseModel):
@@ -53,7 +53,7 @@ class BasicDatasetFactory(BaseModel):
     _dataset_type: BasicDataSet = BasicDataSet
 
     # hidden variable not included in the schema
-    _file_readers = {'json': json.load, 'yaml': yaml.safe_load_all, 'yml': yaml.safe_load_all}
+    _file_readers = {'json': json.load, 'yaml': yaml.full_load, 'yml': yaml.full_load}
     _file_writers = {'json': json.dump, 'yaml': yaml.dump, 'yml': yaml.dump}
 
     class Config:
@@ -296,6 +296,7 @@ class BasicDatasetFactory(BaseModel):
 
         if isinstance(settings, str):
             data = self._read_file(settings)
+            print(data)
 
             # take the workflow out and import the settings
             workflow = data.pop('workflow')
@@ -594,7 +595,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 try:
                     torsion_index = tuple(molecule.properties['atom_map'].keys())
                     if torsion_index[1:3] in linear_bonds or torsion_index[2:0:-1] in linear_bonds:
-                        filtered_molecules['LinearTorsionRemoval'].append(molecule)
+                        filtered_molecules['LinearTorsionRemoval']['molecules'].append(molecule)
                         continue
                     else:
                         # try and use the atom map if it present
@@ -609,19 +610,28 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                         # for each torsions identified submit a molecule
                         molecule.properties['atom_map'] = {(atom, index) for index, atom in enumerate(torsion_index)}
                         if torsion_index[1:3] in linear_bonds or torsion_index[2:0:-1] in linear_bonds:
-                            filtered_molecules['LinearTorsionRemoval'].append(molecule)
+                            filtered_molecules['LinearTorsionRemoval']['molecules'].append(molecule)
+                            continue
                         else:
                             molecule.properties['dihedral_range'] = torsion_range
-                            dataset.add_molecules(index=self.create_index(molecule=molecule),
-                                                  molecule=molecule,
-                                                  cmiles=self.create_cmiles_metadata(molecule=molecule),
-                                                  atom_indices=torsion_index)
+                            dataset.add_molecule(index=self.create_index(molecule=molecule),
+                                                 molecule=molecule,
+                                                 cmiles=self.create_cmiles_metadata(molecule=molecule),
+                                                 atom_indices=torsion_index)
 
             else:
                 # the molecule has not had its atoms identified yet so process them here
                 # order the molecule
                 order_mol = molecule.canonical_order_atoms()
-
+                rotatble_bonds = order_mol.find_rotatable_bonds()
+                for bond in rotatble_bonds:
+                    # create a torsion to hold as fixed using heavey atoms
+                    torsion_index = self._get_torsion_string(order_mol, bond)
+                    order_mol.properties['atom_map'] = {(atom, index) for index, atom in enumerate(torsion_index)}
+                    dataset.add_molecule(index=self.create_index(molecule=order_mol),
+                                         molecule=order_mol,
+                                         cmiles=self.create_cmiles_metadata(molecule=order_mol),
+                                         atom_indices=torsion_index)
 
             # now we need to add the filtered molecules
         for component_name, result in filtered_molecules.items():
@@ -629,6 +639,36 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                                      component_description=result['component_description'])
 
         return dataset
+
+    def _get_torsion_string(self, molecule: Molecule, bond: Tuple[int, int]) -> Tuple[int, int, int, int]:
+        """
+        Create a torsion tuple which will be restrained in the torsiondrive.
+
+        Parameters:
+            molecule: The molecule for which the torsion indcies should be found.
+            bond: The tuple of the atom indexes for the central bond.
+
+        Returns:
+            The tuple of the four atom indices which should be restrained.
+
+        Note:
+            If there is more than one possible combination of atoms the heaviest set are selected to be restrained.
+        """
+
+        atoms = [molecule.atoms[bond[0]], molecule.atoms[bond[1]]]
+        terminal_atoms = {}
+
+        for atom in atoms:
+            for neighbour in atom.bonded_atoms:
+                if neighbour not in atoms:
+                    if neighbour.atomic_number > terminal_atoms.get(atom, Atom(0, 0, False)).atomic_number:
+                        terminal_atoms[atom] = neighbour
+        # build out the torsion
+        torsion = [atom.molecule_atom_index for atom in terminal_atoms.values()]
+        for i, atom in enumerate(atoms, 1):
+            torsion.insert(i, atom.molecule_atom_index)
+
+        return tuple(torsion)
 
     def create_index(self, molecule: Molecule) -> str:
         """
