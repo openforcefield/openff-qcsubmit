@@ -37,6 +37,7 @@ class GeometricProcedure(BaseModel):
     tmax: float = 0.3
     maxiter: int = 300
     convergence_set: str = 'GAU'
+    constraints: Dict = None
 
     class Config:
         validate_assignment = True
@@ -107,8 +108,11 @@ class GeometricProcedure(BaseModel):
         Returns:
             A dictionary representation of the optimization specification.
         """
+        exclude = {'program'}
+        if self.constraints is not None:
+            exclude.add('constraints')
 
         opt_spec = {'program': self.program,
-                    'keywords': self.dict(exclude={'program'})}
+                    'keywords': self.dict(exclude=exclude)}
 
         return opt_spec

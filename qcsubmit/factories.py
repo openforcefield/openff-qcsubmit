@@ -1,4 +1,4 @@
-from typing import List, Union, Dict, Optional, Tuple
+from typing import List, Union, Dict, Optional, Tuple, Any
 from pydantic import BaseModel, validator
 import yaml
 import json
@@ -10,6 +10,7 @@ from qcsubmit.datasets import ComponentResult, BasicDataSet, OptimizationDataset
 from qcsubmit.exceptions import UnsupportedFiletypeError, InvalidWorkflowComponentError, MissingWorkflowComponentError, \
     InvalidClientError, DriverError
 from qcsubmit.procedures import GeometricProcedure
+from qcportal import FractalClient
 
 from openforcefield.topology import Molecule, Atom
 
@@ -39,14 +40,13 @@ class BasicDatasetFactory(BaseModel):
     """
 
     method: str = 'B3LYP-D3BJ'
-    basis: str = 'DZVP'
+    basis: Optional[str] = 'DZVP'
     program: str = 'psi4'
     maxiter: int = 200
     driver: str = 'energy'
     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
     spec_name: str = 'default'
     spec_description: str = 'Standard OpenFF optimization quantum chemistry specification.'
-    client: str = 'public'
     priority: str = 'normal'
     tag: str = 'openff'
     workflow: Dict[str, workflow_components.CustomWorkflowComponent] = {}
@@ -70,13 +70,15 @@ class BasicDatasetFactory(BaseModel):
                               f'drivers: {available_drivers}')
         return driver
 
-    @validator('client')
-    def _check_client(cls, client):
-        """Make sure the client is valid."""
-        if isinstance(client, str):
-            if client == 'public' or os.path.exists(client):
-                return client
-        raise InvalidClientError('The client must be set to public or a file path to some client settings.')
+    @validator('scf_properties')
+    def _check_scf_props(cls, scf_props):
+        """Make sure wiberg_lowdin_indices is always included in the scf props."""
+
+        if 'wiberg_lowdin_indices' not in scf_props:
+            scf_props.append('wiberg_lowdin_indices')
+            return scf_props
+        else:
+            return scf_props
 
     def clear_workflow(self) -> None:
         """
@@ -318,7 +320,7 @@ class BasicDatasetFactory(BaseModel):
         # now we want to add the workflow back in
         self.import_workflow(workflow=workflow, clear_existing=clear_workflow)
 
-    def add_compute(self, dataset_name: str, await_result: bool = False) -> None:
+    def add_compute(self, dataset_name: str, client: Union[str, FractalClient], await_result: bool = False) -> None:
         """
         A method that can add compute to an existing collection, this involves registering the QM settings and keywords
         and running the compute.
@@ -326,30 +328,38 @@ class BasicDatasetFactory(BaseModel):
         Parameters:
             dataset_name: The name of the collection in the qcarchive instance that the compute should be added to.
             await_result: If the function should block until the calculations have finished.
-
+            client: The name of the file containing the client information or the client instance.
         """
         import qcportal as ptl
 
-        if self.client == 'public':
-            client = ptl.FractalClient()
+        if isinstance(client, ptl.FractalClient):
+            target_client = client
+        elif client == 'public':
+            target_client = ptl.FractalClient()
         else:
-            client = ptl.FractalClient.from_file(self.client)
+            target_client = ptl.FractalClient.from_file(client)
 
         try:
-            collection = client.get_collection('Dataset', dataset_name)
-            kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
-            collection.add_keywords(alias=self.spec_name, program=self.program, keyword=kw, default=True)
-
-            # save the keywords
-            collection.save()
-
-            # submit the calculations
-            response = collection.compute(method=self.method, basis=self.basis, keywords=self.spec_name,
-                                          program=self.program, tag=self.tag, priority=self.priority)
-
+            collection = target_client.get_collection('Dataset', dataset_name)
         except KeyError:
             raise KeyError(f'The collection: {dataset_name} could not be found, you can only add compute to existing'
                            f'collections.')
+
+        kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
+        try:
+            # try add the keywords, if we get an error they have already been added.
+            collection.add_keywords(alias=self.spec_name, program=self.program, keyword=kw, default=False)
+            # save the keywords
+            collection.save()
+        except (KeyError, AttributeError):
+            pass
+
+        # submit the calculations
+        response = collection.compute(method=self.method, basis=self.basis, keywords=self.spec_name,
+                                      program=self.program, tag=self.tag, priority=self.priority)
+        collection.save()
+
+        return response
 
     def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> BasicDataSet:
         """
@@ -503,6 +513,27 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
 
     # use the default geometric settings during optimisation
     optimization_program: GeometricProcedure = GeometricProcedure()
+
+    @validator('driver')
+    def _check_driver(cls, driver):
+        """Make sure that the driver is set to gradient only and not changed."""
+        available_drivers = ['gradient']
+        if driver not in available_drivers:
+            raise DriverError(f'The requested driver ({driver}) is not in the list of available '
+                              f'drivers: {available_drivers}')
+        return driver
+
+    def add_compute(self, dataset_name: str, client: Union[str, FractalClient], await_result: bool = False) -> None:
+        """
+        Add compute to an exsiting collection of molecules.
+
+        Parameters:
+            dataset_name:
+            client:
+            await_result:
+        """
+
+        raise NotImplementedError()
 
 
 class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
@@ -686,7 +717,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         """
 
         assert 'atom_map' in molecule.properties.keys()
-        assert len(molecule.properties) == 4
+        assert len(molecule.properties['atom_map']) == 4
 
         index = molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
         return index
@@ -710,3 +741,10 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         matches = molecule.chemical_environment_matches(linear_smarts)
 
         return matches
+
+    def add_compute(self, dataset_name: str, client: Union[str, FractalClient], await_result: bool = False) -> None:
+        """
+
+        """
+
+        raise NotImplementedError()

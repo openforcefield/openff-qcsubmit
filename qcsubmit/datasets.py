@@ -116,15 +116,15 @@ class BasicDataSet(BaseModel):
     """
 
     dataset_name: str = 'BasicDataSet'
+    dataset_tagline: str = "OpenForcefield single point evaluations."
     method: str = 'B3LYP-D3BJ'
-    basis: str = 'DZVP'
+    basis: Optional[str] = 'DZVP'
     program: str = 'psi4'
     maxiter: int = 200
     driver: str = 'energy'
     scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
     spec_name: str = 'default'
     spec_description: str = 'Standard OpenFF optimization quantum chemistry specification.'
-    client: str = 'public'
     priority: str = 'normal'
     tag: str = 'openff'
     dataset: Dict[str, Dict] = {}  # the molecules which are to be submitted
@@ -281,40 +281,43 @@ class BasicDataSet(BaseModel):
         self.dataset[index] = {'attributes': cmiles,
                                'initial_molecules': schema_mols}
 
-    def submit(self, await_result: bool = False) -> BasicResult:
+    def submit(self, client: Union[str, ptl.FractalClient], await_result: bool = False) -> BasicResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
         corresponding result class.
 
         Parameters:
             await_result: If the user wants to wait for the calculation to finish before returning.
+            client: The name of the file containing the client information or the client instance.
 
         Returns:
             Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
             calculations.
         """
 
-        client = self._activate_client()
+        target_client = self._activate_client(client)
         # work out if we are extending a collection
         try:
-            collection = client.get_collection('Dataset', self.dataset_name)
+            collection = target_client.get_collection('Dataset', self.dataset_name)
         except KeyError:
-            collection = ptl.collections.Dataset(name=self.dataset_name, client=client,
-                                                 default_driver=self.driver, default_program=self.program)
+            collection = ptl.collections.Dataset(name=self.dataset_name, client=target_client,
+                                                 default_driver=self.driver, default_program=self.program, tagline=self.dataset_tagline)
 
         # store the keyword set into the collection
         kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
-        collection.add_keywords(alias=self.spec_name, program=self.program, keyword=kw, default=True)
-
-        # save the keywords
-        collection.save()
+        try:
+            # try and add the keywords if present then continue
+            collection.add_keywords(alias=self.spec_name, program=self.program, keyword=kw, default=True)
+            collection.save()
+        except (KeyError, AttributeError):
+            pass
 
         # now add the molecules to the database, saving every 30 for speed
         for j, (index, data) in enumerate(self.dataset.items()):
             for i, molecule in enumerate(data['initial_molecules']):
                 name = index + f'_{i}'
                 try:
-                    collection.add_entry(name=name, molecule=molecule, attributes=data['attributes'])
+                    collection.add_entry(name=name, molecule=molecule)
                 except KeyError:
                     continue
 
@@ -329,6 +332,8 @@ class BasicDataSet(BaseModel):
         # submit the calculations
         response = collection.compute(method=self.method, basis=self.basis, keywords=self.spec_name,
                                       program=self.program, tag=self.tag, priority=self.priority)
+
+        collection.save()
 
         return response
         # result = BasicResult()
@@ -409,18 +414,23 @@ class BasicDataSet(BaseModel):
 
         return coverage
 
-    def _activate_client(self) -> ptl.FractalClient:
+    def _activate_client(self, client) -> ptl.FractalClient:
         """
         Make the fractal client and connect to the requested instance.
+
+        Parameters:
+            client: The name of the file containing the client information or the client instance.
 
         Returns:
             A qcportal.FractalClient instance.
         """
 
-        if self.client == 'public':
+        if isinstance(client, ptl.FractalClient):
+            return client
+        elif client == 'public':
             return ptl.FractalClient()
         else:
-            return ptl.FractalClient.from_file(self.client)
+            return ptl.FractalClient.from_file(client)
 
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
         """
@@ -480,6 +490,8 @@ class OptimizationDataset(BasicDataSet):
     """
 
     dataset_name = 'OptimizationDataset'
+    dataset_tagline = "OpenForcefield optimizations."
+    driver = 'gradient'
     optimization_program: GeometricProcedure = GeometricProcedure()
 
     def _add_keywords(self, client: ptl.FractalClient) -> str:
@@ -510,42 +522,44 @@ class OptimizationDataset(BasicDataSet):
 
         return qc_spec
 
-    def submit(self, await_result: bool = False) -> BasicResult:
+    def submit(self, client: Union[str, ptl.FractalClient], await_result: bool = False) -> BasicResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
         corresponding result class.
 
         Parameters:
             await_result: If the user wants to wait for the calculation to finish before returning.
+            client: The name of the file containing the client information or the client instance.
 
         Returns:
             Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
             calculations.
         """
 
-        client = self._activate_client()
+        target_client = self._activate_client(client)
         # work out if we are extending a collection
         try:
-            collection = client.get_collection('OptimizationDataset', self.dataset_name)
+            collection = target_client.get_collection('OptimizationDataset', self.dataset_name)
         except KeyError:
-            collection = ptl.collections.OptimizationDataset(name=self.dataset_name, client=client,
-                                                             default_driver=self.driver, default_program=self.program)
+            collection = ptl.collections.OptimizationDataset(name=self.dataset_name, client=target_client,
+                                                             default_driver=self.driver, default_program=self.program,
+                                                             tagline=self.dataset_tagline)
 
         # store the keyword set into the collection
-        kw_id = self._add_keywords(client)
+        kw_id = self._add_keywords(target_client)
         # create the optimization specification
         opt_spec = self.optimization_program.get_optimzation_spec()
         # create the qc specification
         qc_spec = self.get_qc_spec(keyword_id=kw_id)
         collection.add_specification(name=self.spec_name, optimization_spec=opt_spec, qc_spec=qc_spec,
-                                     description=self.spec_description)
+                                     description=self.spec_description, overwrite=True)
 
         # now add the molecules to the database
         for j, (index, data) in enumerate(self.dataset.items()):
             for i, molecule in enumerate(data['initial_molecules']):
                 name = index + f'_{i}'
                 try:
-                    collection.add_entry(name=name, molecule=molecule, attributes=data['attributes'], save=False)
+                    collection.add_entry(name=name, initial_molecule=molecule, attributes=data['attributes'], save=False)
                 except KeyError:
                     continue
                     
@@ -582,40 +596,44 @@ class TorsiondriveDataset(OptimizationDataset):
     """
     
     dataset_name = "TorsionDriveDataset"
+    dataset_tagline = "OpenForcefield TorsionDrives."
     optimization_program: GeometricProcedure = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
     grid_spacings: List[int] = [15]
     energy_upper_limit: float = 0.05
     dihedral_ranges: Optional[List[Tuple[int, int]]] = None
     energy_decrease_thresh: Optional[float] = None
 
-    def submit(self, await_result: bool = False) -> BasicResult:
+    def submit(self, client: Union[str, ptl.FractalClient], await_result: bool = False) -> BasicResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
         corresponding result class.
 
         Parameters:
             await_result: If the user wants to wait for the calculation to finish before returning.
+            client: The name of the file containing the client information or the client instance.
+
 
         Returns:
             Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
             calculations.
         """
         
-        client = self._activate_client()
+        target_client = self._activate_client(client)
         # work out if we are extending a collection
         try:
-            collection = client.get_collection('TorsionDriveDataset', self.dataset_name)
+            collection = target_client.get_collection('TorsionDriveDataset', self.dataset_name)
         except KeyError:
-            collection = ptl.collections.TorsionDriveDataset(name=self.dataset_name, client=client,
-                                                             default_driver=self.driver, default_program=self.program)
+            collection = ptl.collections.TorsionDriveDataset(name=self.dataset_name, client=target_client,
+                                                             default_driver=self.driver, default_program=self.program,
+                                                             tagline=self.dataset_tagline)
         # store the keyword set into the collection
-        kw_id = self._add_keywords(client)
+        kw_id = self._add_keywords(target_client)
         # create the optimization specification
         opt_spec = self.optimization_program.get_optimzation_spec()
         # create the qc specification
         qc_spec = self.get_qc_spec(keyword_id=kw_id)
         collection.add_specification(name=self.spec_name, optimization_spec=opt_spec, qc_spec=qc_spec,
-                                     description=self.spec_description)
+                                     description=self.spec_description, overwrite=True)
 
         # start add the molecule to the dataset, multipule conformers/molecules can be used as the starting geometry
         for i, (index, data) in enumerate(self.dataset.items()):

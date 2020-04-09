@@ -4,12 +4,10 @@ Unit test for the vairous dataset classes in the package.
 import pytest
 from ..datasets import ComponentResult, BasicDataSet
 from openforcefield.topology import Molecule
-from functools import lru_cache
 import numpy as np
 from simtk import unit
 
 
-@lru_cache()
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
     """
     Return a list of duplicated molecules.

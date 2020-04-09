@@ -25,5 +25,5 @@ dependencies:
   - psi4
 
     # Pip-only installs
-  #- pip:
-  #  - codecov
+  - pip:
+    - torchani

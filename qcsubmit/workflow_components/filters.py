@@ -1,7 +1,7 @@
 """
 File containing the filters workflow components.
 """
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 from pydantic import validator
 
 import openforcefield
@@ -176,4 +176,28 @@ class ElementFilter(CustomWorkflowComponent):
 
         return provenance
 
+
+class CoverageFilter(CustomWorkflowComponent):
+    """
+    Filters molecules based on the requested forcefield coverage.
+
+    Atributes:
+
+    """
+
+    component_name = 'CoverageFilter'
+    component_description = 'Filter the molecules based on the requested FF allowed parameters.'
+    component_fail_message = 'The molecule was typed with disallowed parameters.'
+
+    bond_ids: Optional[List[str]] = None
+    angle_ids: Optional[List[str]] = None
+    torsion_ids: Optional[List[str]] = None
+    vdw_ids: Optional[List[str]] = None
+    forcefield: str = 'openff_unconstrained-1.0.0.offxml'
+
+    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+        raise NotImplementedError()
+
+    def provenance(self) -> Dict:
+        raise NotImplementedError()
 
