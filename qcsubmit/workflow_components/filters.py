@@ -6,6 +6,8 @@ from pydantic import validator
 
 import openforcefield
 from openforcefield.topology import Molecule
+from openforcefield.typing.engines.smirnoff import ForceField
+from openforcefield.utils.structure import get_molecule_parameterIDs
 
 from .base_component import CustomWorkflowComponent
 from qcsubmit.datasets import ComponentResult
@@ -17,7 +19,7 @@ class MolecularWeightFilter(CustomWorkflowComponent):
 
     Attributes:
         component_name: The name of component.
-        component_description: A short desciption of the component.
+        component_description: A short description of the component.
         component_fail_message: The message logged when a molecule fails this component.
         minimum_weight: The minimum allowed molecular weight of a molecule.
         maximum_weight: The maximum allowed molecular weight of a molecule.
@@ -181,23 +183,75 @@ class CoverageFilter(CustomWorkflowComponent):
     """
     Filters molecules based on the requested forcefield coverage.
 
-    Atributes:
+    Important:
+        The ids supplied to the respective group are the ids that are allowed, if `None` is passed all ids are allowed.
 
+    Atributes:
+        allowed_ids: The list of parameter ids that we want to actively pass the filter.
+        filtered_ids: The list of parameter ids that we want to actively filter out and fail the filter.
+
+    Note:
+        If a molecule has any id in the allowed_ids and not in the filtered ids it is passed. Any molecule with a
+        parameter in both sets is failed.
+
+    Important:
+        A value of None in a list will let all molecules through.
     """
 
     component_name = 'CoverageFilter'
     component_description = 'Filter the molecules based on the requested FF allowed parameters.'
     component_fail_message = 'The molecule was typed with disallowed parameters.'
 
-    bond_ids: Optional[List[str]] = None
-    angle_ids: Optional[List[str]] = None
-    torsion_ids: Optional[List[str]] = None
-    vdw_ids: Optional[List[str]] = None
+    allowed_ids: Optional[List[str]] = None
+    filtered_ids: Optional[List[str]] = None
     forcefield: str = 'openff_unconstrained-1.0.0.offxml'
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
-        raise NotImplementedError()
+        """
+        Apply the filter to the list of molecules to remove any molecules typed by an id that is not allowed, i.e. not
+        included in the allowed list.
+
+        Parameters:
+            molecules: The list of molecules the component should be applied on.
+
+        Returns:
+            A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
+            that passed and were filtered by the component and details about the component which generated the result.
+        """
+
+        # pass all of the molecules then filter ones that have elements that are not allowed
+        result = ComponentResult(component_name=self.component_name,
+                                 component_description=self.dict(),
+                                 molecules=molecules)
+
+        # the forcefield we are testing against
+        forcefield = ForceField(self.forcefield)
+        parameters_by_molecule, parameters_by_ID = get_molecule_parameterIDs(molecules, forcefield)
+
+        # loop through the tags
+        if self.filtered_ids is not None:
+            for filtered_id in self.filtered_ids:
+                for molecule in parameters_by_ID.get(filtered_id, []):
+                    self.fail_molecule(molecule, result)
+
+        if self.allowed_ids is not None:
+            for pid, molecules in parameters_by_ID.items():
+                if pid not in self.allowed_ids:
+                    for molecule in molecules:
+                        self.fail_molecule(molecule, result)
+
+        return result
 
     def provenance(self) -> Dict:
-        raise NotImplementedError()
+        """
+        Generate version information for all of the software used during the running of this component.
 
+        Returns:
+            A dictionary of all of the software used in the component along wither their version numbers.
+        """
+        import openforcefields
+
+        provenance = {'oopenforcefields': openforcefields.__version__,
+                      'OpenforcefieldToolkit': openforcefield.__version__}
+
+        return provenance

@@ -101,10 +101,6 @@ class ComponentResult:
                 return
 
 
-class BasicResult(BaseModel):
-    pass
-
-
 class BasicDataSet(BaseModel):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to submission.
@@ -315,7 +311,7 @@ class BasicDataSet(BaseModel):
         # now add the molecules to the database, saving every 30 for speed
         for j, (index, data) in enumerate(self.dataset.items()):
             for i, molecule in enumerate(data['initial_molecules']):
-                name = index + f'_{i}'
+                name = index + f'-{i}'
                 try:
                     collection.add_entry(name=name, molecule=molecule)
                 except KeyError:
@@ -398,6 +394,8 @@ class BasicDataSet(BaseModel):
         coverage = {}
         param_types = {'a': 'Angles', 'b': 'Bonds', 'c': 'Constraints', 't': 'ProperTorsions', 'i': 'ImproperTorsions',
                        'n': 'vdW'}
+        if isinstance(forcefields, str):
+            forcefields = [forcefields]
 
         for forcefield in forcefields:
 

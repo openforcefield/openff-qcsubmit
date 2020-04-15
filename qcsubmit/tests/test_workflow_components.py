@@ -403,4 +403,18 @@ def test_enumerating_tautomers_validator(toolkit):
         pytest.skip(f'Toolkit {toolkit_name} not available.')
 
 
+def test_coverage_filter():
+    """
+    Make sure the coverage filter removes the correct molecules.
+    """
 
+    coverage_filter = workflow_components.CoverageFilter()
+    coverage_filter.allowed_ids = ['a1']
+
+    mols = get_tautomers()
+    # we have to remove duplicated records
+
+
+    result = coverage_filter.apply(mols)
+
+    assert False is True
