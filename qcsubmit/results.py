@@ -18,7 +18,7 @@ class SingleResult(BaseModel):
     and any extras that were calculated using scf properties.
     """
 
-    coordinates: np.ndarray
+    molecule: ptl.models.Molecule
     wbo: List[float]
     id: int
     energy: Optional[float] = None
@@ -83,7 +83,7 @@ class OptimizationEntryResult(BaseModel):
         Take a template molecule the calculations were done on and return the molecule at the coordinates requested.
         """
         molecule = self.molecule
-        geometry = unit.Quantity(self.initial_molecule.coordinates, unit=unit.bohr)
+        geometry = unit.Quantity(self.initial_molecule.molecule.geometry, unit=unit.bohr)
         molecule.add_conformer(geometry)
 
         return molecule
@@ -94,7 +94,7 @@ class OptimizationEntryResult(BaseModel):
         """
 
         molecule = self.molecule
-        geometry = unit.Quantity(self.final_molecule.coordinates, unit=unit.bohr)
+        geometry = unit.Quantity(self.final_molecule.molecule.geometry, unit=unit.bohr)
         molecule.add_conformer(geometry)
 
         return molecule
@@ -110,7 +110,7 @@ class OptimizationEntryResult(BaseModel):
 
         molecule = self.molecule
         for conformer in self.trajectory:
-            geometry = unit.Quantity(conformer.coordinates, unit=unit.bohr)
+            geometry = unit.Quantity(conformer.molecule.geometry, unit=unit.bohr)
             molecule.add_conformer(geometry)
 
         return molecule
@@ -173,10 +173,10 @@ class OptimizationEntryResult(BaseModel):
 class OptimizationResult(BaseModel):
     """
     A Optimiszation result contains metadata about the molecule which is being optimized along with each of the
-    optimization entries as each molecule may of been optimised multipule times from different starting conformations.
+    optimization entries as each molecule may of been optimised multiple times from different starting conformations.
     """
 
-    entries: Dict[str, OptimizationEntryResult] = {}
+    entries: List[OptimizationEntryResult] = []
     cmiles: Dict
     index: str
 
@@ -189,8 +189,7 @@ class OptimizationResult(BaseModel):
         """
 
         """
-        if entry.index not in self.entries:
-            self.entries[entry.index] = entry
+        self.entries.append(entry)
 
     @property
     def molecule(self) -> Molecule:
@@ -208,9 +207,9 @@ class OptimizationResult(BaseModel):
         a random conformer is returned.
         """
 
-        lowest_index = None
+        lowest_index = 0
         lowest_energy = 0
-        for index, opt_rec in self.entries.items():
+        for index, opt_rec in enumerate(self.entries):
             opt_energy = opt_rec.finial_energy
             if opt_energy < lowest_energy:
                 lowest_energy = opt_energy
@@ -218,7 +217,7 @@ class OptimizationResult(BaseModel):
 
         return self.entries[lowest_index]
 
-    def detect_conectivity_changes(self, wbo_threshold: float = 0.75) -> Dict[str, bool]:
+    def detect_conectivity_changes(self, wbo_threshold: float = 0.75) -> Dict[int, bool]:
         """
         Detect any connectivity changes in the optimization entries and report them.
 
@@ -227,7 +226,7 @@ class OptimizationResult(BaseModel):
             `True` indicates the connectivity did change, `False` indicates it did not.
         """
 
-        conectivity_changes = dict((index, opt_rec.connectivity_changed(wbo_threshold)) for index, opt_rec in self.entries.items())
+        conectivity_changes = dict((index, opt_rec.connectivity_changed(wbo_threshold)) for index, opt_rec in enumerate(self.entries))
         return conectivity_changes
 
     @property
@@ -259,10 +258,14 @@ class OptimizationCollectionResult(BaseModel):
         json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
 
     @classmethod
-    def from_server(cls, client: ptl.FractalClient, spec_name: str, dataset_name: str, include_trajectory: bool = False) -> "OptimizationCollectionResult":
+    def from_server(cls, client: ptl.FractalClient, spec_name: str, dataset_name: str, include_trajectory: bool = False,
+                    final_molecule_only: Optional[bool] = False) -> "OptimizationCollectionResult":
         """
         Build up the collection result from a OptimizationDatset on a archive client this will also collapse the
         records into entries for the same molecules.
+
+        Parameters:
+            chunk: The chunk of results that should be pulled from the results.
         """
 
         # build the input object
@@ -279,44 +282,59 @@ class OptimizationCollectionResult(BaseModel):
         query = opt_ds.query(spec_name)
         collection = {}
         # start loop through the records and adding them to the collection
-        for i, (index, opt) in tqdm(enumerate(opt_ds.data.records.items())):
-            opt_ref = query.iloc[i]
-            if opt_ref.status.value.upper() == 'COMPLETE':
+        for index, opt in opt_ds.data.records.items():
+            opt_record = query.loc[opt.name]
+            if opt_record.status.value.upper() == 'COMPLETE':
                 # get the common identifier
                 common_name = opt.attributes['canonical_isomeric_smiles']
                 if common_name not in collection:
                     # build up a list of molecules and results and pull them from the database
-                    collection[common_name] = {'index': common_name, 'cmiles': opt.attributes, 'entries': {}}
-
-                entry = {'index': index, 'id': opt_ref.id, 'trajectory_records': [opt_ref.trajectory[0], opt_ref.trajectory[-1]],
-                         'cmiles': opt.attributes['canonical_isomeric_explicit_hydrogen_mapped_smiles'], 'trajectory_molecules': [opt_ref.initial_molecule, opt_ref.final_molecule]}
-                collection[common_name]['entries'][index] = entry
+                    collection[common_name] = {'index': common_name, 'cmiles': opt.attributes, 'entries': []}
+                if final_molecule_only:
+                    traj = [opt_record.trajectory[-1]]
+                    molecules = [opt_record.final_molecule]
+                else:
+                    traj = [opt_record.trajectory[0], opt_record.trajectory[-1]]
+                    molecules = [opt_record.initial_molecule, opt_record.final_molecule]
+                entry = {'index': index, 'id': opt_record.id, 'trajectory_records': traj,
+                         'cmiles': opt.attributes['canonical_isomeric_explicit_hydrogen_mapped_smiles'], 'trajectory_molecules': molecules}
+                collection[common_name]['entries'].append(entry)
 
         # now process the list into chucks that can be queried
-        molecules = {}
-        results = {}
-        i = 0
+        query_molecules = []
+        query_results = []
         for data in collection.values():
-            for entry in data['entries'].values():
+            for entry in data['entries']:
                 for (result, molecule) in zip(entry['trajectory_records'], entry['trajectory_molecules']):
-                    molecules[molecule] = i
-                    results[result] = i
-                    i += 1
+                    query_molecules.append(molecule)
+                    query_results.append(result)
 
-        # now we need to get the molecule from the client
-        client_molecules = client.query_molecules(id=[key for key in molecules.keys()])
-        client_results = client.query_results(id=[key for key in results.keys()])
+
+        print('requested molecules', len(query_molecules))
+        print('requested results', len(query_results))
+        # use multi-processing to do parallel requests
+        client_molecules = []
+        client_results = []
+        # chunk the dataset into a query limit bites and put them into the request queue
+        for i in tqdm(range(0, len(query_molecules), client.query_limit)):
+            client_molecules.extend(client.query_molecules(id=query_molecules[i: i + client.query_limit]))
+            client_results.extend(client.query_results(id=query_results[i: i + client.query_limit]))
+
+
+        # make into a look up table
+        molecules_table = dict((molecule.id, molecule) for molecule in client_molecules)
+        results_table = dict((result.id, result) for result in client_results)
 
         # now we need to build up the collection from the gathered results
         for data in collection.values():
             opt_result = OptimizationResult(index=data['index'], cmiles=data['cmiles'])
-            for entry in data['entries'].values():
+            for entry in data['entries']:
                 trajectory = []
                 for (result_id, molecule_id) in zip(entry['trajectory_records'], entry['trajectory_molecules']):
                     # now we need to make the single results
-                    molecule = client_molecules[molecules[molecule_id]]
-                    result = client_results[results[result_id]]
-                    trajectory.append(SingleResult(coordinates=molecule.geometry, wbo=result.extras['qcvars']['WIBERG_LOWDIN_INDICES'],
+                    molecule = molecules_table[molecule_id]
+                    result = results_table[result_id]
+                    trajectory.append(SingleResult(molecule=molecule, wbo=result.extras['qcvars']['WIBERG_LOWDIN_INDICES'],
                                                    energy=result.extras['qcvars']['CURRENT ENERGY'], gradient=result.return_result,
                                                    id=result.id))
 
