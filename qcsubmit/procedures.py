@@ -37,7 +37,7 @@ class GeometricProcedure(BaseModel):
     tmax: float = 0.3
     maxiter: int = 300
     convergence_set: str = 'GAU'
-    constraints: Dict = None
+    constraints: Dict = {}
 
     class Config:
         validate_assignment = True

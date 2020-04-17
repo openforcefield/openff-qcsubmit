@@ -439,7 +439,7 @@ class BasicDatasetFactory(BaseModel):
             # now submit the molecule
             dataset.add_molecule(index=self.create_index(molecule=order_mol),
                                  molecule=order_mol,
-                                 cmiles=self.create_cmiles_metadata(molecule=order_mol))
+                                 attributes=self.create_cmiles_metadata(molecule=order_mol))
 
         # now we need to add the filtered molecules
         for component_name, result in filtered_molecules.items():

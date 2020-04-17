@@ -9,7 +9,7 @@ from openforcefield.topology import Molecule
 import numpy as np
 from simtk import unit
 import qcportal as ptl
-from tqdm import tqdm
+import pandas as pd
 
 
 class SingleResult(BaseModel):
@@ -148,7 +148,7 @@ class OptimizationEntryResult(BaseModel):
 
         return result
 
-    def connectivity_changed(self, wbo_threshold: float = 0.75) -> bool:
+    def connectivity_changed(self, wbo_threshold: float = 0.74) -> bool:
         """
         Detect if the connectivity has changed from the input cmiles specification or not using the WBO.
 
@@ -210,14 +210,14 @@ class OptimizationResult(BaseModel):
         lowest_index = 0
         lowest_energy = 0
         for index, opt_rec in enumerate(self.entries):
-            opt_energy = opt_rec.finial_energy
+            opt_energy = opt_rec.final_energy
             if opt_energy < lowest_energy:
                 lowest_energy = opt_energy
                 lowest_index = index
 
         return self.entries[lowest_index]
 
-    def detect_conectivity_changes(self, wbo_threshold: float = 0.75) -> Dict[int, bool]:
+    def detect_conectivity_changes(self, wbo_threshold: float = 0.74) -> Dict[int, bool]:
         """
         Detect any connectivity changes in the optimization entries and report them.
 
@@ -259,13 +259,18 @@ class OptimizationCollectionResult(BaseModel):
 
     @classmethod
     def from_server(cls, client: ptl.FractalClient, spec_name: str, dataset_name: str, include_trajectory: bool = False,
-                    final_molecule_only: Optional[bool] = False) -> "OptimizationCollectionResult":
+                    final_molecule_only: Optional[bool] = False, subset: Optional[List[str]] = None) -> "OptimizationCollectionResult":
         """
         Build up the collection result from a OptimizationDatset on a archive client this will also collapse the
         records into entries for the same molecules.
 
         Parameters:
-            chunk: The chunk of results that should be pulled from the results.
+            client: The fractal client we should contact to pull the results from.
+            spec_name: The spec the data was calculated with that we want results for.
+            dataset_name: The name of the Optimization set we want to pull down.
+            include_trajectory: If we should include the full trajectory when downloading the data this can be quite slow.
+            final_molecule_only: Only down load the final geometry of each entry.
+            subset: The chunk of result indexs that we should pull down.
         """
 
         # build the input object
@@ -279,10 +284,35 @@ class OptimizationCollectionResult(BaseModel):
         collection_result = OptimizationCollectionResult.parse_obj(data)
 
         # query the database to get all of the optimization records
-        query = opt_ds.query(spec_name)
+        if subset is None:
+            query = opt_ds.query(spec_name)
+        else:
+            # build a list of procedures to request
+            procedures = {}
+            for index in subset:
+                entry = opt_ds.data.records[index]
+                procedures[entry.name] = entry.object_map[spec_name]
+            # now do the query
+            client_procedures = []
+            for i in range(0, len(procedures), client.query_limit):
+                client_procedures.extend(client.query_procedures(id=list(procedures.values())[i: i + client.query_limit]))
+            # now we need to create the dummy pd dataframe
+            proc_lookup = {x.id: x for x in client_procedures}
+            data = []
+            for name, oid in procedures.items():
+                data.append([name, proc_lookup[oid]])
+            df = pd.DataFrame(data, columns=["index", spec_name])
+            df.set_index("index", inplace=True)
+            query = df[spec_name]
+
         collection = {}
+        # build the list of records to check
+        if subset is None:
+            subset = list(opt_ds.data.records.keys())
+
         # start loop through the records and adding them to the collection
-        for index, opt in opt_ds.data.records.items():
+        for index in subset:
+            opt = opt_ds.data.records[index]
             opt_record = query.loc[opt.name]
             if opt_record.status.value.upper() == 'COMPLETE':
                 # get the common identifier
@@ -312,11 +342,10 @@ class OptimizationCollectionResult(BaseModel):
 
         print('requested molecules', len(query_molecules))
         print('requested results', len(query_results))
-        # use multi-processing to do parallel requests
         client_molecules = []
         client_results = []
-        # chunk the dataset into a query limit bites and put them into the request queue
-        for i in tqdm(range(0, len(query_molecules), client.query_limit)):
+        # chunk the dataset into a query limit bites and request
+        for i in range(0, len(query_molecules), client.query_limit):
             client_molecules.extend(client.query_molecules(id=query_molecules[i: i + client.query_limit]))
             client_results.extend(client.query_results(id=query_results[i: i + client.query_limit]))
 
