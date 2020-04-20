@@ -11,8 +11,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+
       - name: Python Setup
-      - uses: actions/setup-python@v1
+        uses: actions/setup-python@v1
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -23,9 +24,11 @@ jobs:
           python setup.py develop --no-deps
 
       - name: Install black
+        shell: bash
         run: |
           pip install black
 
       - name: Run black
+        shell: bash
         run: |
           black qcsubmit --check
