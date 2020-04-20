@@ -23,20 +23,20 @@ jobs:
           # - 3.8
         cfg:
           - os: ubuntu-latest
-            rdkit: true
-            openeye: false
+            rdkit: "true"
+            openeye: "false"
 
           - os: ubuntu-latest
-            rdkit: false
-            openeye: true
+            rdkit: "false"
+            openeye: "true"
 
           - os: ubuntu-latest
-            rdkit: true
-            openeye: true
+            rdkit: "true"
+            openeye: "true"
 
           - os: macOS-latest
-            rdkit: true
-            openeye: true
+            rdkit: "true"
+            openeye: "true"
 
     env:
       CI_OS: ${{ matrix.cfg.os }}
@@ -49,6 +49,13 @@ jobs:
       - uses: actions/checkout@v2
         with:
           path: main
+
+      - name: Checkout openforcefield
+        uses: actions/checkout@v2
+        with:
+          repository: openforcefield/openforcefield
+          path: openforcefield
+
       - name: Additional info about the build
         shell: bash
         run: |
@@ -91,18 +98,11 @@ jobs:
           if [[ "$OPENEYE" == true ]]; then
             python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
           fi
+          cd "$GITHUB_WORKSPACE"/openforcefield/
+          python -m pip install --no-deps .
+          cd "$GITHUB_WORKSPACE"/main/
           python -m pip install --no-deps .
 
-      - name: Checkout openforcefield
-        uses: actions/checkout@v2
-        with:
-          repository: openforcefield/openforcefield
-          path: openforcefield
-        shell: bash
-        run: |
-          . devtools/gh-actions/initialize_conda.sh
-          conda activate test
-          python -m pip install --no-deps .
 
       - name: Test the package
         with:
