@@ -4,7 +4,6 @@ channels:
   - conda-forge
   - omnia
   - defaults
-  - psi4
 
 dependencies:
     # Base depends
@@ -22,8 +21,7 @@ dependencies:
   - fragmenter
   - qcportal
   - qcengine
-  - psi4
 
     # Pip-only installs
-  - pip:
-    - torchani
+#  - pip:
+#    - torchani
