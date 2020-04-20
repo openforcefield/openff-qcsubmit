@@ -70,6 +70,7 @@ jobs:
       - name: Configure conda
         shell: bash
         run: |
+          cd "$GITHUB_WORKSPACE"/main/
           . devtools/gh-actions/initialize_conda.sh
           conda activate
           conda config --set always_yes yes
