@@ -93,11 +93,11 @@ jobs:
           . devtools/gh-actions/initialize_conda.sh
           conda activate test
           conda remove openforcefield --force
-          cd
+          cd ~
           git clone https://github.com/openforcefield/openforcefield.git
           cd openforcefield
           python -m pip install --no-deps .
-          cd
+          cd ~
           cd qcsubmit
       - name: Test the package
         shell: bash
