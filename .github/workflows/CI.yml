@@ -47,6 +47,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          path: main
       - name: Additional info about the build
         shell: bash
         run: |
@@ -76,6 +78,8 @@ jobs:
         run: |
           echo "${ENC_OE_LICENSE}" > ${OE_LICENSE}
       - name: Prepare test enviroment
+        with:
+          path: main
         shell: bash
         run: |
           . devtools/gh-actions/initialize_conda.sh
@@ -83,23 +87,26 @@ jobs:
           python devtools/scripts/create_conda_env.py -n=test -p=$PYVER devtools/conda-envs/test_env.yaml
           conda activate test
           if [[ "$RDKIT" == false ]]; then conda uninstall rdkit --force; fi
-          if [[ "$OPENEYE" == true ]]; then conda install openeye-toolkits
+          if [[ "$OPENEYE" == false ]]; then conda uninstall openeye-toolkits --force: fi
+          if [[ "$OPENEYE" == true ]]; then
             python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
           fi
           python -m pip install --no-deps .
-      - name: Get openforcefield master branch
+
+      - name: Checkout openforcefield
+        uses: actions/checkout@v2
+        with:
+          repository: openforcefield/openforcefield
+          path: openforcefield
         shell: bash
         run: |
           . devtools/gh-actions/initialize_conda.sh
           conda activate test
-          conda remove openforcefield --force
-          cd ~
-          git clone https://github.com/openforcefield/openforcefield.git
-          cd openforcefield
           python -m pip install --no-deps .
-          cd ~
-          cd qcsubmit
+
       - name: Test the package
+        with:
+          path: main
         shell: bash
         run: |
           . devtools/gh-actions/initialize_conda.sh
