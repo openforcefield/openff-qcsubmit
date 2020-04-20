@@ -88,6 +88,7 @@ jobs:
       - name: Prepare test enviroment
         shell: bash
         run: |
+          cd "$GITHUB_WORKSPACE"/main/
           . devtools/gh-actions/initialize_conda.sh
           conda activate
           python devtools/scripts/create_conda_env.py -n=test -p=$PYVER devtools/conda-envs/test_env.yaml
@@ -97,15 +98,14 @@ jobs:
           if [[ "$OPENEYE" == true ]]; then
             python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
           fi
+          python -m pip install --no-deps .
           cd "$GITHUB_WORKSPACE"/openforcefield/
           python -m pip install --no-deps .
-          cd "$GITHUB_WORKSPACE"/main/
-          python -m pip install --no-deps .
-
 
       - name: Test the package
         shell: bash
         run: |
+          cd "$GITHUB_WORKSPACE"/main/
           . devtools/gh-actions/initialize_conda.sh
           conda activate test
           pytest qcsubmit --verbose --ignore=examples --ignore=docs
