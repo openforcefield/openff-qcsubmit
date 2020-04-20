@@ -93,15 +93,17 @@ jobs:
           . devtools/gh-actions/initialize_conda.sh
           conda activate test
           conda remove openforcefield --force
+          cd
           git clone https://github.com/openforcefield/openforcefield.git
           cd openforcefield
           python -m pip install --no-deps .
+          cd qcsubmit
       - name: Test the package
         shell: bash
         run: |
           . devtools/gh-actions/initialize_conda.sh
           conda activate test
-          pytest --verbose --ignore=examples --ignore=docs --cov=qcsubmit --cov-config=setup.cfg
+          pytest qcsubmit --verbose --ignore=examples --ignore=docs
 
       - name: Codecov
         uses: codecov/codecov-action@v1

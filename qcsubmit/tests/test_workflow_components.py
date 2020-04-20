@@ -429,6 +429,6 @@ def test_coverage_filter():
     mols = get_tautomers()
     # we have to remove duplicated records
 
-    result = coverage_filter.apply(mols)
+    # result = coverage_filter.apply(mols)
 
     assert False is True
