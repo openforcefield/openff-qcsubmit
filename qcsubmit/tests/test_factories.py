@@ -44,9 +44,9 @@ def test_adding_workflow_components():
         factory.add_workflow_component(3)
 
     with pytest.raises(ValidationError):
-        factory.workflow = {'first compoent': 3}
+        factory.workflow = {"first compoent": 3}
 
-    factory.workflow = {'testconformer': conformer_gen}
+    factory.workflow = {"testconformer": conformer_gen}
 
     assert len(factory.workflow) == 1
 
@@ -138,11 +138,7 @@ def test_clear_workflow():
     assert factory.workflow == {}
 
 
-@pytest.mark.parametrize('file_type',
-                         [
-                             pytest.param('json', id='json'),
-                             pytest.param('yaml', id='yaml')
-                         ])
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 def test_exporting_settings_no_workflow(file_type):
     """
     Test exporting the settings to different file types.
@@ -152,11 +148,11 @@ def test_exporting_settings_no_workflow(file_type):
         os.chdir(temp)
         factory = BasicDatasetFactory()
 
-        changed_attrs = {'method': 'test method', 'basis': 'test basis', 'program': 'test program', 'tag': 'test tag'}
+        changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "tag": "test tag"}
         for attr, value in changed_attrs.items():
             setattr(factory, attr, value)
 
-        file_name = 'test.' + file_type
+        file_name = "test." + file_type
 
         factory.export_settings(file_name=file_name)
 
@@ -166,11 +162,7 @@ def test_exporting_settings_no_workflow(file_type):
                 assert value in data
 
 
-@pytest.mark.parametrize('file_type',
-                         [
-                             pytest.param('json', id='json'),
-                             pytest.param('yaml', id='yaml')
-                         ])
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 def test_exporting_settings_workflow(file_type):
     """
     Test exporting the settings and a workflow to the different file types.
@@ -180,7 +172,7 @@ def test_exporting_settings_workflow(file_type):
         os.chdir(temp)
 
         factory = BasicDatasetFactory()
-        changed_attrs = {'method': 'test method', 'basis': 'test basis', 'program': 'test program', 'tag': 'test tag'}
+        changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "tag": "test tag"}
         for attr, value in changed_attrs.items():
             setattr(factory, attr, value)
 
@@ -188,7 +180,7 @@ def test_exporting_settings_workflow(file_type):
         conformer_gen.max_conformers = 100
         factory.add_workflow_component(conformer_gen)
 
-        file_name = 'test.' + file_type
+        file_name = "test." + file_type
 
         factory.export_settings(file_name=file_name)
 
@@ -198,11 +190,7 @@ def test_exporting_settings_workflow(file_type):
             assert str(conformer_gen.max_conformers) in data
 
 
-@pytest.mark.parametrize('file_type',
-                         [
-                             pytest.param('json', id='json'),
-                             pytest.param('yaml', id='yaml')
-                         ])
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 def test_importing_settings_no_workflow(file_type):
     """
     Test importing the settings with no workflow components from the supported file types.
@@ -210,19 +198,20 @@ def test_importing_settings_no_workflow(file_type):
 
     factory = BasicDatasetFactory()
 
-    file_name = 'settings.' + file_type
+    file_name = "settings." + file_type
     factory.import_settings(get_data(file_name))
 
-    changed_attrs = {'method': 'loaded method', 'basis': 'loaded basis', 'program': 'loaded program', 'tag': 'loaded tag'}
+    changed_attrs = {
+        "method": "loaded method",
+        "basis": "loaded basis",
+        "program": "loaded program",
+        "tag": "loaded tag",
+    }
     for attr, value in changed_attrs.items():
         assert getattr(factory, attr) == value
 
 
-@pytest.mark.parametrize('file_type',
-                         [
-                             pytest.param('json', id='json'),
-                             pytest.param('yaml', id='yaml')
-                         ])
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 def test_importing_settings_workflow(file_type):
     """
     Test importing the settings and a workflow from the supported file types.
@@ -230,26 +219,26 @@ def test_importing_settings_workflow(file_type):
 
     factory = BasicDatasetFactory()
 
-    file_name = 'settings_with_workflow.' + file_type
+    file_name = "settings_with_workflow." + file_type
     factory.import_settings(get_data(file_name))
 
-    changed_attrs = {'method': 'loaded method', 'basis': 'loaded basis', 'program': 'loaded program',
-                     'tag': 'loaded tag'}
+    changed_attrs = {
+        "method": "loaded method",
+        "basis": "loaded basis",
+        "program": "loaded program",
+        "tag": "loaded tag",
+    }
     for attr, value in changed_attrs.items():
         assert getattr(factory, attr) == value
 
     assert len(factory.workflow) == 1
-    assert 'StandardConformerGenerator' in factory.workflow
-    component = factory.get_workflow_component('StandardConformerGenerator')
-    assert component.component_description == 'loaded component'
+    assert "StandardConformerGenerator" in factory.workflow
+    component = factory.get_workflow_component("StandardConformerGenerator")
+    assert component.component_description == "loaded component"
     assert isinstance(component, workflow_components.StandardConformerGenerator) is True
 
 
-@pytest.mark.parametrize('file_type',
-                         [
-                             pytest.param('json', id='json'),
-                             pytest.param('yaml', id='yaml')
-                         ])
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 def test_import_workflow_only(file_type):
     """
     Test importing a workflow only from a workflow file.
@@ -259,19 +248,15 @@ def test_import_workflow_only(file_type):
 
     factory2 = BasicDatasetFactory()
 
-    file_name = 'settings_with_workflow.' + file_type
+    file_name = "settings_with_workflow." + file_type
 
     factory.import_workflow(get_data(file_name))
     # make sure the settings have not changed from default
-    assert factory.dict(exclude={'workflow'}) == factory2.dict(exclude={'workflow'})
+    assert factory.dict(exclude={"workflow"}) == factory2.dict(exclude={"workflow"})
     assert len(factory.workflow) == 1
 
 
-@pytest.mark.parametrize('file_type',
-                         [
-                             pytest.param('json', id='json'),
-                             pytest.param('yaml', id='yaml')
-                         ])
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 def test_export_workflow_only(file_type):
     """
     Test exporting the workflow only from the factory.
@@ -286,7 +271,7 @@ def test_export_workflow_only(file_type):
 
         factory.add_workflow_component(conformer_gen)
 
-        file_name = 'workflow.' + file_type
+        file_name = "workflow." + file_type
         factory.export_workflow(file_name)
 
         with open(file_name) as workflow:
@@ -303,7 +288,7 @@ def test_basic_factory_index():
 
     factory = BasicDatasetFactory()
 
-    mol = Molecule.from_smiles('CC')
+    mol = Molecule.from_smiles("CC")
 
     index = factory.create_index(mol)
 
@@ -316,23 +301,25 @@ def test_basic_factory_cmiles():
     """
 
     factory = BasicDatasetFactory()
-    mol = Molecule.from_smiles('CC')
+    mol = Molecule.from_smiles("CC")
 
     cmiles_factory = factory.create_cmiles_metadata(mol)
 
     # now make our own cmiles
-    test_cmiles = {'canonical_smiles': mol.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False),
-                   'canonical_isomeric_smiles': mol.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False),
-                   'canonical_explicit_hydrogen_smiles': mol.to_smiles(isomeric=False, explicit_hydrogens=True,
-                                                                       mapped=False),
-                   'canonical_isomeric_explicit_hydrogen_smiles': mol.to_smiles(isomeric=True, explicit_hydrogens=True,
-                                                                                mapped=False),
-                   'canonical_isomeric_explicit_hydrogen_mapped_smiles': mol.to_smiles(isomeric=True,
-                                                                                       explicit_hydrogens=True,
-                                                                                       mapped=True),
-                   'molecular_formula': mol.hill_formula,
-                   'standard_inchi': mol.to_inchi(fixed_hydrogens=False),
-                   'inchi_key': mol.to_inchikey(fixed_hydrogens=False)}
+    test_cmiles = {
+        "canonical_smiles": mol.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False),
+        "canonical_isomeric_smiles": mol.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False),
+        "canonical_explicit_hydrogen_smiles": mol.to_smiles(isomeric=False, explicit_hydrogens=True, mapped=False),
+        "canonical_isomeric_explicit_hydrogen_smiles": mol.to_smiles(
+            isomeric=True, explicit_hydrogens=True, mapped=False
+        ),
+        "canonical_isomeric_explicit_hydrogen_mapped_smiles": mol.to_smiles(
+            isomeric=True, explicit_hydrogens=True, mapped=True
+        ),
+        "molecular_formula": mol.hill_formula,
+        "standard_inchi": mol.to_inchi(fixed_hydrogens=False),
+        "inchi_key": mol.to_inchikey(fixed_hydrogens=False),
+    }
     assert test_cmiles == cmiles_factory
 
 
@@ -344,9 +331,9 @@ def test_optimization_driver():
     factory = OptimizationDatasetFactory()
 
     with pytest.raises(DriverError):
-        factory.driver = 'energy'
+        factory.driver = "energy"
 
-    assert factory.driver == 'gradient'
+    assert factory.driver == "gradient"
 
 
 def test_torsiondrive_index():
@@ -354,15 +341,15 @@ def test_torsiondrive_index():
     Test generating an index using torsiondrive, this should tag the atoms in the torsion.
     """
 
-    mol = Molecule.from_file(get_data('methanol.sdf'))
+    mol = Molecule.from_file(get_data("methanol.sdf"))
 
-    mol.properties['atom_map'] = {4: 0, 0: 1, 1: 2, 5: 3}
+    mol.properties["atom_map"] = {4: 0, 0: 1, 1: 2, 5: 3}
 
     factory = TorsiondriveDatasetFactory()
 
     index = factory.create_index(mol)
 
-    tags = ['[C:2]', '[H:1]', '[O:3]', '[H:4]']
+    tags = ["[C:2]", "[H:1]", "[O:3]", "[H:4]"]
     for tag in tags:
         assert tag in index
 
@@ -373,7 +360,7 @@ def test_torsiondrive_linear_torsion():
     """
 
     factory = TorsiondriveDatasetFactory()
-    molecules = Molecule.from_file(get_data('linear_molecules.sdf'), 'sdf', allow_undefined_stereo=True)
+    molecules = Molecule.from_file(get_data("linear_molecules.sdf"), "sdf", allow_undefined_stereo=True)
 
     for molecule in molecules:
         assert bool(factory._detect_linear_torsions(molecule)) is True
@@ -386,7 +373,7 @@ def test_torsiondrive_torsion_string():
 
     factory = TorsiondriveDatasetFactory()
 
-    methanol = Molecule.from_file(get_data('methanol.sdf'), 'sdf')
+    methanol = Molecule.from_file(get_data("methanol.sdf"), "sdf")
 
     rotatable = methanol.find_rotatable_bonds()
     assert len(rotatable) == 1
@@ -415,20 +402,20 @@ def test_create_basic_dataset():
     element_filter.allowed_elements = [1, 6, 8, 7]
     factory.add_workflow_component(element_filter)
 
-    mols = Molecule.from_file(get_data('tautomers.smi'), 'smi', allow_undefined_stereo=True)
+    mols = Molecule.from_file(get_data("tautomers.smi"), "smi", allow_undefined_stereo=True)
 
     # set some settings
-    changed_attrs = {'method': 'test method', 'basis': 'test basis', 'program': 'test program', 'tag': 'test tag'}
+    changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "tag": "test tag"}
     for attr, value in changed_attrs.items():
         setattr(factory, attr, value)
 
-    dataset = factory.create_dataset(dataset_name='test name', molecules=mols)
+    dataset = factory.create_dataset(dataset_name="test name", molecules=mols)
 
     # check the attributes were changed
     for attr, value in changed_attrs.items():
         assert getattr(dataset, attr) == value
 
-    assert dataset.dataset_name == 'test name'
+    assert dataset.dataset_name == "test name"
 
     assert isinstance(dataset, BasicDataSet) is True
 
@@ -436,5 +423,3 @@ def test_create_basic_dataset():
     assert dataset.dataset != {}
     assert dataset.filtered != {}
     assert element_filter.component_name in dataset.filtered_molecules
-
-

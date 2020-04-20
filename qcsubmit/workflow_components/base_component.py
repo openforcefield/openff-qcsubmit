@@ -71,17 +71,19 @@ class ToolkitValidator(BaseModel):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    toolkit: str = 'openeye'
-    _toolkits: Dict = {'rdkit': RDKitToolkitWrapper, 'openeye': OpenEyeToolkitWrapper}
+    toolkit: str = "openeye"
+    _toolkits: Dict = {"rdkit": RDKitToolkitWrapper, "openeye": OpenEyeToolkitWrapper}
 
-    @validator('toolkit')
+    @validator("toolkit")
     def _check_toolkit(cls, toolkit):
         """
         Make sure that toolkit is one of the supported types in the OFFTK.
         """
         if toolkit not in cls._toolkits.keys():
-            raise ValueError(f'The requested toolkit ({toolkit}) is not support by the OFFTK to generate conformers. '
-                             f'Please chose from {cls._toolkits.keys()}.')
+            raise ValueError(
+                f"The requested toolkit ({toolkit}) is not support by the OFFTK to generate conformers. "
+                f"Please chose from {cls._toolkits.keys()}."
+            )
         else:
             return toolkit
 
@@ -95,13 +97,15 @@ class ToolkitValidator(BaseModel):
 
         import openforcefield
 
-        provenance = {'OpenforcefieldToolkit': openforcefield.__version__}
-        if self.toolkit == 'rdkit':
+        provenance = {"OpenforcefieldToolkit": openforcefield.__version__}
+        if self.toolkit == "rdkit":
             import rdkit
-            provenance['rdkit'] = rdkit.__version__
 
-        elif self.toolkit == 'openeye':
+            provenance["rdkit"] = rdkit.__version__
+
+        elif self.toolkit == "openeye":
             import openeye
-            provenance['openeye'] = openeye.__version__
+
+            provenance["openeye"] = openeye.__version__
 
         return provenance

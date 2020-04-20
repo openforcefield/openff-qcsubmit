@@ -47,8 +47,7 @@ class MolecularWeightFilter(CustomWorkflowComponent):
 
         from simtk import unit
 
-        result = ComponentResult(component_name=self.component_name,
-                                 component_description=self.dict())
+        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
         for molecule in molecules:
             total_weight = sum([atom.element.mass.value_in_unit(unit.daltons) for atom in molecule.atoms])
 
@@ -72,7 +71,7 @@ class MolecularWeightFilter(CustomWorkflowComponent):
 
         from simtk import openmm
 
-        provenance = {'OpenforcefieldToolkit': openforcefield.__version__, 'openmm_units': openmm.__version__}
+        provenance = {"OpenforcefieldToolkit": openforcefield.__version__, "openmm_units": openmm.__version__}
 
         return provenance
 
@@ -107,9 +106,9 @@ class ElementFilter(CustomWorkflowComponent):
     component_description = "Filter out molecules who contain elements not in the allowed element list"
     component_fail_message = "Molecule contained elements not in the allowed elements list"
 
-    allowed_elements: List[Union[int, str]] = ['H', 'C', 'N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I']
+    allowed_elements: List[Union[int, str]] = ["H", "C", "N", "O", "F", "P", "S", "Cl", "Br", "I"]
 
-    @validator('allowed_elements', each_item=True)
+    @validator("allowed_elements", each_item=True)
     def check_allowed_elements(cls, element: Union[str, int]) -> Union[str, int]:
         """
         Check that each item can be cast to a valid element.
@@ -129,7 +128,7 @@ class ElementFilter(CustomWorkflowComponent):
                 e = Element.getBySymbol(element)
                 return element
             except KeyError:
-                raise KeyError(f'An element could not be determined from symbol {element}, please eneter symbols only.')
+                raise KeyError(f"An element could not be determined from symbol {element}, please eneter symbols only.")
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -145,11 +144,12 @@ class ElementFilter(CustomWorkflowComponent):
         """
         from simtk.openmm.app import Element
 
-        result = ComponentResult(component_name=self.component_name,
-                                 component_description=self.dict())
+        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
 
         # First lets convert the allowed_elements list to ints as this is what is stored in the atom object
-        _allowed_elements = [Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele for ele in self.allowed_elements]
+        _allowed_elements = [
+            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele for ele in self.allowed_elements
+        ]
 
         # now apply the filter
         for molecule in molecules:
@@ -174,7 +174,8 @@ class ElementFilter(CustomWorkflowComponent):
         """
 
         from simtk import openmm
-        provenance = {'openmm_elements': openmm.__version__}
+
+        provenance = {"openmm_elements": openmm.__version__}
 
         return provenance
 
@@ -198,13 +199,13 @@ class CoverageFilter(CustomWorkflowComponent):
         A value of None in a list will let all molecules through.
     """
 
-    component_name = 'CoverageFilter'
-    component_description = 'Filter the molecules based on the requested FF allowed parameters.'
-    component_fail_message = 'The molecule was typed with disallowed parameters.'
+    component_name = "CoverageFilter"
+    component_description = "Filter the molecules based on the requested FF allowed parameters."
+    component_fail_message = "The molecule was typed with disallowed parameters."
 
     allowed_ids: Optional[List[str]] = None
     filtered_ids: Optional[List[str]] = None
-    forcefield: str = 'openff_unconstrained-1.0.0.offxml'
+    forcefield: str = "openff_unconstrained-1.0.0.offxml"
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -220,9 +221,9 @@ class CoverageFilter(CustomWorkflowComponent):
         """
 
         # pass all of the molecules then filter ones that have elements that are not allowed
-        result = ComponentResult(component_name=self.component_name,
-                                 component_description=self.dict(),
-                                 molecules=molecules)
+        result = ComponentResult(
+            component_name=self.component_name, component_description=self.dict(), molecules=molecules
+        )
 
         # the forcefield we are testing against
         forcefield = ForceField(self.forcefield)
@@ -251,7 +252,9 @@ class CoverageFilter(CustomWorkflowComponent):
         """
         import openforcefields
 
-        provenance = {'oopenforcefields': openforcefields.__version__,
-                      'OpenforcefieldToolkit': openforcefield.__version__}
+        provenance = {
+            "oopenforcefields": openforcefields.__version__,
+            "OpenforcefieldToolkit": openforcefield.__version__,
+        }
 
         return provenance

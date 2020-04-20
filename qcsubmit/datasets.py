@@ -21,7 +21,13 @@ class ComponentResult:
     If a molecule in the molecules list is then filtered it will be removed from the molecules list.
     """
 
-    def __init__(self, component_name: str,  component_description: Dict, molecules: Optional[Union[List[Molecule], Molecule]] = None, input_file: Optional[str] = None):
+    def __init__(
+        self,
+        component_name: str,
+        component_description: Dict,
+        molecules: Optional[Union[List[Molecule], Molecule]] = None,
+        input_file: Optional[str] = None,
+    ):
         """Register the list of molecules to process."""
 
         # use a set to automatically remove duplicates
@@ -30,7 +36,7 @@ class ComponentResult:
         self.component_name: str = component_name
         self.component_description: Dict = component_description
 
-        assert molecules or input_file is None, 'Provide either a list of molecules or an input file name.'
+        assert molecules or input_file is None, "Provide either a list of molecules or an input file name."
 
         # if we have an input file load it
         if input_file is not None:
@@ -57,9 +63,9 @@ class ComponentResult:
             isomorphic, mapping = Molecule.are_isomorphic(molecule, self.molecules[mol_id], return_atom_map=True)
             assert isomorphic is True
             # transfer any torsion indexs for similar fragments
-            if 'torsion_index' in molecule.properties:
-                for torsion_index, dihedral_range in molecule.properties['torsion_index'].items():
-                    self.molecules[mol_id].properties['torsion_index'][torsion_index] = dihedral_range
+            if "torsion_index" in molecule.properties:
+                for torsion_index, dihedral_range in molecule.properties["torsion_index"].items():
+                    self.molecules[mol_id].properties["torsion_index"][torsion_index] = dihedral_range
 
             if molecule.n_conformers != 0:
 
@@ -105,29 +111,32 @@ class ComponentResult:
 
 class BasicDataSet(BaseModel):
     """
-    The general qcfractal dataset class which contains all of the molecules and information about them prior to submission.
-    The class is a simple holder of the dataset and information about it and can do simple checks on the data before submitting it such as ensuring that the molecules have cmiles information
+    The general qcfractal dataset class which contains all of the molecules and information about them prior to
+    submission.
+
+    The class is a simple holder of the dataset and information about it and can do simple checks on the data before
+    submitting it such as ensuring that the molecules have cmiles information
     and a unique index to be identified by.
 
     Note:
         The molecules in this dataset are all expanded so that different conformers are unique submissions.
     """
 
-    dataset_name: str = 'BasicDataSet'
+    dataset_name: str = "BasicDataSet"
     dataset_tagline: str = "OpenForcefield single point evaluations."
-    method: str = 'B3LYP-D3BJ'
-    basis: Optional[str] = 'DZVP'
-    program: str = 'psi4'
+    method: str = "B3LYP-D3BJ"
+    basis: Optional[str] = "DZVP"
+    program: str = "psi4"
     maxiter: int = 200
-    driver: str = 'energy'
-    scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
-    spec_name: str = 'default'
-    spec_description: str = 'Standard OpenFF optimization quantum chemistry specification.'
-    priority: str = 'normal'
-    tag: str = 'openff'
+    driver: str = "energy"
+    scf_properties: List[str] = ["dipole", "qudrupole", "wiberg_lowdin_indices"]
+    spec_name: str = "default"
+    spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
+    priority: str = "normal"
+    tag: str = "openff"
     dataset: Dict[str, Dict] = {}  # the molecules which are to be submitted
     filtered_molecules: Dict[str, Dict] = {}  # the molecules which have been filtered out
-    _file_writers = {'json': json.dump}
+    _file_writers = {"json": json.dump}
 
     class Config:
         arbitrary_types_allowed: bool = True
@@ -147,7 +156,7 @@ class BasicDataSet(BaseModel):
         """
 
         for component, data in self.filtered_molecules.items():
-            for smiles in data['molecules']:
+            for smiles in data["molecules"]:
                 yield Molecule.from_smiles(smiles, allow_undefined_stereo=True)
 
     @property
@@ -158,7 +167,7 @@ class BasicDataSet(BaseModel):
         Returns:
             The total number of molecules filtered.
         """
-        filterd = sum([len(data['molecules']) for data in self.filtered_molecules.values()])
+        filterd = sum([len(data["molecules"]) for data in self.filtered_molecules.values()])
         return filterd
 
     @property
@@ -176,7 +185,7 @@ class BasicDataSet(BaseModel):
             The number of records and molecules added is not always the same this can be checked using `n_molecules`.
         """
 
-        n_records = sum([len(data['initial_molecules']) for data in self.dataset.values()])
+        n_records = sum([len(data["initial_molecules"]) for data in self.dataset.values()])
         return n_records
 
     @property
@@ -213,9 +222,12 @@ class BasicDataSet(BaseModel):
 
         for index_name, molecule_data in self.dataset.items():
             # create the molecule from the cmiles data
-            offmol = Molecule.from_mapped_smiles(mapped_smiles=molecule_data['attributes']['canonical_isomeric_explicit_hydrogen_mapped_smiles'], allow_undefined_stereo=True)
+            offmol = Molecule.from_mapped_smiles(
+                mapped_smiles=molecule_data["attributes"]["canonical_isomeric_explicit_hydrogen_mapped_smiles"],
+                allow_undefined_stereo=True,
+            )
             offmol.name = index_name
-            for conformer in molecule_data['initial_molecules']:
+            for conformer in molecule_data["initial_molecules"]:
                 geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
                 offmol.add_conformer(geometry.in_units_of(unit.angstrom))
             yield offmol
@@ -241,7 +253,7 @@ class BasicDataSet(BaseModel):
             A list of dictionaries containing inormation about the components ran during the generation of the dataset.
         """
 
-        components = [data['component_description'] for data in self.filtered_molecules.values()]
+        components = [data["component_description"] for data in self.filtered_molecules.values()]
         return components
 
     def filter_molecules(self, molecules: Union[Molecule, List[Molecule]], component_description: Dict) -> None:
@@ -256,8 +268,10 @@ class BasicDataSet(BaseModel):
             # make into a list
             molecules = [molecules]
 
-        self.filtered_molecules[component_description['component_name']] = {'component_description': component_description,
-                                                                            'molecules': [molecule.to_smiles(isomeric=True, explicit_hydrogens=True) for molecule in molecules]}
+        self.filtered_molecules[component_description["component_name"]] = {
+            "component_description": component_description,
+            "molecules": [molecule.to_smiles(isomeric=True, explicit_hydrogens=True) for molecule in molecules],
+        }
 
     def add_molecule(self, index: str, molecule: Molecule, attributes: Dict[str, str]) -> None:
         """
@@ -277,8 +291,7 @@ class BasicDataSet(BaseModel):
 
         schema_mols = [molecule.to_qcschema(conformer=conformer) for conformer in range(molecule.n_conformers)]
 
-        self.dataset[index] = {'attributes': attributes,
-                               'initial_molecules': schema_mols}
+        self.dataset[index] = {"attributes": attributes, "initial_molecules": schema_mols}
 
     def _clean_index(self, index: str) -> Tuple[str, int]:
         """
@@ -297,9 +310,9 @@ class BasicDataSet(BaseModel):
             new index should start from 'CC-3'.
         """
         # tags take the form '-no'
-        match = re.search('-[0-9]+$', index)
+        match = re.search("-[0-9]+$", index)
         if match is not None:
-            index = index[:match.span()[0]]
+            index = index[: match.span()[0]]
             # drop the -
             tag = int(match.group()[1:])
         else:
@@ -324,13 +337,18 @@ class BasicDataSet(BaseModel):
         target_client = self._activate_client(client)
         # work out if we are extending a collection
         try:
-            collection = target_client.get_collection('Dataset', self.dataset_name)
+            collection = target_client.get_collection("Dataset", self.dataset_name)
         except KeyError:
-            collection = ptl.collections.Dataset(name=self.dataset_name, client=target_client,
-                                                 default_driver=self.driver, default_program=self.program, tagline=self.dataset_tagline)
+            collection = ptl.collections.Dataset(
+                name=self.dataset_name,
+                client=target_client,
+                default_driver=self.driver,
+                default_program=self.program,
+                tagline=self.dataset_tagline,
+            )
 
         # store the keyword set into the collection
-        kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
+        kw = ptl.models.KeywordSet(values=self.dict(include={"maxiter", "scf_properties"}))
         try:
             # try and add the keywords if present then continue
             collection.add_keywords(alias=self.spec_name, program=self.program, keyword=kw, default=True)
@@ -344,8 +362,8 @@ class BasicDataSet(BaseModel):
             # check if the index we have been supplied has a number tag already if so start from this tag
             index, tag = self._clean_index(index=index)
 
-            for j, molecule in enumerate(data['initial_molecules']):
-                name = index + f'-{tag + j}'
+            for j, molecule in enumerate(data["initial_molecules"]):
+                name = index + f"-{tag + j}"
                 try:
                     collection.add_entry(name=name, molecule=molecule)
                     i += 1
@@ -361,8 +379,14 @@ class BasicDataSet(BaseModel):
         collection.save()
 
         # submit the calculations
-        response = collection.compute(method=self.method, basis=self.basis, keywords=self.spec_name,
-                                      program=self.program, tag=self.tag, priority=self.priority)
+        response = collection.compute(
+            method=self.method,
+            basis=self.basis,
+            keywords=self.spec_name,
+            program=self.program,
+            tag=self.tag,
+            priority=self.priority,
+        )
 
         collection.save()
 
@@ -392,24 +416,25 @@ class BasicDataSet(BaseModel):
 
         import copy
 
-        file_type = file_name.split('.')[-1]
-        data = self.dict(exclude={'dataset'})
-        data['dataset'] = {}
+        file_type = file_name.split(".")[-1]
+        data = self.dict(exclude={"dataset"})
+        data["dataset"] = {}
 
         for index, molecule in self.dataset.items():
-            molecules = list(mol.dict(encoding='json') for mol in molecule['initial_molecules'])
+            molecules = list(mol.dict(encoding="json") for mol in molecule["initial_molecules"])
             mol_data = copy.deepcopy(molecule)
-            mol_data['initial_molecules'] = molecules
-            data['dataset'][index] = mol_data
+            mol_data["initial_molecules"] = molecules
+            data["dataset"][index] = mol_data
 
         try:
             writer = self._file_writers[file_type]
-            with open(file_name, 'w') as output:
-                if file_type == 'json':
+            with open(file_name, "w") as output:
+                if file_type == "json":
                     writer(data, output, indent=2)
         except KeyError:
-            raise UnsupportedFiletypeError(f'The requested file type {file_type} is not supported please use '
-                                           f'json or yaml')
+            raise UnsupportedFiletypeError(
+                f"The requested file type {file_type} is not supported please use " f"json or yaml"
+            )
 
     def coverage_report(self, forcefields: List[str]) -> Dict:
         """
@@ -427,8 +452,14 @@ class BasicDataSet(BaseModel):
         from openforcefield.utils.structure import get_molecule_parameterIDs
 
         coverage = {}
-        param_types = {'a': 'Angles', 'b': 'Bonds', 'c': 'Constraints', 't': 'ProperTorsions', 'i': 'ImproperTorsions',
-                       'n': 'vdW'}
+        param_types = {
+            "a": "Angles",
+            "b": "Bonds",
+            "c": "Constraints",
+            "t": "ProperTorsions",
+            "i": "ImproperTorsions",
+            "n": "vdW",
+        }
         if isinstance(forcefields, str):
             forcefields = [forcefields]
 
@@ -460,7 +491,7 @@ class BasicDataSet(BaseModel):
 
         if isinstance(client, ptl.FractalClient):
             return client
-        elif client == 'public':
+        elif client == "public":
             return ptl.FractalClient()
         else:
             return ptl.FractalClient.from_file(client)
@@ -477,34 +508,38 @@ class BasicDataSet(BaseModel):
             - INCKIKEY
         """
 
-        file_writers = {'smi': self._molecules_to_smiles, 'inchi': self._molecules_to_inchi,
-                        'inchikey': self._molecules_to_inchikey}
+        file_writers = {
+            "smi": self._molecules_to_smiles,
+            "inchi": self._molecules_to_inchi,
+            "inchikey": self._molecules_to_inchikey,
+        }
 
         try:
             # get the list of molecules
             molecules = file_writers[file_type]()
 
-            with open(file_name, 'w') as output:
+            with open(file_name, "w") as output:
                 for molecule in molecules:
-                    output.write(f'{molecule}\n')
+                    output.write(f"{molecule}\n")
         except KeyError:
-            raise UnsupportedFiletypeError(f'The requested file type {file_type} is not supported, supported types are'
-                                           f'{file_writers.keys()}.')
+            raise UnsupportedFiletypeError(
+                f"The requested file type {file_type} is not supported, supported types are" f"{file_writers.keys()}."
+            )
 
     def _molecules_to_smiles(self) -> List[str]:
         """
         Create a list of molecules canonical smiles.
         """
 
-        smiles = [data['attributes']['canonical_smiles'] for data in self.dataset.values()]
+        smiles = [data["attributes"]["canonical_smiles"] for data in self.dataset.values()]
         return smiles
-    
+
     def _molecules_to_inchi(self) -> List[str]:
         """
         Create a list of the molecules standard InChI.
         """
 
-        inchi = [data['attributes']['standard_inchi'] for data in self.dataset.values()]
+        inchi = [data["attributes"]["standard_inchi"] for data in self.dataset.values()]
         return inchi
 
     def _molecules_to_inchikey(self) -> List[str]:
@@ -512,7 +547,7 @@ class BasicDataSet(BaseModel):
         Create a list of the molecules standard InChIKey.
         """
 
-        inchikey = [data['attributes']['inchi_key'] for data in self.dataset.values()]
+        inchikey = [data["attributes"]["inchi_key"] for data in self.dataset.values()]
         return inchikey
 
 
@@ -522,9 +557,9 @@ class OptimizationDataset(BasicDataSet):
     optimization datasets in the public or local qcarcive instance.
     """
 
-    dataset_name = 'OptimizationDataset'
+    dataset_name = "OptimizationDataset"
     dataset_tagline = "OpenForcefield optimizations."
-    driver = 'gradient'
+    driver = "gradient"
     optimization_program: GeometricProcedure = GeometricProcedure()
 
     def _add_keywords(self, client: ptl.FractalClient) -> str:
@@ -535,7 +570,7 @@ class OptimizationDataset(BasicDataSet):
             The keyword index number in the client.
         """
 
-        kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
+        kw = ptl.models.KeywordSet(values=self.dict(include={"maxiter", "scf_properties"}))
         kw_id = client.add_keywords([kw])[0]
         return kw_id
 
@@ -550,8 +585,8 @@ class OptimizationDataset(BasicDataSet):
             The dictionary representation of the QC specification
         """
 
-        qc_spec = self.dict(include={'driver', 'method', 'basis', 'program'})
-        qc_spec['keywords'] = keyword_id
+        qc_spec = self.dict(include={"driver", "method", "basis", "program"})
+        qc_spec["keywords"] = keyword_id
 
         return qc_spec
 
@@ -572,10 +607,11 @@ class OptimizationDataset(BasicDataSet):
         target_client = self._activate_client(client)
         # work out if we are extending a collection
         try:
-            collection = target_client.get_collection('OptimizationDataset', self.dataset_name)
+            collection = target_client.get_collection("OptimizationDataset", self.dataset_name)
         except KeyError:
-            collection = ptl.collections.OptimizationDataset(name=self.dataset_name, client=target_client,
-                                                             tagline=self.dataset_tagline)
+            collection = ptl.collections.OptimizationDataset(
+                name=self.dataset_name, client=target_client, tagline=self.dataset_tagline
+            )
 
         # store the keyword set into the collection
         kw_id = self._add_keywords(target_client)
@@ -583,8 +619,13 @@ class OptimizationDataset(BasicDataSet):
         opt_spec = self.optimization_program.get_optimzation_spec()
         # create the qc specification
         qc_spec = self.get_qc_spec(keyword_id=kw_id)
-        collection.add_specification(name=self.spec_name, optimization_spec=opt_spec, qc_spec=qc_spec,
-                                     description=self.spec_description, overwrite=True)
+        collection.add_specification(
+            name=self.spec_name,
+            optimization_spec=opt_spec,
+            qc_spec=qc_spec,
+            description=self.spec_description,
+            overwrite=True,
+        )
 
         i = 0
         # now add the molecules to the database, saving every 30 for speed
@@ -592,14 +633,16 @@ class OptimizationDataset(BasicDataSet):
             # check if the index we have been supplied has a number tag already if so start from this tag
             index, tag = self._clean_index(index=index)
 
-            for j, molecule in enumerate(data['initial_molecules']):
-                name = index + f'-{tag + j}'
+            for j, molecule in enumerate(data["initial_molecules"]):
+                name = index + f"-{tag + j}"
                 try:
-                    collection.add_entry(name=name, initial_molecule=molecule, attributes=data['attributes'], save=False)
+                    collection.add_entry(
+                        name=name, initial_molecule=molecule, attributes=data["attributes"], save=False
+                    )
                     i += 1
                 except KeyError:
                     continue
-                    
+
                 finally:
                     if i % 30 == 0:
                         # save the added entries
@@ -619,8 +662,8 @@ class OptimizationDataset(BasicDataSet):
         #     pass
         #
         # return result
-    
-    
+
+
 class TorsiondriveDataset(OptimizationDataset):
     """
     An torsiondrive dataset class which handles submission of settings differently from the basic dataset, and creates
@@ -631,10 +674,12 @@ class TorsiondriveDataset(OptimizationDataset):
          by case basis they can be defined for each torsion in a molecule separately in the properties attribute of the
         molecule. For example `mol.properties['dihedral_range'] = (-165, 180)`
     """
-    
+
     dataset_name = "TorsionDriveDataset"
     dataset_tagline = "OpenForcefield TorsionDrives."
-    optimization_program: GeometricProcedure = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
+    optimization_program: GeometricProcedure = GeometricProcedure.parse_obj(
+        {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
+    )
     grid_spacings: List[int] = [15]
     energy_upper_limit: float = 0.05
     dihedral_ranges: Optional[List[Tuple[int, int]]] = None
@@ -654,30 +699,45 @@ class TorsiondriveDataset(OptimizationDataset):
             Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
             calculations.
         """
-        
+
         target_client = self._activate_client(client)
         # work out if we are extending a collection
         try:
-            collection = target_client.get_collection('TorsionDriveDataset', self.dataset_name)
+            collection = target_client.get_collection("TorsionDriveDataset", self.dataset_name)
         except KeyError:
-            collection = ptl.collections.TorsionDriveDataset(name=self.dataset_name, client=target_client,
-                                                             default_driver=self.driver, default_program=self.program,
-                                                             tagline=self.dataset_tagline)
+            collection = ptl.collections.TorsionDriveDataset(
+                name=self.dataset_name,
+                client=target_client,
+                default_driver=self.driver,
+                default_program=self.program,
+                tagline=self.dataset_tagline,
+            )
         # store the keyword set into the collection
         kw_id = self._add_keywords(target_client)
         # create the optimization specification
         opt_spec = self.optimization_program.get_optimzation_spec()
         # create the qc specification
         qc_spec = self.get_qc_spec(keyword_id=kw_id)
-        collection.add_specification(name=self.spec_name, optimization_spec=opt_spec, qc_spec=qc_spec,
-                                     description=self.spec_description, overwrite=True)
+        collection.add_specification(
+            name=self.spec_name,
+            optimization_spec=opt_spec,
+            qc_spec=qc_spec,
+            description=self.spec_description,
+            overwrite=True,
+        )
 
         # start add the molecule to the dataset, multipule conformers/molecules can be used as the starting geometry
         for i, (index, data) in enumerate(self.dataset.items()):
             try:
-                collection.add_entry(name=index, initial_molecules=data['initial_molecules'], dihedrals=data['torsion_index'],
-                                     grid_spacing=self.grid_spacings, energy_upper_limit=self.energy_upper_limit,
-                                     attributes=data['attributes'], energy_decrease_thresh=self.energy_decrease_thresh)
+                collection.add_entry(
+                    name=index,
+                    initial_molecules=data["initial_molecules"],
+                    dihedrals=data["torsion_index"],
+                    grid_spacing=self.grid_spacings,
+                    energy_upper_limit=self.energy_upper_limit,
+                    attributes=data["attributes"],
+                    energy_decrease_thresh=self.energy_decrease_thresh,
+                )
             except KeyError:
                 continue
             finally:
@@ -690,7 +750,9 @@ class TorsiondriveDataset(OptimizationDataset):
 
         return response
 
-    def add_molecule(self, index: str, molecule: Molecule, attributes: Dict[str, str], atom_indices: Tuple[int, int, int, int]) -> None:
+    def add_molecule(
+        self, index: str, molecule: Molecule, attributes: Dict[str, str], atom_indices: Tuple[int, int, int, int]
+    ) -> None:
         """
         Add a molecule to the dataset under the given index with the passed cmiles.
 
@@ -708,9 +770,7 @@ class TorsiondriveDataset(OptimizationDataset):
 
         schema_mols = [molecule.to_qcschema(conformer=conformer) for conformer in range(molecule.n_conformers)]
 
-        self.dataset[index] = {'attributes': attributes,
-                               'initial_molecules': schema_mols,
-                               'atom_indices': atom_indices}
+        self.dataset[index] = {"attributes": attributes, "initial_molecules": schema_mols, "atom_indices": atom_indices}
 
     def filter_molecules(self, molecules: Union[Molecule, List[Molecule]], component_description: Dict) -> None:
         """
@@ -727,8 +787,12 @@ class TorsiondriveDataset(OptimizationDataset):
             # make into a list
             molecules = [molecules]
 
-        self.filtered_molecules[component_description['component_name']] = {'component_description': component_description,
-                                                                            'molecules': [molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True) for molecule in molecules]}
+        self.filtered_molecules[component_description["component_name"]] = {
+            "component_description": component_description,
+            "molecules": [
+                molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True) for molecule in molecules
+            ],
+        }
 
 
 # class QCFractalDataset(object):

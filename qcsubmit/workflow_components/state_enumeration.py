@@ -41,8 +41,7 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        result = ComponentResult(component_name=self.component_name,
-                                 component_description=self.dict())
+        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
 
         toolkit = self._toolkits[self.toolkit]()
 
@@ -103,17 +102,18 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        result = ComponentResult(component_name=self.component_name,
-                                 component_description=self.dict())
+        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
 
         toolkit = self._toolkits[self.toolkit]()
 
         for molecule in molecules:
             try:
-                isomers = molecule.enumerate_stereoisomers(undefined_only=self.undefined_only,
-                                                           max_isomers=self.max_isomers,
-                                                           rationalise=self.rationalise,
-                                                           toolkit_registry=toolkit)
+                isomers = molecule.enumerate_stereoisomers(
+                    undefined_only=self.undefined_only,
+                    max_isomers=self.max_isomers,
+                    rationalise=self.rationalise,
+                    toolkit_registry=toolkit,
+                )
                 if self.include_input:
                     result.add_molecule(molecule)
 
@@ -157,8 +157,7 @@ class EnumerateFormalcharges(ToolkitValidator, CustomWorkflowComponent):
 
         from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
 
-        result = ComponentResult(component_name=self.component_name,
-                                 component_description=self.dict())
+        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
 
         # must have openeye to use this feature
         if OpenEyeToolkitWrapper.is_available():

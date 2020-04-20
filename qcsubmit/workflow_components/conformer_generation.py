@@ -16,7 +16,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     """
 
     # standard components which must be defined
-    component_name = 'StandardConformerGenerator'
+    component_name = "StandardConformerGenerator"
     component_description = "Generate conformations for the given molecules"
     component_fail_message = "Conformers could not be generated"
 
@@ -27,17 +27,16 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         "test apply the conformers"
 
-        result = ComponentResult(component_name=self.component_name,
-                                 component_description=self.dict())
+        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
 
         # create the toolkit
         toolkit = self._toolkits[self.toolkit]()
 
         for molecule in molecules:
             try:
-                molecule.generate_conformers(n_conformers=self.max_conformers,
-                                             clear_existing=self.clear_existing,
-                                             toolkit_registry=toolkit)
+                molecule.generate_conformers(
+                    n_conformers=self.max_conformers, clear_existing=self.clear_existing, toolkit_registry=toolkit
+                )
 
             # need to catch more specific exceptions here.
             except Exception:

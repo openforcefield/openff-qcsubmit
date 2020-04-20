@@ -17,7 +17,8 @@ class GeometricProcedure(BaseModel):
         epsilon: Small eigenvalue threshold.
         reset: Reset the Hessian when the eigenvalues are under epsilon.
         qccnv: Q-Chem style convergence criteria (i.e. gradient and either energy or displacement).
-        molcnv: Molpro style convergence criteria (i.e. gradient and either energy or displacement, with different defaults).
+        molcnv: Molpro style convergence criteria
+            (i.e. gradient and either energy or displacement, with different defaults).
         check: The interval for checking the coordinate system for changes.
         trust: Starting value of the trust radius.
         tmax: Maximum value of trust radius.
@@ -25,8 +26,8 @@ class GeometricProcedure(BaseModel):
         convergence_set: The set of convergence criteria to be used for the optimisation.
     """
 
-    program: str = 'geometric'
-    coordsys: str = 'tric'
+    program: str = "geometric"
+    coordsys: str = "tric"
     enforce: float = 0.0
     epsilon: float = 1e-5
     reset: bool = False
@@ -36,14 +37,14 @@ class GeometricProcedure(BaseModel):
     trust: float = 0.1
     tmax: float = 0.3
     maxiter: int = 300
-    convergence_set: str = 'GAU'
+    convergence_set: str = "GAU"
     constraints: Dict = {}
 
     class Config:
         validate_assignment = True
-        title = 'GeometricProcedure'
+        title = "GeometricProcedure"
 
-    @validator('coordsys')
+    @validator("coordsys")
     def check_coordsys(cls, coordsys: str):
         """
         Make sure the user is assigning a valid geometric coordinate system.
@@ -63,13 +64,13 @@ class GeometricProcedure(BaseModel):
             - `hdlc` Hybrid Delocalised Internal Coordinates
             - `tric` Translation-Rotation-Internal Coordinates, this is the default default
         """
-        allowed_coordsys = ['cart', 'prim', 'dlc', 'hdlc', 'tric']
+        allowed_coordsys = ["cart", "prim", "dlc", "hdlc", "tric"]
         if coordsys.lower() in allowed_coordsys:
             return coordsys.lower()
         else:
-            raise ValueError(f'{coordsys} is not supported by geometric please pass a valid coordinate system.')
+            raise ValueError(f"{coordsys} is not supported by geometric please pass a valid coordinate system.")
 
-    @validator('convergence_set')
+    @validator("convergence_set")
     def check_convergence_set(cls, convergence: str):
         """
         Ensure a valid convergence set of criteria has been passed.
@@ -94,12 +95,19 @@ class GeometricProcedure(BaseModel):
             | `GAU_VERYTIGHT` | Gaussian very tight | 1e-6 | 1e-6 | 2e-6 | 4e-6 | 6e-6 |
         """
 
-        allowed_convergence = ['GAU', 'NWCHEM_LOOSE', 'GAU_LOOSE', 'TURBOMOLE',
-                               'INTERFRAG_TIGHT', 'GAU_TIGHT', 'GAU_VERYTIGHT']
+        allowed_convergence = [
+            "GAU",
+            "NWCHEM_LOOSE",
+            "GAU_LOOSE",
+            "TURBOMOLE",
+            "INTERFRAG_TIGHT",
+            "GAU_TIGHT",
+            "GAU_VERYTIGHT",
+        ]
         if convergence.upper() in allowed_convergence:
             return convergence.upper()
         else:
-            raise ValueError(f'The requested convergence set {convergence} is not supported.')
+            raise ValueError(f"The requested convergence set {convergence} is not supported.")
 
     def get_optimzation_spec(self) -> Dict:
         """
@@ -108,11 +116,10 @@ class GeometricProcedure(BaseModel):
         Returns:
             A dictionary representation of the optimization specification.
         """
-        exclude = {'program'}
+        exclude = {"program"}
         if self.constraints is not None:
-            exclude.add('constraints')
+            exclude.add("constraints")
 
-        opt_spec = {'program': self.program,
-                    'keywords': self.dict(exclude=exclude)}
+        opt_spec = {"program": self.program, "keywords": self.dict(exclude=exclude)}
 
         return opt_spec

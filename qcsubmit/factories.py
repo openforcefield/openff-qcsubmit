@@ -7,8 +7,13 @@ import os
 
 from qcsubmit import workflow_components
 from qcsubmit.datasets import ComponentResult, BasicDataSet, OptimizationDataset, TorsiondriveDataset
-from qcsubmit.exceptions import UnsupportedFiletypeError, InvalidWorkflowComponentError, MissingWorkflowComponentError, \
-    InvalidClientError, DriverError
+from qcsubmit.exceptions import (
+    UnsupportedFiletypeError,
+    InvalidWorkflowComponentError,
+    MissingWorkflowComponentError,
+    InvalidClientError,
+    DriverError,
+)
 from qcsubmit.procedures import GeometricProcedure
 from qcportal import FractalClient
 
@@ -39,43 +44,44 @@ class BasicDatasetFactory(BaseModel):
         workflow: A dictionary which holds the workflow components to be executed in the set order.
     """
 
-    method: str = 'B3LYP-D3BJ'
-    basis: Optional[str] = 'DZVP'
-    program: str = 'psi4'
+    method: str = "B3LYP-D3BJ"
+    basis: Optional[str] = "DZVP"
+    program: str = "psi4"
     maxiter: int = 200
-    driver: str = 'energy'
-    scf_properties: List[str] = ['dipole', 'qudrupole', 'wiberg_lowdin_indices']
-    spec_name: str = 'default'
-    spec_description: str = 'Standard OpenFF optimization quantum chemistry specification.'
-    priority: str = 'normal'
-    tag: str = 'openff'
+    driver: str = "energy"
+    scf_properties: List[str] = ["dipole", "qudrupole", "wiberg_lowdin_indices"]
+    spec_name: str = "default"
+    spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
+    priority: str = "normal"
+    tag: str = "openff"
     workflow: Dict[str, workflow_components.CustomWorkflowComponent] = {}
     _dataset_type: BasicDataSet = BasicDataSet
 
     # hidden variable not included in the schema
-    _file_readers = {'json': json.load, 'yaml': yaml.full_load, 'yml': yaml.full_load}
-    _file_writers = {'json': json.dump, 'yaml': yaml.dump, 'yml': yaml.dump}
+    _file_readers = {"json": json.load, "yaml": yaml.full_load, "yml": yaml.full_load}
+    _file_writers = {"json": json.dump, "yaml": yaml.dump, "yml": yaml.dump}
 
     class Config:
         validate_assignment = True
         arbitrary_types_allowed = True
-        title = 'QCFractalDatasetFactory'
+        title = "QCFractalDatasetFactory"
 
-    @validator('driver')
+    @validator("driver")
     def _check_driver(cls, driver):
         """Make sure that the driver is supported."""
-        available_drivers = ['energy', 'gradient', 'hessian']
+        available_drivers = ["energy", "gradient", "hessian"]
         if driver not in available_drivers:
-            raise DriverError(f'The requested driver ({driver}) is not in the list of available '
-                              f'drivers: {available_drivers}')
+            raise DriverError(
+                f"The requested driver ({driver}) is not in the list of available " f"drivers: {available_drivers}"
+            )
         return driver
 
-    @validator('scf_properties')
+    @validator("scf_properties")
     def _check_scf_props(cls, scf_props):
         """Make sure wiberg_lowdin_indices is always included in the scf props."""
 
-        if 'wiberg_lowdin_indices' not in scf_props:
-            scf_props.append('wiberg_lowdin_indices')
+        if "wiberg_lowdin_indices" not in scf_props:
+            scf_props.append("wiberg_lowdin_indices")
             return scf_props
         else:
             return scf_props
@@ -86,7 +92,12 @@ class BasicDatasetFactory(BaseModel):
         """
         self.workflow = {}
 
-    def add_workflow_component(self, components: Union[List[workflow_components.CustomWorkflowComponent], workflow_components.CustomWorkflowComponent]) -> None:
+    def add_workflow_component(
+        self,
+        components: Union[
+            List[workflow_components.CustomWorkflowComponent], workflow_components.CustomWorkflowComponent
+        ],
+    ) -> None:
         """
         Take the workflow components validate them then insert them into the workflow.
 
@@ -108,17 +119,18 @@ class BasicDatasetFactory(BaseModel):
                     self.workflow[component.component_name] = component
                 else:
                     # we should increment the name and add it to the workflow
-                    if '@' in component.component_name:
-                        name, number = component.component_name.split('@')
+                    if "@" in component.component_name:
+                        name, number = component.component_name.split("@")
                     else:
                         name, number = component.component_name, 0
                     # set the new name
-                    component.component_name = f'{name}@{int(number) + 1}'
+                    component.component_name = f"{name}@{int(number) + 1}"
                     self.workflow[component.component_name] = component
 
             else:
-                raise InvalidWorkflowComponentError(f'Component {component} rejected as it is not a sub '
-                                                    f'class of CustomWorkflowComponent.')
+                raise InvalidWorkflowComponentError(
+                    f"Component {component} rejected as it is not a sub " f"class of CustomWorkflowComponent."
+                )
 
     def get_workflow_component(self, component_name: str) -> workflow_components.CustomWorkflowComponent:
         """
@@ -136,8 +148,9 @@ class BasicDatasetFactory(BaseModel):
 
         component = self.workflow.get(component_name, None)
         if component is None:
-            raise MissingWorkflowComponentError(f'The requested component {component_name} '
-                                                f'was not registered into the workflow.')
+            raise MissingWorkflowComponentError(
+                f"The requested component {component_name} " f"was not registered into the workflow."
+            )
 
         return component
 
@@ -156,8 +169,9 @@ class BasicDatasetFactory(BaseModel):
             del self.workflow[component_name]
 
         except KeyError:
-            raise MissingWorkflowComponentError(f'The requested component {component_name} '
-                                                f'could not be removed as it was not registered.')
+            raise MissingWorkflowComponentError(
+                f"The requested component {component_name} " f"could not be removed as it was not registered."
+            )
 
     def import_workflow(self, workflow: Union[str, Dict], clear_existing: bool = True) -> None:
         """
@@ -177,13 +191,13 @@ class BasicDatasetFactory(BaseModel):
         if isinstance(workflow, dict):
             # this should be a workflow dict that we can just load
             # if this is from the settings file make sure to unpack the dict first.
-            workflow = workflow.get('workflow', workflow)
+            workflow = workflow.get("workflow", workflow)
 
         # load in the workflow
         for key, value in workflow.items():
             # check if this is not the first instance of the component
-            if '@' in key:
-                name = key.split('@')[0]
+            if "@" in key:
+                name = key.split("@")[0]
             else:
                 name = key
             component = getattr(workflow_components, name, None)
@@ -216,10 +230,12 @@ class BasicDatasetFactory(BaseModel):
                     return data
 
             except KeyError:
-                raise UnsupportedFiletypeError(f'The requested file type {file_type} is not supported '
-                                               f'currently we can write to {self._file_writers}.')
+                raise UnsupportedFiletypeError(
+                    f"The requested file type {file_type} is not supported "
+                    f"currently we can write to {self._file_writers}."
+                )
         else:
-            raise RuntimeError(f'The file {file_name} could not be found.')
+            raise RuntimeError(f"The file {file_name} could not be found.")
 
     def export_workflow(self, file_name: str) -> None:
         """
@@ -235,17 +251,19 @@ class BasicDatasetFactory(BaseModel):
         file_type = self._get_file_type(file_name=file_name)
 
         # try and get the file writer
-        workflow = self.dict()['workflow']
+        workflow = self.dict()["workflow"]
         try:
             writer = self._file_writers[file_type]
-            with open(file_name, 'w') as output:
-                if file_type == 'json':
+            with open(file_name, "w") as output:
+                if file_type == "json":
                     writer(workflow, output, indent=2)
                 else:
                     writer(workflow, output)
         except KeyError:
-            raise UnsupportedFiletypeError(f'The requested file type {file_type} is not supported, '
-                                           f'currently we can write to {self._file_writers}.')
+            raise UnsupportedFiletypeError(
+                f"The requested file type {file_type} is not supported, "
+                f"currently we can write to {self._file_writers}."
+            )
 
     def _get_file_type(self, file_name: str) -> str:
         """
@@ -258,7 +276,7 @@ class BasicDatasetFactory(BaseModel):
             The file type extension.
         """
 
-        file_type = file_name.split('.')[-1]
+        file_type = file_name.split(".")[-1]
         return file_type
 
     def export_settings(self, file_name: str) -> None:
@@ -277,14 +295,16 @@ class BasicDatasetFactory(BaseModel):
         # try and get the file writer
         try:
             writer = self._file_writers[file_type]
-            with open(file_name, 'w') as output:
-                if file_type == 'json':
+            with open(file_name, "w") as output:
+                if file_type == "json":
                     writer(self.dict(), output, indent=2)
                 else:
                     writer(self.dict(), output)
         except KeyError:
-            raise UnsupportedFiletypeError(f'The requested file type {file_type} is not supported, '
-                                           f'currently we can write to {self._file_writers}.')
+            raise UnsupportedFiletypeError(
+                f"The requested file type {file_type} is not supported, "
+                f"currently we can write to {self._file_writers}."
+            )
 
     def import_settings(self, settings: Union[str, Dict], clear_workflow: bool = True) -> None:
         """
@@ -301,14 +321,14 @@ class BasicDatasetFactory(BaseModel):
             print(data)
 
             # take the workflow out and import the settings
-            workflow = data.pop('workflow')
+            workflow = data.pop("workflow")
 
         elif isinstance(settings, dict):
-            workflow = settings.pop('workflow')
+            workflow = settings.pop("workflow")
             data = settings
 
         else:
-            raise RuntimeError(f'The input type could not be converted into a settings dictionary.')
+            raise RuntimeError(f"The input type could not be converted into a settings dictionary.")
 
         # now set the factory meta settings
         for key, value in data.items():
@@ -334,18 +354,20 @@ class BasicDatasetFactory(BaseModel):
 
         if isinstance(client, ptl.FractalClient):
             target_client = client
-        elif client == 'public':
+        elif client == "public":
             target_client = ptl.FractalClient()
         else:
             target_client = ptl.FractalClient.from_file(client)
 
         try:
-            collection = target_client.get_collection('Dataset', dataset_name)
+            collection = target_client.get_collection("Dataset", dataset_name)
         except KeyError:
-            raise KeyError(f'The collection: {dataset_name} could not be found, you can only add compute to existing'
-                           f'collections.')
+            raise KeyError(
+                f"The collection: {dataset_name} could not be found, you can only add compute to existing"
+                f"collections."
+            )
 
-        kw = ptl.models.KeywordSet(values=self.dict(include={'maxiter', 'scf_properties'}))
+        kw = ptl.models.KeywordSet(values=self.dict(include={"maxiter", "scf_properties"}))
         try:
             # try add the keywords, if we get an error they have already been added.
             collection.add_keywords(alias=self.spec_name, program=self.program, keyword=kw, default=False)
@@ -355,8 +377,14 @@ class BasicDatasetFactory(BaseModel):
             pass
 
         # submit the calculations
-        response = collection.compute(method=self.method, basis=self.basis, keywords=self.spec_name,
-                                      program=self.program, tag=self.tag, priority=self.priority)
+        response = collection.compute(
+            method=self.method,
+            basis=self.basis,
+            keywords=self.spec_name,
+            program=self.program,
+            tag=self.tag,
+            priority=self.priority,
+        )
         collection.save()
 
         return response
@@ -396,24 +424,30 @@ class BasicDatasetFactory(BaseModel):
         Important:
             The dataset once created does not allow mutation.
         """
-        #TODO set up a logging system to report the components
+        # TODO set up a logging system to report the components
 
         #  check if we have been given an input file with molecules inside
         if isinstance(molecules, str):
             if os.path.exists(molecules):
-                workflow_molecules = ComponentResult(component_name=self.Config.title,
-                                                     component_description={'component_name': self.Config.title},
-                                                     input_file=molecules)
+                workflow_molecules = ComponentResult(
+                    component_name=self.Config.title,
+                    component_description={"component_name": self.Config.title},
+                    input_file=molecules,
+                )
 
         elif isinstance(molecules, Molecule):
-            workflow_molecules = ComponentResult(component_name=self.Config.title,
-                                                 component_description={'component_name': self.Config.title},
-                                                 molecules=[molecules])
+            workflow_molecules = ComponentResult(
+                component_name=self.Config.title,
+                component_description={"component_name": self.Config.title},
+                molecules=[molecules],
+            )
 
         else:
-            workflow_molecules = ComponentResult(component_name=self.Config.title,
-                                                 component_description={'component_name': self.Config.title},
-                                                 molecules=molecules)
+            workflow_molecules = ComponentResult(
+                component_name=self.Config.title,
+                component_description={"component_name": self.Config.title},
+                molecules=molecules,
+            )
 
         # now we need to start passing the workflow molecules to each module in the workflow
         filtered_molecules = {}
@@ -422,14 +456,16 @@ class BasicDatasetFactory(BaseModel):
             for component_name, component in self.workflow.items():
                 workflow_molecules = component.apply(molecules=workflow_molecules.molecules)
 
-                filtered_molecules[workflow_molecules.component_name] = {'component_description': workflow_molecules.component_description,
-                                                                         'molecules': workflow_molecules.filtered}
+                filtered_molecules[workflow_molecules.component_name] = {
+                    "component_description": workflow_molecules.component_description,
+                    "molecules": workflow_molecules.filtered,
+                }
 
         # first we need to instance the dataset and assign the metadata
-        object_meta = self.dict(exclude={'workflow'})
+        object_meta = self.dict(exclude={"workflow"})
 
         # the only data missing is the collection name so add it here.
-        object_meta['dataset_name'] = dataset_name
+        object_meta["dataset_name"] = dataset_name
         dataset = self._dataset_type.parse_obj(object_meta)
 
         # now add the molecules to the correct attributes
@@ -437,13 +473,17 @@ class BasicDatasetFactory(BaseModel):
             # order the molecule
             order_mol = molecule.canonical_order_atoms()
             # now submit the molecule
-            dataset.add_molecule(index=self.create_index(molecule=order_mol),
-                                 molecule=order_mol,
-                                 attributes=self.create_cmiles_metadata(molecule=order_mol))
+            dataset.add_molecule(
+                index=self.create_index(molecule=order_mol),
+                molecule=order_mol,
+                attributes=self.create_cmiles_metadata(molecule=order_mol),
+            )
 
         # now we need to add the filtered molecules
         for component_name, result in filtered_molecules.items():
-            dataset.filter_molecules(molecules=result['molecules'], component_description=result['component_description'])
+            dataset.filter_molecules(
+                molecules=result["molecules"], component_description=result["component_description"]
+            )
 
         return dataset
 
@@ -470,14 +510,22 @@ class BasicDatasetFactory(BaseModel):
             - `inchi_key`
         """
 
-        cmiles = {'canonical_smiles': molecule.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False),
-                  'canonical_isomeric_smiles': molecule.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False),
-                  'canonical_explicit_hydrogen_smiles': molecule.to_smiles(isomeric=False, explicit_hydrogens=True, mapped=False),
-                  'canonical_isomeric_explicit_hydrogen_smiles': molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=False),
-                  'canonical_isomeric_explicit_hydrogen_mapped_smiles': molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True),
-                  'molecular_formula': molecule.hill_formula,
-                  'standard_inchi': molecule.to_inchi(fixed_hydrogens=False),
-                  'inchi_key': molecule.to_inchikey(fixed_hydrogens=False)}
+        cmiles = {
+            "canonical_smiles": molecule.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False),
+            "canonical_isomeric_smiles": molecule.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False),
+            "canonical_explicit_hydrogen_smiles": molecule.to_smiles(
+                isomeric=False, explicit_hydrogens=True, mapped=False
+            ),
+            "canonical_isomeric_explicit_hydrogen_smiles": molecule.to_smiles(
+                isomeric=True, explicit_hydrogens=True, mapped=False
+            ),
+            "canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(
+                isomeric=True, explicit_hydrogens=True, mapped=True
+            ),
+            "molecular_formula": molecule.hill_formula,
+            "standard_inchi": molecule.to_inchi(fixed_hydrogens=False),
+            "inchi_key": molecule.to_inchikey(fixed_hydrogens=False),
+        }
 
         return cmiles
 
@@ -508,19 +556,20 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
     """
 
     # set the driver to be gradient this should not be changed when running
-    driver = 'gradient'
+    driver = "gradient"
     _dataset_type = OptimizationDataset
 
     # use the default geometric settings during optimisation
     optimization_program: GeometricProcedure = GeometricProcedure()
 
-    @validator('driver')
+    @validator("driver")
     def _check_driver(cls, driver):
         """Make sure that the driver is set to gradient only and not changed."""
-        available_drivers = ['gradient']
+        available_drivers = ["gradient"]
         if driver not in available_drivers:
-            raise DriverError(f'The requested driver ({driver}) is not in the list of available '
-                              f'drivers: {available_drivers}')
+            raise DriverError(
+                f"The requested driver ({driver}) is not in the list of available " f"drivers: {available_drivers}"
+            )
         return driver
 
     def add_compute(self, dataset_name: str, client: Union[str, FractalClient], await_result: bool = False) -> None:
@@ -549,7 +598,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     _dataset_type = TorsiondriveDataset
 
     # set the default settings for a torsiondrive calculation.
-    optimization_program = GeometricProcedure.parse_obj({'enforce': 0.1, 'reset': True, 'qccnv': True, 'epsilon': 0.0})
+    optimization_program = GeometricProcedure.parse_obj({"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0})
 
     def create_dataset(self, dataset_name: str, molecules: Union[str, List[Molecule], Molecule]) -> TorsiondriveDataset:
         """
@@ -581,23 +630,33 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         #  check if we have been given an input file with molecules inside
         if isinstance(molecules, str):
             if os.path.exists(molecules):
-                workflow_molecules = ComponentResult(component_name=self.Config.title,
-                                                     component_description={'component_name': self.Config.title},
-                                                     input_file=molecules)
+                workflow_molecules = ComponentResult(
+                    component_name=self.Config.title,
+                    component_description={"component_name": self.Config.title},
+                    input_file=molecules,
+                )
 
         elif isinstance(molecules, Molecule):
-            workflow_molecules = ComponentResult(component_name=self.Config.title,
-                                                 component_description={'component_name': self.Config.title},
-                                                 molecules=[molecules])
+            workflow_molecules = ComponentResult(
+                component_name=self.Config.title,
+                component_description={"component_name": self.Config.title},
+                molecules=[molecules],
+            )
 
         else:
-            workflow_molecules = ComponentResult(component_name=self.Config.title,
-                                                 component_description={'component_name': self.Config.title},
-                                                 molecules=molecules)
+            workflow_molecules = ComponentResult(
+                component_name=self.Config.title,
+                component_description={"component_name": self.Config.title},
+                molecules=molecules,
+            )
 
         # now we need to start passing the workflow molecules to each module in the workflow
-        filtered_molecules = {'LinearTorsionRemoval': {'component_description': "Remove any molecules with a linear torsions seclected to drive.",
-                              'molecules': []}}
+        filtered_molecules = {
+            "LinearTorsionRemoval": {
+                "component_description": "Remove any molecules with a linear torsions seclected to drive.",
+                "molecules": [],
+            }
+        }
 
         # if the workflow has components run it
         if self.workflow:
@@ -605,14 +664,15 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 workflow_molecules = component.apply(molecules=workflow_molecules.molecules)
 
                 filtered_molecules[workflow_molecules.component_name] = {
-                    'component_description': workflow_molecules.component_description,
-                    'molecules': workflow_molecules.filtered}
+                    "component_description": workflow_molecules.component_description,
+                    "molecules": workflow_molecules.filtered,
+                }
 
         # first we need to instance the dataset and assign the metadata
-        object_meta = self.dict(exclude={'workflow'})
+        object_meta = self.dict(exclude={"workflow"})
 
         # the only data missing is the collection name so add it here.
-        object_meta['dataset_name'] = dataset_name
+        object_meta["dataset_name"] = dataset_name
         dataset = self._dataset_type.parse_obj(object_meta)
 
         # now add the molecules to the correct attributes
@@ -622,33 +682,37 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             linear_bonds = self._detect_linear_torsions(molecule)
 
             # check if the molecule has an atom map or torsion_index defined
-            if 'atom_map' or 'torsion_index' in molecule.properties:
+            if "atom_map" or "torsion_index" in molecule.properties:
                 try:
-                    torsion_index = tuple(molecule.properties['atom_map'].keys())
+                    torsion_index = tuple(molecule.properties["atom_map"].keys())
                     if torsion_index[1:3] in linear_bonds or torsion_index[2:0:-1] in linear_bonds:
-                        filtered_molecules['LinearTorsionRemoval']['molecules'].append(molecule)
+                        filtered_molecules["LinearTorsionRemoval"]["molecules"].append(molecule)
                         continue
                     else:
                         # try and use the atom map if it present
-                        dataset.add_molecule(index=self.create_index(molecule=molecule),
-                                             molecule=molecule,
-                                             cmiles=self.create_cmiles_metadata(molecule=molecule),
-                                             atom_indices=tuple(molecule.properties['atom_map'].keys()))
+                        dataset.add_molecule(
+                            index=self.create_index(molecule=molecule),
+                            molecule=molecule,
+                            cmiles=self.create_cmiles_metadata(molecule=molecule),
+                            atom_indices=tuple(molecule.properties["atom_map"].keys()),
+                        )
 
                 except AssertionError:
                     # use the torsion_index if the atom_map is not present.
-                    for torsion_index, torsion_range in molecule.properties['torsion_index'].iteams():
+                    for torsion_index, torsion_range in molecule.properties["torsion_index"].iteams():
                         # for each torsions identified submit a molecule
-                        molecule.properties['atom_map'] = {(atom, index) for index, atom in enumerate(torsion_index)}
+                        molecule.properties["atom_map"] = {(atom, index) for index, atom in enumerate(torsion_index)}
                         if torsion_index[1:3] in linear_bonds or torsion_index[2:0:-1] in linear_bonds:
-                            filtered_molecules['LinearTorsionRemoval']['molecules'].append(molecule)
+                            filtered_molecules["LinearTorsionRemoval"]["molecules"].append(molecule)
                             continue
                         else:
-                            molecule.properties['dihedral_range'] = torsion_range
-                            dataset.add_molecule(index=self.create_index(molecule=molecule),
-                                                 molecule=molecule,
-                                                 cmiles=self.create_cmiles_metadata(molecule=molecule),
-                                                 atom_indices=torsion_index)
+                            molecule.properties["dihedral_range"] = torsion_range
+                            dataset.add_molecule(
+                                index=self.create_index(molecule=molecule),
+                                molecule=molecule,
+                                cmiles=self.create_cmiles_metadata(molecule=molecule),
+                                atom_indices=torsion_index,
+                            )
 
             else:
                 # the molecule has not had its atoms identified yet so process them here
@@ -658,16 +722,19 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 for bond in rotatble_bonds:
                     # create a torsion to hold as fixed using heavey atoms
                     torsion_index = self._get_torsion_string(order_mol, bond)
-                    order_mol.properties['atom_map'] = {(atom, index) for index, atom in enumerate(torsion_index)}
-                    dataset.add_molecule(index=self.create_index(molecule=order_mol),
-                                         molecule=order_mol,
-                                         cmiles=self.create_cmiles_metadata(molecule=order_mol),
-                                         atom_indices=torsion_index)
+                    order_mol.properties["atom_map"] = {(atom, index) for index, atom in enumerate(torsion_index)}
+                    dataset.add_molecule(
+                        index=self.create_index(molecule=order_mol),
+                        molecule=order_mol,
+                        cmiles=self.create_cmiles_metadata(molecule=order_mol),
+                        atom_indices=torsion_index,
+                    )
 
             # now we need to add the filtered molecules
         for component_name, result in filtered_molecules.items():
-            dataset.filter_molecules(molecules=result['molecules'],
-                                     component_description=result['component_description'])
+            dataset.filter_molecules(
+                molecules=result["molecules"], component_description=result["component_description"]
+            )
 
         return dataset
 
@@ -716,8 +783,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             to be rotated.
         """
 
-        assert 'atom_map' in molecule.properties.keys()
-        assert len(molecule.properties['atom_map']) == 4
+        assert "atom_map" in molecule.properties.keys()
+        assert len(molecule.properties["atom_map"]) == 4
 
         index = molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
         return index
