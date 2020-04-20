@@ -101,7 +101,7 @@ jobs:
         run: |
           . devtools/gh-actions/initialize_conda.sh
           conda activate test
-          pytest --v --ignore=examples --ignore=docs --nbval-lax --cov=qcsubmit --cov-config=setup.cfg
+          pytest --verbose --ignore=examples --ignore=docs --cov=qcsubmit --cov-config=setup.cfg
 
       - name: Codecov
         uses: codecov/codecov-action@v1
