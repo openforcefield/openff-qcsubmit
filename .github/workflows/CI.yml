@@ -55,7 +55,7 @@ jobs:
           ulimit -a
       - name: Fix conda in MacOS
         shell: bash
-        if: startsWith(matrix.cfg.os. 'macOS')
+        if: startsWith(matrix.cfg.os, 'macOS')
         run: |
           sudo chown -R $(id -u):$(id -g) ${CONDA}
       - name: Configure conda
@@ -87,16 +87,13 @@ jobs:
             python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
           fi
           python -m pip install --no-deps .
-      - name: Get openforcefield branch
+      - name: Get openforcefield master branch
         shell: bash
         run: |
           conda remove openforcefield --force
           git clone https://github.com/openforcefield/openforcefield.git
           cd openforcefield
           python -m pip install --no-deps .
-          git checkout enumerate_states
-          cd -
-          cd qcsubmit
       - name: Test the package
         shell: bash
         run: |

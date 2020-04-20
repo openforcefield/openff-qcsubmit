@@ -1,0 +1,31 @@
+name: Lint
+
+on: [push, pull-request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Python Setup
+      - uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Create Enviroment
+        shell: bash
+        run: |
+          python -m pip unstall --upgrade pip
+          python setup.py develop --no-deps
+
+      - name: Install black
+        run: |
+          pip install black
+
+      - name: Run black
+        run: |
+          black qcsubmit --check
