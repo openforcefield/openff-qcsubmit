@@ -18,7 +18,6 @@ dependencies:
   - smirnoff99Frosst
   - pyyaml
   - codecov
-  - fragmenter
   - qcportal
   - qcengine
 

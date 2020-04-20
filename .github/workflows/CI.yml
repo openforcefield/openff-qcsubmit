@@ -51,7 +51,7 @@ jobs:
           path: main
 
       - name: Checkout openforcefield
-        uses: actions/checkout@v2
+        uses: actions/checkout@master
         with:
           repository: openforcefield/openforcefield
           path: openforcefield
@@ -94,8 +94,7 @@ jobs:
           python devtools/scripts/create_conda_env.py -n=test -p=$PYVER devtools/conda-envs/test_env.yaml
           conda activate test
           if [[ "$RDKIT" == false ]]; then conda uninstall rdkit --force; fi
-          if [[ "$OPENEYE" == false ]]; then conda uninstall openeye-toolkits --force: fi
-          if [[ "$OPENEYE" == true ]]; then
+          if [[ "$OPENEYE" == true ]]; then conda install openeye-toolkits
             python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
           fi
           python -m pip install --no-deps .
