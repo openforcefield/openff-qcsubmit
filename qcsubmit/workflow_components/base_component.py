@@ -77,7 +77,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         Modify the dict method to also include the provenance information of the component.
         """
         data = super().dict(*args, **kwargs)
-        data['provenance'] = self.provenance()
+        data["provenance"] = self.provenance()
         return data
 
 

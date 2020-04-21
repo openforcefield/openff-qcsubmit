@@ -78,7 +78,7 @@ def test_custom_component():
             pass
 
         def provenance(self) -> Dict:
-            return {'test': 'version1'}
+            return {"test": "version1"}
 
         @staticmethod
         def is_available() -> bool:
@@ -88,8 +88,8 @@ def test_custom_component():
     assert test.component_name == "Test component"
     assert test.component_description == "Test component"
     assert test.component_fail_message == "Test fail"
-    assert 'provenance' in test.dict().keys()
-    assert {'test': 'version1'} == test.dict()['provenance']
+    assert "provenance" in test.dict().keys()
+    assert {"test": "version1"} == test.dict()["provenance"]
 
 
 @pytest.mark.parametrize(

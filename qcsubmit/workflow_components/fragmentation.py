@@ -89,6 +89,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
         try:
             import fragmenter
+
             return True
         except ImportError:
             return False
@@ -104,6 +105,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
             The input molecule will be removed from the dataset after fragmentation.
         """
         from fragmenter import fragment
+
         result = ComponentResult(component_name=self.component_name, component_description=self.dict())
 
         for molecule in molecules:

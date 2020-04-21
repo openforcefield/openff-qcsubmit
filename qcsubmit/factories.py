@@ -104,16 +104,18 @@ class BasicDatasetFactory(BaseModel):
             return self._provenance
 
         else:
-            provenance = {'qcsubmit': qcsubmit.__version__, 'openforcefield': openforcefield.__version__}
+            provenance = {"qcsubmit": qcsubmit.__version__, "openforcefield": openforcefield.__version__}
 
             # the toolkits are checked in the order of preference in the openforcefield toolkit.
             # TODO we need a way to capture the history of the toolkit calls.
             if OpenEyeToolkitWrapper.is_available():
                 import openeye
+
                 provenance["openeye"] = openeye.__version__
 
             elif RDKitToolkitWrapper.is_available():
                 import rdkit
+
                 provenance["rdkit"] = rdkit.__version__
 
             self._provenance = provenance
@@ -150,8 +152,10 @@ class BasicDatasetFactory(BaseModel):
         for component in components:
             if isinstance(component, workflow_components.CustomWorkflowComponent):
                 if not component.is_available():
-                    raise CompoenentRequirementError(f'The component {component.component_name} could not be added to '
-                                                     f'the workflow due to missing requirements')
+                    raise CompoenentRequirementError(
+                        f"The component {component.component_name} could not be added to "
+                        f"the workflow due to missing requirements"
+                    )
                 if component.component_name not in self.workflow.keys():
                     self.workflow[component.component_name] = component
                 else:
@@ -510,13 +514,11 @@ class BasicDatasetFactory(BaseModel):
             # order the molecule
             order_mol = molecule.canonical_order_atoms()
             attributes = self.create_cmiles_metadata(molecule=order_mol)
-            attributes['provenance'] = self.provenance()
+            attributes["provenance"] = self.provenance()
 
             # now submit the molecule
             dataset.add_molecule(
-                index=self.create_index(molecule=order_mol),
-                molecule=order_mol,
-                attributes=attributes,
+                index=self.create_index(molecule=order_mol), molecule=order_mol, attributes=attributes,
             )
 
         # now we need to add the filtered molecules

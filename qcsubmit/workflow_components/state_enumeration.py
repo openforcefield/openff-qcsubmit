@@ -140,8 +140,8 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = "The molecules formal charges could not be enumerated possibly due to a missing toolkit."
 
     # restrict the allowed toolkits for this module
-    toolkit = 'openeye'
-    _toolkits = {'openeye': OpenEyeToolkitWrapper}
+    toolkit = "openeye"
+    _toolkits = {"openeye": OpenEyeToolkitWrapper}
 
     max_states: int = 10
 
