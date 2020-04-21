@@ -75,6 +75,13 @@ class MolecularWeightFilter(CustomWorkflowComponent):
 
         return provenance
 
+    @staticmethod
+    def is_available() -> bool:
+        """
+        This filter requires only the basic modules and should always be available.
+        """
+        return True
+
 
 class ElementFilter(CustomWorkflowComponent):
     """
@@ -162,6 +169,13 @@ class ElementFilter(CustomWorkflowComponent):
 
         return result
 
+    @staticmethod
+    def is_available() -> bool:
+        """
+        This should always be available as it only requires basic packages.
+        """
+        return True
+
     def provenance(self) -> Dict:
         """
         Generate version information for all of the software used during the running of this component.
@@ -242,6 +256,13 @@ class CoverageFilter(CustomWorkflowComponent):
                         self.fail_molecule(molecule, result)
 
         return result
+
+    @staticmethod
+    def is_available() -> bool:
+        """
+        This should always be available as it only needs basic packages.
+        """
+        return True
 
     def provenance(self) -> Dict:
         """

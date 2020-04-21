@@ -1,4 +1,4 @@
-from typing import List, Union, Dict, Optional, Tuple, Any
+from typing import List, Union, Dict, Optional, Tuple
 from pydantic import BaseModel, validator
 import yaml
 import json
@@ -11,13 +11,16 @@ from qcsubmit.exceptions import (
     UnsupportedFiletypeError,
     InvalidWorkflowComponentError,
     MissingWorkflowComponentError,
-    InvalidClientError,
     DriverError,
+    CompoenentRequirementError,
 )
+import qcsubmit
 from qcsubmit.procedures import GeometricProcedure
 from qcportal import FractalClient
 
 from openforcefield.topology import Molecule, Atom
+from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
+import openforcefield
 
 
 class BasicDatasetFactory(BaseModel):
@@ -56,6 +59,7 @@ class BasicDatasetFactory(BaseModel):
     tag: str = "openff"
     workflow: Dict[str, workflow_components.CustomWorkflowComponent] = {}
     _dataset_type: BasicDataSet = BasicDataSet
+    _provenance: Dict[str, str] = {}
 
     # hidden variable not included in the schema
     _file_readers = {"json": json.load, "yaml": yaml.full_load, "yml": yaml.full_load}
@@ -86,6 +90,35 @@ class BasicDatasetFactory(BaseModel):
         else:
             return scf_props
 
+    def provenance(self) -> Dict:
+        """
+        Create the provenance of qcsubmit that created that molecule input data.
+        Returns:
+            A dict of the provenance information.
+
+        Important:
+            We can not check which toolkit was used to generate the Cmiles data be we know that openeye will always be
+            used first when available.
+        """
+        if self._provenance:
+            return self._provenance
+
+        else:
+            provenance = {'qcsubmit': qcsubmit.__version__, 'openforcefield': openforcefield.__version__}
+
+            # the toolkits are checked in the order of preference in the openforcefield toolkit.
+            # TODO we need a way to capture the history of the toolkit calls.
+            if OpenEyeToolkitWrapper.is_available():
+                import openeye
+                provenance["openeye"] = openeye.__version__
+
+            elif RDKitToolkitWrapper.is_available():
+                import rdkit
+                provenance["rdkit"] = rdkit.__version__
+
+            self._provenance = provenance
+            return provenance
+
     def clear_workflow(self) -> None:
         """
         Reset the workflow to by empty.
@@ -107,6 +140,7 @@ class BasicDatasetFactory(BaseModel):
 
         Raises:
             InvalidWorkflowComponentError: If an invalid workflow component is attempted to be added to the workflow.
+
         """
 
         if not isinstance(components, list):
@@ -115,6 +149,9 @@ class BasicDatasetFactory(BaseModel):
 
         for component in components:
             if isinstance(component, workflow_components.CustomWorkflowComponent):
+                if not component.is_available():
+                    raise CompoenentRequirementError(f'The component {component.component_name} could not be added to '
+                                                     f'the workflow due to missing requirements')
                 if component.component_name not in self.workflow.keys():
                     self.workflow[component.component_name] = component
                 else:
@@ -472,11 +509,14 @@ class BasicDatasetFactory(BaseModel):
         for molecule in workflow_molecules.molecules:
             # order the molecule
             order_mol = molecule.canonical_order_atoms()
+            attributes = self.create_cmiles_metadata(molecule=order_mol)
+            attributes['provenance'] = self.provenance()
+
             # now submit the molecule
             dataset.add_molecule(
                 index=self.create_index(molecule=order_mol),
                 molecule=order_mol,
-                attributes=self.create_cmiles_metadata(molecule=order_mol),
+                attributes=attributes,
             )
 
         # now we need to add the filtered molecules

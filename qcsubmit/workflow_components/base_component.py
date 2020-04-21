@@ -22,6 +22,17 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         validate_assignment = True
         arbitrary_types_allowed = True
 
+    @staticmethod
+    @abc.abstractmethod
+    def is_available() -> bool:
+        """
+        This method should identify if the component can be used by checking if the requirements are available.
+
+        Returns:
+            `True` if the component can be used else `False`
+        """
+        ...
+
     @abc.abstractmethod
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -61,6 +72,14 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
 
         component_result.filter_molecule(molecule)
 
+    def dict(self, *args, **kwargs):
+        """
+        Modify the dict method to also include the provenance information of the component.
+        """
+        data = super().dict(*args, **kwargs)
+        data['provenance'] = self.provenance()
+        return data
+
 
 class ToolkitValidator(BaseModel):
     """
@@ -81,7 +100,7 @@ class ToolkitValidator(BaseModel):
         """
         if toolkit not in cls._toolkits.keys():
             raise ValueError(
-                f"The requested toolkit ({toolkit}) is not support by the OFFTK to generate conformers. "
+                f"The requested toolkit ({toolkit}) is not support by the OFFTK. "
                 f"Please chose from {cls._toolkits.keys()}."
             )
         else:
@@ -109,3 +128,15 @@ class ToolkitValidator(BaseModel):
             provenance["openeye"] = openeye.__version__
 
         return provenance
+
+    @staticmethod
+    def is_available():
+        """
+        Check if any of the requested backend toolkits can be used.
+        """
+
+        for toolkit in ToolkitValidator._toolkits.values():
+            if toolkit.is_available():
+                return True
+        else:
+            return False

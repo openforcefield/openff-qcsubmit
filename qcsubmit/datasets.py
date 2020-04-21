@@ -18,19 +18,33 @@ class ComponentResult:
     the molecules. For example if a molecule is already in the molecules list it will not be added but any conformers
     will be kept and transferred.
 
+
     If a molecule in the molecules list is then filtered it will be removed from the molecules list.
     """
 
     def __init__(
         self,
         component_name: str,
-        component_description: Dict,
+        component_description: Dict[str, str],
         molecules: Optional[Union[List[Molecule], Molecule]] = None,
         input_file: Optional[str] = None,
     ):
-        """Register the list of molecules to process."""
+        """Register the list of molecules to process.
 
-        # use a set to automatically remove duplicates
+        Parameters
+        ----------
+        component_name : str,
+            The name of the component that produced this result.
+        component_description : Dict[str, Any],
+            The dictionary representation of the component which details the function and running parameters.
+        component_provenance : Dict[str, str],
+            The dictionary of the modules used and there version number when running the component.
+        molecules : openforcefield.topology.Molecule or List, optional, default=None
+            The list of molecules that have been possessed by a component and returned as a result.
+        input_file : str, optional, default=None,
+            The name of the input file used to produce the result if not from a component.
+        """
+
         self.molecules: List[Molecule] = []
         self.filtered: List[Molecule] = []
         self.component_name: str = component_name

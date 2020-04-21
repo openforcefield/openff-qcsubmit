@@ -1,9 +1,7 @@
 """
 Components that aid with Fragmentation of molecules.
 """
-
 from typing import List, Union, Dict
-from fragmenter import fragment
 from .base_component import CustomWorkflowComponent, ToolkitValidator
 from ..datasets import ComponentResult
 from pydantic import validator
@@ -83,6 +81,18 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         else:
             return functional_group
 
+    @staticmethod
+    def is_available() -> bool:
+        """
+        Check if fragmenter can be imported.
+        """
+
+        try:
+            import fragmenter
+            return True
+        except ImportError:
+            return False
+
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Fragment the molecules using the WBOFragmenter.
@@ -93,7 +103,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         Important:
             The input molecule will be removed from the dataset after fragmentation.
         """
-
+        from fragmenter import fragment
         result = ComponentResult(component_name=self.component_name, component_description=self.dict())
 
         for molecule in molecules:

@@ -174,6 +174,9 @@ class OptimizationEntryResult(BaseModel):
         # grab the molecule with its bonds
         molecule = self.molecule
         # cast the wbo into the correct shape
+        if self.final_molecule.wbo is None:
+            # if the wbo is missing return None
+            return None
         wbo = np.array(self.final_molecule.wbo).reshape((molecule.n_atoms, molecule.n_atoms))
         # now loop over the molecule bonds and make sure we find a bond in the array
         for bond in molecule.bonds:
@@ -397,11 +400,14 @@ class OptimizationCollectionResult(BaseModel):
                     # now we need to make the single results
                     molecule = molecules_table[molecule_id]
                     result = results_table[result_id]
+                    # check if the qcvars are present
+                    # can be missing for MM and ANI calculations
+                    extras = result.extras.get("qcvars", None)
                     trajectory.append(
                         SingleResult(
                             molecule=molecule,
-                            wbo=result.extras["qcvars"]["WIBERG_LOWDIN_INDICES"],
-                            energy=result.extras["qcvars"]["CURRENT ENERGY"],
+                            wbo=extras.get("WIBERG_LOWDIN_INDICES", None) if extras is not None else None,
+                            energy=result.properties.return_energy,
                             gradient=result.return_result,
                             id=result.id,
                         )

@@ -10,7 +10,8 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     """
     Standard conformer generator using the OFFTK and the back end toolkits.
 
-    Note:
+    Notes
+    -----
         The provenance information and toolkit settings are handled by the
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
@@ -21,11 +22,20 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = "Conformers could not be generated"
 
     # custom components for this class
-    max_conformers: int = 20
+    max_conformers: int = 10
     clear_existing: bool = True
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
-        "test apply the conformers"
+        """
+         Generate conformers for the molecules using the selected toolkit backend.
+
+         Parameters:
+            molecules: The list of molecules the component should be applied on.
+
+        Returns:
+            A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
+            that passed and were filtered by the component and details about the component which generated the result.
+        """
 
         result = ComponentResult(component_name=self.component_name, component_description=self.dict())
 

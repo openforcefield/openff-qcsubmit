@@ -5,6 +5,7 @@ from typing import List
 from .base_component import CustomWorkflowComponent, ToolkitValidator
 from qcsubmit.datasets import ComponentResult
 from openforcefield.topology import Molecule
+from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
 
 
 class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
@@ -126,7 +127,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
         return result
 
 
-class EnumerateFormalcharges(ToolkitValidator, CustomWorkflowComponent):
+class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     """
     Enumerate the formal charges of the input molecule using the backend toolkits through the OFFTK.
 
@@ -134,9 +135,13 @@ class EnumerateFormalcharges(ToolkitValidator, CustomWorkflowComponent):
         Only Openeye is supported so far.
     """
 
-    component_name = "EnumerateFormalcharges"
+    component_name = "EnumerateProtomers"
     component_description = "Enumerate the protomers of the molecule if possible."
     component_fail_message = "The molecules formal charges could not be enumerated possibly due to a missing toolkit."
+
+    # restrict the allowed toolkits for this module
+    toolkit = 'openeye'
+    _toolkits = {'openeye': OpenEyeToolkitWrapper}
 
     max_states: int = 10
 
@@ -165,7 +170,7 @@ class EnumerateFormalcharges(ToolkitValidator, CustomWorkflowComponent):
             for molecule in molecules:
 
                 try:
-                    protomers = molecule.enumerate_formalcharges(max_states=self.max_states)
+                    protomers = molecule.enumerate_protomers(max_states=self.max_states)
 
                     for protomer in protomers:
                         result.add_molecule(protomer)

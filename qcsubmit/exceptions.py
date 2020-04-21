@@ -48,6 +48,15 @@ class MissingWorkflowComponentError(QCSubmitException):
     header = "QCSubmit Missing Workflow Component Error"
 
 
+class CompoenentRequirementError(QCSubmitException):
+    """
+    The requested workflow componenet could not be added due to missing requirements.
+    """
+
+    error_type = "missing_requirements_error"
+    header = "QCSubmit Missing Workflow Component Requirements Error"
+
+
 class InvalidClientError(QCSubmitException):
     """
     The requested client address could not be contacted.
