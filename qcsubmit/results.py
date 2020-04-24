@@ -3,13 +3,14 @@ A module with classes that can be used to collect results from the qcarchive and
 analysis.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from pydantic import BaseModel
 from openforcefield.topology import Molecule
 import numpy as np
 from simtk import unit
 import qcportal as ptl
 import pandas as pd
+import qcelemental as qcel
 
 
 class SingleResult(BaseModel):
@@ -31,13 +32,21 @@ class SingleResult(BaseModel):
         allow_mutation: bool = False
         json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
 
+    def guess_connectivity(self) -> List[Tuple[int, int]]:
+        """
+        Use the qcelemental procedure to guess the connectivity.
+        """
+
+        conn = qcel.molutil.guess_connectivity(self.molecule.symbols, self.molecule.geometry)
+        return conn
+
 
 class OptimizationEntryResult(BaseModel):
     """
     The optimization Entry Result is built from a series of SingleResults to form the trajectory.
     """
 
-    trajectory: List[SingleResult]
+    trajectory: List[SingleResult] = []
     index: str
     id: int
     cmiles: str
@@ -122,59 +131,106 @@ class OptimizationEntryResult(BaseModel):
         cmiles: str,
         index: str,
         include_trajectory: bool = False,
+        final_molecule_only: bool = False,
     ) -> "OptimizationEntryResult":
         """
         Parse an optimization record to get the required data.
+
+        Parameters
+        ----------
+        optimization_result : qcportal.models.OptimizationRecord
+            The optimizationrecord object we want to download from the archive.
+        cmiles : Dict[str, str],
+            The attributes dictionary of the entry, this is all of the metadata of the entry including the cmiles data.
+        index : str,
+            The index of the entry which is being pulled from the archive as we can not back track to get it.
+        include_trajectory : bool, optional, default=False,
+            If the entire optimization trajectory should vbe pulled from the entry, this can include a lot of results.
+        final_molecule_only : bool, optional, default=False,
+            This will indicate to only pll down the final molecule in the trajectory and overwrites pulling the whole
+            trajectory.
+
+        Notes
+        -----
+            Normal execution will only pull the first and last molecule in a trajectory.
         """
 
-        if include_trajectory:
-            raise NotImplementedError()
+        if final_molecule_only:
+            traj = [optimization_result.trajectory[-1]]
+            molecules = [optimization_result.final_molecule]
+        elif include_trajectory:
+            traj = optimization_result.trajectory
+            molecules = optimization_result.get_molecular_trajectory()
+        else:
+            traj = [optimization_result.trajectory[0], optimization_result.trajectory[-1]]
+            molecules = [optimization_result.initial_molecule, optimization_result.final_molecule]
 
-        result_trajectory = optimization_result.client.query_procedures(
-            [optimization_result.trajectory[0], optimization_result.trajectory[-1]]
-        )
-        molecules = optimization_result.client.query_molecules(
-            [result_trajectory[0].molecule, result_trajectory[1].molecule]
-        )
-        trajectory = [cls._create_single_result(*data) for data in zip(result_trajectory, molecules)]
-        data = {"trajectory": trajectory, "index": index, "cmiles": cmiles, "id": optimization_result.id}
+        result_trajectory = optimization_result.client.query_procedures(traj)
+        result_molecules = optimization_result.client.query_molecules(molecules)
+        data = {"index": index, "cmiles": cmiles, "id": optimization_result.id}
 
-        entry = OptimizationEntryResult.parse_obj(data)
+        entry = OptimizationEntryResult(**data)
+        # now add in the trajectory
+        for data in zip(result_trajectory, result_molecules):
+            entry.add_single_result(*data)
 
         return entry
 
-    @staticmethod
-    def _create_single_result(result: ptl.models.ResultRecord, molecule: ptl.models.Molecule) -> SingleResult:
+    def add_single_result(self, result: ptl.models.ResultRecord, molecule: ptl.models.Molecule) -> None:
         """
         A helpful method to turn the molecule details and the result record into a SingleResult.
         """
 
-        data = {
-            "coordinates": molecule.geometry,
-            "wbo": result.extras["qcvars"]["WIBERG_LOWDIN_INDICES"],
-            "energy": result.extras["qcvars"]["CURRENT ENERGY"],
-            "gradient": result.return_result,
-            "id": result.id,
-        }
+        extras = result.extras.get("qcvars", None)
+        single_result = SingleResult(
+            molecule=molecule,
+            wbo=extras.get("WIBERG_LOWDIN_INDICES", [np.nan]) if extras is not None else [np.nan],
+            energy=result.properties.return_energy,
+            gradient=result.return_result,
+            id=result.id,
+        )
 
-        result = SingleResult.parse_obj(data)
+        self.trajectory.append(single_result)
 
-        return result
-
-    def connectivity_changed(self, wbo_threshold: float = 0.74) -> bool:
+    def get_wbo_connectivity(self, wbo_threshold: float = 0.7) -> List[Tuple[int, int, float]]:
         """
-        Detect if the connectivity has changed from the input cmiles specification or not using the WBO.
+        Build the connectivity using the wbo for the final molecule.
 
-        Note:
+        Returns
+        -------
+            A list of tuples of the bond connections along with the WBO.
+        """
+
+        molecule = self.molecule
+        if self.final_molecule.wbo == [np.nan]:
+            return []
+        wbo = np.array(self.final_molecule.wbo).reshape((molecule.n_atoms, molecule.n_atoms))
+        bonds = []
+        for i in range(molecule.n_atoms):
+            for j in range(i):
+                if wbo[i, j] > wbo_threshold:
+                    # this is a bond
+                    bonds.append((i, j, wbo[i, j]))
+
+        return bonds
+
+    def detect_connectivity_changes_wbo(self, wbo_threshold: float = 0.65) -> bool:
+        """
+        Detect if the connectivity has changed from the input cmiles specification or not using the WBO, a bond is
+        detected based on the wbo_threshold supplied.
+
+        Notes
+        -----
             This is only compared for the final geometry.
 
-        Returns:
+        Returns
+        -------
             `True` if the connectivity has changed or `False` if it has not.
         """
         # grab the molecule with its bonds
         molecule = self.molecule
         # cast the wbo into the correct shape
-        if self.final_molecule.wbo is None:
+        if self.final_molecule.wbo == [np.nan]:
             # if the wbo is missing return None
             return None
         wbo = np.array(self.final_molecule.wbo).reshape((molecule.n_atoms, molecule.n_atoms))
@@ -185,6 +241,128 @@ class OptimizationEntryResult(BaseModel):
         else:
             return False
 
+    def detect_connectivity_changes_heuristic(self) -> bool:
+        """
+        Guess the connectivity then check if it has changed from the initial input.
+
+        Returns
+        -------
+            `True` if the connectivity has changed based on the distance based rules
+            `False` if the connectivity has not changed based on the rules.
+        """
+        molecule = self.molecule
+        # guess the connectivity
+        connectivity = self.final_molecule.guess_connectivity()
+        # now compare the connectivity
+        for bond in molecule.bonds:
+            b_tup = tuple([bond.atom1_index, bond.atom2_index])
+            if b_tup not in connectivity and reversed(tuple(b_tup)) not in connectivity:
+                return True
+
+        else:
+            return False
+
+    def find_hydrogen_bonds_wbo(self, hbond_threshold: float = 0.05) -> List[Tuple[int, int]]:
+        """
+        Calculate if an internal hydrogen has formed using the WBO and return where it formed.
+
+        Notes
+        -----
+            The threshold is very low to be counted as a hydrogen bond.
+
+        Parameters
+        ----------
+            hbond_threshold: float, optional, default=0.05
+                The minimum wbo overlap to define a hydrogen bond by.
+
+        Returns
+        -------
+            h_bonds: List[Tuple[int, int]]
+              A list of tuples of the atom indexes that have formed hydrogen bonds.
+        """
+
+        h_acceptors = [7, 8, 16]
+        h_donors = [7, 8, 16]
+        # get the molecule
+        molecule = self.molecule
+        # cast the wbo into the correct shape
+        if self.final_molecule.wbo == [np.nan]:
+            # if the wbo is missing return None
+            return None
+        wbo = np.array(self.final_molecule.wbo).reshape((molecule.n_atoms, molecule.n_atoms))
+        # now loop over the molecule bonds and make sure we find a bond in the array
+        h_bonds = set()
+        for bond in molecule.bonds:
+            # work out if we have a polar hydrogen
+            if (
+                molecule.atoms[bond.atom1_index].atomic_number in h_donors
+                or molecule.atoms[bond.atom2_index].atomic_number in h_donors
+            ):
+                # look for an hydrogen atom
+                if molecule.atoms[bond.atom1_index].atomic_number == 1:
+                    hydrogen_index = bond.atom1_index
+                elif molecule.atoms[bond.atom2_index].atomic_number == 1:
+                    hydrogen_index = bond.atom2_index
+                else:
+                    continue
+
+                # now loop over the columns and find the bond
+                for i, bond_order in enumerate(wbo[hydrogen_index]):
+                    if hbond_threshold < bond_order < 0.5:
+                        if molecule.atoms[i].atomic_number in h_acceptors:
+                            hbond = tuple(sorted([hydrogen_index, i]))
+                            h_bonds.add(hbond)
+
+        return list(h_bonds)
+
+    def find_hydrogen_bonds_heuristic(self,) -> List[Tuple[int, int]]:
+        """
+        Find hydrogen bonds in the final molecule using the Baker-Hubbard method.
+
+
+        Returns
+        -------
+        h_bonds : List[Tuple[int, int]]
+            A list of atom indexes (acceptor and hydrogen) involved in hydrogen bonds.
+        """
+
+        cutoff = 4.72432  # angstrom to bohr cutoff
+        # set up the required information
+        h_acceptors = ["N", "O", "S"]
+        h_donors = ["N", "O", "S"]
+        molecule = self.final_molecule.molecule
+        n_atoms = self.molecule.n_atoms
+
+        # create a distance matrix in bohr
+        distance_matrix = np.zeros((n_atoms, n_atoms))
+        for i in range(n_atoms):
+            for j in range(i):
+                distance_matrix[i, j] = distance_matrix[j, i] = molecule.measure([i, j])
+
+        h_bonds = set()
+        # we need to make a new connectivity table
+        for bond in self.final_molecule.guess_connectivity():
+            # work out if we have a polar hydrogen
+            if molecule.symbols[bond[0]] in h_donors or molecule.symbols[bond[1]] in h_donors:
+                if molecule.symbols[bond[0]] == "H":
+                    hydrogen_index = bond[0]
+                    donor_index = bond[1]
+                elif molecule.symbols[bond[1]] == "H":
+                    hydrogen_index = bond[1]
+                    donor_index = bond[0]
+                else:
+                    continue
+
+                for i, distance in enumerate(distance_matrix[hydrogen_index]):
+                    if donor_index != i:
+                        if distance < cutoff and molecule.symbols[i] in h_acceptors:
+                            # now check the angle
+                            if molecule.measure([donor_index, hydrogen_index, i]) > 120:
+                                hbond = tuple(sorted([hydrogen_index, i]))
+                                h_bonds.add(hbond)
+
+        return list(h_bonds)
+
 
 class OptimizationResult(BaseModel):
     """
@@ -193,7 +371,7 @@ class OptimizationResult(BaseModel):
     """
 
     entries: List[OptimizationEntryResult] = []
-    cmiles: Dict
+    attributes: Dict
     index: str
 
     class Config:
@@ -203,37 +381,44 @@ class OptimizationResult(BaseModel):
 
     def add_entry(self, entry: OptimizationEntryResult) -> None:
         """
-
+        Add a new OptimizationEntryResult to the result record.
         """
+
         self.entries.append(entry)
 
     @property
     def molecule(self) -> Molecule:
         """
-        Build the molecule from the cmiles.
+        Build an openforcefield.topology.Molecule from the cmiles which is in the correct order to align with the
+        QCArchive records.
+
+        Returns
+        -------
+        mol : openforcefield.topology.Molecule,
+            The openforcefield molecule representation of the molecule.
         """
 
-        mol = Molecule.from_mapped_smiles(self.cmiles["canonical_isomeric_explicit_hydrogen_mapped_smiles"])
+        mol = Molecule.from_mapped_smiles(self.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"])
 
         return mol
 
     def get_lowest_energy_optimisation(self) -> OptimizationEntryResult:
         """
-        From all of the entries get the optimisation that results in the lowest energy conformer, if any are the same
-        a random conformer is returned.
+        From all of the entries get the optimization that results in the lowest energy conformer, if any are the same
+        the first conformer with this energy is returned.
+
+        Returns
+        -------
+        OptimizationEntryResult : qcsubmit.results.OptimizationEntryResult,
+            The attached OptimizationEntryResult with the lowest energy final conformer.
         """
 
-        lowest_index = 0
-        lowest_energy = 0
-        for index, opt_rec in enumerate(self.entries):
-            opt_energy = opt_rec.final_energy
-            if opt_energy < lowest_energy:
-                lowest_energy = opt_energy
-                lowest_index = index
-
+        opt_results = [(opt_rec.final_energy, i) for i, opt_rec in enumerate(self.entries)]
+        opt_results.sort(key=lambda x: x[0])
+        lowest_index = opt_results[0][1]
         return self.entries[lowest_index]
 
-    def detect_conectivity_changes(self, wbo_threshold: float = 0.74) -> Dict[int, bool]:
+    def detect_connectivity_changes_wbo(self, wbo_threshold: float = 0.65) -> Dict[int, bool]:
         """
         Detect any connectivity changes in the optimization entries and report them.
 
@@ -242,10 +427,71 @@ class OptimizationResult(BaseModel):
             `True` indicates the connectivity did change, `False` indicates it did not.
         """
 
-        conectivity_changes = dict(
-            (index, opt_rec.connectivity_changed(wbo_threshold)) for index, opt_rec in enumerate(self.entries)
+        connectivity_changes = dict(
+            (index, opt_rec.detect_connectivity_changes_wbo(wbo_threshold))
+            for index, opt_rec in enumerate(self.entries)
         )
-        return conectivity_changes
+        return connectivity_changes
+
+    def detect_connectivity_changes_heuristic(self) -> Dict[int, bool]:
+        """
+        Detect connectivity changes based on heuristic rules.
+
+        Returns
+        -------
+         connectivity_changes : Dict[int, bool],
+            A dictionary of the optimization entry and a bool representing if the connectivity has changed or not.
+            `True` indicates the connectivity is now different from the input.
+            `False` indicates the connectivity is the same as the input.
+        """
+
+        connectivity_changes = dict(
+            (index, opt_rec.detect_connectivity_changes_heuristic()) for index, opt_rec in enumerate(self.entries)
+        )
+        return connectivity_changes
+
+    def detect_hydrogen_bonds_wbo(self, wbo_threshold: float = 0.05) -> Dict[int, bool]:
+        """
+        Detect hydrogen bonds in the final molecules using the wbo.
+
+        Returns
+        -------
+        hydrogen_bonds :  Dict[int, bool],
+            A dictionary of the optimization entry and a bool representing if an internal hydrogen bond was found.
+            `True` indicates a bond was found.
+            `False` indicates a bond was not found.
+
+        Notes
+        -----
+            You can also query where the hydrogen bond is formed using the `find_hydrogen_bonds_wbo` function on the
+            corresponding entry.
+        """
+        hydrogen_bonds = {}
+        for index, opt_rec in enumerate(self.entries):
+            hbonds = opt_rec.find_hydrogen_bonds_wbo(wbo_threshold)
+            result = bool(hbonds) if hbonds is not None else None
+            hydrogen_bonds[index] = result
+
+        return hydrogen_bonds
+
+    def detect_hydrogen_bonds_heuristic(self) -> Dict[int, bool]:
+        """
+        Detect hydrogen bonds in the final molecule of the trajectory using the Baker-Hubbard rule based method.
+
+        Returns
+        -------
+        hydrogen_bonds : Dict[int, bool],
+            A dictionary of the optimization entry index and bool representing if an internal hydrogen bond was found.
+            `True` indicates a bond was found.
+            `False` indicates a bond was not found.
+
+        Notes
+        -----
+            You can also query which atoms the bond was formed between using the `find_hydrogen_bonds_heuristic` method
+            on the corresponding entry.
+        """
+
+         #TODO
 
     @property
     def n_entries(self) -> int:
@@ -313,7 +559,7 @@ class OptimizationCollectionResult(BaseModel):
             "scf_properties": scf_properties,
         }
 
-        collection_result = OptimizationCollectionResult.parse_obj(data)
+        collection_result = OptimizationCollectionResult(**data)
 
         # query the database to get all of the optimization records
         if subset is None:
@@ -353,7 +599,7 @@ class OptimizationCollectionResult(BaseModel):
                 common_name = opt.attributes["canonical_isomeric_smiles"]
                 if common_name not in collection:
                     # build up a list of molecules and results and pull them from the database
-                    collection[common_name] = {"index": common_name, "cmiles": opt.attributes, "entries": []}
+                    collection[common_name] = {"index": common_name, "attributes": opt.attributes, "entries": []}
                 if final_molecule_only:
                     traj = [opt_record.trajectory[-1]]
                     molecules = [opt_record.final_molecule]
@@ -393,29 +639,18 @@ class OptimizationCollectionResult(BaseModel):
 
         # now we need to build up the collection from the gathered results
         for data in collection.values():
-            opt_result = OptimizationResult(index=data["index"], cmiles=data["cmiles"])
+            opt_result = OptimizationResult(index=data["index"], attributes=data["attributes"])
             for entry in data["entries"]:
-                trajectory = []
+                opt_entry = OptimizationEntryResult(
+                    index=entry["index"], id=entry["id"], cmiles=entry["cmiles"]
+                )
                 for (result_id, molecule_id) in zip(entry["trajectory_records"], entry["trajectory_molecules"]):
                     # now we need to make the single results
                     molecule = molecules_table[molecule_id]
                     result = results_table[result_id]
                     # check if the qcvars are present
                     # can be missing for MM and ANI calculations
-                    extras = result.extras.get("qcvars", None)
-                    trajectory.append(
-                        SingleResult(
-                            molecule=molecule,
-                            wbo=extras.get("WIBERG_LOWDIN_INDICES", None) if extras is not None else None,
-                            energy=result.properties.return_energy,
-                            gradient=result.return_result,
-                            id=result.id,
-                        )
-                    )
-
-                opt_entry = OptimizationEntryResult(
-                    trajectory=trajectory, index=entry["index"], id=entry["id"], cmiles=entry["cmiles"]
-                )
+                    opt_entry.add_single_result(result, molecule)
                 opt_result.add_entry(opt_entry)
             collection_result.add_optimization_result(opt_result)
 
