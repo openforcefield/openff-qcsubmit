@@ -192,7 +192,7 @@ class OptimizationEntryResult(BaseModel):
 
         self.trajectory.append(single_result)
 
-    def get_wbo_connectivity(self, wbo_threshold: float = 0.7) -> List[Tuple[int, int, float]]:
+    def get_wbo_connectivity(self, wbo_threshold: float = 0.5) -> List[Tuple[int, int, float]]:
         """
         Build the connectivity using the wbo for the final molecule.
 
@@ -214,7 +214,7 @@ class OptimizationEntryResult(BaseModel):
 
         return bonds
 
-    def detect_connectivity_changes_wbo(self, wbo_threshold: float = 0.65) -> bool:
+    def detect_connectivity_changes_wbo(self, wbo_threshold: float = 0.5) -> bool:
         """
         Detect if the connectivity has changed from the input cmiles specification or not using the WBO, a bond is
         detected based on the wbo_threshold supplied.
@@ -262,7 +262,7 @@ class OptimizationEntryResult(BaseModel):
         else:
             return False
 
-    def find_hydrogen_bonds_wbo(self, hbond_threshold: float = 0.05) -> List[Tuple[int, int]]:
+    def find_hydrogen_bonds_wbo(self, hbond_threshold: float = 0.04) -> List[Tuple[int, int]]:
         """
         Calculate if an internal hydrogen has formed using the WBO and return where it formed.
 
@@ -328,8 +328,8 @@ class OptimizationEntryResult(BaseModel):
 
         cutoff = 4.72432  # angstrom to bohr cutoff
         # set up the required information
-        h_acceptors = ["N", "O", "S"]
-        h_donors = ["N", "O", "S"]
+        h_acceptors = ["N", "O"]
+        h_donors = ["N", "O"]
         molecule = self.final_molecule.molecule
         n_atoms = self.molecule.n_atoms
 
@@ -418,7 +418,7 @@ class OptimizationResult(BaseModel):
         lowest_index = opt_results[0][1]
         return self.entries[lowest_index]
 
-    def detect_connectivity_changes_wbo(self, wbo_threshold: float = 0.65) -> Dict[int, bool]:
+    def detect_connectivity_changes_wbo(self, wbo_threshold: float = 0.5) -> Dict[int, bool]:
         """
         Detect any connectivity changes in the optimization entries and report them.
 
@@ -450,7 +450,7 @@ class OptimizationResult(BaseModel):
         )
         return connectivity_changes
 
-    def detect_hydrogen_bonds_wbo(self, wbo_threshold: float = 0.05) -> Dict[int, bool]:
+    def detect_hydrogen_bonds_wbo(self, wbo_threshold: float = 0.04) -> Dict[int, bool]:
         """
         Detect hydrogen bonds in the final molecules using the wbo.
 
@@ -491,7 +491,13 @@ class OptimizationResult(BaseModel):
             on the corresponding entry.
         """
 
-         #TODO
+        hydrogen_bonds = {}
+        for index, opt_rec in enumerate(self.entries):
+            hbonds = opt_rec.find_hydrogen_bonds_heuristic()
+            result = bool(hbonds) if hbonds is not None else None
+            hydrogen_bonds[index] = result
+
+        return hydrogen_bonds
 
     @property
     def n_entries(self) -> int:

@@ -1,9 +1,10 @@
-name: basic_qcsubmit
+name: psi4_qcsubmit
 
 channels:
   - conda-forge
   - omnia
   - defaults
+  - psi4
 
 dependencies:
     # Base depends
@@ -20,6 +21,7 @@ dependencies:
   - codecov
   - qcportal
   - qcengine
+  - psi4
 
     # Pip-only installs
 #  - pip:

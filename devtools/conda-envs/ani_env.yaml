@@ -22,5 +22,5 @@ dependencies:
   - qcengine
 
     # Pip-only installs
-#  - pip:
-#    - torchani
+  - pip:
+    - torchani

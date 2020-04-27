@@ -106,7 +106,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         """
         from fragmenter import fragment
 
-        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
+        result = self._create_result()
 
         for molecule in molecules:
             fragment_factory = fragment.WBOFragmenter(

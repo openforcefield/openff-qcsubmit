@@ -26,6 +26,7 @@ class ComponentResult:
         self,
         component_name: str,
         component_description: Dict[str, str],
+        component_provenance: Dict[str, str],
         molecules: Optional[Union[List[Molecule], Molecule]] = None,
         input_file: Optional[str] = None,
     ):
@@ -39,6 +40,8 @@ class ComponentResult:
             The dictionary representation of the component which details the function and running parameters.
         component_provenance : Dict[str, str],
             The dictionary of the modules used and there version number when running the component.
+        component_provenance : Dict[str, str],
+            The dictionary of the provenance information about the component that was used to generate the data.
         molecules : openforcefield.topology.Molecule or List, optional, default=None
             The list of molecules that have been possessed by a component and returned as a result.
         input_file : str, optional, default=None,
@@ -49,6 +52,7 @@ class ComponentResult:
         self.filtered: List[Molecule] = []
         self.component_name: str = component_name
         self.component_description: Dict = component_description
+        self.component_provenance: Dict = component_provenance
 
         assert molecules or input_file is None, "Provide either a list of molecules or an input file name."
 

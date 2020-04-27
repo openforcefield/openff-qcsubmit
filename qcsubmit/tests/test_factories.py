@@ -28,7 +28,7 @@ def test_adding_workflow_components():
     assert len(factory.workflow) == 1
 
     # conformer generator
-    conformer_gen = workflow_components.StandardConformerGenerator()
+    conformer_gen = workflow_components.StandardConformerGenerator(toolkit='rdkit')
     conformer_gen.max_conformers = 200
     factory.add_workflow_component(conformer_gen)
 

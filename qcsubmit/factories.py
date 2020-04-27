@@ -715,7 +715,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
         # the only data missing is the collection name so add it here.
         object_meta["dataset_name"] = dataset_name
-        dataset = self._dataset_type.parse_obj(object_meta)
+        dataset = self._dataset_type(**object_meta)
 
         # now add the molecules to the correct attributes
         for molecule in workflow_molecules.molecules:
@@ -735,7 +735,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                         dataset.add_molecule(
                             index=self.create_index(molecule=molecule),
                             molecule=molecule,
-                            cmiles=self.create_cmiles_metadata(molecule=molecule),
+                            attributes=self.create_cmiles_metadata(molecule=molecule),
                             atom_indices=tuple(molecule.properties["atom_map"].keys()),
                         )
 
@@ -752,7 +752,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                             dataset.add_molecule(
                                 index=self.create_index(molecule=molecule),
                                 molecule=molecule,
-                                cmiles=self.create_cmiles_metadata(molecule=molecule),
+                                attributes=self.create_cmiles_metadata(molecule=molecule),
                                 atom_indices=torsion_index,
                             )
 
@@ -768,7 +768,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                     dataset.add_molecule(
                         index=self.create_index(molecule=order_mol),
                         molecule=order_mol,
-                        cmiles=self.create_cmiles_metadata(molecule=order_mol),
+                        attributes=self.create_cmiles_metadata(molecule=order_mol),
                         atom_indices=torsion_index,
                     )
 

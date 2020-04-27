@@ -47,7 +47,7 @@ class MolecularWeightFilter(CustomWorkflowComponent):
 
         from simtk import unit
 
-        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
+        result = self._create_result()
         for molecule in molecules:
             total_weight = sum([atom.element.mass.value_in_unit(unit.daltons) for atom in molecule.atoms])
 
@@ -151,7 +151,7 @@ class ElementFilter(CustomWorkflowComponent):
         """
         from simtk.openmm.app import Element
 
-        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
+        result = self._create_result()
 
         # First lets convert the allowed_elements list to ints as this is what is stored in the atom object
         _allowed_elements = [
@@ -235,9 +235,7 @@ class CoverageFilter(CustomWorkflowComponent):
         """
 
         # pass all of the molecules then filter ones that have elements that are not allowed
-        result = ComponentResult(
-            component_name=self.component_name, component_description=self.dict(), molecules=molecules
-        )
+        result = self._create_result()
 
         # the forcefield we are testing against
         forcefield = ForceField(self.forcefield)

@@ -37,7 +37,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
+        result = self._create_result()
 
         # create the toolkit
         toolkit = self._toolkits[self.toolkit]()

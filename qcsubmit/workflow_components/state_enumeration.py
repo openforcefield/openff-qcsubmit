@@ -42,7 +42,7 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
+        result = self._create_result()
 
         toolkit = self._toolkits[self.toolkit]()
 
@@ -103,7 +103,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
+        result = self._create_result()
 
         toolkit = self._toolkits[self.toolkit]()
 
@@ -162,7 +162,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
         from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
 
-        result = ComponentResult(component_name=self.component_name, component_description=self.dict())
+        result = self._create_result()
 
         # must have openeye to use this feature
         if OpenEyeToolkitWrapper.is_available():

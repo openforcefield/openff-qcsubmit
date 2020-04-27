@@ -60,6 +60,20 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         """
         ...
 
+    def _create_result(self) -> ComponentResult:
+        """
+        A helpful method to build to create the component result with the required information.
+
+        Returns
+        -------
+            A [ComponentResult][qcsubmit.datasets.ComponentResult] instantiated with the required information.
+        """
+
+        result = ComponentResult(component_name=self.component_name, component_description=self.dict(),
+                                 component_provenance=self.provenance())
+
+        return result
+
     def fail_molecule(self, molecule: Molecule, component_result: ComponentResult) -> None:
         """
         A method to fail a molecule.
@@ -71,14 +85,6 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         """
 
         component_result.filter_molecule(molecule)
-
-    def dict(self, *args, **kwargs):
-        """
-        Modify the dict method to also include the provenance information of the component.
-        """
-        data = super().dict(*args, **kwargs)
-        data["provenance"] = self.provenance()
-        return data
 
 
 class ToolkitValidator(BaseModel):
