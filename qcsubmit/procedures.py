@@ -2,8 +2,9 @@
 The procedure settings controllers
 """
 
-from pydantic import BaseModel, validator
 from typing import Dict
+
+from pydantic import BaseModel, validator
 
 
 class GeometricProcedure(BaseModel):
@@ -68,7 +69,9 @@ class GeometricProcedure(BaseModel):
         if coordsys.lower() in allowed_coordsys:
             return coordsys.lower()
         else:
-            raise ValueError(f"{coordsys} is not supported by geometric please pass a valid coordinate system.")
+            raise ValueError(
+                f"{coordsys} is not supported by geometric please pass a valid coordinate system."
+            )
 
     @validator("convergence_set")
     def check_convergence_set(cls, convergence: str):
@@ -107,7 +110,9 @@ class GeometricProcedure(BaseModel):
         if convergence.upper() in allowed_convergence:
             return convergence.upper()
         else:
-            raise ValueError(f"The requested convergence set {convergence} is not supported.")
+            raise ValueError(
+                f"The requested convergence set {convergence} is not supported."
+            )
 
     def get_optimzation_spec(self) -> Dict:
         """

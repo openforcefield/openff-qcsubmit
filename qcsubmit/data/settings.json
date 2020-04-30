@@ -3,7 +3,7 @@
   "basis": "loaded basis",
   "program": "loaded program",
   "maxiter": 200,
-  "driver": "energy",
+  "driver": "gradient",
   "scf_properties": [
     "dipole",
     "qudrupole",

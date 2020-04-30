@@ -1,16 +1,17 @@
 """
 File containing the filters workflow components.
 """
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Optional, Union
+
 from pydantic import validator
 
 import openforcefield
 from openforcefield.topology import Molecule
 from openforcefield.typing.engines.smirnoff import ForceField
 from openforcefield.utils.structure import get_molecule_parameterIDs
+from qcsubmit.datasets import ComponentResult
 
 from .base_component import CustomWorkflowComponent
-from qcsubmit.datasets import ComponentResult
 
 
 class MolecularWeightFilter(CustomWorkflowComponent):
@@ -26,7 +27,9 @@ class MolecularWeightFilter(CustomWorkflowComponent):
     """
 
     component_name = "MolecularWeightFilter"
-    component_description = "Molecules are filtered based on the allowed molecular weights."
+    component_description = (
+        "Molecules are filtered based on the allowed molecular weights."
+    )
     component_fail_message = "Molecule weight was not in the specified region."
 
     minimum_weight: int = 130  # values taken from the base settings of the openeye blockbuster filter
@@ -49,7 +52,12 @@ class MolecularWeightFilter(CustomWorkflowComponent):
 
         result = self._create_result()
         for molecule in molecules:
-            total_weight = sum([atom.element.mass.value_in_unit(unit.daltons) for atom in molecule.atoms])
+            total_weight = sum(
+                [
+                    atom.element.mass.value_in_unit(unit.daltons)
+                    for atom in molecule.atoms
+                ]
+            )
 
             if self.minimum_weight < total_weight < self.maximum_weight:
                 result.add_molecule(molecule)
@@ -71,7 +79,10 @@ class MolecularWeightFilter(CustomWorkflowComponent):
 
         from simtk import openmm
 
-        provenance = {"OpenforcefieldToolkit": openforcefield.__version__, "openmm_units": openmm.__version__}
+        provenance = {
+            "OpenforcefieldToolkit": openforcefield.__version__,
+            "openmm_units": openmm.__version__,
+        }
 
         return provenance
 
@@ -110,10 +121,25 @@ class ElementFilter(CustomWorkflowComponent):
     """
 
     component_name = "ElementFilter"
-    component_description = "Filter out molecules who contain elements not in the allowed element list"
-    component_fail_message = "Molecule contained elements not in the allowed elements list"
+    component_description = (
+        "Filter out molecules who contain elements not in the allowed element list"
+    )
+    component_fail_message = (
+        "Molecule contained elements not in the allowed elements list"
+    )
 
-    allowed_elements: List[Union[int, str]] = ["H", "C", "N", "O", "F", "P", "S", "Cl", "Br", "I"]
+    allowed_elements: List[Union[int, str]] = [
+        "H",
+        "C",
+        "N",
+        "O",
+        "F",
+        "P",
+        "S",
+        "Cl",
+        "Br",
+        "I",
+    ]
 
     @validator("allowed_elements", each_item=True)
     def check_allowed_elements(cls, element: Union[str, int]) -> Union[str, int]:
@@ -135,7 +161,9 @@ class ElementFilter(CustomWorkflowComponent):
                 e = Element.getBySymbol(element)
                 return element
             except KeyError:
-                raise KeyError(f"An element could not be determined from symbol {element}, please eneter symbols only.")
+                raise KeyError(
+                    f"An element could not be determined from symbol {element}, please eneter symbols only."
+                )
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -155,7 +183,8 @@ class ElementFilter(CustomWorkflowComponent):
 
         # First lets convert the allowed_elements list to ints as this is what is stored in the atom object
         _allowed_elements = [
-            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele for ele in self.allowed_elements
+            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
+            for ele in self.allowed_elements
         ]
 
         # now apply the filter
@@ -214,7 +243,9 @@ class CoverageFilter(CustomWorkflowComponent):
     """
 
     component_name = "CoverageFilter"
-    component_description = "Filter the molecules based on the requested FF allowed parameters."
+    component_description = (
+        "Filter the molecules based on the requested FF allowed parameters."
+    )
     component_fail_message = "The molecule was typed with disallowed parameters."
 
     allowed_ids: Optional[List[str]] = None
@@ -239,7 +270,9 @@ class CoverageFilter(CustomWorkflowComponent):
 
         # the forcefield we are testing against
         forcefield = ForceField(self.forcefield)
-        parameters_by_molecule, parameters_by_ID = get_molecule_parameterIDs(molecules, forcefield)
+        parameters_by_molecule, parameters_by_ID = get_molecule_parameterIDs(
+            molecules, forcefield
+        )
 
         # loop through the tags
         if self.filtered_ids is not None:

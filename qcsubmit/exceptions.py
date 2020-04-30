@@ -73,3 +73,12 @@ class DriverError(QCSubmitException):
 
     error_type = "driver_error"
     header = "QCSubmit Driver Error"
+
+
+class DatasetInputError(QCSubmitException):
+    """
+    The information entered into the dataset is not valid or missing so component.
+    """
+
+    error_type = "dataset_input_error"
+    header = "Dataset Input Error"

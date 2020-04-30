@@ -1,13 +1,16 @@
 """
 Components that aid with Fragmentation of molecules.
 """
-from typing import List, Union, Dict
-from .base_component import CustomWorkflowComponent, ToolkitValidator
-from ..datasets import ComponentResult
-from pydantic import validator
-from openforcefield.topology import Molecule
 import json
+from typing import Dict, List, Union
+
 import yaml
+from pydantic import validator
+
+from openforcefield.topology import Molecule
+
+from ..datasets import ComponentResult
+from .base_component import CustomWorkflowComponent, ToolkitValidator
 
 
 class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
@@ -21,7 +24,9 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
     """
 
     component_name = "WBOFragmenter"
-    component_description = "Fragment a molecule across all rotatble bonds using the WBO fragmenter."
+    component_description = (
+        "Fragment a molecule across all rotatble bonds using the WBO fragmenter."
+    )
     component_fail_message = "The molecule could not fragmented correctly."
 
     threshold: float = 0.03
@@ -38,7 +43,9 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
         allowed_heuristic = ["path_length", "wbo"]
         if heuristic.lower() not in allowed_heuristic:
-            raise ValueError(f"The requested heuristic must be either path_length or wbo.")
+            raise ValueError(
+                f"The requested heuristic must be either path_length or wbo."
+            )
         else:
             return heuristic.lower()
 
@@ -66,7 +73,9 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
                     f"file types {cls._file_readers.keys()}"
                 )
             except FileNotFoundError:
-                raise FileNotFoundError(f"The functional group file {functional_group} could not be found.")
+                raise FileNotFoundError(
+                    f"The functional group file {functional_group} could not be found."
+                )
 
         else:
             raise ValueError(
@@ -77,7 +86,9 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         # simple check on the smarts
         for smarts in fgroups.values():
             if "[" not in smarts:
-                raise ValueError(f"Some functional group smarts were not valid {smarts}.")
+                raise ValueError(
+                    f"Some functional group smarts were not valid {smarts}."
+                )
         else:
             return functional_group
 
@@ -110,7 +121,9 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
         for molecule in molecules:
             fragment_factory = fragment.WBOFragmenter(
-                molecule=molecule.to_openeye(), functional_groups=self.functional_groups, verbose=False
+                molecule=molecule.to_openeye(),
+                functional_groups=self.functional_groups,
+                verbose=False,
             )
 
             try:
@@ -126,7 +139,9 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
                 for fragment_data in fragmets_dict.values():
                     frag_mol = Molecule.from_mapped_smiles(
-                        mapped_smiles=fragment_data["identifiers"]["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                        mapped_smiles=fragment_data["identifiers"][
+                            "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                        ]
                     )
                     torsion_index = tuple(fragment_data["dihedral"][0])
                     # this is stored back into the molecule and will be used when generating the cmiles tags latter

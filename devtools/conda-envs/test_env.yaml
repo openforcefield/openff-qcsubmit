@@ -19,7 +19,7 @@ dependencies:
   - pyyaml
   - codecov
   - qcportal
-  - qcengine
+  - openeye-toolkits
 
     # Pip-only installs
 #  - pip:

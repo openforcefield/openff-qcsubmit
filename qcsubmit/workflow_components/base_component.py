@@ -1,10 +1,12 @@
-from typing import List, Dict
 import abc
-from pydantic import BaseModel, validator
-from openforcefield.topology import Molecule
-from openforcefield.utils.toolkits import RDKitToolkitWrapper, OpenEyeToolkitWrapper
+from typing import Dict, List
 
-from qcsubmit.datasets import ComponentResult
+from pydantic import BaseModel, validator
+
+from openforcefield.topology import Molecule
+from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
+
+from ..datasets import ComponentResult
 
 
 class CustomWorkflowComponent(BaseModel, abc.ABC):
@@ -69,12 +71,17 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instantiated with the required information.
         """
 
-        result = ComponentResult(component_name=self.component_name, component_description=self.dict(),
-                                 component_provenance=self.provenance())
+        result = ComponentResult(
+            component_name=self.component_name,
+            component_description=self.dict(),
+            component_provenance=self.provenance(),
+        )
 
         return result
 
-    def fail_molecule(self, molecule: Molecule, component_result: ComponentResult) -> None:
+    def fail_molecule(
+        self, molecule: Molecule, component_result: ComponentResult
+    ) -> None:
         """
         A method to fail a molecule.
 

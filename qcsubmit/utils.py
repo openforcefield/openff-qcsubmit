@@ -12,6 +12,8 @@ def get_data(relative_path):
     fn = resource_filename("qcsubmit", os.path.join("data", relative_path))
 
     if not os.path.exists(fn):
-        raise ValueError(f"Sorry! {fn} does not exist. If you just added it, you'll have to re-install")
+        raise ValueError(
+            f"Sorry! {fn} does not exist. If you just added it, you'll have to re-install"
+        )
 
     return fn

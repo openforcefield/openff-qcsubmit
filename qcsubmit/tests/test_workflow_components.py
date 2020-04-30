@@ -1,15 +1,19 @@
 """
 Tests for each of the workflow components try to avoid specific openeye functions.
 """
-from typing import List, Dict
+from functools import lru_cache
+from typing import Dict, List
+
 import pytest
+
+from openforcefield.topology import Molecule
+from openforcefield.utils import get_data_file_path
+from openforcefield.utils.toolkits import (OpenEyeToolkitWrapper,
+                                           RDKitToolkitWrapper,
+                                           UndefinedStereochemistryError)
 from qcsubmit import workflow_components
 from qcsubmit.datasets import ComponentResult
 from qcsubmit.utils import get_data
-from openforcefield.topology import Molecule
-from openforcefield.utils import get_data_file_path
-from openforcefield.utils.toolkits import UndefinedStereochemistryError, RDKitToolkitWrapper, OpenEyeToolkitWrapper
-from functools import lru_cache
 
 
 @lru_cache()

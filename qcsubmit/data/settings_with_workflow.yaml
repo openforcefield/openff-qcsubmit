@@ -1,6 +1,6 @@
 basis: loaded basis
 client: public
-driver: energy
+driver: gradient
 maxiter: 200
 method: loaded method
 priority: normal

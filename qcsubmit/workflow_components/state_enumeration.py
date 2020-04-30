@@ -2,10 +2,12 @@
 Components to expand stereochemistry and tautomeric states of molecules.
 """
 from typing import List
-from .base_component import CustomWorkflowComponent, ToolkitValidator
-from qcsubmit.datasets import ComponentResult
+
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
+from qcsubmit.datasets import ComponentResult
+
+from .base_component import CustomWorkflowComponent, ToolkitValidator
 
 
 class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
@@ -48,7 +50,9 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
         for molecule in molecules:
             try:
-                tautomers = molecule.enumerate_tautomers(max_states=self.max_tautomers, toolkit_registry=toolkit)
+                tautomers = molecule.enumerate_tautomers(
+                    max_states=self.max_tautomers, toolkit_registry=toolkit
+                )
 
                 result.add_molecule(molecule)
                 for taut in tautomers:
@@ -82,8 +86,12 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     """
 
     component_name = "EnumerateStereoisomers"
-    component_description = "Enumerate the stereo centers and bonds of the molecule if possible."
-    component_fail_message = "The molecules stereo centers or bonds could not be enumerated"
+    component_description = (
+        "Enumerate the stereo centers and bonds of the molecule if possible."
+    )
+    component_fail_message = (
+        "The molecules stereo centers or bonds could not be enumerated"
+    )
 
     undefined_only: bool = False
     max_isomers: int = 20
