@@ -4,6 +4,7 @@ channels:
   - conda-forge
   - omnia
   - defaults
+  - openeye
 
 dependencies:
     # Base depends
