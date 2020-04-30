@@ -77,12 +77,12 @@ jobs:
           conda info --all
           conda list
 
-      - name: Decrypt OpenEye
+      - name: Decrypt OpenEye license
         shell: bash
         env:
-          ENC_OE_LICENSE: ${{ secrets.OE_LICENSE_EXP_DEC2020 }}
+          ENC_OE_LICENSE: ${{ secrets.OE_LICENSE__EXP_DEC2020 }}
         run: |
-          echo "${ENC_OE_LICENSE}" > ${OE_LICENSE}
+            echo "${ENC_OE_LICENSE}" > ${OE_LICENSE}
 
       - name: Prepare test enviroment
         shell: bash

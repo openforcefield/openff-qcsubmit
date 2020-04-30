@@ -5,7 +5,6 @@ channels:
   - omnia
   - defaults
   - psi4
-  - openeye
 
 dependencies:
     # Base depends
@@ -23,7 +22,7 @@ dependencies:
   - qcportal
   - qcengine
   - psi4
-  - openeye-tookits
+  - openeye-toolkits
 
     # Pip-only installs
 #  - pip:
