@@ -4,14 +4,14 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import qcportal as ptl
+from qcportal.models.common_models import QCSpecification, DriverEnum
 from pydantic import BaseModel, validator
 
 import openforcefield.topology as off
-from qcsubmit.exceptions import UnsupportedFiletypeError
 
 from .procedures import GeometricProcedure
 from .results import SingleResult
-from .exceptions import DatasetInputError
+from .exceptions import DatasetInputError, UnsupportedFiletypeError
 
 
 class ComponentResult:
@@ -70,6 +70,30 @@ class ComponentResult:
         if molecules is not None:
             for molecule in molecules:
                 self.add_molecule(molecule)
+
+    @property
+    def n_molecules(self) -> int:
+        """
+        Return the number of molecules saved in the result.
+        """
+
+        return len(self.molecules)
+
+    @property
+    def n_conformers(self) -> int:
+        """
+        Return the number of conformers stored in the molecules.
+        """
+
+        conformers = sum([molecule.n_conformers for molecule in self.molecules])
+        return conformers
+
+    @property
+    def n_filtered(self) -> int:
+        """
+        Return the number of filtered molecules.
+        """
+        return len(self.filtered)
 
     def add_molecule(self, molecule: off.Molecule):
         """
@@ -142,6 +166,12 @@ class ComponentResult:
             else:
                 return
 
+    def __repr__(self):
+        return f"ComponentResult(name={self.component_name}, molecules={self.n_molecules}, filtered={self.n_filtered})"
+
+    def __str__(self):
+        return f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' filtered='{self.n_filtered}'>"
+
 
 class BasicDataSet(BaseModel):
     """
@@ -162,7 +192,7 @@ class BasicDataSet(BaseModel):
     basis: Optional[str] = "DZVP"
     program: str = "psi4"
     maxiter: int = 200
-    driver: str = "energy"
+    driver: DriverEnum = DriverEnum.energy
     scf_properties: List[str] = ["dipole", "qudrupole", "wiberg_lowdin_indices"]
     spec_name: str = "default"
     spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
@@ -698,14 +728,14 @@ class OptimizationDataset(BasicDataSet):
 
     dataset_name = "OptimizationDataset"
     dataset_tagline = "OpenForcefield optimizations."
-    driver = "gradient"
-    optimization_program: GeometricProcedure = GeometricProcedure()
+    driver: DriverEnum = DriverEnum.gradient
+    optimization_procedure: GeometricProcedure = GeometricProcedure()
 
     @validator("driver")
     def _check_driver(cls, driver):
         """Make sure that the driver is set to gradient only and not changed."""
-        if driver != "gradient":
-            driver = "gradient"
+        if driver.value != "gradient":
+            driver = DriverEnum.gradient
         return driver
 
     def _add_keywords(self, client: ptl.FractalClient) -> str:
@@ -724,7 +754,7 @@ class OptimizationDataset(BasicDataSet):
         kw_id = client.add_keywords([kw])[0]
         return kw_id
 
-    def get_qc_spec(self, keyword_id: str) -> Dict[str, str]:
+    def get_qc_spec(self, keyword_id: str) -> QCSpecification:
         """
         Create the QC specification for the computation.
 
@@ -735,8 +765,8 @@ class OptimizationDataset(BasicDataSet):
             The dictionary representation of the QC specification
         """
 
-        qc_spec = self.dict(include={"driver", "method", "basis", "program"})
-        qc_spec["keywords"] = keyword_id
+        qc_spec = QCSpecification(driver=self.driver, method=self.method, basis=self.basis, keywords=keyword_id,
+                                  program=self.program)
 
         return qc_spec
 
@@ -772,7 +802,7 @@ class OptimizationDataset(BasicDataSet):
         # store the keyword set into the collection
         kw_id = self._add_keywords(target_client)
         # create the optimization specification
-        opt_spec = self.optimization_program.get_optimzation_spec()
+        opt_spec = self.optimization_procedure.get_optimzation_spec()
         # create the qc specification
         qc_spec = self.get_qc_spec(keyword_id=kw_id)
         collection.add_specification(
@@ -780,7 +810,7 @@ class OptimizationDataset(BasicDataSet):
             optimization_spec=opt_spec,
             qc_spec=qc_spec,
             description=self.spec_description,
-            overwrite=True,
+            overwrite=False,
         )
 
         i = 0
@@ -843,7 +873,7 @@ class TorsiondriveDataset(OptimizationDataset):
         str,
         Dict[str, Union[Dict[str, str], List[ptl.Molecule], Tuple[int, int, int, int]]],
     ] = {}
-    optimization_program: GeometricProcedure = GeometricProcedure.parse_obj(
+    optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )
     grid_spacings: List[int] = [15]
@@ -885,7 +915,7 @@ class TorsiondriveDataset(OptimizationDataset):
         # store the keyword set into the collection
         kw_id = self._add_keywords(target_client)
         # create the optimization specification
-        opt_spec = self.optimization_program.get_optimzation_spec()
+        opt_spec = self.optimization_procedure.get_optimzation_spec()
         # create the qc specification
         qc_spec = self.get_qc_spec(keyword_id=kw_id)
         collection.add_specification(

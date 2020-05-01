@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import yaml
 from pydantic import BaseModel, validator
 from qcportal import FractalClient
+from qcportal.models.common_models import DriverEnum
 
 import openforcefield.topology as off
 
@@ -53,7 +54,7 @@ class BasicDatasetFactory(BaseModel):
     basis: Optional[str] = "DZVP"
     program: str = "psi4"
     maxiter: int = 200
-    driver: str = "energy"
+    driver: DriverEnum = DriverEnum.energy
     scf_properties: List[str] = ["dipole", "qudrupole", "wiberg_lowdin_indices"]
     spec_name: str = "default"
     spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
@@ -70,17 +71,6 @@ class BasicDatasetFactory(BaseModel):
         validate_assignment = True
         arbitrary_types_allowed = True
         title = "QCFractalDatasetFactory"
-
-    @validator("driver")
-    def _check_driver(cls, driver):
-        """Make sure that the driver is supported."""
-        available_drivers = ["energy", "gradient", "hessian"]
-        if driver not in available_drivers:
-            raise DriverError(
-                f"The requested driver ({driver}) is not in the list of available "
-                f"drivers: {available_drivers}"
-            )
-        return driver
 
     @validator("scf_properties")
     def _check_scf_props(cls, scf_props):
@@ -625,11 +615,14 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
     """
 
     # set the driver to be gradient this should not be changed when running
-    driver = "gradient"
+    driver = DriverEnum.gradient
     _dataset_type = OptimizationDataset
 
     # use the default geometric settings during optimisation
     optimization_program: GeometricProcedure = GeometricProcedure()
+
+    class Config:
+        title = "OptimizationDatasetFactory"
 
     @validator("driver")
     def _check_driver(cls, driver):
@@ -676,6 +669,9 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     optimization_program = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )
+
+    class Config:
+        title = "TorsiondriveDatasetFactory"
 
     def create_dataset(
         self, dataset_name: str, molecules: Union[str, List[off.Molecule], off.Molecule]

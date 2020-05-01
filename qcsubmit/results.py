@@ -3,36 +3,58 @@ A module with classes that can be used to collect results from the qcarchive and
 analysis.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import qcelemental as qcel
+from qcelemental.models.types import Array
 import qcportal as ptl
-from pydantic import BaseModel
+from qcportal.models.common_models import DriverEnum
+from qcportal.models import ResultRecord, OptimizationRecord
+from pydantic import BaseModel, validator
 from simtk import unit
 
 from openforcefield.topology import Molecule
 
+from .procedures import GeometricProcedure
 
-class SingleResult(BaseModel):
+
+class BaseConfig(BaseModel):
+    """
+    A basic config class.
+    """
+
+    class Config:
+        arbitrary_types_allowed: bool = True
+        allow_mutation: bool = False
+        json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
+
+
+class SingleResult(BaseConfig):
     """
     This is a very basic result class that captures the coordinates of the calculation along with the main result
     and any extras that were calculated using scf properties.
     """
 
     molecule: ptl.models.Molecule
-    wbo: List[float]
+    wbo: Optional[Array[np.ndarray]] = None
     id: int
     energy: Optional[float] = None
     gradient: Optional[np.ndarray] = None
     hessian: Optional[List[List[float]]] = None
     extras: Optional[Dict] = None
 
-    class Config:
-        arbitrary_types_allowed: bool = True
-        allow_mutation: bool = False
-        json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
+    @validator("wbo")
+    def _check_wbo(cls, wbo):
+        """
+        Take the input wbo which is normally a list and cast it to a np.ndarry of the correct shape.
+        """
+        if wbo is None:
+            return wbo
+        else:
+            atoms = np.sqrt(len(wbo)).astype(int)
+            return wbo.reshape((atoms, -1))
 
     def guess_connectivity(self) -> List[Tuple[int, int]]:
         """
@@ -45,7 +67,7 @@ class SingleResult(BaseModel):
         return conn
 
 
-class OptimizationEntryResult(BaseModel):
+class OptimizationEntryResult(BaseConfig):
     """
     The optimization Entry Result is built from a series of SingleResults to form the trajectory.
     """
@@ -54,11 +76,14 @@ class OptimizationEntryResult(BaseModel):
     index: str
     id: int
     cmiles: str
+    keywords: Optional[Dict[str, Any]]
 
-    class Config:
-        arbitrary_types_allowed: bool = True
-        allow_mutation: bool = False
-        json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
+    @property
+    def energies(self) -> List[float]:
+        """
+        Return a list of energies from the optimization trajectory.
+        """
+        return [molecule.energy for molecule in self.trajectory]
 
     @property
     def molecule(self) -> Molecule:
@@ -179,7 +204,7 @@ class OptimizationEntryResult(BaseModel):
 
         result_trajectory = optimization_result.client.query_procedures(traj)
         result_molecules = optimization_result.client.query_molecules(molecules)
-        data = {"index": index, "cmiles": cmiles, "id": optimization_result.id}
+        data = {"index": index, "cmiles": cmiles, "id": optimization_result.id, "keywords": optimization_result.keywords}
 
         entry = OptimizationEntryResult(**data)
         # now add in the trajectory
@@ -198,9 +223,9 @@ class OptimizationEntryResult(BaseModel):
         extras = result.extras.get("qcvars", None)
         single_result = SingleResult(
             molecule=molecule,
-            wbo=extras.get("WIBERG_LOWDIN_INDICES", [np.nan])
+            wbo=extras.get("WIBERG_LOWDIN_INDICES", None)
             if extras is not None
-            else [np.nan],
+            else None,
             energy=result.properties.return_energy,
             gradient=result.return_result,
             id=result.id,
@@ -220,11 +245,9 @@ class OptimizationEntryResult(BaseModel):
         """
 
         molecule = self.molecule
-        if self.final_molecule.wbo == [np.nan]:
+        if self.final_molecule.wbo is None:
             return []
-        wbo = np.array(self.final_molecule.wbo).reshape(
-            (molecule.n_atoms, molecule.n_atoms)
-        )
+        wbo = self.final_molecule.wbo
         bonds = []
         for i in range(molecule.n_atoms):
             for j in range(i):
@@ -250,12 +273,10 @@ class OptimizationEntryResult(BaseModel):
         # grab the molecule with its bonds
         molecule = self.molecule
         # cast the wbo into the correct shape
-        if self.final_molecule.wbo == [np.nan]:
+        if self.final_molecule.wbo is None:
             # if the wbo is missing return None
             return None
-        wbo = np.array(self.final_molecule.wbo).reshape(
-            (molecule.n_atoms, molecule.n_atoms)
-        )
+        wbo = self.final_molecule.wbo
         # now loop over the molecule bonds and make sure we find a bond in the array
         for bond in molecule.bonds:
             if wbo[bond.atom1_index, bond.atom2_index] < wbo_threshold:
@@ -305,17 +326,15 @@ class OptimizationEntryResult(BaseModel):
               A list of tuples of the atom indexes that have formed hydrogen bonds.
         """
 
-        h_acceptors = [7, 8, 16]
-        h_donors = [7, 8, 16]
+        h_acceptors = [7, 8]
+        h_donors = [7, 8]
         # get the molecule
         molecule = self.molecule
         # cast the wbo into the correct shape
-        if self.final_molecule.wbo == [np.nan]:
+        if self.final_molecule.wbo is None:
             # if the wbo is missing return None
             return None
-        wbo = np.array(self.final_molecule.wbo).reshape(
-            (molecule.n_atoms, molecule.n_atoms)
-        )
+        wbo = self.final_molecule.wbo
         # now loop over the molecule bonds and make sure we find a bond in the array
         h_bonds = set()
         for bond in molecule.bonds:
@@ -393,20 +412,15 @@ class OptimizationEntryResult(BaseModel):
         return list(h_bonds)
 
 
-class OptimizationResult(BaseModel):
+class OptimizationResult(BaseConfig):
     """
     A Optimiszation result contains metadata about the molecule which is being optimized along with each of the
     optimization entries as each molecule may of been optimised multiple times from different starting conformations.
     """
 
     entries: List[OptimizationEntryResult] = []
-    attributes: Dict
+    attributes: Dict[str, str]
     index: str
-
-    class Config:
-        arbitrary_types_allowed: bool = True
-        allow_mutation: bool = False
-        json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
 
     def add_entry(self, entry: OptimizationEntryResult) -> None:
         """
@@ -544,7 +558,7 @@ class OptimizationResult(BaseModel):
         return len(self.entries)
 
 
-class OptimizationCollectionResult(BaseModel):
+class OptimizationCollectionResult(BaseConfig):
     """
     The master collection result which contains many optimizationResults representing the archive collection.
     """
@@ -553,15 +567,77 @@ class OptimizationCollectionResult(BaseModel):
     basis: str
     dataset_name: str
     program: str
-    driver: str
+    driver: DriverEnum
     scf_properties: List[str]
+    maxiter: int
     spec_name: str
+    optimization_procedure: GeometricProcedure
     collection: Dict[str, OptimizationResult] = {}
 
-    class Config:
-        arbitrary_types_allowed: bool = True
-        allow_mutation: bool = False
-        json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
+    @classmethod
+    def _build_proxy_query(cls, collection: Union[ptl.collections.OptimizationDataset, ptl.collections.OptimizationDataset],
+                           spec_name: str, subset: List[str], client: ptl.FractalClient) -> pd.DataFrame:
+        """
+        Build a proxy query for a subset of the data.
+        """
+        procedures = {}
+        for index in subset:
+            entry = collection.data.records[index]
+            procedures[entry.name] = entry.object_map[spec_name]
+        # now do the query
+        client_procedures = cls._query_in_chunks(query=list(procedures.values()), result_type="procedure",
+                                                 client=client)
+
+        # now we need to create the dummy pd dataframe
+        proc_lookup = {x.id: x for x in client_procedures}
+        data = []
+        for name, oid in procedures.items():
+            data.append([name, proc_lookup[oid]])
+        df = pd.DataFrame(data, columns=["index", spec_name])
+        df.set_index("index", inplace=True)
+        return df[spec_name]
+
+    @staticmethod
+    def _query_in_chunks(query: List[str], result_type: str, client: ptl.FractalClient) -> List[Union[ptl.models.Molecule, ResultRecord, OptimizationRecord]]:
+        """
+        Take the query list of ids and their type and query the database in query limit chunks.
+        """
+
+        client_results = []
+
+        for i in range(0, len(query), client.query_limit):
+            # get the results records
+            if result_type == "molecule":
+                client_results.extend(client.query_molecules(id=query[i: i + client.query_limit]))
+            elif result_type == "result":
+                client_results.extend(client.query_results(id=query[i: i + client.query_limit]))
+            elif result_type == "procedure":
+                client_results.extend(client.query_procedures(id=query[i: i + client.query_limit]))
+        return client_results
+
+    @staticmethod
+    def _gather_metadata(collection: Union[ptl.collections.OptimizationDataset, ptl.collections.TorsionDriveDataset],
+                         spec_name: str, client: ptl.FractalClient) -> Dict[str, str]:
+        """
+        Gather metadata needed for Optimization and Torsiondrive results classes.
+        """
+
+        spec = collection.data.specs[spec_name]
+        optimization_procedure = GeometricProcedure.from_opt_spec(spec.optimization_spec)
+        scf_keywords = client.query_keywords(spec.qc_spec.keywords)[0]
+        data = {
+            "spec_name": spec_name,
+            "dataset_name": collection.name,
+            "method": spec.qc_spec.method,
+            "basis": spec.qc_spec.basis,
+            "program": spec.qc_spec.program,
+            "driver": spec.qc_spec.driver,
+            "maxiter": scf_keywords.values["maxiter"],
+            "scf_properties": scf_keywords.values["scf_properties"],
+            "optimization_procedure": optimization_procedure,
+
+        }
+        return data
 
     @classmethod
     def from_server(
@@ -589,63 +665,26 @@ class OptimizationCollectionResult(BaseModel):
             If we should include the full trajectory when downloading the data, note this can significantly increase the
             amount of client requests.
         final_molecule_only : bool, optional, default=False
-            Only down load the final geometry of each entry.
+            Only download the final geometry of each entry.
         subset : List[str], optional
             The chunk of result indexes that we should pull down.
         """
 
-        # build the input object
+        # build the result object from metadata
         opt_ds = client.get_collection("OptimizationDataset", dataset_name)
-        qc_spc = opt_ds.data.specs[spec_name].qc_spec.dict()
-        scf_properties = client.query_keywords(qc_spc["keywords"])[0].values[
-            "scf_properties"
-        ]
-        data = {
-            "spec_name": spec_name,
-            "dataset_name": dataset_name,
-            "method": qc_spc["method"],
-            "basis": qc_spc["basis"],
-            "program": qc_spc["program"],
-            "driver": qc_spc["driver"].value,
-            "scf_properties": scf_properties,
-        }
-
-        collection_result = OptimizationCollectionResult(**data)
+        metadata = cls._gather_metadata(collection=opt_ds, spec_name=spec_name, client=client)
+        collection_result = cls(**metadata)
 
         # query the database to get all of the optimization records
         if subset is None:
             query = opt_ds.query(spec_name)
+            subset = list(opt_ds.data.records.keys())
         else:
-            # build a list of procedures to request
-            procedures = {}
-            for index in subset:
-                entry = opt_ds.data.records[index]
-                procedures[entry.name] = entry.object_map[spec_name]
-            # now do the query
-            client_procedures = []
-            for i in range(0, len(procedures), client.query_limit):
-                client_procedures.extend(
-                    client.query_procedures(
-                        id=list(procedures.values())[i : i + client.query_limit]
-                    )
-                )
-            # now we need to create the dummy pd dataframe
-            proc_lookup = {x.id: x for x in client_procedures}
-            data = []
-            for name, oid in procedures.items():
-                data.append([name, proc_lookup[oid]])
-            df = pd.DataFrame(data, columns=["index", spec_name])
-            df.set_index("index", inplace=True)
-            query = df[spec_name]
+            query = cls._build_proxy_query(collection=opt_ds, spec_name=spec_name, subset=subset, client=client)
 
         collection = {}
-        # build the list of records to check
-        if subset is None:
-            subset = list(opt_ds.data.records.keys())
 
         # start loop through the records and adding them to the collection
-        client_molecules = []
-        client_results = []
         for index in subset:
             opt = opt_ds.data.records[index]
             opt_record = query.loc[opt.name]
@@ -661,17 +700,10 @@ class OptimizationCollectionResult(BaseModel):
                     }
                 if final_molecule_only:
                     traj = [opt_record.trajectory[-1]]
-                    molecules = [opt_record.final_molecule]
                 elif include_trajectory:
-                    results = opt_record.get_trajectory()
-                    client_results.extend(results)
-                    traj = [traj.id for traj in results]
-                    mols = opt_record.get_molecular_trajectory()
-                    client_molecules.extend(mols)
-                    molecules = [mol.id for mol in mols]
+                    traj = opt_record.trajectory
                 else:
                     traj = [opt_record.trajectory[0], opt_record.trajectory[-1]]
-                    molecules = [opt_record.initial_molecule, opt_record.final_molecule]
                 entry = {
                     "index": index,
                     "id": opt_record.id,
@@ -679,36 +711,25 @@ class OptimizationCollectionResult(BaseModel):
                     "cmiles": opt.attributes[
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     ],
-                    "trajectory_molecules": molecules,
+                    "keywords": opt_record.keywords,
                 }
                 collection[common_name]["entries"].append(entry)
-        if include_trajectory:
-            print("requested molecules", len(client_molecules))
-            print("requested results", len(client_results))
-        else:
-            # now process the list into chucks that can be queried
-            query_molecules = []
-            query_results = []
-            for data in collection.values():
-                for entry in data["entries"]:
-                    for (result, molecule) in zip(
-                        entry["trajectory_records"], entry["trajectory_molecules"]
-                    ):
-                        query_molecules.append(molecule)
-                        query_results.append(result)
+        # now process the list into chucks that can be queried
+        query_results = []
+        for data in collection.values():
+            for entry in data["entries"]:
+                for result in entry["trajectory_records"]:
+                    # build a list of trajectory ids to query
+                    query_results.append(result)
 
-            print("requested molecules", len(query_molecules))
-            print("requested results", len(query_results))
-            # chunk the dataset into a query limit bites and request
-            for i in range(0, len(query_molecules), client.query_limit):
-                client_molecules.extend(
-                    client.query_molecules(
-                        id=query_molecules[i : i + client.query_limit]
-                    )
-                )
-                client_results.extend(
-                    client.query_results(id=query_results[i : i + client.query_limit])
-                )
+        # we will get one molecule for each result
+        print("requested molecules", len(query_results))
+        print("requested results", len(query_results))
+        # get the results
+        client_results = cls._query_in_chunks(query=query_results, result_type="result", client=client)
+        # now we need to form a list of molecules to query
+        query_molecules = [result.molecule for result in client_results]
+        client_molecules = cls._query_in_chunks(query=query_molecules, result_type="molecule", client=client)
 
         # make into a look up table
         molecules_table = dict((molecule.id, molecule) for molecule in client_molecules)
@@ -720,15 +741,13 @@ class OptimizationCollectionResult(BaseModel):
                 index=data["index"], attributes=data["attributes"]
             )
             for entry in data["entries"]:
-                opt_entry = OptimizationEntryResult(
-                    index=entry["index"], id=entry["id"], cmiles=entry["cmiles"]
-                )
-                for (result_id, molecule_id) in zip(
-                    entry["trajectory_records"], entry["trajectory_molecules"]
-                ):
+                # create the optimization entry
+                opt_entry = OptimizationEntryResult(**entry)
+                for result_id in entry["trajectory_records"]:
                     # now we need to make the single results
-                    molecule = molecules_table[molecule_id]
+                    # this will create a trajectory
                     result = results_table[result_id]
+                    molecule = molecules_table[result.molecule]
                     opt_entry.add_single_result(result, molecule)
                 opt_result.add_entry(opt_entry)
             collection_result.add_optimization_result(opt_result)
@@ -748,6 +767,323 @@ class OptimizationCollectionResult(BaseModel):
             self.collection[result.index] = result
 
         return result.index
+
+
+class TorsionDriveResult(BaseConfig):
+    """
+    This class holds the individual constrained optimisations and is the equivalent to a record in qcarchive.
+    """
+
+    optimization: Dict[Tuple[int, ...], OptimizationEntryResult] = {}
+    dihedrals: List[Tuple[int, int, int, int]]
+    grid_spacing: List[int]
+    energy_upper_limit: float
+    dihedral_ranges: Optional[List[Tuple[int]]]
+    energy_decrease_thresh: Optional[float]
+    index: str
+    initial_molecules: List[str]
+    attributes: Dict[str, str]
+    final_energies: Dict[str, float]
+
+    @validator("final_energies")
+    def _check_final_energies(cls, final_energies):
+        """
+        Convert the final energy dict from qcarchive into the right types.
+        """
+        energy_dict = {}
+        for key, energy in final_energies.items():
+            angle = tuple([int(i) for i in key[1:-1].split(",")])
+            energy_dict[angle] = energy
+        return energy_dict
+
+    def add_entry(self, angle: Tuple[int, ...], entry: OptimizationEntryResult) -> None:
+        """
+        Add a new OptimizationEntryResult to the result record.
+        """
+
+        if isinstance(angle, str):
+            # we have to convert to the correct tuple
+            angle = tuple([int(i) for i in angle[1:-1].split(",")])
+
+        self.optimization[angle] = entry
+
+    @property
+    def molecule(self) -> Molecule:
+        """
+        Build an openforcefield.topology.Molecule from the cmiles which is in the correct order to align with the
+        QCArchive records.
+
+        Returns
+        -------
+        mol : openforcefield.topology.Molecule,
+            The openforcefield molecule representation of the molecule.
+        """
+
+        mol = Molecule.from_mapped_smiles(
+            self.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+        )
+
+        return mol
+
+    def get_input_molecules(self) -> Molecule:
+        """
+        Return the openforcefield representation of the molecule with all of the input conformers collapsed onto the
+        molecule.
+        """
+
+        molecule = self.molecule
+        for conformer in self.initial_molecules:
+            geometry = unit.Quantity(conformer.geometry, unit=unit.bohr)
+            molecule.add_conformer(geometry)
+
+        return molecule
+
+    def get_lowest_energy_optimisation(self) -> OptimizationEntryResult:
+        """
+        Get the OptimizationEntryResult which results in the lowest energy optimisation.
+        """
+
+        opt_results = [
+            (opt_rec.final_energy, angle) for angle, opt_rec in self.optimization.items()
+        ]
+        opt_results.sort(key=lambda x: x[0])
+        lowest_index = opt_results[0][1]
+        return self.optimization[lowest_index]
+
+    def get_torsiondrive(self) -> Molecule:
+        """
+        Get the torsiondrive trajectory collapsed onto a single openforcefield.topology.Molecule for viewing or
+        exporting.
+        """
+
+        molecule = self.molecule
+        # now sort the angles
+        angles = [angle for angle in self.optimization.keys()]
+        angles.sort(key=lambda x: x[0])
+        for angle in angles:
+            or_molecule = self.optimization[angle].get_final_molecule()
+            molecule.add_conformer(or_molecule.conformers[0])
+        return molecule
+
+    def detect_connectivity_changes_wbo(
+        self, wbo_threshold: float = 0.5
+    ) -> Dict[Tuple[int], bool]:
+        """
+        Detect any connectivity changes in the optimization entries and report them.
+
+        Returns:
+            A dictionary of the optimisation entry and a bool of the connectivity changed or not.
+            `True` indicates the connectivity did change, `False` indicates it did not.
+        """
+
+        connectivity_changes = dict(
+            (angle, opt_rec.detect_connectivity_changes_wbo(wbo_threshold))
+            for angle, opt_rec in self.optimization.items()
+        )
+        return connectivity_changes
+
+    def detect_connectivity_changes_heuristic(self) -> Dict[Tuple[int], bool]:
+        """
+        Detect connectivity changes based on heuristic rules.
+
+        Returns
+        -------
+         connectivity_changes : Dict[int, bool],
+            A dictionary of the optimization entry and a bool representing if the connectivity has changed or not.
+            `True` indicates the connectivity is now different from the input.
+            `False` indicates the connectivity is the same as the input.
+        """
+
+        connectivity_changes = dict(
+            (angle, opt_rec.detect_connectivity_changes_heuristic())
+            for angle, opt_rec in self.optimization.items()
+        )
+        return connectivity_changes
+
+    def detect_hydrogen_bonds_wbo(self, wbo_threshold: float = 0.04) -> Dict[Tuple[int], bool]:
+        """
+        Detect hydrogen bonds in the final molecules using the wbo.
+
+        Returns
+        -------
+        hydrogen_bonds :  Dict[int, bool],
+            A dictionary of the optimization entry and a bool representing if an internal hydrogen bond was found.
+            `True` indicates a bond was found.
+            `False` indicates a bond was not found.
+
+        Notes
+        -----
+            You can also query where the hydrogen bond is formed using the `find_hydrogen_bonds_wbo` function on the
+            corresponding entry.
+        """
+        hydrogen_bonds = {}
+        for angle, opt_rec in self.optimization.items():
+            hbonds = opt_rec.find_hydrogen_bonds_wbo(wbo_threshold)
+            result = bool(hbonds) if hbonds is not None else None
+            hydrogen_bonds[angle] = result
+
+        return hydrogen_bonds
+
+    def detect_hydrogen_bonds_heuristic(self) -> Dict[Tuple[int], bool]:
+        """
+        Detect hydrogen bonds in the final molecule of the trajectory using the Baker-Hubbard rule based method.
+
+        Returns
+        -------
+        hydrogen_bonds : Dict[int, bool],
+            A dictionary of the optimization entry index and bool representing if an internal hydrogen bond was found.
+            `True` indicates a bond was found.
+            `False` indicates a bond was not found.
+
+        Notes
+        -----
+            You can also query which atoms the bond was formed between using the `find_hydrogen_bonds_heuristic` method
+            on the corresponding entry.
+        """
+
+        hydrogen_bonds = {}
+        for angle, opt_rec in self.optimization.items():
+            hbonds = opt_rec.find_hydrogen_bonds_heuristic()
+            result = bool(hbonds) if hbonds is not None else None
+            hydrogen_bonds[angle] = result
+
+        return hydrogen_bonds
+
+
+class TorsionDriveCollectionResult(OptimizationCollectionResult):
+    """
+    The master collection result which contains many optimizationResults representing the archive collection.
+    """
+
+    collection: Dict[str, TorsionDriveResult] = {}
+
+    def add_torsiondrive(self, torsriondrive: TorsionDriveResult) -> None:
+        """
+        Add a torsiondrive result to the collection under its index.
+        """
+        self.collection[torsriondrive.index] = torsriondrive
+
+    @classmethod
+    def from_server(
+        cls,
+        client: ptl.FractalClient,
+        spec_name: str,
+        dataset_name: str,
+        include_trajectory: Optional[bool] = False,
+        final_molecule_only: Optional[bool] = False,
+        subset: Optional[List[str]] = None,
+    ) -> "TorsionDriveCollectionResult":
+        """
+        Build up the collection result from a TorsionDriveDataset on a archive client this will also collapse the
+        records into entries for the same molecules.
+
+        Parameters
+        ----------
+        client : qcportal.FractalClient
+            The fractal client we should contact to pull the results from.
+        spec_name : str
+            The spec the data was calculated with that we want results for.
+        dataset_name : str
+            The name of the Optimization set we want to pull down.
+        include_trajectory : bool, optional, default=False
+            If we should include the full trajectory when downloading the data, note this can significantly increase the
+            amount of client requests.
+        final_molecule_only : bool, optional, default=False
+            Only download the final geometry of each entry.
+        subset : List[str], optional
+            The chunk of result indexes that we should pull down.
+        """
+
+        # build the result object from metadata
+        td_ds = client.get_collection("TorsionDriveDataset", dataset_name)
+        metadata = cls._gather_metadata(collection=td_ds, spec_name=spec_name, client=client)
+        collection_result = cls(**metadata)
+
+        if subset is None:
+            query = td_ds.query(spec_name)
+            subset = list(td_ds.data.records.keys())
+        else:
+            query = cls._build_proxy_query(collection=td_ds, spec_name=spec_name, subset=subset, client=client)
+
+        collection = {}
+        query_optimizations = []
+        # start looping through the dataset building place holders for the results
+        for index in subset:
+            tdrive = td_ds.data.records[index]
+            tdrive_record = query.loc[tdrive.name]
+            if tdrive_record.status.value.upper() == "COMPLETE":
+                # get the torsiondrive keywords
+                data = tdrive.td_keywords.dict()
+                # add the extra data
+                data["index"] = index
+                data["initial_molecules"] = tdrive.initial_molecules
+                data["attributes"] = tdrive.attributes
+                data["final_energies"] = tdrive_record.final_energy_dict
+                # we need to build  up a list of the optimizations we need to query
+                optimizations = {}
+                for angle, min_pos in tdrive_record.minimum_positions.items():
+                    optimizations[angle] = tdrive_record.optimization_history[angle][min_pos]
+                query_optimizations.extend(list(optimizations.values()))
+                data["optimization_data"] = optimizations
+                # save the place holder information
+                collection[index] = data
+
+        # now we have to query all of the optimizations to get the result
+        # and molecule ids
+        print("requested optimizations", len(query_optimizations))
+        client_optimizations = cls._query_in_chunks(query=query_optimizations, result_type="procedure", client=client)
+
+        # now we need to build up a list of the molecules and results to request
+        query_results = []
+        for opt in client_optimizations:
+            if final_molecule_only:
+                query_results.append(opt.trajectory[-1])
+            elif include_trajectory:
+                query_results.extend(opt.trajectory)
+            else:
+                query_results.extend([opt.trajectory[0], opt.trajectory[-1]])
+
+        # we will get one molecule for each result
+        print("requested molecules", len(query_results))
+        print("requested results", len(query_results))
+        client_results = cls._query_in_chunks(query=query_results, result_type="result", client=client)
+        # now we need to form a list of molecules to query
+        query_molecules = [result.molecule for result in client_results]
+        client_molecules = cls._query_in_chunks(query=query_molecules, result_type="molecule", client=client)
+
+        # make into a look up table
+        optimizations_table = dict((opt.id, opt) for opt in client_optimizations)
+        molecules_table = dict((molecule.id, molecule) for molecule in client_molecules)
+        results_table = dict((result.id, result) for result in client_results)
+
+        # now we need to build up the collection from the gathered results
+        for data in collection.values():
+            torsiondrive = TorsionDriveResult(**data)
+            # now we just need to make the optimization entries
+            for angle, optimization_id in data["optimization_data"].items():
+                entry = OptimizationEntryResult(index=torsiondrive.index, id=optimization_id,
+                                                cmiles=torsiondrive.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"],
+                                                keywords=optimizations_table[optimization_id].keywords)
+
+                # now we need to add the trajectory for each optimization
+                if final_molecule_only:
+                    traj_ids = [optimizations_table[optimization_id].trajectory[-1]]
+                elif include_trajectory:
+                    traj_ids = optimizations_table[optimization_id].trajectory
+                else:
+                    opt = optimizations_table[optimization_id]
+                    traj_ids = [opt.trajectory[0], opt.trajectory[-1]]
+                for result_id in traj_ids:
+                    # get the molecule and the result and add it to the collection
+                    result = results_table[result_id]
+                    molecule = molecules_table[result.molecule]
+                    entry.add_single_result(result, molecule)
+                # add the constrained optimization to the torsiondrive
+                torsiondrive.add_entry(angle=angle, entry=entry)
+            # now add the torsiondrive to the collection
+            collection_result.add_torsiondrive(torsiondrive)
+
+        return collection_result
 
 
 OptimizationEntryResult.update_forward_refs()

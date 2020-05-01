@@ -92,8 +92,7 @@ def test_custom_component():
     assert test.component_name == "Test component"
     assert test.component_description == "Test component"
     assert test.component_fail_message == "Test fail"
-    assert "provenance" in test.dict().keys()
-    assert {"test": "version1"} == test.dict()["provenance"]
+    assert {"test": "version1"} == test.provenance()
 
 
 @pytest.mark.parametrize(
@@ -251,7 +250,8 @@ def test_conformer_apply(toolkit):
         mols = get_tautomers()
         # remove duplicates from the set
         molecule_container = ComponentResult(
-            component_name="intial", component_description={"description": "initial filter"}, molecules=mols
+            component_name="intial", component_description={"description": "initial filter"}, molecules=mols,
+            component_provenance={"test": "test component"}
         )
 
         result = conf_gen.apply(molecule_container.molecules)
@@ -434,11 +434,21 @@ def test_coverage_filter():
     """
 
     coverage_filter = workflow_components.CoverageFilter()
-    coverage_filter.allowed_ids = ["a1"]
+    coverage_filter.allowed_ids = ["b83"]
+    coverage_filter.filtered_ids = ["b87"]
 
     mols = get_tautomers()
+
     # we have to remove duplicated records
+    # remove duplicates from the set
+    molecule_container = ComponentResult(
+        component_name="intial", component_description={"description": "initial filter"}, molecules=mols,
+        component_provenance={"test": "test component"}
+    )
+    result = coverage_filter.apply(molecule_container.molecules)
+    # we now need to check that the molecules passed contain only the allowed atoms
+    # do this by running the component again
+    result2 = coverage_filter.apply(result.molecules)
+    assert result2.n_filtered == 0
+    assert result.n_molecules == result.n_molecules
 
-    # result = coverage_filter.apply(mols)
-
-    assert False is True

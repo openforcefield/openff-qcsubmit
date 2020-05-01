@@ -6,6 +6,8 @@ from typing import Dict
 
 from pydantic import BaseModel, validator
 
+from qcportal.models.common_models import OptimizationSpecification
+
 
 class GeometricProcedure(BaseModel):
     """
@@ -44,6 +46,16 @@ class GeometricProcedure(BaseModel):
     class Config:
         validate_assignment = True
         title = "GeometricProcedure"
+
+    @validator("program")
+    def check_program(cls, program: str):
+        """
+        The program should not be changed from geometric.
+        """
+        if program.lower() != "geometric":
+            return "geometric"
+        else:
+            return program.lower()
 
     @validator("coordsys")
     def check_coordsys(cls, coordsys: str):
@@ -114,7 +126,7 @@ class GeometricProcedure(BaseModel):
                 f"The requested convergence set {convergence} is not supported."
             )
 
-    def get_optimzation_spec(self) -> Dict:
+    def get_optimzation_spec(self) -> OptimizationSpecification:
         """
         Create the optimization specification to be used in qcarchive.
 
@@ -125,6 +137,19 @@ class GeometricProcedure(BaseModel):
         if self.constraints is not None:
             exclude.add("constraints")
 
-        opt_spec = {"program": self.program, "keywords": self.dict(exclude=exclude)}
+        opt_spec = OptimizationSpecification(program=self.program, keywords=self.dict(exclude=exclude))
 
         return opt_spec
+
+    @classmethod
+    def from_opt_spec(cls, optimization_specification: OptimizationSpecification) -> "GeometricProcedure":
+        """
+        Create a geometric procedure from an Optimization spec.
+        """
+
+        if optimization_specification.keywords is None:
+            return GeometricProcedure()
+
+        else:
+            data = optimization_specification.dict(exclude={"program"})
+            return GeometricProcedure(**data)

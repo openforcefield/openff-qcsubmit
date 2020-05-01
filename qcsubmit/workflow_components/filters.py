@@ -267,6 +267,13 @@ class CoverageFilter(CustomWorkflowComponent):
 
         # pass all of the molecules then filter ones that have elements that are not allowed
         result = self._create_result()
+        # build a molecule mapping
+        molecule_mapping = dict(
+            (molecule.to_smiles(), molecule) for molecule in molecules
+        )
+
+        for molecule in molecules:
+            result.add_molecule(molecule)
 
         # the forcefield we are testing against
         forcefield = ForceField(self.forcefield)
@@ -277,14 +284,12 @@ class CoverageFilter(CustomWorkflowComponent):
         # loop through the tags
         if self.filtered_ids is not None:
             for filtered_id in self.filtered_ids:
-                for molecule in parameters_by_ID.get(filtered_id, []):
-                    self.fail_molecule(molecule, result)
-
-        if self.allowed_ids is not None:
-            for pid, molecules in parameters_by_ID.items():
-                if pid not in self.allowed_ids:
-                    for molecule in molecules:
-                        self.fail_molecule(molecule, result)
+                try:
+                    filtered = parameters_by_ID.pop(filtered_id)
+                    for molecule in filtered:
+                        self.fail_molecule(molecule_mapping[molecule], result)
+                except KeyError:
+                    continue
 
         return result
 
