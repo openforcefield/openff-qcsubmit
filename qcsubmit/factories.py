@@ -787,7 +787,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                             index=self.create_index(molecule=molecule),
                             molecule=molecule,
                             attributes=self.create_cmiles_metadata(molecule=molecule),
-                            atom_indices=tuple(molecule.properties["atom_map"].keys()),
+                            dihedrals=list(tuple(molecule.properties["atom_map"].keys())),
                         )
 
                 except KeyError:
@@ -815,7 +815,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                                 attributes=self.create_cmiles_metadata(
                                     molecule=molecule
                                 ),
-                                atom_indices=torsion_index,
+                                dihedrals=[torsion_index],
                             )
 
             else:
@@ -833,7 +833,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                         index=self.create_index(molecule=order_mol),
                         molecule=order_mol,
                         attributes=self.create_cmiles_metadata(molecule=order_mol),
-                        atom_indices=torsion_index,
+                        dihedrals=[torsion_index],
                     )
 
             # now we need to add the filtered molecules

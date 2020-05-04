@@ -152,4 +152,4 @@ class GeometricProcedure(BaseModel):
 
         else:
             data = optimization_specification.dict(exclude={"program"})
-            return GeometricProcedure(**data)
+            return GeometricProcedure(**data["keywords"])

@@ -12,7 +12,7 @@ from qcelemental.models.types import Array
 import qcportal as ptl
 from qcportal.models.common_models import DriverEnum
 from qcportal.models import ResultRecord, OptimizationRecord
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, constr
 from simtk import unit
 
 from openforcefield.topology import Molecule
@@ -41,20 +41,30 @@ class SingleResult(BaseConfig):
     wbo: Optional[Array[np.ndarray]] = None
     id: int
     energy: Optional[float] = None
-    gradient: Optional[np.ndarray] = None
-    hessian: Optional[List[List[float]]] = None
+    gradient: Optional[Array[np.ndarray]] = None
+    hessian: Optional[Array[np.ndarray]] = None
     extras: Optional[Dict] = None
 
-    @validator("wbo")
-    def _check_wbo(cls, wbo):
+    @validator("wbo", "hessian")
+    def _check_wbo_and_hessian(cls, array):
         """
-        Take the input wbo which is normally a list and cast it to a np.ndarry of the correct shape.
+        Take the input wbo/hessian which is normally a list and cast it to a np.ndarry of the correct shape.
         """
-        if wbo is None:
-            return wbo
+        if array is None:
+            return array
         else:
-            atoms = np.sqrt(len(wbo)).astype(int)
-            return wbo.reshape((atoms, -1))
+            atoms = np.sqrt(len(array)).astype(int)
+            return array.reshape((atoms, -1))
+
+    @validator("gradient")
+    def _check_gradient(cls, gradient):
+        """
+        Take the gradient which is normally a flat list and cast it to the correct shape.
+        """
+        if gradient is None:
+            return gradient
+        else:
+            return gradient.reshape((-1, 3))
 
     def guess_connectivity(self) -> List[Tuple[int, int]]:
         """
@@ -563,6 +573,7 @@ class OptimizationCollectionResult(BaseConfig):
     The master collection result which contains many optimizationResults representing the archive collection.
     """
 
+    result_type: constr(regex="OptimizationCollection") = "OptimizationCollection"
     method: str
     basis: str
     dataset_name: str
@@ -571,8 +582,32 @@ class OptimizationCollectionResult(BaseConfig):
     scf_properties: List[str]
     maxiter: int
     spec_name: str
+    spec_description: str
     optimization_procedure: GeometricProcedure
     collection: Dict[str, OptimizationResult] = {}
+
+    def create_optimization_dataset(self) -> "OptimizationDataset":
+        """
+        Creaate a qcsubmit.datasets.OptimizationDataset from the current results collection.
+
+        Notes
+        -----
+            The dataset is created using the final geometries as the input geometries for the next optimization.
+
+        Returns
+        -------
+        dataset : qcsubmit.datasets.OptimizationDataset
+            The instance of the Optimization dataset.
+        """
+        from qcsubmit.datasets import OptimizationDataset
+
+        dataset = OptimizationDataset(**self.dict(exclude={"collection"}))
+        # now we need to add the molecules
+        for common_index, entries in self.collection.items():
+            for result in entries.entries:
+                dataset.add_molecule(index=result.index, molecule=result.get_final_molecule(), attributes=entries.attributes, keywords=result.keywords)
+
+        return dataset
 
     @classmethod
     def _build_proxy_query(cls, collection: Union[ptl.collections.OptimizationDataset, ptl.collections.OptimizationDataset],
@@ -627,6 +662,7 @@ class OptimizationCollectionResult(BaseConfig):
         scf_keywords = client.query_keywords(spec.qc_spec.keywords)[0]
         data = {
             "spec_name": spec_name,
+            "spec_description": spec.description,
             "dataset_name": collection.name,
             "method": spec.qc_spec.method,
             "basis": spec.qc_spec.basis,
@@ -774,7 +810,7 @@ class TorsionDriveResult(BaseConfig):
     This class holds the individual constrained optimisations and is the equivalent to a record in qcarchive.
     """
 
-    optimization: Dict[Tuple[int, ...], OptimizationEntryResult] = {}
+    optimization: Dict[str, OptimizationEntryResult] = {}
     dihedrals: List[Tuple[int, int, int, int]]
     grid_spacing: List[int]
     energy_upper_limit: float
@@ -785,25 +821,10 @@ class TorsionDriveResult(BaseConfig):
     attributes: Dict[str, str]
     final_energies: Dict[str, float]
 
-    @validator("final_energies")
-    def _check_final_energies(cls, final_energies):
-        """
-        Convert the final energy dict from qcarchive into the right types.
-        """
-        energy_dict = {}
-        for key, energy in final_energies.items():
-            angle = tuple([int(i) for i in key[1:-1].split(",")])
-            energy_dict[angle] = energy
-        return energy_dict
-
-    def add_entry(self, angle: Tuple[int, ...], entry: OptimizationEntryResult) -> None:
+    def add_entry(self, angle: str, entry: OptimizationEntryResult) -> None:
         """
         Add a new OptimizationEntryResult to the result record.
         """
-
-        if isinstance(angle, str):
-            # we have to convert to the correct tuple
-            angle = tuple([int(i) for i in angle[1:-1].split(",")])
 
         self.optimization[angle] = entry
 
@@ -955,13 +976,64 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
     The master collection result which contains many optimizationResults representing the archive collection.
     """
 
+    result_type: constr(regex="TorsionDriveCollection") = "TorsionDriveCollection"
     collection: Dict[str, TorsionDriveResult] = {}
 
-    def add_torsiondrive(self, torsriondrive: TorsionDriveResult) -> None:
+    class Config:
+        title = "TorsionDriveCollectionResult"
+
+    def create_torsiondrive_dataset(self) -> "TorsiondriveDataset":
+        """
+        Create a torsiondrive dataset from the results of the current dataset.
+
+        Notes
+        -----
+            The final geometry of each torsiondrive constrained optimization is supplied as a starting geometry.
+
+        Returns
+        -------
+        dataset : qcsubmit.dataset.TorsiondriveDataset
+            A TorsiondriveDataset dataset instance that can be submited to a client, built from the final geometries
+            of the current results torsiondrive dataset.
+        """
+        from qcsubmit.datasets import TorsiondriveDataset
+        dataset = TorsiondriveDataset(**self.dict(exclude={"collection"}))
+        # now we need to fill in the dataset data
+        for index, result in self.collection.items():
+            # get the torsion drive trajectory onto the molecule
+            tdrive_mol = result.get_torsiondrive()
+            dataset.add_molecule(index=index, molecule=tdrive_mol, attributes=result.attributes, dihedrals=result.dihedrals)
+        return dataset
+
+    def add_torsiondrive(self, torsriondrive: TorsionDriveResult) -> str:
         """
         Add a torsiondrive result to the collection under its index.
+
+        Parameters
+        ----------
+        torsriondrive : qcsubmit.results.TorsionDriveResult
+            The instance of the TorsionDriveResult which should be added to the collection.
+
+        Returns
+        -------
+        index : str
+            The index string the TorsionDriveResult was stored under.
         """
         self.collection[torsriondrive.index] = torsriondrive
+        return torsriondrive.index
+
+    def export_results(self, filename: str) -> None:
+        """
+        Export the results to json file.
+
+        Parameters
+        ----------
+        filename : str
+            The name of the json file which the results should be wrote to.
+        """
+
+        with open(filename, "w") as output:
+            output.write(self.json(indent=2))
 
     @classmethod
     def from_server(

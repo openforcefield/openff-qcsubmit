@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import qcportal as ptl
 from qcportal.models.common_models import QCSpecification, DriverEnum
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, constr
 
 import openforcefield.topology as off
 
@@ -188,6 +188,7 @@ class BasicDataSet(BaseModel):
 
     dataset_name: str = "BasicDataSet"
     dataset_tagline: str = "OpenForcefield single point evaluations."
+    dataset_type: constr(regex="BasicDataSet") = "BasicDataSet"
     method: str = "B3LYP-D3BJ"
     basis: Optional[str] = "DZVP"
     program: str = "psi4"
@@ -203,8 +204,9 @@ class BasicDataSet(BaseModel):
     _file_writers = {"json": json.dump}
 
     class Config:
+        title = "BasicDataSet"
         arbitrary_types_allowed: bool = True
-        allow_mutation: bool = False
+        allow_mutation: bool = True
         json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
 
     @property
@@ -394,6 +396,7 @@ class BasicDataSet(BaseModel):
         molecule: off.Molecule,
         attributes: Dict[str, str],
         extras: Optional[Dict[str, Any]] = None,
+        keywords: Optional[Dict[str, Any]] = None
     ) -> None:
         """
         Add a molecule to the dataset under the given index with the passed cmiles.
@@ -409,6 +412,8 @@ class BasicDataSet(BaseModel):
             extra meta information on the calculation.
         extras : Dict[str, Any], optional, default=None
             The extras that should be supplied into the qcportal.moldels.Molecule.
+        keywords : Dict[str, Any], optional, default=None,
+            Any extra keywords which are required for the calculation.
 
         Notes
         -----
@@ -433,6 +438,7 @@ class BasicDataSet(BaseModel):
 
         self.dataset[index] = {
             "attributes": attributes,
+            "keywords": keywords,
             "initial_molecules": schema_mols,
         }
 
@@ -728,8 +734,12 @@ class OptimizationDataset(BasicDataSet):
 
     dataset_name = "OptimizationDataset"
     dataset_tagline = "OpenForcefield optimizations."
+    dataset_type: constr(regex="OptimizationDataset") = "OptimizationDataset"
     driver: DriverEnum = DriverEnum.gradient
     optimization_procedure: GeometricProcedure = GeometricProcedure()
+
+    class Config:
+        title = "OptimizationDataset"
 
     @validator("driver")
     def _check_driver(cls, driver):
@@ -826,6 +836,7 @@ class OptimizationDataset(BasicDataSet):
                         name=name,
                         initial_molecule=molecule,
                         attributes=data["attributes"],
+                        additional_keywords=data.get("keywords", None),
                         save=False,
                     )
                     i += 1
@@ -868,10 +879,11 @@ class TorsiondriveDataset(OptimizationDataset):
 
     dataset_name = "TorsionDriveDataset"
     dataset_tagline = "OpenForcefield TorsionDrives."
+    dataset_type: constr(regex="TorsiondriveDataset") = "TorsiondriveDataset"
     # define the types again as they are slightly different for the TorsionDrive data
     dataset: Dict[
         str,
-        Dict[str, Union[Dict[str, str], List[ptl.Molecule], Tuple[int, int, int, int]]],
+        Dict[str, Union[Dict[str, str], List[ptl.Molecule], List[Tuple[int, int, int, int]]]],
     ] = {}
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
@@ -880,6 +892,9 @@ class TorsiondriveDataset(OptimizationDataset):
     energy_upper_limit: float = 0.05
     dihedral_ranges: Optional[List[Tuple[int, int]]] = None
     energy_decrease_thresh: Optional[float] = None
+
+    class Config:
+        title = "TorsiondriveDataset"
 
     def submit(
         self, client: Union[str, ptl.FractalClient], await_result: bool = False
@@ -957,7 +972,7 @@ class TorsiondriveDataset(OptimizationDataset):
         index: str,
         molecule: off.Molecule,
         attributes: Dict[str, str],
-        atom_indices: Tuple[int, int, int, int],
+        dihedrals: List[Tuple[int, int, int, int]],
         extras: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
@@ -968,7 +983,7 @@ class TorsiondriveDataset(OptimizationDataset):
             molecule: The instance of the [openforcefield.topology.Molecule][molecule] which contains its conformer
                 information.
             attributes: The attributes dictionary containing all of the relevant identifier tags for the molecule.
-            atom_indices: The atom indices of the atoms to be restrained during the torsiondrive.
+            dihedrals: The atom indices of the atoms to be restrained during the torsiondrive.
             extras : Dict[str, Any], optional, default=None
                 An extras that should be passed into the qcportal.models.Molecule instance.
 
@@ -984,8 +999,8 @@ class TorsiondriveDataset(OptimizationDataset):
 
         self.dataset[index] = {
             "attributes": attributes,
+            "dihedrals": dihedrals,
             "initial_molecules": schema_mols,
-            "atom_indices": atom_indices,
         }
 
 
