@@ -11,7 +11,7 @@ scf_properties:
 - wiberg_lowdin_indices
 spec_description: Standard OpenFF optimization quantum chemistry specification.
 spec_name: default
-tag: loaded tag
+compute_tag: loaded tag
 workflow:
   StandardConformerGenerator:
     clear_existing: true

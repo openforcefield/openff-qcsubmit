@@ -1,17 +1,17 @@
 import json
-import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import numpy as np
+import qcelemental as qcel
 import qcportal as ptl
-from qcportal.models.common_models import QCSpecification, DriverEnum
-from pydantic import BaseModel, validator, constr
+from pydantic import constr, validator
+from qcportal.models.common_models import DriverEnum, QCSpecification
 
 import openforcefield.topology as off
 
+from .exceptions import DatasetInputError, UnsupportedFiletypeError
 from .procedures import GeometricProcedure
 from .results import SingleResult
-from .exceptions import DatasetInputError, UnsupportedFiletypeError
+from .common_structures import DatasetConfig, IndexCleaner
 
 
 class ComponentResult:
@@ -57,7 +57,7 @@ class ComponentResult:
         self.component_provenance: Dict = component_provenance
 
         assert (
-            molecules or input_file is None
+            molecules is None or input_file is None
         ), "Provide either a list of molecules or an input file name."
 
         # if we have an input file load it
@@ -113,13 +113,16 @@ class ComponentResult:
             )
             assert isomorphic is True
             # transfer any torsion indexs for similar fragments
-            if "torsion_index" in molecule.properties:
-                for torsion_index, dihedral_range in molecule.properties[
-                    "torsion_index"
-                ].items():
-                    self.molecules[mol_id].properties["torsion_index"][
-                        torsion_index
-                    ] = dihedral_range
+            if "dihedrals" in molecule.properties:
+                # remap the dihedrals
+                for dihedral, dihedral_range in molecule.properties["dihedrals"].items():
+                    mapped_dihedral = tuple([mapping[i] for i in dihedral])
+                    try:
+                        self.molecules[mol_id].properties["dihedrals"][mapped_dihedral] = dihedral_range
+                    except KeyError:
+                        self.molecules[mol_id].properties[
+                            "dihedrals"
+                        ] = {mapped_dihedral: dihedral_range}
 
             if molecule.n_conformers != 0:
 
@@ -173,7 +176,82 @@ class ComponentResult:
         return f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' filtered='{self.n_filtered}'>"
 
 
-class BasicDataSet(BaseModel):
+class DatasetEntry(DatasetConfig):
+    """
+    A basic data class to construct the datasets which holds any information about the molecule and options used in
+    the qcarchive calculation.
+
+    Notes
+    -----
+        * ``extras`` are passed into the qcelemental.models.Molecule on creation.
+        * any extras that should passed to the calculation like extra constrains should be passed to ``keywords``.
+    """
+
+    index: str
+    initial_molecules: List[qcel.models.Molecule]
+    attributes: Dict[str, Any]
+    dihedrals: Optional[List[Tuple[int, int, int, int]]]
+    extras: Optional[Dict[str, Any]] = None
+    keywords: Optional[Dict[str, Any]] = None
+
+    def __init__(self, off_molecule: off.Molecule = None, **kwargs):
+        """
+        Init the dataclass handling conversions of the molecule first.
+        This is needed to make sure the extras are passed into the qcschema molecule.
+        """
+        extras = kwargs["extras"]
+        # if we get an off_molecule we need to convert it
+        if off_molecule is not None:
+            if off_molecule.n_conformers == 0:
+                off_molecule.generate_conformers(n_conformers=1)
+            # TODO add extras here when we can
+            schema_mols = [
+                off_molecule.to_qcschema(conformer=conformer, extras=extras)
+                for conformer in range(off_molecule.n_conformers)
+            ]
+            kwargs["initial_molecules"] = schema_mols
+
+        super().__init__(**kwargs)
+
+    @validator("attributes")
+    def _check_cmiles(cls, attributes):
+        """
+        Make sure that the explicit hydrogen mapped smiles is in the attributes.
+        """
+
+        if "canonical_isomeric_explicit_hydrogen_mapped_smiles" not in attributes:
+            raise DatasetInputError(
+                "The attributes do not contain valid cmiles identifiers make sure they are"
+                "generated first."
+            )
+        return attributes
+
+
+class FilterEntry(DatasetConfig):
+    """
+    A basic data class that contains information on components run in a workflow and the associated molecules which were
+    removed by it.
+    """
+
+    component_name: str
+    component_description: Dict[str, Any]
+    component_provenance: Dict[str, str]
+    molecules: List[str]
+
+    def __init__(self, off_molecules: List[off.Molecule] = None, **kwargs):
+        """
+        Init the dataclass handling conversions of the molecule first.
+        """
+        molecules = [
+            molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
+            for molecule in off_molecules
+        ]
+        kwargs["molecules"] = molecules
+
+        super().__init__(**kwargs)
+
+
+class BasicDataset(IndexCleaner, DatasetConfig):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to
     submission.
@@ -186,7 +264,7 @@ class BasicDataSet(BaseModel):
         The molecules in this dataset are all expanded so that different conformers are unique submissions.
     """
 
-    dataset_name: str = "BasicDataSet"
+    dataset_name: str = "BasicDataset"
     dataset_tagline: str = "OpenForcefield single point evaluations."
     dataset_type: constr(regex="BasicDataSet") = "BasicDataSet"
     method: str = "B3LYP-D3BJ"
@@ -198,16 +276,14 @@ class BasicDataSet(BaseModel):
     spec_name: str = "default"
     spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
     priority: str = "normal"
-    tag: str = "openff"
-    dataset: Dict[str, Dict[str, Union[Dict[str, str], List[ptl.Molecule]]]] = {}
-    filtered_molecules: Dict[str, Dict] = {}
+    description: Optional[str] = f"A basic dataset using the {driver} driver."
+    dataset_tags: List[str] = ["openff"]
+    compute_tag: str = "openff"
+    metadata: Dict[str, Any] = {}
+    provenance: Dict[str, str] = {}
+    dataset: Dict[str, DatasetEntry] = {}
+    filtered_molecules: Dict[str, FilterEntry] = {}
     _file_writers = {"json": json.dump}
-
-    class Config:
-        title = "BasicDataSet"
-        arbitrary_types_allowed: bool = True
-        allow_mutation: bool = True
-        json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
 
     @property
     def filtered(self) -> off.Molecule:
@@ -225,7 +301,7 @@ class BasicDataSet(BaseModel):
         """
 
         for component, data in self.filtered_molecules.items():
-            for smiles in data["molecules"]:
+            for smiles in data.molecules:
                 offmol = off.Molecule.from_smiles(smiles, allow_undefined_stereo=True)
                 yield offmol
 
@@ -240,7 +316,7 @@ class BasicDataSet(BaseModel):
                 The total number of molecules filtered by components.
         """
         filtered = sum(
-            [len(data["molecules"]) for data in self.filtered_molecules.values()]
+            [len(data.molecules) for data in self.filtered_molecules.values()]
         )
         return filtered
 
@@ -264,9 +340,7 @@ class BasicDataSet(BaseModel):
             n_molecules
         """
 
-        n_records = sum(
-            [len(data["initial_molecules"]) for data in self.dataset.values()]
-        )
+        n_records = sum([len(data.initial_molecules) for data in self.dataset.values()])
         return n_records
 
     @property
@@ -313,13 +387,13 @@ class BasicDataSet(BaseModel):
         for index_name, molecule_data in self.dataset.items():
             # create the molecule from the cmiles data
             offmol = off.Molecule.from_mapped_smiles(
-                mapped_smiles=molecule_data["attributes"][
+                mapped_smiles=molecule_data.attributes[
                     "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                 ],
                 allow_undefined_stereo=True,
             )
             offmol.name = index_name
-            for conformer in molecule_data["initial_molecules"]:
+            for conformer in molecule_data.initial_molecules:
                 geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
                 offmol.add_conformer(geometry.in_units_of(unit.angstrom))
             yield offmol
@@ -351,16 +425,15 @@ class BasicDataSet(BaseModel):
 
         components = []
         for component in self.filtered_molecules.values():
-            data = component["component_description"]
-            data["component_provenance"] = component["component_provenance"]
-            components.append(data)
+            components.append(component.dict(exclude={"molecules"}))
 
         return components
 
     def filter_molecules(
         self,
         molecules: Union[off.Molecule, List[off.Molecule]],
-        component_description: Dict[str, str],
+        component_name: str,
+        component_description: Dict[str, Any],
         component_provenance: Dict[str, str],
     ) -> None:
         """
@@ -372,31 +445,41 @@ class BasicDataSet(BaseModel):
             A molecule or list of molecules to be filtered.
         component_description : Dict[str, str]
             The dictionary representation of the component that filtered this set of molecules.
+        component_name : str
+            The name of the component.
         component_provenance : Dict[str, str]
             The dictionary representation of the component provenance.
         """
 
-        print(molecules)
         if isinstance(molecules, off.Molecule):
             # make into a list
             molecules = [molecules]
 
-        self.filtered_molecules[component_description["component_name"]] = {
-            "component_description": component_description,
-            "component_provenance": component_provenance,
-            "molecules": [
+        if component_name in self.filtered_molecules:
+            filter_mols = [
                 molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
                 for molecule in molecules
-            ],
-        }
+            ]
+            self.filtered_molecules[component_name].molecules.extend(filter_mols)
+        else:
+
+            filter_data = FilterEntry(
+                off_molecules=molecules,
+                component_name=component_name,
+                component_provenance=component_provenance,
+                component_description=component_description,
+            )
+
+            self.filtered_molecules[filter_data.component_name] = filter_data
 
     def add_molecule(
         self,
         index: str,
         molecule: off.Molecule,
-        attributes: Dict[str, str],
+        attributes: Dict[str, Any],
         extras: Optional[Dict[str, Any]] = None,
-        keywords: Optional[Dict[str, Any]] = None
+        keywords: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ) -> None:
         """
         Add a molecule to the dataset under the given index with the passed cmiles.
@@ -421,58 +504,28 @@ class BasicDataSet(BaseModel):
             Thus here we take the general molecule index and increment it.
         """
 
-        if molecule.n_conformers == 0:
-            raise DatasetInputError(
-                "The input molecule does not have any conformers, make sure to generate them first."
+        try:
+            data_entry = DatasetEntry(
+                off_molecule=molecule,
+                index=index,
+                attributes=attributes,
+                extras=extras,
+                keywords=keywords,
+                **kwargs,
             )
-        if "canonical_isomeric_explicit_hydrogen_mapped_smiles" not in attributes:
-            raise DatasetInputError(
-                "The attributes does not contain valid cmiles identifiers make sure they are"
-                "generated by adding the molecule."
+
+            self.dataset[index] = data_entry
+        except qcel.exceptions.ValidationError:
+            # the molecule has some qcschema issue and should be removed
+            self.filter_molecules(
+                molecules=molecule,
+                component_name="QCSchemaIssues",
+                component_description={
+                    "component_description": "The molecule was removed as a valid QCSchema could not be made",
+                    "component_name": "QCSchemaIssues",
+                },
+                component_provenance=self.provenance,
             )
-
-        schema_mols = [
-            molecule.to_qcschema(conformer=conformer)
-            for conformer in range(molecule.n_conformers)
-        ]
-
-        self.dataset[index] = {
-            "attributes": attributes,
-            "keywords": keywords,
-            "initial_molecules": schema_mols,
-        }
-
-    def _clean_index(self, index: str) -> Tuple[str, int]:
-        """
-        Take an index and clean it by checking if it already has an enumerator in it return the core index and any
-        numeric tags if no tag is found the tag is set to 0.
-
-        Parameters
-        ----------
-        index : str
-            The index for the entry which should be checked, if no numeric tag can be found return 0.
-
-        Returns
-        -------
-        core : str
-            A tuple of the core index and the numeric tag it starts from.
-
-        Note:
-            This function allows the dataset to add more conformers to a molecule set so long as the index the molecule
-            is stored under is a new index not in the database for example if 3 conformers for ethane exist then the
-            new index should start from 'CC-3'.
-        """
-        # tags take the form '-no'
-        match = re.search("-[0-9]+$", index)
-        if match is not None:
-            core = index[: match.span()[0]]
-            # drop the -
-            tag = int(match.group()[1:])
-        else:
-            core = index
-            tag = 0
-
-        return core, tag
 
     def submit(
         self,
@@ -508,6 +561,10 @@ class BasicDataSet(BaseModel):
                 default_driver=self.driver,
                 default_program=self.program,
                 tagline=self.dataset_tagline,
+                tags=self.dataset_tags,
+                description=self.description,
+                provenance=self.provenance,
+                metadata=self.metadata,
             )
 
         # store the keyword set into the collection
@@ -529,7 +586,7 @@ class BasicDataSet(BaseModel):
             # check if the index we have been supplied has a number tag already if so start from this tag
             index, tag = self._clean_index(index=index)
 
-            for j, molecule in enumerate(data["initial_molecules"]):
+            for j, molecule in enumerate(data.initial_molecules):
                 name = index + f"-{tag + j}"
                 try:
                     collection.add_entry(name=name, molecule=molecule)
@@ -551,7 +608,7 @@ class BasicDataSet(BaseModel):
             basis=self.basis,
             keywords=self.spec_name,
             program=self.program,
-            tag=self.tag,
+            tag=self.compute_tag,
             priority=self.priority,
         )
 
@@ -581,26 +638,12 @@ class BasicDataSet(BaseModel):
             UnsupportedFiletypeError: If the requested file type is not supported.
         """
 
-        import copy
-
         file_type = file_name.split(".")[-1]
-        data = self.dict(exclude={"dataset"})
-        data["dataset"] = {}
 
-        for index, molecule in self.dataset.items():
-            molecules = list(
-                mol.dict(encoding="json") for mol in molecule["initial_molecules"]
-            )
-            mol_data = copy.deepcopy(molecule)
-            mol_data["initial_molecules"] = molecules
-            data["dataset"][index] = mol_data
-
-        try:
-            writer = self._file_writers[file_type]
+        if file_type == "json":
             with open(file_name, "w") as output:
-                if file_type == "json":
-                    writer(data, output, indent=2)
-        except KeyError:
+                output.write(self.json(indent=2))
+        else:
             raise UnsupportedFiletypeError(
                 f"The requested file type {file_type} is not supported please use "
                 f"json or yaml"
@@ -701,11 +744,12 @@ class BasicDataSet(BaseModel):
 
     def _molecules_to_smiles(self) -> List[str]:
         """
-        Create a list of molecules canonical smiles.
+        Create a list of molecules canonical isomeric smiles.
         """
 
         smiles = [
-            data["attributes"]["canonical_smiles"] for data in self.dataset.values()
+            data.attributes["canonical_isomeric_smiles"]
+            for data in self.dataset.values()
         ]
         return smiles
 
@@ -714,7 +758,7 @@ class BasicDataSet(BaseModel):
         Create a list of the molecules standard InChI.
         """
 
-        inchi = [data["attributes"]["standard_inchi"] for data in self.dataset.values()]
+        inchi = [data.attributes["standard_inchi"] for data in self.dataset.values()]
         return inchi
 
     def _molecules_to_inchikey(self) -> List[str]:
@@ -722,11 +766,11 @@ class BasicDataSet(BaseModel):
         Create a list of the molecules standard InChIKey.
         """
 
-        inchikey = [data["attributes"]["inchi_key"] for data in self.dataset.values()]
+        inchikey = [data.attributes["inchi_key"] for data in self.dataset.values()]
         return inchikey
 
 
-class OptimizationDataset(BasicDataSet):
+class OptimizationDataset(BasicDataset):
     """
     An optimisation dataset class which handles submission of settings differently from the basic dataset, and creates
     optimization datasets in the public or local qcarcive instance.
@@ -737,9 +781,6 @@ class OptimizationDataset(BasicDataSet):
     dataset_type: constr(regex="OptimizationDataset") = "OptimizationDataset"
     driver: DriverEnum = DriverEnum.gradient
     optimization_procedure: GeometricProcedure = GeometricProcedure()
-
-    class Config:
-        title = "OptimizationDataset"
 
     @validator("driver")
     def _check_driver(cls, driver):
@@ -775,8 +816,13 @@ class OptimizationDataset(BasicDataSet):
             The dictionary representation of the QC specification
         """
 
-        qc_spec = QCSpecification(driver=self.driver, method=self.method, basis=self.basis, keywords=keyword_id,
-                                  program=self.program)
+        qc_spec = QCSpecification(
+            driver=self.driver,
+            method=self.method,
+            basis=self.basis,
+            keywords=keyword_id,
+            program=self.program,
+        )
 
         return qc_spec
 
@@ -806,7 +852,13 @@ class OptimizationDataset(BasicDataSet):
             collection = ptl.collections.OptimizationDataset(
                 name=self.dataset_name,
                 client=target_client,
+                default_driver=self.driver,
+                default_program=self.program,
                 tagline=self.dataset_tagline,
+                tags=self.dataset_tags,
+                description=self.description,
+                provenance=self.provenance,
+                metadata=self.metadata,
             )
 
         # store the keyword set into the collection
@@ -829,14 +881,14 @@ class OptimizationDataset(BasicDataSet):
             # check if the index we have been supplied has a number tag already if so start from this tag
             index, tag = self._clean_index(index=index)
 
-            for j, molecule in enumerate(data["initial_molecules"]):
+            for j, molecule in enumerate(data.initial_molecules):
                 name = index + f"-{tag + j}"
                 try:
                     collection.add_entry(
                         name=name,
                         initial_molecule=molecule,
-                        attributes=data["attributes"],
-                        additional_keywords=data.get("keywords", None),
+                        attributes=data.attributes,
+                        additional_keywords=data.keywords,
                         save=False,
                     )
                     i += 1
@@ -853,7 +905,7 @@ class OptimizationDataset(BasicDataSet):
 
         # submit the calculations
         response = collection.compute(
-            specification=self.spec_name, tag=self.tag, priority=self.priority
+            specification=self.spec_name, tag=self.compute_tag, priority=self.priority
         )
 
         return response
@@ -880,11 +932,6 @@ class TorsiondriveDataset(OptimizationDataset):
     dataset_name = "TorsionDriveDataset"
     dataset_tagline = "OpenForcefield TorsionDrives."
     dataset_type: constr(regex="TorsiondriveDataset") = "TorsiondriveDataset"
-    # define the types again as they are slightly different for the TorsionDrive data
-    dataset: Dict[
-        str,
-        Dict[str, Union[Dict[str, str], List[ptl.Molecule], List[Tuple[int, int, int, int]]]],
-    ] = {}
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )
@@ -892,9 +939,6 @@ class TorsiondriveDataset(OptimizationDataset):
     energy_upper_limit: float = 0.05
     dihedral_ranges: Optional[List[Tuple[int, int]]] = None
     energy_decrease_thresh: Optional[float] = None
-
-    class Config:
-        title = "TorsiondriveDataset"
 
     def submit(
         self, client: Union[str, ptl.FractalClient], await_result: bool = False
@@ -926,6 +970,10 @@ class TorsiondriveDataset(OptimizationDataset):
                 default_driver=self.driver,
                 default_program=self.program,
                 tagline=self.dataset_tagline,
+                tags=self.dataset_tags,
+                description=self.description,
+                provenance=self.provenance,
+                metadata=self.metadata,
             )
         # store the keyword set into the collection
         kw_id = self._add_keywords(target_client)
@@ -946,12 +994,13 @@ class TorsiondriveDataset(OptimizationDataset):
             try:
                 collection.add_entry(
                     name=index,
-                    initial_molecules=data["initial_molecules"],
-                    dihedrals=data["torsion_index"],
+                    initial_molecules=data.initial_molecules,
+                    dihedrals=data.dihedrals,
                     grid_spacing=self.grid_spacings,
                     energy_upper_limit=self.energy_upper_limit,
-                    attributes=data["attributes"],
+                    attributes=data.attributes,
                     energy_decrease_thresh=self.energy_decrease_thresh,
+                    dihedral_ranges=data.keywords.get("dihedral_ranges", None) or self.dihedral_ranges,
                 )
             except KeyError:
                 continue
@@ -962,46 +1011,10 @@ class TorsiondriveDataset(OptimizationDataset):
         collection.save()
         # submit the calculations
         response = collection.compute(
-            specification=self.spec_name, tag=self.tag, priority=self.priority
+            specification=self.spec_name, tag=self.compute_tag, priority=self.priority
         )
 
         return response
-
-    def add_molecule(
-        self,
-        index: str,
-        molecule: off.Molecule,
-        attributes: Dict[str, str],
-        dihedrals: List[Tuple[int, int, int, int]],
-        extras: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """
-        Add a molecule to the dataset under the given index with the passed cmiles.
-
-        Parameters:
-            index: The molecule index that was generated by the factory.
-            molecule: The instance of the [openforcefield.topology.Molecule][molecule] which contains its conformer
-                information.
-            attributes: The attributes dictionary containing all of the relevant identifier tags for the molecule.
-            dihedrals: The atom indices of the atoms to be restrained during the torsiondrive.
-            extras : Dict[str, Any], optional, default=None
-                An extras that should be passed into the qcportal.models.Molecule instance.
-
-        Important:
-            Each molecule in this basic dataset should have all of its conformers expanded out into separate entries.
-            Thus here we take the general molecule index and increment it.
-        """
-
-        schema_mols = [
-            molecule.to_qcschema(conformer=conformer)
-            for conformer in range(molecule.n_conformers)
-        ]
-
-        self.dataset[index] = {
-            "attributes": attributes,
-            "dihedrals": dihedrals,
-            "initial_molecules": schema_mols,
-        }
 
 
 # class QCFractalDataset(object):

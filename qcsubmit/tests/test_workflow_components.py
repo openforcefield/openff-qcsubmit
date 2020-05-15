@@ -8,9 +8,11 @@ import pytest
 
 from openforcefield.topology import Molecule
 from openforcefield.utils import get_data_file_path
-from openforcefield.utils.toolkits import (OpenEyeToolkitWrapper,
-                                           RDKitToolkitWrapper,
-                                           UndefinedStereochemistryError)
+from openforcefield.utils.toolkits import (
+    OpenEyeToolkitWrapper,
+    RDKitToolkitWrapper,
+    UndefinedStereochemistryError,
+)
 from qcsubmit import workflow_components
 from qcsubmit.datasets import ComponentResult
 from qcsubmit.utils import get_data
@@ -452,3 +454,23 @@ def test_coverage_filter():
     assert result2.n_filtered == 0
     assert result.n_molecules == result.n_molecules
 
+
+def test_rotor_filter():
+    """
+    Make sure the rotor filter removes the correct molecules.
+    """
+
+    rotor_filter = workflow_components.RotorFilter()
+    rotor_filter.maximum_rotors = 3
+
+    mols = get_tautomers()
+
+    # we have to remove duplicated records
+    # remove duplicates from the set
+    molecule_container = ComponentResult(
+        component_name="intial", component_description={"description": "initial filter"}, molecules=mols,
+        component_provenance={"test": "test component"}
+    )
+    result = rotor_filter.apply(molecule_container.molecules)
+    for molecule in result.molecules:
+        assert len(molecule.find_rotatable_bonds()) <= rotor_filter.maximum_rotors

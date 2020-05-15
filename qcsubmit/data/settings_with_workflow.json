@@ -13,7 +13,7 @@
   "spec_description": "Standard OpenFF optimization quantum chemistry specification.",
   "client": "public",
   "priority": "normal",
-  "tag": "loaded tag",
+  "compute_tag": "loaded tag",
   "workflow": {
     "StandardConformerGenerator": {
       "component_name": "StandardConformerGenerator",

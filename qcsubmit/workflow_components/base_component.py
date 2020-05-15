@@ -128,8 +128,13 @@ class ToolkitValidator(BaseModel):
         """
 
         import openforcefield
+        import qcsubmit
 
-        provenance = {"OpenforcefieldToolkit": openforcefield.__version__}
+        provenance = {
+            "OpenforcefieldToolkit": openforcefield.__version__,
+            "QCSubmit": qcsubmit.__version__,
+        }
+
         if self.toolkit == "rdkit":
             import rdkit
 
@@ -143,7 +148,7 @@ class ToolkitValidator(BaseModel):
         return provenance
 
     @staticmethod
-    def is_available():
+    def is_available() -> bool:
         """
         Check if any of the requested backend toolkits can be used.
         """
@@ -153,3 +158,32 @@ class ToolkitValidator(BaseModel):
                 return True
         else:
             return False
+
+
+class BasicSettings(BaseModel):
+    """
+    This mixin identifies the class as being basic and always being available as it only requires basic packages.
+    """
+
+    @staticmethod
+    def is_available() -> bool:
+        """
+        This component is basic if it requires no extra dependencies.
+        """
+
+        return True
+
+    def provenance(self) -> Dict:
+        """
+        The basic settings provenance generator.
+        """
+
+        import openforcefield
+        import qcsubmit
+
+        provenance = {
+            "OpenforcefieldToolkit": openforcefield.__version__,
+            "QCSubmit": qcsubmit.__version__,
+        }
+
+        return provenance

@@ -33,6 +33,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
     keep_non_rotor_ring_substituents: bool = False
     functional_groups: Union[bool, str] = None
     heuristic: str = "path_length"
+    include_parent: bool = False
     _file_readers = {"json": json.load, "yaml": yaml.safe_load_all}
 
     @validator("heuristic")
@@ -109,17 +110,30 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         """
         Fragment the molecules using the WBOFragmenter.
 
-        Parameters:
-            molecules:
+        Parameters
+        ----------
+        molecules: list[openforcefield.topology.Molecule]
+            The list of molecules which should be processed by this component.
 
-        Important:
-            The input molecule will be removed from the dataset after fragmentation.
+        Notes
+        -----
+            * If the input molecule fails fragmentation it will be fail this component and be removed even when
+            `include_parent` is set to true.
+            * When a molecule can not be fragmented to meet the wbo threshold the parent is likely to be included in the
+            dataset.
+            *
         """
         from fragmenter import fragment
 
         result = self._create_result()
 
         for molecule in molecules:
+            # not having a conformer can cause issues
+            molecule.generate_conformers(n_conformers=1)
+
+            if self.include_parent:
+                result.add_molecule(molecule)
+
             fragment_factory = fragment.WBOFragmenter(
                 molecule=molecule.to_openeye(),
                 functional_groups=self.functional_groups,
@@ -145,11 +159,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
                     )
                     torsion_index = tuple(fragment_data["dihedral"][0])
                     # this is stored back into the molecule and will be used when generating the cmiles tags latter
-                    try:
-                        # none refers to the scan range and is the same as (-165, 180)
-                        frag_mol.properties["torsion_index"][torsion_index] = None
-                    except KeyError:
-                        frag_mol.properties["torsion_index"] = {torsion_index: None}
+                    frag_mol.properties["dihedrals"] = {torsion_index: None}
                     result.add_molecule(frag_mol)
 
             except RuntimeError:

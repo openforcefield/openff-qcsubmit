@@ -1,17 +1,24 @@
 """
 Unit test for the vairous dataset classes in the package.
 """
+import os
+import tempfile
+
 import numpy as np
 import pytest
+from pydantic import ValidationError
 from simtk import unit
-import tempfile
-import os
 
 from openforcefield.topology import Molecule
 
-from ..datasets import BasicDataSet, ComponentResult, OptimizationDataset, TorsiondriveDataset
-from ..utils import get_data
+from ..datasets import (
+    BasicDataset,
+    ComponentResult,
+    OptimizationDataset,
+    TorsiondriveDataset,
+)
 from ..exceptions import DatasetInputError
+from ..utils import get_data
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
@@ -111,7 +118,7 @@ def test_componentresult_deduplication_diff_coords(duplicates):
                     assert molecule.conformers[i].tolist() != molecule.conformers[j].tolist()
 
 
-def test_componentresult_deduplication_torsions():
+def test_componentresult_deduplication_torsions_1d():
     """
     Make sure that any torsion index results are correctly transferred when deduplicating molecules.
     """
@@ -123,17 +130,35 @@ def test_componentresult_deduplication_torsions():
     molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)
 
     for molecule in molecules:
-        molecule.properties["torsion_index"] = {
-            tuple(np.random.randint(low=0, high=7, size=4).tolist()): tuple(
-                np.random.randint(low=-165, high=180, size=2).tolist()
-            )
-        }
+        molecule.properties["dihedrals"] = {tuple(np.random.randint(low=0, high=7, size=4).tolist()): tuple(np.random.randint(low=-165, high=180, size=2).tolist())}
 
         result.add_molecule(molecule)
 
     for molecule in result.molecules:
-        assert "torsion_index" in molecule.properties
-        assert len(molecule.properties["torsion_index"]) == duplicates
+        assert "dihedrals" in molecule.properties
+        assert len(molecule.properties["dihedrals"]) == duplicates
+
+
+def test_componentresult_deduplication_torsions_2d():
+    """
+    Make sure that any torsion index results are correctly transferred when deduplicating molecules.
+    """
+
+    result = ComponentResult(component_name="Test deduplication", component_description={},
+                             component_provenance={})
+
+    duplicates = 2
+    molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)
+
+    for molecule in molecules:
+        molecule.properties["dihedrals"] = {tuple(np.random.randint(low=0, high=7, size=4).tolist()): tuple(np.random.randint(low=-165, high=180, size=2).tolist()),
+                                            (tuple(np.random.randint(low=0, high=7, size=4).tolist()), tuple(np.random.randint(low=0, high=7, size=4).tolist())): (tuple(np.random.randint(low=-165, high=180, size=2)), tuple(np.random.randint(low=-165, high=180, size=2)))}
+
+        result.add_molecule(molecule)
+
+    for molecule in result.molecules:
+        assert "dihedrals" in molecule.properties
+        assert len(molecule.properties["dihedrals"]) == duplicates * 2
 
 
 def test_componentresult_filter_molecules():
@@ -168,7 +193,7 @@ def test_componentresult_filter_molecules():
 
 
 @pytest.mark.parametrize("dataset_type", [
-    pytest.param(BasicDataSet, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
 def test_Dataset_exporting_same_type(dataset_type):
@@ -189,7 +214,7 @@ def test_BasicDataset_add_molecules_single_conformer():
     """
     Test creating a basic dataset.
     """
-    dataset = BasicDataSet()
+    dataset = BasicDataset()
     # get some molecules
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # store the molecules in the dataset under a common index
@@ -213,7 +238,7 @@ def test_BasicDataset_add_molecules_conformers():
     Test adding a molecule with conformers which should each be expanded into their own qcportal.models.Molecule.
     """
 
-    dataset = BasicDataSet()
+    dataset = BasicDataset()
     # create a molecule with multipule conformers
     molecules = Molecule.from_file(get_data('butane_conformers.pdb'))
     # collapse the conformers down
@@ -242,7 +267,7 @@ def test_BasicDataset_coverage_reporter():
     Test generating coverage reports for openforcefield force fields.
     """
 
-    dataset = BasicDataSet()
+    dataset = BasicDataset()
     # get some molecules
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -264,17 +289,20 @@ def test_BasicDataset_coverage_reporter():
 
 def test_Basicdataset_add_molecule_no_conformer():
     """
-    Test adding molecules with no conformers which should raise an error.
+    Test adding molecules with no conformers which should cause the validtor to generate one.
     """
 
-    dataset = BasicDataSet()
+    dataset = BasicDataset()
     ethane = Molecule.from_smiles('CC')
     # add the molecule to the dataset with no conformer
     index = ethane.to_smiles()
     attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": ethane.to_smiles(mapped=True),
                   "test_tag": "test"}
-    with pytest.raises(DatasetInputError):
-        dataset.add_molecule(index=index, attributes=attributes, molecule=ethane)
+    dataset.add_molecule(index=index, attributes=attributes, molecule=ethane)
+
+    assert len(dataset.dataset) == 1
+    for molecule in dataset.molecules:
+        assert molecule.n_conformers != 0
 
 
 def test_Basicdataset_add_molecule_missing_attributes():
@@ -282,7 +310,7 @@ def test_Basicdataset_add_molecule_missing_attributes():
     Test adding a molecule to the dataset with a missing cmiles attribute this should raise an error.
     """
 
-    dataset = BasicDataSet()
+    dataset = BasicDataset()
     ethane = Molecule.from_smiles('CC')
     # generate a conformer to make sure this is not rasing an error
     ethane.generate_conformers()
@@ -302,7 +330,7 @@ def test_Basicdataset_molecules_to_file(file_data):
     Test exporting only the molecules in a dataset to file for each of the supported types.
     """
 
-    dataset = BasicDataSet()
+    dataset = BasicDataset()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
@@ -327,7 +355,7 @@ def test_Basicdataset_molecules_to_file(file_data):
 
 
 @pytest.mark.parametrize("dataset_type", [
-    pytest.param(BasicDataSet, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
 def test_Dataset_export_full_dataset_json(dataset_type):
@@ -360,14 +388,15 @@ def test_Dataset_export_full_dataset_json(dataset_type):
 
 
 @pytest.mark.parametrize("dataset_type", [
-    pytest.param((BasicDataSet, OptimizationDataset), id="BasicDataset to OptimizationDataset"),
-    pytest.param((OptimizationDataset, BasicDataSet), id="OptimizationDataset to BasicDataSet"),
-    pytest.param((BasicDataSet, TorsiondriveDataset), id="BasicDataSet to TorsiondriveDataset"),
+    pytest.param((BasicDataset, OptimizationDataset), id="BasicDataset to OptimizationDataset"),
+    pytest.param((OptimizationDataset, BasicDataset), id="OptimizationDataset to BasicDataSet"),
+    pytest.param((BasicDataset, TorsiondriveDataset), id="BasicDataSet to TorsiondriveDataset"),
     pytest.param((OptimizationDataset, TorsiondriveDataset), id="OptimizationDataset to TorsiondriveDataset"),
 ])
 def test_Dataset_export_full_dataset_json_mixing(dataset_type):
     """
-    Test round tripping a full dataset via json from one type to another.
+    Test round tripping a full dataset via json from one type to another this should fail as the dataset_types do not
+    match.
     """
 
     dataset = dataset_type[0]()
@@ -379,23 +408,18 @@ def test_Dataset_export_full_dataset_json_mixing(dataset_type):
                       "canonical_smiles": molecule.to_smiles(),
                       "standard_inchi": molecule.to_inchi(),
                       "inchi_key": molecule.to_inchikey()}
-        try:
-            dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
-        except TypeError:
-            dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, atom_indices=(0, 1, 2, 3))
+
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=[(0, 1, 2, 3)])
     with tempfile.TemporaryDirectory() as temp:
         os.chdir(temp)
         dataset.export_dataset("dataset.json")
 
-        dataset2 = dataset_type[1].parse_file("dataset.json")
-
-        assert dataset.n_molecules == dataset2.n_molecules
-        assert dataset.n_records == dataset2.n_records
-        assert dataset.dataset == dataset.dataset
+        with pytest.raises(ValidationError):
+            dataset2 = dataset_type[1].parse_file("dataset.json")
 
 
 @pytest.mark.parametrize("dataset_type", [
-    pytest.param(BasicDataSet, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
 def test_Dataset_export_dict(dataset_type):
@@ -412,20 +436,18 @@ def test_Dataset_export_dict(dataset_type):
                       "canonical_smiles": molecule.to_smiles(),
                       "standard_inchi": molecule.to_inchi(),
                       "inchi_key": molecule.to_inchikey()}
-        try:
-            dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
-        except TypeError:
-            dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, atom_indices=(0, 1, 2, 3))
+
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=[(0, 1, 2, 3)])
 
     dataset2 = dataset_type(**dataset.dict())
 
     assert dataset.n_molecules == dataset2.n_molecules
     assert dataset.n_records == dataset2.n_records
-    assert dataset.dataset == dataset2.dataset
+    assert dataset.json() == dataset2.json()
 
 
 @pytest.mark.parametrize("dataset_type", [
-    pytest.param(BasicDataSet, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
 def test_Basicdataset_export_json(dataset_type):
@@ -442,16 +464,14 @@ def test_Basicdataset_export_json(dataset_type):
                       "canonical_smiles": molecule.to_smiles(),
                       "standard_inchi": molecule.to_inchi(),
                       "inchi_key": molecule.to_inchikey()}
-        try:
-            dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
-        except TypeError:
-            dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, atom_indices=(0, 1, 2, 3))
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=[(0, 1, 2, 3)])
+
 
     # try parse the json string to build the dataset
     dataset2 = dataset_type.parse_raw(dataset.json())
     assert dataset.n_molecules == dataset2.n_molecules
     assert dataset.n_records == dataset2.n_records
-    assert dataset.dataset == dataset2.dataset
+    assert dataset.json() == dataset2.json()
 
 
 def test_Basicdataset_schema():
@@ -459,7 +479,7 @@ def test_Basicdataset_schema():
     Test that producing the schema still works.
     """
 
-    dataset = BasicDataSet()
+    dataset = BasicDataset()
     # make a scehma
     schema = dataset.schema()
     assert schema["title"] == dataset.dataset_name
@@ -475,7 +495,7 @@ def test_Basicdataset_clean_index(input_data):
     allows us to submit molecule indexs that start from a counter other than 0.
     """
 
-    dataset = BasicDataSet()
+    dataset = BasicDataset()
 
     index = input_data[0] + "-" + str(input_data[1])
 
@@ -490,7 +510,7 @@ def test_Basicdataset_clean_index_normal():
     Test that index cleaning works when no numeric counter is on the index this should give back the core and 0 as the
     tag.
     """
-    dataset = BasicDataSet()
+    dataset = BasicDataset()
     index = "CCCC"
     core, counter = dataset._clean_index(index=index)
     assert core == index
@@ -502,13 +522,15 @@ def test_Basicdataset_filtering():
     Test adding filtered molecules to the dataset.
     """
 
-    dataset = BasicDataSet()
+    dataset = BasicDataset()
     molecules = duplicated_molecules(include_conformers=False, duplicates=1)
     # create a filtered result
     component_description = {"component_name": "TestFilter",
                              "component_description": "Test component for filtering molecules"}
     component_provenance = {"test_provenance": "version_1"}
-    dataset.filter_molecules(molecules=molecules, component_description=component_description,
+    dataset.filter_molecules(molecules=molecules,
+                             component_name="TestFilter",
+                             component_description=component_description,
                              component_provenance=component_provenance)
 
     assert len(molecules) == dataset.n_filtered
@@ -533,17 +555,9 @@ def test_Optimizationdataset_qc_spec():
     dataset = OptimizationDataset(program="test_program", method="test_method", basis="test_basis",
                                   driver="energy")
     qc_spec = dataset.get_qc_spec(keyword_id="0")
-    assert qc_spec["keywords"] == "0"
+    assert qc_spec.keywords == "0"
     tags = ['program', "method", "basis", "driver"]
     for tag in tags:
-        assert tag in qc_spec
+        assert tag in qc_spec.dict()
     # make sure the driver was set back to gradient
-    assert qc_spec["driver"] == "gradient"
-
-
-
-
-
-
-
-
+    assert qc_spec.driver == "gradient"

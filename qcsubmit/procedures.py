@@ -5,7 +5,6 @@ The procedure settings controllers
 from typing import Dict
 
 from pydantic import BaseModel, validator
-
 from qcportal.models.common_models import OptimizationSpecification
 
 
@@ -137,12 +136,16 @@ class GeometricProcedure(BaseModel):
         if self.constraints is not None:
             exclude.add("constraints")
 
-        opt_spec = OptimizationSpecification(program=self.program, keywords=self.dict(exclude=exclude))
+        opt_spec = OptimizationSpecification(
+            program=self.program, keywords=self.dict(exclude=exclude)
+        )
 
         return opt_spec
 
     @classmethod
-    def from_opt_spec(cls, optimization_specification: OptimizationSpecification) -> "GeometricProcedure":
+    def from_opt_spec(
+        cls, optimization_specification: OptimizationSpecification
+    ) -> "GeometricProcedure":
         """
         Create a geometric procedure from an Optimization spec.
         """

@@ -11,10 +11,10 @@ from openforcefield.typing.engines.smirnoff import ForceField
 from openforcefield.utils.structure import get_molecule_parameterIDs
 from qcsubmit.datasets import ComponentResult
 
-from .base_component import CustomWorkflowComponent
+from .base_component import BasicSettings, CustomWorkflowComponent
 
 
-class MolecularWeightFilter(CustomWorkflowComponent):
+class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
     """
     Filters molecules based on the minimum and maximum allowed molecular weights.
 
@@ -79,22 +79,13 @@ class MolecularWeightFilter(CustomWorkflowComponent):
 
         from simtk import openmm
 
-        provenance = {
-            "OpenforcefieldToolkit": openforcefield.__version__,
-            "openmm_units": openmm.__version__,
-        }
+        provenance = super().provenance()
+        provenance["openmm_units"] = openmm.__version__
 
         return provenance
 
-    @staticmethod
-    def is_available() -> bool:
-        """
-        This filter requires only the basic modules and should always be available.
-        """
-        return True
 
-
-class ElementFilter(CustomWorkflowComponent):
+class ElementFilter(BasicSettings, CustomWorkflowComponent):
     """
     Filter the molecules based on a list of allowed elements.
 
@@ -198,13 +189,6 @@ class ElementFilter(CustomWorkflowComponent):
 
         return result
 
-    @staticmethod
-    def is_available() -> bool:
-        """
-        This should always be available as it only requires basic packages.
-        """
-        return True
-
     def provenance(self) -> Dict:
         """
         Generate version information for all of the software used during the running of this component.
@@ -218,12 +202,13 @@ class ElementFilter(CustomWorkflowComponent):
 
         from simtk import openmm
 
-        provenance = {"openmm_elements": openmm.__version__}
+        provenance = super().provenance()
+        provenance["openmm_elements"] = openmm.__version__
 
         return provenance
 
 
-class CoverageFilter(CustomWorkflowComponent):
+class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     """
     Filters molecules based on the requested forcefield coverage.
 
@@ -293,13 +278,6 @@ class CoverageFilter(CustomWorkflowComponent):
 
         return result
 
-    @staticmethod
-    def is_available() -> bool:
-        """
-        This should always be available as it only needs basic packages.
-        """
-        return True
-
     def provenance(self) -> Dict:
         """
         Generate version information for all of the software used during the running of this component.
@@ -309,9 +287,55 @@ class CoverageFilter(CustomWorkflowComponent):
         """
         import openforcefields
 
-        provenance = {
-            "oopenforcefields": openforcefields.__version__,
-            "OpenforcefieldToolkit": openforcefield.__version__,
-        }
+        provenance = super().provenance()
+        provenance["oopenforcefields"] = openforcefields.__version__
 
         return provenance
+
+
+class RotorFilter(BasicSettings, CustomWorkflowComponent):
+    """
+    Filters molecules based on the maximum allowed number of rotatable bonds.
+
+    Notes
+    -----
+        Rotatable bonds are non terminal torsions found using the `find_rotatable_bonds` method of the
+        openforcefield.topology.Molecule class.
+    """
+
+    component_name = "RotorFilter"
+    component_description = (
+        "Filter the molecules based on the maximum number of allowed rotatable bonds."
+    )
+    component_fail_message = "The molecule has too many rotatable bonds."
+
+    maximum_rotors: int = 4
+
+    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+        """
+        Apply the filter to the list of molecules to remove any molecules with more rotors then the maximum allowed
+        number.
+
+        Parameters
+        ----------
+        molecules : List[openforcefield.topolgy.Molecule]
+            The list of molecules the component should be applied on.
+
+        Returns
+        -------
+            A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
+            that passed and were filtered by the component and details about the component which generated the result.
+        """
+
+        # create the return
+        result = self._create_result()
+
+        # run the the molecules and calculate the number of rotatable bonds
+        for molecule in molecules:
+            if len(molecule.find_rotatable_bonds()) > self.maximum_rotors:
+                self.fail_molecule(molecule=molecule, component_result=result)
+
+            else:
+                result.add_molecule(molecule)
+
+        return result

@@ -9,11 +9,13 @@ from pydantic import ValidationError
 
 from openforcefield.topology import Molecule
 from qcsubmit import workflow_components
-from qcsubmit.datasets import BasicDataSet, OptimizationDataset, TorsiondriveDataset
+from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
 from qcsubmit.exceptions import DriverError, InvalidWorkflowComponentError
-from qcsubmit.factories import (BasicDatasetFactory,
-                                OptimizationDatasetFactory,
-                                TorsiondriveDatasetFactory)
+from qcsubmit.factories import (
+    BasicDatasetFactory,
+    OptimizationDatasetFactory,
+    TorsiondriveDatasetFactory,
+)
 from qcsubmit.utils import get_data
 
 
@@ -181,7 +183,7 @@ def test_exporting_settings_no_workflow(file_type, factory_type):
         os.chdir(temp)
         factory = factory_type()
 
-        changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "tag": "test tag"}
+        changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "compute_tag": "test tag"}
         for attr, value in changed_attrs.items():
             setattr(factory, attr, value)
 
@@ -210,7 +212,7 @@ def test_exporting_settings_workflow(file_type, factory_type):
         os.chdir(temp)
 
         factory = factory_type()
-        changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "tag": "test tag"}
+        changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "compute_tag": "test tag"}
         for attr, value in changed_attrs.items():
             setattr(factory, attr, value)
 
@@ -248,7 +250,7 @@ def test_importing_settings_no_workflow(file_type, factory_type):
         "method": "loaded method",
         "basis": "loaded basis",
         "program": "loaded program",
-        "tag": "loaded tag",
+        "compute_tag": "loaded tag",
     }
     for attr, value in changed_attrs.items():
         assert getattr(factory, attr) == value
@@ -274,7 +276,7 @@ def test_importing_settings_workflow(file_type, factory_type):
         "method": "loaded method",
         "basis": "loaded basis",
         "program": "loaded program",
-        "tag": "loaded tag",
+        "compute_tag": "loaded tag",
     }
     for attr, value in changed_attrs.items():
         assert getattr(factory, attr) == value
@@ -474,7 +476,7 @@ def test_torsiondrive_torsion_string():
 
 
 @pytest.mark.parametrize("factory_dataset_type", [
-    pytest.param((BasicDatasetFactory, BasicDataSet), id="BasicDatasetFactory"),
+    pytest.param((BasicDatasetFactory, BasicDataset), id="BasicDatasetFactory"),
     pytest.param((OptimizationDatasetFactory, OptimizationDataset), id="OptimizationDatasetFactory"),
     pytest.param((TorsiondriveDatasetFactory, TorsiondriveDataset), id="TorsiondriveDatasetFactory"),
 ])
@@ -493,11 +495,12 @@ def test_create_dataset(factory_dataset_type):
     mols = Molecule.from_file(get_data("tautomers.smi"), "smi", allow_undefined_stereo=True)
 
     # set some settings
-    changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "tag": "test tag"}
+    changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "compute_tag": "test tag",
+                     "dataset_tags": ["openff", "test"]}
     for attr, value in changed_attrs.items():
         setattr(factory, attr, value)
 
-    dataset = factory.create_dataset(dataset_name="test name", molecules=mols)
+    dataset = factory.create_dataset(dataset_name="test name", molecules=mols, description="Force field test")
 
     # check the attributes were changed
     for attr, value in changed_attrs.items():
