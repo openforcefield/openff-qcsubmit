@@ -206,7 +206,9 @@ class BasicResult(ResultsConfig):
     attributes: Dict[str, str] = {}
     index: str
 
-    def add_single_result(self, result: ptl.models.ResultRecord, molecule: ptl.models.Molecule, index: str) -> None:
+    def add_single_result(
+        self, result: ptl.models.ResultRecord, molecule: ptl.models.Molecule, index: str
+    ) -> None:
         """
         Create and add a single result to the collection from the result, molecule and index.
         """
@@ -218,7 +220,9 @@ class BasicResult(ResultsConfig):
             if extras is not None
             else None,
             energy=result.properties.return_energy,
-            gradient=result.return_result if result.driver.value == "gradient" else None,
+            gradient=result.return_result
+            if result.driver.value == "gradient"
+            else None,
             hessian=result.return_result if result.driver.value == "hessian" else None,
             id=result.id,
             index=index,
@@ -277,9 +281,7 @@ class BasicResult(ResultsConfig):
             The lowest energy result for this particular molecule.
         """
 
-        results = [
-            (result.energy, i) for i, result in enumerate(self.entries)
-        ]
+        results = [(result.energy, i) for i, result in enumerate(self.entries)]
         results.sort(key=lambda x: x[0])
         lowest_index = results[0][1]
         return self.entries[lowest_index]
@@ -296,6 +298,7 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
     """
     A basic dataset collection of results, these are individual entries and not condensed.
     """
+
     result_type: constr(regex="BasicCollectionResult") = "BasicCollectionResult"
     method: str
     basis: str
@@ -391,7 +394,9 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
         """
 
         data_model = collection.data
-        scf_keywords = client.query_keywords(data_model.alias_keywords[program][spec_name])[0]
+        scf_keywords = client.query_keywords(
+            data_model.alias_keywords[program][spec_name]
+        )[0]
         for history in data_model.history:
             _, _, ran_method, ran_basis, ran_spec = history
             if spec_name == ran_spec:
@@ -440,14 +445,14 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
 
     @classmethod
     def from_server(
-            cls,
-            client: ptl.FractalClient,
-            dataset_name: str,
-            spec_name: str = "default",
-            program: str = "psi4",
-            method: Optional[str] = None,
-            basis: Optional[str] = None,
-            subset: Optional[List[str]] = None,
+        cls,
+        client: ptl.FractalClient,
+        dataset_name: str,
+        spec_name: str = "default",
+        program: str = "psi4",
+        method: Optional[str] = None,
+        basis: Optional[str] = None,
+        subset: Optional[List[str]] = None,
     ) -> "BasicCollectionResult":
         """
         Build up the collection result from a OptimizationDataset on a archive client this will also collapse the
@@ -481,10 +486,12 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
         collection_result = cls(**metadata)
 
         # query the database to get all of the result records requested
-        query = ds.get_records(method=collection_result.method,
-                               basis=collection_result.basis,
-                               program=collection_result.program,
-                               subset=subset)
+        query = ds.get_records(
+            method=collection_result.method,
+            basis=collection_result.basis,
+            program=collection_result.program,
+            subset=subset,
+        )
 
         collection = {}
 
@@ -508,7 +515,7 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
                         "id": result.id,
                         "molecule_id": result.molecule,
                         "result": result,
-                        }
+                    }
                     collection[common_name]["entries"].append(entry)
             except AttributeError:
                 # the record is an error nan float so skip it
@@ -540,7 +547,9 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
             for entry in data["entries"]:
                 # create the SingleResult entry
                 molecule = molecules_table[entry["molecule_id"]]
-                basic_result.add_single_result(result=entry["result"], molecule=molecule, index=entry["index"])
+                basic_result.add_single_result(
+                    result=entry["result"], molecule=molecule, index=entry["index"]
+                )
 
             collection_result.add_basic_result(basic_result=basic_result)
 
@@ -712,7 +721,9 @@ class OptimizationEntryResult(ResultsConfig):
             if extras is not None
             else None,
             energy=result.properties.return_energy,
-            gradient=result.return_result if result.driver.value == "gradient" else None,
+            gradient=result.return_result
+            if result.driver.value == "gradient"
+            else None,
             hessian=result.return_result if result.driver.value == "hessian" else None,
             id=result.id,
         )
@@ -740,7 +751,9 @@ class OptimizationEntryResult(ResultsConfig):
             # if the wbo is missing return None
             return None
         # else build the connectivity based on the wbo_threshold
-        wbo_bonds = self.final_molecule.get_wbo_connectivity(wbo_threshold=wbo_threshold)
+        wbo_bonds = self.final_molecule.get_wbo_connectivity(
+            wbo_threshold=wbo_threshold
+        )
         for bond in wbo_bonds:
             try:
                 molecule.get_bond_between(bond[0], bond[1])
@@ -792,8 +805,9 @@ class OptimizationEntryResult(ResultsConfig):
               A list of tuples of the atom indexes that have formed hydrogen bonds.
         """
 
-        return self.final_molecule.find_hydrogen_bonds_wbo(hbond_threshold=hbond_threshold,
-                                                           bond_threshold=bond_threshold)
+        return self.final_molecule.find_hydrogen_bonds_wbo(
+            hbond_threshold=hbond_threshold, bond_threshold=bond_threshold
+        )
 
     def find_hydrogen_bonds_heuristic(self,) -> List[Tuple[int, int]]:
         """
@@ -1034,9 +1048,7 @@ class OptimizationCollectionResult(BasicCollectionResult):
 
     @staticmethod
     def _gather_metadata(
-        collection: ptl.collections.Dataset,
-        spec_name: str,
-        client: ptl.FractalClient,
+        collection: ptl.collections.Dataset, spec_name: str, client: ptl.FractalClient,
     ) -> Dict[str, str]:
         """
         Gather metadata needed for Optimization and Torsiondrive results classes.

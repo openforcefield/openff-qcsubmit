@@ -808,7 +808,9 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
             # now check for the dihedrals
             if "dihedrals" in molecule.properties:
-                for dihedral, dihedral_range in molecule.properties["dihedrals"].items():
+                for dihedral, dihedral_range in molecule.properties[
+                    "dihedrals"
+                ].items():
                     # check for a 2d torsion scan
                     if len(dihedral) == 8:
                         # create the dihedrals list of tuples

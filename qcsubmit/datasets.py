@@ -115,14 +115,18 @@ class ComponentResult:
             # transfer any torsion indexs for similar fragments
             if "dihedrals" in molecule.properties:
                 # remap the dihedrals
-                for dihedral, dihedral_range in molecule.properties["dihedrals"].items():
+                for dihedral, dihedral_range in molecule.properties[
+                    "dihedrals"
+                ].items():
                     mapped_dihedral = tuple([mapping[i] for i in dihedral])
                     try:
-                        self.molecules[mol_id].properties["dihedrals"][mapped_dihedral] = dihedral_range
+                        self.molecules[mol_id].properties["dihedrals"][
+                            mapped_dihedral
+                        ] = dihedral_range
                     except KeyError:
-                        self.molecules[mol_id].properties[
-                            "dihedrals"
-                        ] = {mapped_dihedral: dihedral_range}
+                        self.molecules[mol_id].properties["dihedrals"] = {
+                            mapped_dihedral: dihedral_range
+                        }
 
             if molecule.n_conformers != 0:
 
@@ -1000,7 +1004,8 @@ class TorsiondriveDataset(OptimizationDataset):
                     energy_upper_limit=self.energy_upper_limit,
                     attributes=data.attributes,
                     energy_decrease_thresh=self.energy_decrease_thresh,
-                    dihedral_ranges=data.keywords.get("dihedral_ranges", None) or self.dihedral_ranges,
+                    dihedral_ranges=data.keywords.get("dihedral_ranges", None)
+                    or self.dihedral_ranges,
                 )
             except KeyError:
                 continue
