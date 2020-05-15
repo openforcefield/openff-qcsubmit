@@ -118,7 +118,14 @@ class ComponentResult:
                 for dihedral, dihedral_range in molecule.properties[
                     "dihedrals"
                 ].items():
-                    mapped_dihedral = tuple([mapping[i] for i in dihedral])
+                    if len(dihedral) == 4:
+                        mapped_dihedral = tuple([mapping[i] for i in dihedral])
+                    elif len(dihedral) == 2:
+                        # this is a 2d dihedral
+                        mapped_dihedral = (
+                            tuple([mapping[i] for i in dihedral[0]]),
+                            tuple([mapping[i] for i in dihedral[1]]),
+                        )
                     try:
                         self.molecules[mol_id].properties["dihedrals"][
                             mapped_dihedral

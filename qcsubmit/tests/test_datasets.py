@@ -336,7 +336,7 @@ def test_Basicdataset_molecules_to_file(file_data):
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(mapped=True),
-                      "canonical_smiles": molecule.to_smiles(),
+                      "canonical_isomeric_smiles": molecule.to_smiles(isomeric=True),
                       "standard_inchi": molecule.to_inchi(),
                       "inchi_key": molecule.to_inchikey()}
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
