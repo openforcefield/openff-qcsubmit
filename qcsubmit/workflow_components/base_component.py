@@ -66,8 +66,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         """
         A helpful method to build to create the component result with the required information.
 
-        Returns
-        -------
+        Returns:
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instantiated with the required information.
         """
 

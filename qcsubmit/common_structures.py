@@ -42,18 +42,13 @@ class IndexCleaner:
         Take an index and clean it by checking if it already has an enumerator in it return the core index and any
         numeric tags if no tag is found the tag is set to 0.
 
-        Parameters
-        ----------
-        index: str
-            The index for the entry which should be checked, if no numeric tag can be found return 0.
+        Parameters:
+            index: The index for the entry which should be checked, if no numeric tag can be found return 0.
 
-        Returns
-        -------
-        core: str
+        Returns:
             A tuple of the core index and the numeric tag it starts from.
 
-        Notes
-        -----
+        Note:
             This function allows the dataset to add more conformers to a molecule set so long as the index the molecule
             is stored under is a new index not in the database for example if 3 conformers for ethane exist then the
             new index should start from 'CC-3'.

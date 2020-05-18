@@ -110,13 +110,10 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         """
         Fragment the molecules using the WBOFragmenter.
 
-        Parameters
-        ----------
-        molecules: list[openforcefield.topology.Molecule]
-            The list of molecules which should be processed by this component.
+        Parameters:
+            molecules: The list of molecules which should be processed by this component.
 
-        Notes
-        -----
+        Note:
             * If the input molecule fails fragmentation it will be fail this component and be removed even when
             `include_parent` is set to true.
             * When a molecule can not be fragmented to meet the wbo threshold the parent is likely to be included in the
