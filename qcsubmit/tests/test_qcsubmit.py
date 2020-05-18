@@ -2,10 +2,13 @@
 Unit and regression test for the qcsubmit package.
 """
 
+import sys
+
+import pytest
+
 # Import package, test suite, and other packages as needed
 import qcsubmit
-import pytest
-import sys
+
 
 def test_qcsubmit_imported():
     """Sample test, will always pass so long as import statement worked"""

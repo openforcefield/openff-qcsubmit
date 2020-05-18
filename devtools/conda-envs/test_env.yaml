@@ -1,4 +1,4 @@
-name: test
+name: basic_qcsubmit
 
 channels:
   - conda-forge
@@ -13,12 +13,14 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
+  - openforcefield
+  - openforcefields
+  - smirnoff99Frosst
+  - pyyaml
   - codecov
-  - cmiles
-  - fragmenter
-  - openeye-toolkits
   - qcportal
+  - openeye-toolkits
 
     # Pip-only installs
-  #- pip:
-  #  - codecov
+#  - pip:
+#    - torchani
