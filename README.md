@@ -1,7 +1,7 @@
 qcsubmit
 ==============================
 [//]: # (Badges)
-[![Test Status](https://github.com/openforcefield/qcsubmit/workflows/tests/badge.svg?branch=master)](https://github.com/openforcefield/qcsubmit/actions)
+![CI testing](https://github.com/openforcefield/qcsubmit/workflows/CI%20testing/badge.svg?branch=master)
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/openforcefield/qcsubmit.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/openforcefield/qcsubmit/context:python)
 [![codecov](https://codecov.io/gh/openforcefield/qcsubmit/branch/master/graph/badge.svg)](https://codecov.io/gh/openforcefield/qcsubmit/branch/master)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
