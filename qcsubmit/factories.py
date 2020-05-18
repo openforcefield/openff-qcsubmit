@@ -446,14 +446,10 @@ class BasicDatasetFactory(BaseModel):
         """
         Create the initial component result which is used for de-duplication.
 
-        Parameters
-        ----------
-        molecules : Union[str, openforcefield.topology.Molecule, List[ openforcefield.topology.Molecule]
-            The input molecules which can be a file name or list of molecule instances
+        Parameters:
+            molecules: The input molecules which can be a file name or list of molecule instances
 
-        Returns
-        -------
-        component : ComponentResult
+        Returns:
             The initial component result used to start the workflow.
         """
 
@@ -500,7 +496,7 @@ class BasicDatasetFactory(BaseModel):
              dataset_name: The name that will be given to the collection on submission to an archive instance.
              molecules: The list of molecules which should be processed by the workflow and added to the dataset, this
                 can also be a file name which is to be unpacked by the openforcefield toolkit.
-            description :
+            description: A string describing the dataset.
 
         Example:
             How to make a dataset from a list of molecules

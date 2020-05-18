@@ -73,8 +73,7 @@ class SingleResult(ResultsConfig):
         """
         Build the connectivity using the wbo for the final molecule.
 
-        Returns
-        -------
+        Returns:
             A list of tuples of the bond connections along with the WBO.
         """
 
@@ -94,8 +93,7 @@ class SingleResult(ResultsConfig):
         Find hydrogen bonds in the final molecule using the Baker-Hubbard method.
 
 
-        Returns
-        -------
+        Returns:
         h_bonds : List[Tuple[int, int]]
             A list of atom indexes (acceptor and hydrogen) involved in hydrogen bonds.
         """
@@ -147,17 +145,14 @@ class SingleResult(ResultsConfig):
         Calculate if an internal hydrogen has formed using the WBO and return where it formed for the final molecule
         in the optimization.
 
-        Notes
-        -----
+        Note:
             The threshold is very low to be counted as a hydrogen bond.
 
-        Parameters
-        ----------
+        Parameters:
         hbond_threshold: float, optional, default=0.05
             The minimum wbo overlap to define a hydrogen bond by.
 
-        Returns
-        -------
+        Returns:
         h_bonds: List[Tuple[int, int]]
               A list of tuples of the atom indexes that have formed hydrogen bonds.
         """
@@ -242,9 +237,7 @@ class BasicResult(ResultsConfig):
         Build an openforcefield.topology.Molecule from the cmiles which is in the correct order to align with the
         QCArchive records.
 
-        Returns
-        -------
-        mol : openforcefield.topology.Molecule,
+        Returns:
             The openforcefield molecule representation of the molecule.
         """
 
@@ -258,10 +251,8 @@ class BasicResult(ResultsConfig):
         """
         Gather all of the entries together and place the conformers on a single molecule object.
 
-        Returns
-        -------
-        molecule : openforcefield.topology.Molecule
-            A molecule instance with all of the conformers collapsed onto it.
+        Returns:
+            molecule: A molecule instance with all of the conformers collapsed onto it.
         """
 
         molecule = self.molecule
@@ -275,10 +266,8 @@ class BasicResult(ResultsConfig):
         """
         Search through the entries in the basic result and get the lowest energy result.
 
-        Returns
-        -------
-        result : SingleResult
-            The lowest energy result for this particular molecule.
+        Returns:
+        result: The lowest energy result for this particular molecule.
         """
 
         results = [(result.energy, i) for i, result in enumerate(self.entries)]
@@ -289,7 +278,8 @@ class BasicResult(ResultsConfig):
     @property
     def n_entries(self) -> int:
         """
-        int: the number of entries in the BasicResult.
+        Returns:
+            The number of entries in the BasicResult.
         """
         return len(self.entries)
 
@@ -319,10 +309,8 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
         """
         Export the results to json file.
 
-        Parameters
-        ----------
-        filename : str
-            The name of the json file which the results should be wrote to.
+        Parameters:
+            filename: The name of the json file which the results should be wrote to.
         """
 
         with open(filename, "w") as output:
@@ -331,14 +319,16 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
     @property
     def n_molecules(self) -> int:
         """
-        int: Calculate the number of unique molecules in the basic dataset.
+        Returns:
+            The number of unique molecules in the basic dataset.
         """
         return len(self.collection.keys())
 
     @property
     def n_results(self) -> int:
         """
-        int: Calculte the number of results in the whole dataset.
+        Returns:
+            The number of results in the whole dataset.
         """
 
         return sum([result.n_entries for result in self.collection.values()])
@@ -347,14 +337,11 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
         """
         Add a basic result to the collection.
 
-        Parameters
-        ----------
-        basic_result: BasicResult
-            An instance of the BasicResult which collapses results for the same molecule down.
+        Parameters:
+            basic_result: An instance of the BasicResult which collapses results for the same molecule down.
 
-        Returns
-        -------
-        str: The index the BasicResult is stored under in the collection.
+        Returns:
+            The index the BasicResult is stored under in the collection.
 
         """
 
@@ -377,20 +364,13 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
         These classes work slightly differently as the method and basis are not part of a spec and are separate
         variables. If `None` is given we look through the history for the last method and basis set combination.
 
-        Parameters
-        ----------
-        collection : qcportal.collections.Dataset
-            The dataset that we should pull the metadata from.
-        client : qcportal.FractalClient
-            The client from which the collection was pulled and the keywords should be pulled from.
-        spec_name : str, optional, default=`default`
-            The alias of the spec name used to compute the dataset.
-        program : str, optional, default=`psi4`
-            The QC program used to run the computation.
-        method : str, optional, default=`None`
-            The method used in the computation, if `None` is given the last method used will be searched.
-        basis : str, optional, default=`None`
-            The basis used in the computation if `None` is given the last basis set used will be searched.
+        Parameters:
+            collection: The dataset that we should pull the metadata from.
+            client: The client from which the collection was pulled and the keywords should be pulled from.
+            spec_name: The alias of the spec name used to compute the dataset.
+            program: The QC program used to run the computation.
+            method: The method used in the computation, if `None` is given the last method used will be searched.
+            basis: The basis used in the computation if `None` is given the last basis set used will be searched.
         """
 
         data_model = collection.data
@@ -458,24 +438,16 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
         Build up the collection result from a OptimizationDataset on a archive client this will also collapse the
         records into entries for the same molecules.
 
-        Parameters
-        ----------
-        client: qcportal.FractalClient
-            The fractal client we should contact to pull the results from.
-        spec_name: str
-            The spec the data was calculated with that we want results for.
-        dataset_name: str
-            The name of the Optimization set we want to pull down.
-        program: str, default=`psi4`
-            The program used to compute the data, this is how the spec if stored in basic datasets.
-        method: str, optional, default=`None`
-            The method used to compute the requested data, if `None` is given then the last method used in the history
-            is pulled.
-        basis: str, optional, default=`None`
-            The basis used to compute the requested data, if `None` is given then the last basis used in the history is
-            pulled.
-        subset: List[str], optional
-            The chunk of result indexes that we should pull down.
+        Parameters:
+            client: The fractal client we should contact to pull the results from.
+            spec_name: The spec the data was calculated with that we want results for.
+            dataset_name: The name of the Optimization set we want to pull down.
+            program: The program used to compute the data, this is how the spec if stored in basic datasets.
+            method: The method used to compute the requested data, if `None` is given then the last method used in the
+                history is pulled.
+            basis: The basis used to compute the requested data, if `None` is given then the last basis used in the
+                history is pulled.
+            subset: The chunk of result indexes that we should pull down.
         """
 
         # build the result object from metadata
@@ -570,7 +542,8 @@ class OptimizationEntryResult(ResultsConfig):
     @property
     def energies(self) -> List[float]:
         """
-        Return a list of energies from the optimization trajectory.
+        Returns:
+             A  list of energies from the optimization trajectory.
         """
         return [molecule.energy for molecule in self.trajectory]
 
@@ -656,22 +629,17 @@ class OptimizationEntryResult(ResultsConfig):
         """
         Parse an optimization record to get the required data.
 
-        Parameters
-        ----------
-        optimization_result : qcportal.models.OptimizationRecord
-            The optimizationrecord object we want to download from the archive.
-        cmiles : Dict[str, str],
-            The attributes dictionary of the entry, this is all of the metadata of the entry including the cmiles data.
-        index : str,
-            The index of the entry which is being pulled from the archive as we can not back track to get it.
-        include_trajectory : bool, optional, default=False,
-            If the entire optimization trajectory should vbe pulled from the entry, this can include a lot of results.
-        final_molecule_only : bool, optional, default=False,
-            This will indicate to only pll down the final molecule in the trajectory and overwrites pulling the whole
-            trajectory.
+        Parameters:
+            optimization_result: The optimizationrecord object we want to download from the archive.
+            cmiles: The attributes dictionary of the entry, this is all of the metadata of the entry including the
+                cmiles data.
+            index: The index of the entry which is being pulled from the archive as we can not back track to get it.
+            include_trajectory: If the entire optimization trajectory should vbe pulled from the entry, this can include
+                a lot of results.
+            final_molecule_only: This will indicate to only pll down the final molecule in the trajectory and overwrites
+                pulling the whole trajectory.
 
-        Notes
-        -----
+        Note:
             Normal execution will only pull the first and last molecule in a trajectory.
         """
 
@@ -735,12 +703,10 @@ class OptimizationEntryResult(ResultsConfig):
         Detect if the connectivity has changed from the input cmiles specification or not using the WBO, a bond is
         detected based on the wbo_threshold supplied.
 
-        Notes
-        -----
+        Note:
             This is only compared for the final geometry.
 
-        Returns
-        -------
+        Returns:
             `True` if the connectivity has changed or `False` if it has not.
         """
         from openforcefield.topology import NotBondedError
@@ -766,8 +732,7 @@ class OptimizationEntryResult(ResultsConfig):
         """
         Guess the connectivity then check if it has changed from the initial input.
 
-        Returns
-        -------
+        Returns:
             `True` if the connectivity has changed based on the distance based rules
             `False` if the connectivity has not changed based on the rules.
         """
@@ -790,19 +755,14 @@ class OptimizationEntryResult(ResultsConfig):
         Calculate if an internal hydrogen has formed using the WBO and return where it formed for the final molecule
         in the optimization.
 
-        Notes
-        -----
+        Note:
             The threshold is very low to be counted as a hydrogen bond.
 
-        Parameters
-        ----------
-        hbond_threshold: float, optional, default=0.05
-            The minimum wbo overlap to define a hydrogen bond by.
+        Parameters:
+            hbond_threshold: The minimum wbo overlap to define a hydrogen bond by.
 
-        Returns
-        -------
-        h_bonds: List[Tuple[int, int]]
-              A list of tuples of the atom indexes that have formed hydrogen bonds.
+        Returns:
+            A list of tuples of the atom indexes that have formed hydrogen bonds.
         """
 
         return self.final_molecule.find_hydrogen_bonds_wbo(
@@ -814,9 +774,7 @@ class OptimizationEntryResult(ResultsConfig):
         Find hydrogen bonds in the final molecule using the Baker-Hubbard method.
 
 
-        Returns
-        -------
-        h_bonds : List[Tuple[int, int]]
+        Returns:
             A list of atom indexes (acceptor and hydrogen) involved in hydrogen bonds.
         """
 
@@ -843,9 +801,7 @@ class OptimizationResult(BasicResult):
         From all of the entries get the optimization that results in the lowest energy conformer, if any are the same
         the first conformer with this energy is returned.
 
-        Returns
-        -------
-        OptimizationEntryResult : qcsubmit.results.OptimizationEntryResult,
+        Returns:
             The attached OptimizationEntryResult with the lowest energy final conformer.
         """
 
@@ -877,9 +833,7 @@ class OptimizationResult(BasicResult):
         """
         Detect connectivity changes based on heuristic rules.
 
-        Returns
-        -------
-         connectivity_changes : Dict[int, bool],
+        Returns:
             A dictionary of the optimization entry and a bool representing if the connectivity has changed or not.
             `True` indicates the connectivity is now different from the input.
             `False` indicates the connectivity is the same as the input.
@@ -895,15 +849,12 @@ class OptimizationResult(BasicResult):
         """
         Detect hydrogen bonds in the final molecules using the wbo.
 
-        Returns
-        -------
-        hydrogen_bonds :  Dict[int, bool],
+        Returns:
             A dictionary of the optimization entry and a bool representing if an internal hydrogen bond was found.
             `True` indicates a bond was found.
             `False` indicates a bond was not found.
 
-        Notes
-        -----
+        Note:
             You can also query where the hydrogen bond is formed using the `find_hydrogen_bonds_wbo` function on the
             corresponding entry.
         """
@@ -919,15 +870,12 @@ class OptimizationResult(BasicResult):
         """
         Detect hydrogen bonds in the final molecule of the trajectory using the Baker-Hubbard rule based method.
 
-        Returns
-        -------
-        hydrogen_bonds : Dict[int, bool],
+        Returns:
             A dictionary of the optimization entry index and bool representing if an internal hydrogen bond was found.
             `True` indicates a bond was found.
             `False` indicates a bond was not found.
 
-        Notes
-        -----
+        Note:
             You can also query which atoms the bond was formed between using the `find_hydrogen_bonds_heuristic` method
             on the corresponding entry.
         """
@@ -963,13 +911,10 @@ class OptimizationCollectionResult(BasicCollectionResult):
         """
         Create a qcsubmit.datasets.BasicDataSet from the Optimization set final geometries.
 
-        Parameters
-        ----------
-        driver: DriverEnum
-            The type of driver the dataset should use.
+        Parameters:
+            driver: The type of driver the dataset should use.
 
-        Notes
-        -----
+        Note:
             This is a very easy way to create a hessian dataset from the output of an OptimizationDataset.
         """
         from qcsubmit.datasets import BasicDataset
@@ -991,13 +936,10 @@ class OptimizationCollectionResult(BasicCollectionResult):
         """
         Create a qcsubmit.datasets.OptimizationDataset from the current results collection.
 
-        Notes
-        -----
+        Note:
             The dataset is created using the final geometries as the input geometries for the next optimization.
 
-        Returns
-        -------
-        dataset : qcsubmit.datasets.OptimizationDataset
+        Returns:
             The instance of the Optimization dataset.
         """
         from qcsubmit.datasets import OptimizationDataset
@@ -1093,21 +1035,14 @@ class OptimizationCollectionResult(BasicCollectionResult):
         Build up the collection result from a OptimizationDataset on a archive client this will also collapse the
         records into entries for the same molecules.
 
-        Parameters
-        ----------
-        client : qcportal.FractalClient
-            The fractal client we should contact to pull the results from.
-        spec_name : str
-            The spec the data was calculated with that we want results for.
-        dataset_name : str
-            The name of the Optimization set we want to pull down.
-        include_trajectory : bool, optional, default=False
-            If we should include the full trajectory when downloading the data, note this can significantly increase the
-            amount of client requests.
-        final_molecule_only : bool, optional, default=False
-            Only download the final geometry of each entry.
-        subset : List[str], optional
-            The chunk of result indexes that we should pull down.
+        Parameters:
+            client: The fractal client we should contact to pull the results from.
+            spec_name: The spec the data was calculated with that we want results for.
+            dataset_name: The name of the Optimization set we want to pull down.
+            include_trajectory: If we should include the full trajectory when downloading the data, note this can
+                significantly increase the amount of client requests.
+            final_molecule_only: Only download the final geometry of each entry.
+            subset: The chunk of result indexes that we should pull down.
         """
 
         # build the result object from metadata
@@ -1246,10 +1181,8 @@ class TorsionDriveResult(ResultsConfig):
         Build an openforcefield.topology.Molecule from the cmiles which is in the correct order to align with the
         QCArchive records.
 
-        Returns
-        -------
-        mol : openforcefield.topology.Molecule,
-            The openforcefield molecule representation of the molecule.
+        Returns:
+         mol: The openforcefield molecule representation of the molecule.
         """
 
         mol = Molecule.from_mapped_smiles(
@@ -1320,9 +1253,7 @@ class TorsionDriveResult(ResultsConfig):
         """
         Detect connectivity changes based on heuristic rules.
 
-        Returns
-        -------
-         connectivity_changes : Dict[int, bool],
+        Returns:
             A dictionary of the optimization entry and a bool representing if the connectivity has changed or not.
             `True` indicates the connectivity is now different from the input.
             `False` indicates the connectivity is the same as the input.
@@ -1340,15 +1271,12 @@ class TorsionDriveResult(ResultsConfig):
         """
         Detect hydrogen bonds in the final molecules using the wbo.
 
-        Returns
-        -------
-        hydrogen_bonds :  Dict[int, bool],
+        Returns:
             A dictionary of the optimization entry and a bool representing if an internal hydrogen bond was found.
             `True` indicates a bond was found.
             `False` indicates a bond was not found.
 
-        Notes
-        -----
+        Note:
             You can also query where the hydrogen bond is formed using the `find_hydrogen_bonds_wbo` function on the
             corresponding entry.
         """
@@ -1364,15 +1292,12 @@ class TorsionDriveResult(ResultsConfig):
         """
         Detect hydrogen bonds in the final molecule of the trajectory using the Baker-Hubbard rule based method.
 
-        Returns
-        -------
-        hydrogen_bonds : Dict[int, bool],
+        Returns:
             A dictionary of the optimization entry index and bool representing if an internal hydrogen bond was found.
             `True` indicates a bond was found.
             `False` indicates a bond was not found.
 
-        Notes
-        -----
+        Note:
             You can also query which atoms the bond was formed between using the `find_hydrogen_bonds_heuristic` method
             on the corresponding entry.
         """
@@ -1401,13 +1326,10 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
         """
         Create a torsiondrive dataset from the results of the current dataset.
 
-        Notes
-        -----
+        Note:
             The final geometry of each torsiondrive constrained optimization is supplied as a starting geometry.
 
-        Returns
-        -------
-        dataset : qcsubmit.dataset.TorsiondriveDataset
+        Returns:
             A TorsiondriveDataset dataset instance that can be submited to a client, built from the final geometries
             of the current results torsiondrive dataset.
         """
@@ -1430,14 +1352,10 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
         """
         Add a torsiondrive result to the collection under its index.
 
-        Parameters
-        ----------
-        torsriondrive : qcsubmit.results.TorsionDriveResult
-            The instance of the TorsionDriveResult which should be added to the collection.
+        Parameters:
+        torsriondrive: The instance of the TorsionDriveResult which should be added to the collection.
 
-        Returns
-        -------
-        index : str
+        Returns:
             The index string the TorsionDriveResult was stored under.
         """
         self.collection[torsriondrive.index] = torsriondrive
@@ -1457,21 +1375,14 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
         Build up the collection result from a TorsionDriveDataset on a archive client this will also collapse the
         records into entries for the same molecules.
 
-        Parameters
-        ----------
-        client : qcportal.FractalClient
-            The fractal client we should contact to pull the results from.
-        spec_name : str
-            The spec the data was calculated with that we want results for.
-        dataset_name : str
-            The name of the Optimization set we want to pull down.
-        include_trajectory : bool, optional, default=False
-            If we should include the full trajectory when downloading the data, note this can significantly increase the
-            amount of client requests.
-        final_molecule_only : bool, optional, default=False
-            Only download the final geometry of each entry.
-        subset : List[str], optional
-            The chunk of result indexes that we should pull down.
+        Parameters:
+            client: The fractal client we should contact to pull the results from.
+            spec_name: The spec the data was calculated with that we want results for.
+            dataset_name: The name of the Optimization set we want to pull down.
+            include_trajectory: If we should include the full trajectory when downloading the data, note this can significantly increase the
+                amount of client requests.
+            final_molecule_only: Only download the final geometry of each entry.
+            subset: The chunk of result indexes that we should pull down.
         """
 
         # build the result object from metadata

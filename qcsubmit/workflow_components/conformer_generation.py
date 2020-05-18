@@ -10,8 +10,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     """
     Standard conformer generator using the OFFTK and the back end toolkits.
 
-    Notes
-    -----
+    Note:
         The provenance information and toolkit settings are handled by the
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
@@ -27,9 +26,9 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
-         Generate conformers for the molecules using the selected toolkit backend.
+        Generate conformers for the molecules using the selected toolkit backend.
 
-         Parameters:
+        Parameters:
             molecules: The list of molecules the component should be applied on.
 
         Returns:

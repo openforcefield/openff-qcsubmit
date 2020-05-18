@@ -19,11 +19,11 @@ class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
     Filters molecules based on the minimum and maximum allowed molecular weights.
 
     Attributes:
-        component_name: The name of component.
-        component_description: A short description of the component.
-        component_fail_message: The message logged when a molecule fails this component.
-        minimum_weight: The minimum allowed molecular weight of a molecule.
-        maximum_weight: The maximum allowed molecular weight of a molecule.
+        fields.component_name: The name of component.
+        fields.component_description: A short description of the component.
+        fields.component_fail_message: The message logged when a molecule fails this component.
+        fields.minimum_weight: The minimum allowed molecular weight of a molecule.
+        fields.maximum_weight: The maximum allowed molecular weight of a molecule.
     """
 
     component_name = "MolecularWeightFilter"
@@ -297,8 +297,7 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
     """
     Filters molecules based on the maximum allowed number of rotatable bonds.
 
-    Notes
-    -----
+    Note:
         Rotatable bonds are non terminal torsions found using the `find_rotatable_bonds` method of the
         openforcefield.topology.Molecule class.
     """
@@ -316,13 +315,10 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
         Apply the filter to the list of molecules to remove any molecules with more rotors then the maximum allowed
         number.
 
-        Parameters
-        ----------
-        molecules : List[openforcefield.topolgy.Molecule]
-            The list of molecules the component should be applied on.
+        Parameters:
+            molecules: The list of molecules the component should be applied on.
 
-        Returns
-        -------
+        Returns:
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
             that passed and were filtered by the component and details about the component which generated the result.
         """

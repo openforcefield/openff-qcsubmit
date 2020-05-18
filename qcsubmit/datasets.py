@@ -34,20 +34,13 @@ class ComponentResult:
     ):
         """Register the list of molecules to process.
 
-        Parameters
-        ----------
-        component_name : str,
-            The name of the component that produced this result.
-        component_description : Dict[str, Any],
-            The dictionary representation of the component which details the function and running parameters.
-        component_provenance : Dict[str, str],
-            The dictionary of the modules used and there version number when running the component.
-        component_provenance : Dict[str, str],
-            The dictionary of the provenance information about the component that was used to generate the data.
-        molecules : openforcefield.topology.Molecule or List, optional, default=None
-            The list of molecules that have been possessed by a component and returned as a result.
-        input_file : str, optional, default=None,
-            The name of the input file used to produce the result if not from a component.
+        Parameters:
+            component_name: The name of the component that produced this result.
+            component_description: The dictionary representation of the component which details the function and running parameters.
+            component_provenance: The dictionary of the modules used and there version number when running the component.
+            component_provenance: The dictionary of the provenance information about the component that was used to generate the data.
+            molecules: The list of molecules that have been possessed by a component and returned as a result.
+            input_file: The name of the input file used to produce the result if not from a component.
         """
 
         self.molecules: List[off.Molecule] = []
@@ -74,7 +67,8 @@ class ComponentResult:
     @property
     def n_molecules(self) -> int:
         """
-        Return the number of molecules saved in the result.
+        Returns:
+             The number of molecules saved in the result.
         """
 
         return len(self.molecules)
@@ -82,7 +76,8 @@ class ComponentResult:
     @property
     def n_conformers(self) -> int:
         """
-        Return the number of conformers stored in the molecules.
+        Returns:
+             The number of conformers stored in the molecules.
         """
 
         conformers = sum([molecule.n_conformers for molecule in self.molecules])
@@ -91,7 +86,8 @@ class ComponentResult:
     @property
     def n_filtered(self) -> int:
         """
-        Return the number of filtered molecules.
+        Returns:
+             The number of filtered molecules.
         """
         return len(self.filtered)
 
@@ -192,8 +188,7 @@ class DatasetEntry(DatasetConfig):
     A basic data class to construct the datasets which holds any information about the molecule and options used in
     the qcarchive calculation.
 
-    Notes
-    -----
+    Note:
         * ``extras`` are passed into the qcelemental.models.Molecule on creation.
         * any extras that should passed to the calculation like extra constrains should be passed to ``keywords``.
     """
@@ -301,13 +296,10 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         """
         A generator for the molecules that have been filtered.
 
-        Returns
-        -------
-        offmol : openforcefield.topology.Molecule
-            A molecule representation created from the filtered molecule lists
+        Returns:
+            offmol: A molecule representation created from the filtered molecule lists
 
-        Notes
-        -----
+        Note:
             Modifying the molecule will have no effect on the data stored.
         """
 
@@ -321,10 +313,8 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         """
         Calculate the total number of molecules filtered by the components used in a workflow to create this dataset.
 
-        Returns
-        -------
-        filtered : int
-                The total number of molecules filtered by components.
+        Returns:
+            filtered: The total number of molecules filtered by components.
         """
         filtered = sum(
             [len(data.molecules) for data in self.filtered_molecules.values()]
@@ -336,19 +326,13 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         """
         Return the total number of records that will be created on submission of the dataset.
 
-        Returns
-        -------
-        n_records : int
+        Returns:
             The number of records that will be added to the collection.
 
-        Notes
-        -----
+        Note:
             * The number returned will be different depending on the dataset used.
             * The amount of unqiue molecule can be found using `n_molecules`
-
-        See also
-        --------
-            n_molecules
+            * see also the [n_molecules][qcsubmit.datasets.BasicDataset.n_molecules]
         """
 
         n_records = sum([len(data.initial_molecules) for data in self.dataset.values()])
@@ -359,19 +343,13 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         """
         Calculate the total number of unique molecules which will be submitted as part of this dataset.
 
-        Returns
-        -------
-        n_molecules : int
+        Returns:
             The number of molecules in the dataset.
 
-        Notes
-        -----
+        Note:
             The number of molecule records submitted is not always the same as the amount of records created, this can
             also be checked using `n_records`. Here we give the number of unique molecules not excluding conformers.
-
-        See also
-        --------
-            n_conformers
+            * see also [n_conformers][qcsubmit.datasets.BasicDataset.n_conformers]
         """
 
         n_molecules = len(self.dataset)
@@ -382,13 +360,10 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         """
         A generator that creates an openforcefield.topology.Molecule one by one from the dataset.
 
-        Returns
-        -------
-        offmol : openforcefield.topology.Molecule
+        Returns:
             The instance of the molecule from the dataset.
 
-        Notes
-        -----
+        Note:
             Editing the molecule will not effect the data stored in the dataset as it is immutable.
         """
 
@@ -414,9 +389,7 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         """
         Return the amount of components that have been ran during generating the dataset.
 
-        Returns
-        -------
-         n_filtered : int
+        Returns:
             The number of components that were ran while generating the dataset.
         """
 
@@ -428,9 +401,7 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         """
         Gather the details of the components that were ran during the creation of this dataset.
 
-        Returns
-        -------
-        components : List[Dict[str, str]]
+        Returns:
             A list of dictionaries containing information about the components ran during the generation of the dataset.
         """
 
@@ -450,15 +421,14 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         """
         Filter a molecule or list of molecules by the component they failed.
 
-        Parameters
-        ----------
-        molecules : Union[openforcefield.topology.Molecule, List[openforcefield.topology.Molecule]]
+        Parameters:
+        molecules:
             A molecule or list of molecules to be filtered.
-        component_description : Dict[str, str]
+        component_description:
             The dictionary representation of the component that filtered this set of molecules.
-        component_name : str
+        component_name:
             The name of the component.
-        component_provenance : Dict[str, str]
+        component_provenance:
             The dictionary representation of the component provenance.
         """
 
@@ -495,8 +465,7 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         """
         Add a molecule to the dataset under the given index with the passed cmiles.
 
-        Parameters
-        ----------
+        Parameters:
         index : str
             The molecule index that was generated by the factory.
         molecule : openforcefield.topology.Molecule
@@ -509,8 +478,7 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         keywords : Dict[str, Any], optional, default=None,
             Any extra keywords which are required for the calculation.
 
-        Notes
-        -----
+        Note:
             Each molecule in this basic dataset should have all of its conformers expanded out into separate entries.
             Thus here we take the general molecule index and increment it.
         """
@@ -547,17 +515,14 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
         corresponding result class.
 
-        Parameters
-        ----------
+        Parameters:
         client : Union[str, qcportal.FractalClient]
             The name of the file containing the client information or an actual client instance.
         await_result : bool, optional, default=False
             If the user wants to wait for the calculation to finish before returning.
 
 
-        Returns
-        -------
-        results :
+        Returns:
             The collection of the results which have completed.
         """
 
@@ -804,10 +769,8 @@ class OptimizationDataset(BasicDataset):
         """
         Add the keywords to the client and return the index number of the keyword set.
 
-        Returns
-        -------
-        kw_id : str
-            The keyword index number in the client.
+        Returns:
+            kw_id: The keyword index number in the client.
         """
 
         kw = ptl.models.KeywordSet(

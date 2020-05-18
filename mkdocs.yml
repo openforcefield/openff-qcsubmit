@@ -8,8 +8,12 @@ repo_name: 'openforcefield/qcsubmit'
 repo_url: 'https://github.com/openforcefield/qcsubmit'
 plugins:
   - mkdocstrings
+  - mkdocs-jupyter
 nav:
   - Home: index.md
+  - Notebooks:
+    - Creating Workflows: creating_workflows.ipynb
+    - Collecting Results: Collecting_results.ipynb
   - Reference:
       - Factories: factories.md
       - Datasets: datasets.md
