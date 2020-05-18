@@ -12,7 +12,6 @@ plugins:
 nav:
   - Home: index.md
   - Notebooks:
-    - Creating Workflows: creating_workflows.ipynb
     - Collecting Results: Collecting_results.ipynb
   - Reference:
       - Factories: factories.md
