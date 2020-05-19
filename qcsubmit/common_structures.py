@@ -1,10 +1,12 @@
 """
 This file contains common starting structures which can be mixed into datasets, results and factories.
 """
-from pydantic import BaseModel
-from typing import Dict, Any, Tuple
+from pydantic import BaseModel, HttpUrl
+from typing import Dict, Any, Tuple, Optional
 import re
 import numpy as np
+from datetime import datetime, date
+import getpass
 
 
 class DatasetConfig(BaseModel):
@@ -64,3 +66,17 @@ class IndexCleaner:
             tag = 0
 
         return core, tag
+
+
+class Metadata(DatasetConfig):
+    """
+    A general metadata class which is required to be filled in before submitting a dataset to the qcarchive.
+    """
+
+    submitter: str = getpass.getuser()
+    creation_date: date = datetime.today().date()
+    collection: str
+    dataset_name: str
+    description: str
+    url: Optional[HttpUrl] = None
+

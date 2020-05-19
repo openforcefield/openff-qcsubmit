@@ -11,7 +11,7 @@ import openforcefield.topology as off
 from .exceptions import DatasetInputError, UnsupportedFiletypeError
 from .procedures import GeometricProcedure
 from .results import SingleResult
-from .common_structures import DatasetConfig, IndexCleaner
+from .common_structures import DatasetConfig, IndexCleaner, Metadata
 
 
 class ComponentResult:
@@ -272,7 +272,7 @@ class BasicDataset(IndexCleaner, DatasetConfig):
 
     dataset_name: str = "BasicDataset"
     dataset_tagline: str = "OpenForcefield single point evaluations."
-    dataset_type: constr(regex="BasicDataSet") = "BasicDataSet"
+    dataset_type: constr(regex="DataSet") = "DataSet"
     method: str = "B3LYP-D3BJ"
     basis: Optional[str] = "DZVP"
     program: str = "psi4"
@@ -285,7 +285,7 @@ class BasicDataset(IndexCleaner, DatasetConfig):
     description: Optional[str] = f"A basic dataset using the {driver} driver."
     dataset_tags: List[str] = ["openff"]
     compute_tag: str = "openff"
-    metadata: Dict[str, Any] = {}
+    metadata: Metadata = Metadata(collection=dataset_type, dataset_name=dataset_name, description=description)
     provenance: Dict[str, str] = {}
     dataset: Dict[str, DatasetEntry] = {}
     filtered_molecules: Dict[str, FilterEntry] = {}
@@ -540,7 +540,7 @@ class BasicDataset(IndexCleaner, DatasetConfig):
                 tags=self.dataset_tags,
                 description=self.description,
                 provenance=self.provenance,
-                metadata=self.metadata,
+                metadata=self.metadata.dict(),
             )
 
         # store the keyword set into the collection
@@ -832,7 +832,7 @@ class OptimizationDataset(BasicDataset):
                 tags=self.dataset_tags,
                 description=self.description,
                 provenance=self.provenance,
-                metadata=self.metadata,
+                metadata=self.metadata.dict(),
             )
 
         # store the keyword set into the collection
@@ -947,7 +947,7 @@ class TorsiondriveDataset(OptimizationDataset):
                 tags=self.dataset_tags,
                 description=self.description,
                 provenance=self.provenance,
-                metadata=self.metadata,
+                metadata=self.metadata.dict(),
             )
         # store the keyword set into the collection
         kw_id = self._add_keywords(target_client)

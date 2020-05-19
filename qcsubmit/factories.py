@@ -534,7 +534,6 @@ class BasicDatasetFactory(BaseModel):
         # the only data missing is the collection name so add it here.
         object_meta["dataset_name"] = dataset_name
         object_meta["description"] = description
-        object_meta["metadata"] = {"date": str(datetime.datetime.now().date())}
         object_meta["provenance"] = self.provenance()
         dataset = self._dataset_type.parse_obj(object_meta)
 
@@ -763,7 +762,6 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         # the only data missing is the collection name so add it here.
         object_meta["dataset_name"] = dataset_name
         object_meta["description"] = description
-        object_meta["metadata"] = {"date": str(datetime.datetime.now().date())}
         object_meta["provenance"] = self.provenance()
         dataset = self._dataset_type(**object_meta)
 

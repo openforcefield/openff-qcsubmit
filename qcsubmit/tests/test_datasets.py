@@ -208,6 +208,7 @@ def test_Dataset_exporting_same_type(dataset_type):
 
         dataset2 = dataset_type.parse_file('dataset.json')
         assert dataset2.method == "test method"
+        assert dataset.metadata == dataset2.metadata
 
 
 def test_BasicDataset_add_molecules_single_conformer():
@@ -385,6 +386,7 @@ def test_Dataset_export_full_dataset_json(dataset_type):
         assert dataset.n_molecules == dataset2.n_molecules
         assert dataset.n_records == dataset2.n_records
         assert dataset.dataset == dataset.dataset
+        assert dataset.metadata == dataset2.metadata
 
 
 @pytest.mark.parametrize("dataset_type", [
@@ -443,6 +445,7 @@ def test_Dataset_export_dict(dataset_type):
 
     assert dataset.n_molecules == dataset2.n_molecules
     assert dataset.n_records == dataset2.n_records
+    assert dataset.metadata == dataset2.metadata
     assert dataset.json() == dataset2.json()
 
 
