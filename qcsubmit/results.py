@@ -17,8 +17,8 @@ from simtk import unit
 
 from openforcefield.topology import Molecule
 
+from .common_structures import IndexCleaner, ResultsConfig
 from .procedures import GeometricProcedure
-from .common_structures import ResultsConfig, IndexCleaner
 
 
 class SingleResult(ResultsConfig):

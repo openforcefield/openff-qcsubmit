@@ -1,12 +1,13 @@
 """
 This file contains common starting structures which can be mixed into datasets, results and factories.
 """
-from pydantic import BaseModel, HttpUrl
-from typing import Dict, Any, Tuple, Optional
-import re
-import numpy as np
-from datetime import datetime, date
 import getpass
+import re
+from datetime import date, datetime
+from typing import Any, Dict, Optional, Tuple
+
+import numpy as np
+from pydantic import BaseModel, HttpUrl
 
 
 class DatasetConfig(BaseModel):
@@ -79,4 +80,3 @@ class Metadata(DatasetConfig):
     dataset_name: str
     description: str
     url: Optional[HttpUrl] = None
-

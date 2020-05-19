@@ -8,10 +8,10 @@ from qcportal.models.common_models import DriverEnum, QCSpecification
 
 import openforcefield.topology as off
 
+from .common_structures import DatasetConfig, IndexCleaner, Metadata
 from .exceptions import DatasetInputError, UnsupportedFiletypeError
 from .procedures import GeometricProcedure
 from .results import SingleResult
-from .common_structures import DatasetConfig, IndexCleaner, Metadata
 
 
 class ComponentResult:
@@ -285,7 +285,9 @@ class BasicDataset(IndexCleaner, DatasetConfig):
     description: Optional[str] = f"A basic dataset using the {driver} driver."
     dataset_tags: List[str] = ["openff"]
     compute_tag: str = "openff"
-    metadata: Metadata = Metadata(collection=dataset_type, dataset_name=dataset_name, description=description)
+    metadata: Metadata = Metadata(
+        collection=dataset_type, dataset_name=dataset_name, description=description
+    )
     provenance: Dict[str, str] = {}
     dataset: Dict[str, DatasetEntry] = {}
     filtered_molecules: Dict[str, FilterEntry] = {}
