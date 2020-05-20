@@ -6,6 +6,7 @@ import shutil
 import tempfile
 import contextlib
 
+
 @contextlib.contextmanager
 def temp_directory():
     """
