@@ -112,7 +112,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"/main/
           . devtools/gh-actions/initialize_conda.sh
           conda activate test
-          pytest --verbose --cov=qcsubmit/ --cov-config=setup.cfg qcsubmit/
+          pytest --verbose --cov=qcsubmit/ --cov-config=setup.cfg qcsubmit/tests/
 
       - name: Codecov
         uses: codecov/codecov-action@v1

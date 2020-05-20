@@ -1,8 +1,6 @@
 """
 Tests for building and running workflows, exporting and importing settings.
 """
-import os
-import tempfile
 
 import pytest
 from pydantic import ValidationError
@@ -17,6 +15,7 @@ from qcsubmit.factories import (
     TorsiondriveDatasetFactory,
 )
 from qcsubmit.utils import get_data
+from qcsubmit.testing import temp_directory
 
 
 @pytest.mark.parametrize("factory_type", [
@@ -179,8 +178,7 @@ def test_exporting_settings_no_workflow(file_type, factory_type):
     Test exporting the settings to different file types.
     """
 
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
         factory = factory_type()
 
         changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "compute_tag": "test tag"}
@@ -208,8 +206,7 @@ def test_exporting_settings_workflow(file_type, factory_type):
     Test exporting the settings and a workflow to the different file types.
     """
 
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
 
         factory = factory_type()
         changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "compute_tag": "test tag"}
@@ -323,8 +320,7 @@ def test_export_workflow_only(file_type, factory_type):
     Test exporting the workflow only from the factory.
     """
 
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
         factory = factory_type()
 
         conformer_gen = workflow_components.StandardConformerGenerator()

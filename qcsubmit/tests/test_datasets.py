@@ -1,8 +1,6 @@
 """
 Unit test for the vairous dataset classes in the package.
 """
-import os
-import tempfile
 
 import numpy as np
 import pytest
@@ -19,6 +17,7 @@ from qcsubmit.datasets import (
 )
 from qcsubmit.exceptions import DatasetInputError
 from qcsubmit.utils import get_data
+from qcsubmit.testing import temp_directory
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
@@ -201,8 +200,7 @@ def test_Dataset_exporting_same_type(dataset_type):
     Test making the given dataset from the json of another instance of the same dataset type.
     """
 
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
         dataset = dataset_type(method="test method")
         dataset.export_dataset('dataset.json')
 
@@ -341,8 +339,7 @@ def test_Basicdataset_molecules_to_file(file_data):
                       "standard_inchi": molecule.to_inchi(),
                       "inchi_key": molecule.to_inchikey()}
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
         dataset.molecules_to_file(file_name=file_data[0], file_type=file_data[1])
 
         # now we need to read in the data
@@ -377,8 +374,7 @@ def test_Dataset_export_full_dataset_json(dataset_type):
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
         except TypeError:
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, atom_indices=(0, 1, 2, 3))
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
         dataset.export_dataset("dataset.json")
 
         dataset2 = dataset_type.parse_file("dataset.json")
@@ -412,8 +408,7 @@ def test_Dataset_export_full_dataset_json_mixing(dataset_type):
                       "inchi_key": molecule.to_inchikey()}
 
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=[(0, 1, 2, 3)])
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
         dataset.export_dataset("dataset.json")
 
         with pytest.raises(ValidationError):
