@@ -496,7 +496,7 @@ def test_create_dataset(factory_dataset_type):
     for attr, value in changed_attrs.items():
         setattr(factory, attr, value)
 
-    dataset = factory.create_dataset(dataset_name="test name", molecules=mols, description="Force field test")
+    dataset = factory.create_dataset(dataset_name="test name", molecules=mols, description="Force field test", tagline="A test dataset")
 
     # check the attributes were changed
     for attr, value in changed_attrs.items():

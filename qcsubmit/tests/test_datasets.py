@@ -190,6 +190,49 @@ def test_componentresult_filter_molecules():
     assert result.molecules == []
     assert len(result.filtered) == len(molecules)
 
+@pytest.mark.parametrize("dataset_type", [
+    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
+])
+def test_dataset_metadata(dataset_type):
+    """
+    Test that the metadata for each dataset type s correctly assigned.
+    """
+
+    # make a basic dataset
+    dataset = dataset_type(dataset_name="Testing dataset name",
+                           dataset_tagline="test tagline",
+                           description="Test description")
+
+    # check the metadata
+    empty_fields = dataset.metadata.validate_metadata(raise_errors=False)
+    # this should be the only none autofilled field
+    assert empty_fields == ["long_description_url"]
+
+    # now make sure the names and types match
+    assert dataset.metadata.dataset_name == dataset.dataset_name
+    assert dataset.metadata.short_description == dataset.dataset_tagline
+    assert dataset.metadata.long_description == dataset.description
+    assert dataset.metadata.collection_type == dataset.dataset_type
+
+
+@pytest.mark.parametrize("dataset_type", [
+    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
+])
+def test_wrong_metadata_collection_type(dataset_type):
+    """
+    Test passing in the wrong collection type into the metadata this should be corrected during the init.
+    """
+
+    from qcsubmit.common_structures import Metadata
+    meta = Metadata(collection_type="INVALID")
+    dataset = dataset_type(metadata=meta)
+
+    # make sure the init of the dataset corrects the collection type
+    assert dataset.metadata.collection_type != "INVALID"
+    assert dataset.metadata.collection_type == dataset.dataset_type
+
 
 @pytest.mark.parametrize("dataset_type", [
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
@@ -213,6 +256,7 @@ def test_BasicDataset_add_molecules_single_conformer():
     """
     Test creating a basic dataset.
     """
+
     dataset = BasicDataset()
     # get some molecules
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)

@@ -4,10 +4,11 @@ This file contains common starting structures which can be mixed into datasets, 
 import getpass
 import re
 from datetime import date, datetime
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, List
 
 import numpy as np
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, validator
+from qcsubmit.exceptions import DatasetInputError
 
 
 class DatasetConfig(BaseModel):
@@ -76,7 +77,43 @@ class Metadata(DatasetConfig):
 
     submitter: str = getpass.getuser()
     creation_date: date = datetime.today().date()
-    collection: str
-    dataset_name: str
-    description: str
-    url: Optional[HttpUrl] = None
+    collection_type: Optional[str] = None
+    dataset_name: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description_url: Optional[HttpUrl] = None
+    long_description: Optional[str] = None
+
+    @validator("short_description", "long_description")
+    def _check_strings(cls, string):
+        """
+        Make sure that users a not supplying short or empty strings.
+        """
+        import re
+
+        # make sure some characters are present
+        match = re.search("[a-zA-Z]", string)
+
+        if match is None or len(string) < 10:
+            raise DatasetInputError(
+                "Short and long description should be longer than 8 characters and not be "
+                "empty strings."
+            )
+        return string
+
+    def validate_metadata(self, raise_errors: bool = False) -> Optional[List[str]]:
+        """
+        Before submitting this function should be called to highlight any incomplete fields.
+        """
+
+        empty_fields = []
+        for field in self.__fields__:
+            attr = getattr(self, field)
+            if attr is None:
+                empty_fields.append(field)
+
+        if empty_fields and raise_errors:
+            raise DatasetInputError(
+                f"The metadata has the following incomplete fields {empty_fields}"
+            )
+        else:
+            return empty_fields

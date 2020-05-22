@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import qcelemental as qcel
 import qcportal as ptl
-from pydantic import constr, validator
+from pydantic import constr, validator, PositiveInt
 from qcportal.models.common_models import DriverEnum, QCSpecification
 
 import openforcefield.topology as off
@@ -271,27 +271,42 @@ class BasicDataset(IndexCleaner, DatasetConfig):
     """
 
     dataset_name: str = "BasicDataset"
-    dataset_tagline: str = "OpenForcefield single point evaluations."
+    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = "OpenForcefield single point evaluations."
     dataset_type: constr(regex="DataSet") = "DataSet"
-    method: str = "B3LYP-D3BJ"
+    method: constr(strip_whitespace=True) = "B3LYP-D3BJ"
     basis: Optional[str] = "DZVP"
     program: str = "psi4"
-    maxiter: int = 200
+    maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
     scf_properties: List[str] = ["dipole", "qudrupole", "wiberg_lowdin_indices"]
     spec_name: str = "default"
-    spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
+    spec_description: constr(min_length=8, regex="[a-zA-Z]") = "Standard OpenFF optimization quantum chemistry specification."
     priority: str = "normal"
-    description: Optional[str] = f"A basic dataset using the {driver} driver."
+    description: constr(min_length=8, regex="[a-zA-Z]") = f"A basic dataset using the {driver} driver."
     dataset_tags: List[str] = ["openff"]
     compute_tag: str = "openff"
-    metadata: Metadata = Metadata(
-        collection=dataset_type, dataset_name=dataset_name, description=description
-    )
+    metadata: Metadata = Metadata()
     provenance: Dict[str, str] = {}
     dataset: Dict[str, DatasetEntry] = {}
     filtered_molecules: Dict[str, FilterEntry] = {}
     _file_writers = {"json": json.dump}
+
+    def __init__(self, **kwargs):
+        """
+        Make sure the metadata has been assigned correctly if not autofill some information.
+        """
+
+        super().__init__(**kwargs)
+
+        # set the collection type here
+        self.metadata.collection_type = self.dataset_type
+        self.metadata.dataset_name = self.dataset_name
+
+        # some fields can be reused here
+        if self.metadata.short_description is None:
+            self.metadata.short_description = self.dataset_tagline
+        if self.metadata.long_description is None:
+            self.metadata.long_description = self.description
 
     @property
     def filtered(self) -> off.Molecule:
@@ -533,6 +548,8 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         try:
             collection = target_client.get_collection("Dataset", self.dataset_name)
         except KeyError:
+            # we are making a new dataset so make sure the metadata is complete
+            self.metadata.validate_metadata(raise_errors=True)
             collection = ptl.collections.Dataset(
                 name=self.dataset_name,
                 client=target_client,
@@ -755,8 +772,10 @@ class OptimizationDataset(BasicDataset):
     """
 
     dataset_name = "OptimizationDataset"
-    dataset_tagline = "OpenForcefield optimizations."
+    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = "OpenForcefield optimizations."
     dataset_type: constr(regex="OptimizationDataset") = "OptimizationDataset"
+    description: constr(min_length=8, regex="[a-zA-Z]") = "An optimization dataset using geometric."
+    metadata: Metadata = Metadata(collection_type=dataset_type)
     driver: DriverEnum = DriverEnum.gradient
     optimization_procedure: GeometricProcedure = GeometricProcedure()
 
@@ -825,6 +844,12 @@ class OptimizationDataset(BasicDataset):
                 "OptimizationDataset", self.dataset_name
             )
         except KeyError:
+            # we are making a new dataset so make sure the url metadata is supplied
+            if self.metadata.long_description_url is None:
+                raise DatasetInputError(
+                    "Please provide a long_description_url for the metadata before submitting."
+                )
+
             collection = ptl.collections.OptimizationDataset(
                 name=self.dataset_name,
                 client=target_client,
@@ -906,8 +931,10 @@ class TorsiondriveDataset(OptimizationDataset):
     """
 
     dataset_name = "TorsionDriveDataset"
-    dataset_tagline = "OpenForcefield TorsionDrives."
+    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = "OpenForcefield TorsionDrives."
     dataset_type: constr(regex="TorsiondriveDataset") = "TorsiondriveDataset"
+    description: constr(min_length=8, regex="[a-zA-Z]") = "A TorsionDrive dataset using geometric."
+    metadata: Metadata = Metadata()
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )
@@ -940,6 +967,9 @@ class TorsiondriveDataset(OptimizationDataset):
                 "TorsionDriveDataset", self.dataset_name
             )
         except KeyError:
+            # we are making a new dataset so make sure the metadata is complete
+            self.metadata.validate_metadata(raise_errors=True)
+
             collection = ptl.collections.TorsionDriveDataset(
                 name=self.dataset_name,
                 client=target_client,

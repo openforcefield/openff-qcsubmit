@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import qcelemental as qcel
 import qcportal as ptl
-from pydantic import constr, validator
+from pydantic import constr, validator, ValidationError
 from qcelemental.models.types import Array
 from qcportal.models import OptimizationRecord, ResultRecord
 from qcportal.models.common_models import DriverEnum
@@ -17,7 +17,7 @@ from simtk import unit
 
 from openforcefield.topology import Molecule
 
-from .common_structures import IndexCleaner, ResultsConfig
+from .common_structures import IndexCleaner, ResultsConfig, Metadata
 from .procedures import GeometricProcedure
 
 
@@ -291,19 +291,32 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
 
     result_type: constr(regex="BasicCollectionResult") = "BasicCollectionResult"
     method: str
-    basis: str
+    basis: Optional[str] = None
     dataset_name: str
     program: str
     driver: DriverEnum
-    scf_properties: List[str]
+    scf_properties: Optional[List[str]]
     maxiter: Optional[int]
     spec_name: str
     provenance: Dict[str, Any] = {}
-    tagline: Optional[str]
+    dataset_tagline: Optional[str]
     dataset_tags: List[str] = []
     metadata: Dict[str, Any] = {}
     description: Optional[str]
     collection: Dict[str, BasicResult] = {}
+
+    def _create_dataset_meta(self, collection_type: str) -> Metadata:
+        """
+        Format a new dataset metadata class from given data.
+        """
+        metadata = Metadata(
+            collection_type=collection_type,
+            dataset_name=self.dataset_name,
+            short_description=self.dataset_tagline,
+            long_description=self.description,
+        )
+
+        return metadata
 
     def export_results(self, filename: str) -> None:
         """
@@ -392,7 +405,7 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
                     "description": data_model.description,
                     "metadata": data_model.metadata,
                     "provenance": data_model.provenance,
-                    "tagline": data_model.tagline,
+                    "dataset_tagline": data_model.tagline,
                     "dataset_tags": data_model.tags,
                 }
                 return data
@@ -907,20 +920,52 @@ class OptimizationCollectionResult(BasicCollectionResult):
     optimization_procedure: GeometricProcedure
     collection: Dict[str, OptimizationResult] = {}
 
-    def create_basic_dataset(self, driver: DriverEnum) -> "BasicDataset":
+    def create_basic_dataset(
+        self,
+        dataset_name: str,
+        description: constr(min_length=8, regex="[a-zA-Z]"),
+        tagline: constr(min_length=8, regex="[a-zA-Z]"),
+        driver: DriverEnum,
+        metadata: Optional[Metadata] = None
+    ) -> "BasicDataset":
         """
         Create a qcsubmit.datasets.BasicDataSet from the Optimization set final geometries.
 
         Parameters:
+            dataset_name:
+            description:
+            tagline:
             driver: The type of driver the dataset should use.
+            metadata: The metadata that should be put into the new dataset.
 
         Note:
             This is a very easy way to create a hessian dataset from the output of an OptimizationDataset.
         """
         from qcsubmit.datasets import BasicDataset
 
-        dataset = BasicDataset(**self.dict(exclude={"collection"}))
-        dataset.driver = driver
+        # create the dataset basic data
+        data = self.dict(
+            exclude={
+                "collection",
+                "description",
+                "dataset_name",
+                "dataset_tagline",
+                "metadata",
+                "driver"
+            }
+        )
+
+        if metadata is not None:
+            data["metadata"] = metadata.dict()
+
+        dataset = BasicDataset(
+            **data,
+            dataset_name=dataset_name,
+            description=description,
+            dataset_tagline=tagline,
+            driver=driver
+        )
+
         for common_index, entries in self.collection.items():
             for result in entries.entries:
                 dataset.add_molecule(
@@ -932,19 +977,52 @@ class OptimizationCollectionResult(BasicCollectionResult):
 
         return dataset
 
-    def create_optimization_dataset(self) -> "OptimizationDataset":
+    def create_optimization_dataset(
+        self,
+        dataset_name: str,
+        description: str,
+        tagline: str,
+        metadata: Optional[Metadata] = None,
+    ) -> "OptimizationDataset":
         """
         Create a qcsubmit.datasets.OptimizationDataset from the current results collection.
 
+        Parameters:
+            dataset_name: The name that will be given to the new dataset.
+            tagline: The tagline that should be given to the new dataset.
+            description: The description that should be given to the new dataset.
+            metadata: The metadata for the new dataset.
+
         Note:
             The dataset is created using the final geometries as the input geometries for the next optimization.
+            Past datasets
 
         Returns:
             The instance of the Optimization dataset.
         """
         from qcsubmit.datasets import OptimizationDataset
 
-        dataset = OptimizationDataset(**self.dict(exclude={"collection"}))
+        # create the dataset basic data
+        data = self.dict(
+            exclude={
+                "collection",
+                "description",
+                "dataset_name",
+                "dataset_tagline",
+                "metadata",
+            }
+        )
+
+        if metadata is not None:
+            data["metadata"] = metadata.dict()
+
+        dataset = OptimizationDataset(
+            **data,
+            dataset_name=dataset_name,
+            description=description,
+            dataset_tagline=tagline,
+        )
+
         # now we need to add the molecules
         for common_index, entries in self.collection.items():
             for result in entries.entries:
@@ -995,12 +1073,14 @@ class OptimizationCollectionResult(BasicCollectionResult):
         """
         Gather metadata needed for Optimization and Torsiondrive results classes.
         """
-
         spec = collection.data.specs[spec_name]
         optimization_procedure = GeometricProcedure.from_opt_spec(
             spec.optimization_spec
         )
-        scf_keywords = client.query_keywords(spec.qc_spec.keywords)[0]
+        if spec.qc_spec.keywords is not None:
+            scf_keywords = client.query_keywords(spec.qc_spec.keywords)[0].values
+        else:
+            scf_keywords = {}
         data_model = collection.data
         data = {
             "spec_name": spec_name,
@@ -1010,8 +1090,8 @@ class OptimizationCollectionResult(BasicCollectionResult):
             "basis": spec.qc_spec.basis,
             "program": spec.qc_spec.program,
             "driver": spec.qc_spec.driver,
-            "maxiter": scf_keywords.values["maxiter"],
-            "scf_properties": scf_keywords.values["scf_properties"],
+            "maxiter": scf_keywords.get("maxiter", None),
+            "scf_properties": scf_keywords.get("scf_properties", None),
             "optimization_procedure": optimization_procedure,
             "provenance": data_model.provenance,
             "dataset_tags": data_model.tags,
@@ -1066,33 +1146,38 @@ class OptimizationCollectionResult(BasicCollectionResult):
         # start loop through the records and adding them to the collection
         for index in subset:
             opt = opt_ds.data.records[index]
-            opt_record = query.loc[opt.name]
-            if opt_record.status.value.upper() == "COMPLETE":
-                # get the common identifier
-                common_name = opt.attributes["canonical_isomeric_smiles"]
-                if common_name not in collection:
-                    # build up a list of molecules and results and pull them from the database
-                    collection[common_name] = {
-                        "index": common_name,
-                        "attributes": opt.attributes,
-                        "entries": [],
+            try:
+                opt_record = query.loc[opt.name]
+                if opt_record.status.value.upper() == "COMPLETE":
+                    # get the common identifier
+                    common_name = opt.attributes["canonical_isomeric_smiles"]
+                    if common_name not in collection:
+                        # build up a list of molecules and results and pull them from the database
+                        collection[common_name] = {
+                            "index": common_name,
+                            "attributes": opt.attributes,
+                            "entries": [],
+                        }
+                    if final_molecule_only:
+                        traj = [opt_record.trajectory[-1]]
+                    elif include_trajectory:
+                        traj = opt_record.trajectory
+                    else:
+                        traj = [opt_record.trajectory[0], opt_record.trajectory[-1]]
+                    entry = {
+                        "index": index,
+                        "id": opt_record.id,
+                        "trajectory_records": traj,
+                        "cmiles": opt.attributes[
+                            "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                        ],
+                        "keywords": opt_record.keywords,
                     }
-                if final_molecule_only:
-                    traj = [opt_record.trajectory[-1]]
-                elif include_trajectory:
-                    traj = opt_record.trajectory
-                else:
-                    traj = [opt_record.trajectory[0], opt_record.trajectory[-1]]
-                entry = {
-                    "index": index,
-                    "id": opt_record.id,
-                    "trajectory_records": traj,
-                    "cmiles": opt.attributes[
-                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                    ],
-                    "keywords": opt_record.keywords,
-                }
-                collection[common_name]["entries"].append(entry)
+                    collection[common_name]["entries"].append(entry)
+            except KeyError:
+                # this means there is no object map on the entry
+                continue
+
         # now process the list into chucks that can be queried
         query_results = []
         for data in collection.values():
@@ -1322,9 +1407,21 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
     class Config:
         title = "TorsionDriveCollectionResult"
 
-    def create_torsiondrive_dataset(self) -> "TorsiondriveDataset":
+    def create_torsiondrive_dataset(
+            self,
+            dataset_name: str,
+            description: constr(min_length=8, regex="[a-zA-Z]"),
+            tagline: constr(min_length=8, regex="[a-zA-Z]"),
+            metadata: Optional[Metadata] = None
+    ) -> "TorsiondriveDataset":
         """
         Create a torsiondrive dataset from the results of the current dataset.
+
+        Parameters:
+            dataset_name: The name that the new dataset will be submitted under.
+            description: A longer description string of the datasets purpose.
+            tagline: A short tag line explaining the datasets purpose that will be displayed on the archive.
+            metadata: The required metadata that will be supplied to the dataset.
 
         Note:
             The final geometry of each torsiondrive constrained optimization is supplied as a starting geometry.
@@ -1335,7 +1432,27 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
         """
         from qcsubmit.datasets import TorsiondriveDataset
 
-        dataset = TorsiondriveDataset(**self.dict(exclude={"collection"}))
+        # create the dataset basic data
+        data = self.dict(
+            exclude={
+                "collection",
+                "description",
+                "dataset_name",
+                "dataset_tagline",
+                "metadata",
+            }
+        )
+
+        if metadata is not None:
+            data["metadata"] = metadata.dict()
+
+        dataset = TorsiondriveDataset(
+            **data,
+            dataset_name=dataset_name,
+            description=description,
+            dataset_tagline=tagline,
+        )
+
         # now we need to fill in the dataset data
         for index, result in self.collection.items():
             # get the torsion drive trajectory onto the molecule
@@ -1405,25 +1522,29 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
         # start looping through the dataset building place holders for the results
         for index in subset:
             tdrive = td_ds.data.records[index]
-            tdrive_record = query.loc[tdrive.name]
-            if tdrive_record.status.value.upper() == "COMPLETE":
-                # get the torsiondrive keywords
-                data = tdrive.td_keywords.dict()
-                # add the extra data
-                data["index"] = index
-                data["initial_molecules"] = tdrive.initial_molecules
-                data["attributes"] = tdrive.attributes
-                data["final_energies"] = tdrive_record.final_energy_dict
-                # we need to build  up a list of the optimizations we need to query
-                optimizations = {}
-                for angle, min_pos in tdrive_record.minimum_positions.items():
-                    optimizations[angle] = tdrive_record.optimization_history[angle][
-                        min_pos
-                    ]
-                query_optimizations.extend(list(optimizations.values()))
-                data["optimization_data"] = optimizations
-                # save the place holder information
-                collection[index] = data
+            try:
+                tdrive_record = query.loc[tdrive.name]
+                if tdrive_record.status.value.upper() == "COMPLETE":
+                    # get the torsiondrive keywords
+                    data = tdrive.td_keywords.dict()
+                    # add the extra data
+                    data["index"] = index
+                    data["initial_molecules"] = tdrive.initial_molecules
+                    data["attributes"] = tdrive.attributes
+                    data["final_energies"] = tdrive_record.final_energy_dict
+                    # we need to build  up a list of the optimizations we need to query
+                    optimizations = {}
+                    for angle, min_pos in tdrive_record.minimum_positions.items():
+                        optimizations[angle] = tdrive_record.optimization_history[angle][
+                            min_pos
+                        ]
+                    query_optimizations.extend(list(optimizations.values()))
+                    data["optimization_data"] = optimizations
+                    # save the place holder information
+                    collection[index] = data
+            except KeyError:
+                # the object map is empty
+                continue
 
         # now we have to query all of the optimizations to get the result
         # and molecule ids
