@@ -89,7 +89,6 @@ class Metadata(DatasetConfig):
         """
         Make sure that users a not supplying short or empty strings.
         """
-        import re
 
         # make sure some characters are present
         match = re.search("[a-zA-Z]", string)

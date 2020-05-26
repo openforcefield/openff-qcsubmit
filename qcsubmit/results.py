@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import qcelemental as qcel
 import qcportal as ptl
-from pydantic import ValidationError, constr, validator
+from pydantic import constr, validator
 from qcelemental.models.types import Array
 from qcportal.models import OptimizationRecord, ResultRecord
 from qcportal.models.common_models import DriverEnum
@@ -738,8 +738,8 @@ class OptimizationEntryResult(ResultsConfig):
                 molecule.get_bond_between(bond[0], bond[1])
             except NotBondedError:
                 return True
-        else:
-            return False
+
+        return False
 
     def detect_connectivity_changes_heuristic(self) -> bool:
         """
@@ -758,8 +758,7 @@ class OptimizationEntryResult(ResultsConfig):
             if b_tup not in connectivity and reversed(tuple(b_tup)) not in connectivity:
                 return True
 
-        else:
-            return False
+        return False
 
     def find_hydrogen_bonds_wbo(
         self, hbond_threshold: float = 0.04, bond_threshold: float = 0.5

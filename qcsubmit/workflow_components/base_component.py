@@ -155,8 +155,8 @@ class ToolkitValidator(BaseModel):
         for toolkit in ToolkitValidator._toolkits.values():
             if toolkit.is_available():
                 return True
-        else:
-            return False
+
+        return False
 
 
 class BasicSettings(BaseModel):
