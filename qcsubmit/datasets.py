@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import qcelemental as qcel
 import qcportal as ptl
-from pydantic import constr, validator, PositiveInt
+from pydantic import PositiveInt, constr, validator
 from qcportal.models.common_models import DriverEnum, QCSpecification
 
 import openforcefield.topology as off
@@ -271,7 +271,9 @@ class BasicDataset(IndexCleaner, DatasetConfig):
     """
 
     dataset_name: str = "BasicDataset"
-    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = "OpenForcefield single point evaluations."
+    dataset_tagline: constr(
+        min_length=8, regex="[a-zA-Z]"
+    ) = "OpenForcefield single point evaluations."
     dataset_type: constr(regex="DataSet") = "DataSet"
     method: constr(strip_whitespace=True) = "B3LYP-D3BJ"
     basis: Optional[str] = "DZVP"
@@ -280,9 +282,13 @@ class BasicDataset(IndexCleaner, DatasetConfig):
     driver: DriverEnum = DriverEnum.energy
     scf_properties: List[str] = ["dipole", "qudrupole", "wiberg_lowdin_indices"]
     spec_name: str = "default"
-    spec_description: constr(min_length=8, regex="[a-zA-Z]") = "Standard OpenFF optimization quantum chemistry specification."
+    spec_description: constr(
+        min_length=8, regex="[a-zA-Z]"
+    ) = "Standard OpenFF optimization quantum chemistry specification."
     priority: str = "normal"
-    description: constr(min_length=8, regex="[a-zA-Z]") = f"A basic dataset using the {driver} driver."
+    description: constr(
+        min_length=8, regex="[a-zA-Z]"
+    ) = f"A basic dataset using the {driver} driver."
     dataset_tags: List[str] = ["openff"]
     compute_tag: str = "openff"
     metadata: Metadata = Metadata()
@@ -772,9 +778,13 @@ class OptimizationDataset(BasicDataset):
     """
 
     dataset_name = "OptimizationDataset"
-    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = "OpenForcefield optimizations."
+    dataset_tagline: constr(
+        min_length=8, regex="[a-zA-Z]"
+    ) = "OpenForcefield optimizations."
     dataset_type: constr(regex="OptimizationDataset") = "OptimizationDataset"
-    description: constr(min_length=8, regex="[a-zA-Z]") = "An optimization dataset using geometric."
+    description: constr(
+        min_length=8, regex="[a-zA-Z]"
+    ) = "An optimization dataset using geometric."
     metadata: Metadata = Metadata(collection_type=dataset_type)
     driver: DriverEnum = DriverEnum.gradient
     optimization_procedure: GeometricProcedure = GeometricProcedure()
@@ -931,9 +941,13 @@ class TorsiondriveDataset(OptimizationDataset):
     """
 
     dataset_name = "TorsionDriveDataset"
-    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = "OpenForcefield TorsionDrives."
+    dataset_tagline: constr(
+        min_length=8, regex="[a-zA-Z]"
+    ) = "OpenForcefield TorsionDrives."
     dataset_type: constr(regex="TorsiondriveDataset") = "TorsiondriveDataset"
-    description: constr(min_length=8, regex="[a-zA-Z]") = "A TorsionDrive dataset using geometric."
+    description: constr(
+        min_length=8, regex="[a-zA-Z]"
+    ) = "A TorsionDrive dataset using geometric."
     metadata: Metadata = Metadata()
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}

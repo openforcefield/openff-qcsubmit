@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import qcelemental as qcel
 import qcportal as ptl
-from pydantic import constr, validator, ValidationError
+from pydantic import ValidationError, constr, validator
 from qcelemental.models.types import Array
 from qcportal.models import OptimizationRecord, ResultRecord
 from qcportal.models.common_models import DriverEnum
@@ -17,7 +17,7 @@ from simtk import unit
 
 from openforcefield.topology import Molecule
 
-from .common_structures import IndexCleaner, ResultsConfig, Metadata
+from .common_structures import IndexCleaner, Metadata, ResultsConfig
 from .procedures import GeometricProcedure
 
 
@@ -926,7 +926,7 @@ class OptimizationCollectionResult(BasicCollectionResult):
         description: constr(min_length=8, regex="[a-zA-Z]"),
         tagline: constr(min_length=8, regex="[a-zA-Z]"),
         driver: DriverEnum,
-        metadata: Optional[Metadata] = None
+        metadata: Optional[Metadata] = None,
     ) -> "BasicDataset":
         """
         Create a qcsubmit.datasets.BasicDataSet from the Optimization set final geometries.
@@ -951,7 +951,7 @@ class OptimizationCollectionResult(BasicCollectionResult):
                 "dataset_name",
                 "dataset_tagline",
                 "metadata",
-                "driver"
+                "driver",
             }
         )
 
@@ -963,7 +963,7 @@ class OptimizationCollectionResult(BasicCollectionResult):
             dataset_name=dataset_name,
             description=description,
             dataset_tagline=tagline,
-            driver=driver
+            driver=driver,
         )
 
         for common_index, entries in self.collection.items():
@@ -1408,11 +1408,11 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
         title = "TorsionDriveCollectionResult"
 
     def create_torsiondrive_dataset(
-            self,
-            dataset_name: str,
-            description: constr(min_length=8, regex="[a-zA-Z]"),
-            tagline: constr(min_length=8, regex="[a-zA-Z]"),
-            metadata: Optional[Metadata] = None
+        self,
+        dataset_name: str,
+        description: constr(min_length=8, regex="[a-zA-Z]"),
+        tagline: constr(min_length=8, regex="[a-zA-Z]"),
+        metadata: Optional[Metadata] = None,
     ) -> "TorsiondriveDataset":
         """
         Create a torsiondrive dataset from the results of the current dataset.
@@ -1535,9 +1535,9 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
                     # we need to build  up a list of the optimizations we need to query
                     optimizations = {}
                     for angle, min_pos in tdrive_record.minimum_positions.items():
-                        optimizations[angle] = tdrive_record.optimization_history[angle][
-                            min_pos
-                        ]
+                        optimizations[angle] = tdrive_record.optimization_history[
+                            angle
+                        ][min_pos]
                     query_optimizations.extend(list(optimizations.values()))
                     data["optimization_data"] = optimizations
                     # save the place holder information

@@ -3,13 +3,14 @@ import os
 from typing import Dict, List, Optional, Tuple, Union
 
 import yaml
-from pydantic import BaseModel, validator, constr, PositiveInt
+from pydantic import BaseModel, PositiveInt, constr, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
 
 import openforcefield.topology as off
 
 from . import workflow_components
+from .common_structures import Metadata
 from .datasets import (
     BasicDataset,
     ComponentResult,
@@ -24,7 +25,6 @@ from .exceptions import (
     UnsupportedFiletypeError,
 )
 from .procedures import GeometricProcedure
-from .common_structures import Metadata
 
 
 class BasicDatasetFactory(BaseModel):

@@ -14,8 +14,8 @@ from qcsubmit.factories import (
     OptimizationDatasetFactory,
     TorsiondriveDatasetFactory,
 )
-from qcsubmit.utils import get_data
 from qcsubmit.testing import temp_directory
+from qcsubmit.utils import get_data
 
 
 @pytest.mark.parametrize("factory_type", [

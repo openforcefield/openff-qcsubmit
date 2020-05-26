@@ -2,10 +2,14 @@
 Test the results packages when collecting from the public qcarchive.
 """
 
-from qcportal import FractalClient
 import pytest
+from qcportal import FractalClient
 
-from qcsubmit.results import BasicCollectionResult, OptimizationCollectionResult, TorsionDriveCollectionResult
+from qcsubmit.results import (
+    BasicCollectionResult,
+    OptimizationCollectionResult,
+    TorsionDriveCollectionResult,
+)
 from qcsubmit.testing import temp_directory
 
 

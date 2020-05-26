@@ -4,10 +4,11 @@ This file contains common starting structures which can be mixed into datasets, 
 import getpass
 import re
 from datetime import date, datetime
-from typing import Any, Dict, Optional, Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from pydantic import BaseModel, HttpUrl, validator
+
 from qcsubmit.exceptions import DatasetInputError
 
 
