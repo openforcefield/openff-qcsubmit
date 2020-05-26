@@ -364,13 +364,19 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
         Check the the string passed is valid by trying to create a ChemicalEnvironment in the toolkit.
         """
 
-        if isinstance(environment, ChemicalEnvironment):
+        if not isinstance(environment, ChemicalEnvironment):
+            # try and make a new chemical environment
+            valid_env = ChemicalEnvironment(smirks=environment)
+
+        else:
+            valid_env = environment
+
+        if valid_env.getIndexedAtoms():
             return environment
 
         else:
-            # try and make a new chemical environment
-            valid_env = ChemicalEnvironment(smirks=environment)
-            return valid_env
+            raise SMIRKSParsingError("The smarts pattern passed had no tagged atoms please tag the atoms in the "
+                                     "substructure you wish to include/exclude.")
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """

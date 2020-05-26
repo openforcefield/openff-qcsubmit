@@ -491,10 +491,16 @@ def test_environment_filter_validator():
         filter.allowed_substructures = [1, 2, 3, 4]
 
     with pytest.raises(SMIRKSParsingError):
+        # bad string
         filter.allowed_substructures = ["fkebfsjb"]
 
     with pytest.raises(SMIRKSParsingError):
+        # make sure each item is checked
         filter.allowed_substructures = ["[C:1]-[C:2]", "ksbfsb"]
+
+    with pytest.raises(SMIRKSParsingError):
+        # good smarts with no tagged atoms.
+        filter.allowed_substructures = ["[C]=[C]"]
 
     filter.allowed_substructures = [ChemicalEnvironment("[C:1]=[C:2]")]
 
