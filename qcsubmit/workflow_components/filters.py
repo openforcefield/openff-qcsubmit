@@ -5,7 +5,6 @@ from typing import Dict, List, Optional, Union
 
 from pydantic import validator
 
-import openforcefield
 from openforcefield.topology import Molecule
 from openforcefield.typing.engines.smirnoff import ForceField
 from openforcefield.utils.structure import get_molecule_parameterIDs
@@ -149,7 +148,7 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
             return element
         else:
             try:
-                e = Element.getBySymbol(element)
+                _ = Element.getBySymbol(element)
                 return element
             except KeyError:
                 raise KeyError(

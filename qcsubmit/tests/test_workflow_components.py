@@ -210,6 +210,7 @@ def test_weight_filter_validator():
         pytest.param((workflow_components.StandardConformerGenerator, "max_conformers", 1), id="StandardConformers"),
         pytest.param((workflow_components.EnumerateTautomers, "max_tautomers", 2), id="EnumerateTautomers"),
         pytest.param((workflow_components.EnumerateStereoisomers, "undefined_only", True), id="EnumerateStereoisomers"),
+        pytest.param((workflow_components.RotorFilter, "maximum_rotors", 3), id="RotorFilter"),
     ],
 )
 def test_to_from_object(data):

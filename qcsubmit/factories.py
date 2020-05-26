@@ -1,16 +1,16 @@
-import datetime
 import json
 import os
 from typing import Dict, List, Optional, Tuple, Union
 
 import yaml
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, PositiveInt, constr, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
 
 import openforcefield.topology as off
 
 from . import workflow_components
+from .common_structures import Metadata
 from .datasets import (
     BasicDataset,
     ComponentResult,
@@ -51,10 +51,10 @@ class BasicDatasetFactory(BaseModel):
         workflow: A dictionary which holds the workflow components to be executed in the set order.
     """
 
-    method: str = "B3LYP-D3BJ"
-    basis: Optional[str] = "DZVP"
+    method: constr(strip_whitespace=True) = "B3LYP-D3BJ"
+    basis: Optional[constr(strip_whitespace=True)] = "DZVP"
     program: str = "psi4"
-    maxiter: int = 200
+    maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
     scf_properties: List[str] = ["dipole", "qudrupole", "wiberg_lowdin_indices"]
     spec_name: str = "default"
@@ -485,7 +485,9 @@ class BasicDatasetFactory(BaseModel):
         self,
         dataset_name: str,
         molecules: Union[str, List[off.Molecule], off.Molecule],
-        description: Optional[str] = None,
+        description: str,
+        tagline: str,
+        metadata: Optional[Metadata] = None,
     ) -> BasicDataset:
         """
         Process the input molecules through the given workflow then create and populate the dataset class which acts as
@@ -497,6 +499,9 @@ class BasicDatasetFactory(BaseModel):
              molecules: The list of molecules which should be processed by the workflow and added to the dataset, this
                 can also be a file name which is to be unpacked by the openforcefield toolkit.
             description: A string describing the dataset.
+            tagline: A tagline displayed with collection name in the QCArchive.
+            metadata: Any metadata which should be associated with this dataset this can be changed from the default
+                after making the dataset.
 
         Example:
             How to make a dataset from a list of molecules
@@ -534,8 +539,10 @@ class BasicDatasetFactory(BaseModel):
         # the only data missing is the collection name so add it here.
         object_meta["dataset_name"] = dataset_name
         object_meta["description"] = description
-        object_meta["metadata"] = {"date": str(datetime.datetime.now().date())}
         object_meta["provenance"] = self.provenance()
+        object_meta["dataset_tagline"] = tagline
+        if metadata is not None:
+            object_meta["metadata"] = metadata.dict()
         dataset = self._dataset_type.parse_obj(object_meta)
 
         # if the workflow has components run it
@@ -716,7 +723,9 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         self,
         dataset_name: str,
         molecules: Union[str, List[off.Molecule], off.Molecule],
-        description: str = None,
+        description: str,
+        tagline: str,
+        metadata: Optional[Metadata] = None,
     ) -> TorsiondriveDataset:
         """
         Process the input molecules through the given workflow then create and populate the torsiondrive
@@ -738,6 +747,10 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
              dataset_name: The name that will be given to the collection on submission to an archive instance.
              molecules: The list of molecules which should be processed by the workflow and added to the dataset, this
                 can also be a file name which is to be unpacked by the openforcefield toolkit.
+            description: A short string describing the dataset.
+            tagline: A short string overview of the collection displayed on the QCArchive.
+            metadata: Any metadata which should be associated with this dataset this can be changed from the default
+                after making the dataset.
 
         Returns:
             A [DataSet][qcsubmit.datasets.TorsiondriveDataset] instance populated with the molecules that have passed
@@ -763,8 +776,10 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         # the only data missing is the collection name so add it here.
         object_meta["dataset_name"] = dataset_name
         object_meta["description"] = description
-        object_meta["metadata"] = {"date": str(datetime.datetime.now().date())}
         object_meta["provenance"] = self.provenance()
+        object_meta["dataset_tagline"] = tagline
+        if metadata is not None:
+            object_meta["metadata"] = metadata.dict()
         dataset = self._dataset_type(**object_meta)
 
         # if the workflow has components run it

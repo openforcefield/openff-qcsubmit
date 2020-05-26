@@ -90,8 +90,8 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
                 raise ValueError(
                     f"Some functional group smarts were not valid {smarts}."
                 )
-        else:
-            return functional_group
+
+        return functional_group
 
     @staticmethod
     def is_available() -> bool:

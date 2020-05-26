@@ -1,8 +1,6 @@
 """
 Unit test for the vairous dataset classes in the package.
 """
-import os
-import tempfile
 
 import numpy as np
 import pytest
@@ -10,15 +8,15 @@ from pydantic import ValidationError
 from simtk import unit
 
 from openforcefield.topology import Molecule
-
-from ..datasets import (
+from qcsubmit.datasets import (
     BasicDataset,
     ComponentResult,
     OptimizationDataset,
     TorsiondriveDataset,
 )
-from ..exceptions import DatasetInputError
-from ..utils import get_data
+from qcsubmit.exceptions import DatasetInputError
+from qcsubmit.testing import temp_directory
+from qcsubmit.utils import get_data
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
@@ -191,6 +189,49 @@ def test_componentresult_filter_molecules():
     assert result.molecules == []
     assert len(result.filtered) == len(molecules)
 
+@pytest.mark.parametrize("dataset_type", [
+    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
+])
+def test_dataset_metadata(dataset_type):
+    """
+    Test that the metadata for each dataset type s correctly assigned.
+    """
+
+    # make a basic dataset
+    dataset = dataset_type(dataset_name="Testing dataset name",
+                           dataset_tagline="test tagline",
+                           description="Test description")
+
+    # check the metadata
+    empty_fields = dataset.metadata.validate_metadata(raise_errors=False)
+    # this should be the only none autofilled field
+    assert empty_fields == ["long_description_url"]
+
+    # now make sure the names and types match
+    assert dataset.metadata.dataset_name == dataset.dataset_name
+    assert dataset.metadata.short_description == dataset.dataset_tagline
+    assert dataset.metadata.long_description == dataset.description
+    assert dataset.metadata.collection_type == dataset.dataset_type
+
+
+@pytest.mark.parametrize("dataset_type", [
+    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
+])
+def test_wrong_metadata_collection_type(dataset_type):
+    """
+    Test passing in the wrong collection type into the metadata this should be corrected during the init.
+    """
+
+    from qcsubmit.common_structures import Metadata
+    meta = Metadata(collection_type="INVALID")
+    dataset = dataset_type(metadata=meta)
+
+    # make sure the init of the dataset corrects the collection type
+    assert dataset.metadata.collection_type != "INVALID"
+    assert dataset.metadata.collection_type == dataset.dataset_type
+
 
 @pytest.mark.parametrize("dataset_type", [
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
@@ -201,19 +242,20 @@ def test_Dataset_exporting_same_type(dataset_type):
     Test making the given dataset from the json of another instance of the same dataset type.
     """
 
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
         dataset = dataset_type(method="test method")
         dataset.export_dataset('dataset.json')
 
         dataset2 = dataset_type.parse_file('dataset.json')
         assert dataset2.method == "test method"
+        assert dataset.metadata == dataset2.metadata
 
 
 def test_BasicDataset_add_molecules_single_conformer():
     """
     Test creating a basic dataset.
     """
+
     dataset = BasicDataset()
     # get some molecules
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
@@ -340,8 +382,7 @@ def test_Basicdataset_molecules_to_file(file_data):
                       "standard_inchi": molecule.to_inchi(),
                       "inchi_key": molecule.to_inchikey()}
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
         dataset.molecules_to_file(file_name=file_data[0], file_type=file_data[1])
 
         # now we need to read in the data
@@ -376,8 +417,7 @@ def test_Dataset_export_full_dataset_json(dataset_type):
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
         except TypeError:
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, atom_indices=(0, 1, 2, 3))
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
         dataset.export_dataset("dataset.json")
 
         dataset2 = dataset_type.parse_file("dataset.json")
@@ -385,6 +425,7 @@ def test_Dataset_export_full_dataset_json(dataset_type):
         assert dataset.n_molecules == dataset2.n_molecules
         assert dataset.n_records == dataset2.n_records
         assert dataset.dataset == dataset.dataset
+        assert dataset.metadata == dataset2.metadata
 
 
 @pytest.mark.parametrize("dataset_type", [
@@ -410,8 +451,7 @@ def test_Dataset_export_full_dataset_json_mixing(dataset_type):
                       "inchi_key": molecule.to_inchikey()}
 
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=[(0, 1, 2, 3)])
-    with tempfile.TemporaryDirectory() as temp:
-        os.chdir(temp)
+    with temp_directory():
         dataset.export_dataset("dataset.json")
 
         with pytest.raises(ValidationError):
@@ -443,6 +483,7 @@ def test_Dataset_export_dict(dataset_type):
 
     assert dataset.n_molecules == dataset2.n_molecules
     assert dataset.n_records == dataset2.n_records
+    assert dataset.metadata == dataset2.metadata
     assert dataset.json() == dataset2.json()
 
 

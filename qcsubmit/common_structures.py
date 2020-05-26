@@ -1,10 +1,15 @@
 """
 This file contains common starting structures which can be mixed into datasets, results and factories.
 """
-from pydantic import BaseModel
-from typing import Dict, Any, Tuple
+import getpass
 import re
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
+from pydantic import BaseModel, HttpUrl, validator
+
+from qcsubmit.exceptions import DatasetInputError
 
 
 class DatasetConfig(BaseModel):
@@ -64,3 +69,51 @@ class IndexCleaner:
             tag = 0
 
         return core, tag
+
+
+class Metadata(DatasetConfig):
+    """
+    A general metadata class which is required to be filled in before submitting a dataset to the qcarchive.
+    """
+
+    submitter: str = getpass.getuser()
+    creation_date: date = datetime.today().date()
+    collection_type: Optional[str] = None
+    dataset_name: Optional[str] = None
+    short_description: Optional[str] = None
+    long_description_url: Optional[HttpUrl] = None
+    long_description: Optional[str] = None
+
+    @validator("short_description", "long_description")
+    def _check_strings(cls, string):
+        """
+        Make sure that users a not supplying short or empty strings.
+        """
+
+        # make sure some characters are present
+        match = re.search("[a-zA-Z]", string)
+
+        if match is None or len(string) < 10:
+            raise DatasetInputError(
+                "Short and long description should be longer than 8 characters and not be "
+                "empty strings."
+            )
+        return string
+
+    def validate_metadata(self, raise_errors: bool = False) -> Optional[List[str]]:
+        """
+        Before submitting this function should be called to highlight any incomplete fields.
+        """
+
+        empty_fields = []
+        for field in self.__fields__:
+            attr = getattr(self, field)
+            if attr is None:
+                empty_fields.append(field)
+
+        if empty_fields and raise_errors:
+            raise DatasetInputError(
+                f"The metadata has the following incomplete fields {empty_fields}"
+            )
+        else:
+            return empty_fields

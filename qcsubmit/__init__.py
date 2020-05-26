@@ -2,9 +2,6 @@
 qcsubmit
 Automated tools for submitting molecules to QCFractal
 """
-
-from qcsubmit import *
-
 # Handle versioneer
 from ._version import get_versions
 
