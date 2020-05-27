@@ -926,6 +926,7 @@ class OptimizationCollectionResult(BasicCollectionResult):
         tagline: constr(min_length=8, regex="[a-zA-Z]"),
         driver: DriverEnum,
         metadata: Optional[Metadata] = None,
+        mm_extras: bool = False
     ) -> "BasicDataset":
         """
         Create a qcsubmit.datasets.BasicDataSet from the Optimization set final geometries.
@@ -936,6 +937,7 @@ class OptimizationCollectionResult(BasicCollectionResult):
             tagline:
             driver: The type of driver the dataset should use.
             metadata: The metadata that should be put into the new dataset.
+            mm_extras: If the dataset should include a molecules cmiles in its extras for mm calculations.
 
         Note:
             This is a very easy way to create a hessian dataset from the output of an OptimizationDataset.
@@ -966,12 +968,18 @@ class OptimizationCollectionResult(BasicCollectionResult):
         )
 
         for common_index, entries in self.collection.items():
+            if mm_extras:
+                # we need to generate the extras to be passed
+                extras = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": entries.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]}
+            else:
+                extras = None
             for result in entries.entries:
                 dataset.add_molecule(
                     index=result.index,
                     molecule=result.get_final_molecule(),
                     attributes=entries.attributes,
                     keywords=result.keywords,
+                    extras=extras,
                 )
 
         return dataset
@@ -982,6 +990,7 @@ class OptimizationCollectionResult(BasicCollectionResult):
         description: str,
         tagline: str,
         metadata: Optional[Metadata] = None,
+        mm_extras: bool = False,
     ) -> "OptimizationDataset":
         """
         Create a qcsubmit.datasets.OptimizationDataset from the current results collection.
@@ -991,6 +1000,7 @@ class OptimizationCollectionResult(BasicCollectionResult):
             tagline: The tagline that should be given to the new dataset.
             description: The description that should be given to the new dataset.
             metadata: The metadata for the new dataset.
+            mm_extras: If the dataset should include a molecules cmiles in its extras for mm calculations.
 
         Note:
             The dataset is created using the final geometries as the input geometries for the next optimization.
@@ -1024,12 +1034,19 @@ class OptimizationCollectionResult(BasicCollectionResult):
 
         # now we need to add the molecules
         for common_index, entries in self.collection.items():
+            if mm_extras:
+                # we need to generate the extras to be passed
+                extras = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": entries.attributes[
+                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"]}
+            else:
+                extras = None
             for result in entries.entries:
                 dataset.add_molecule(
                     index=result.index,
                     molecule=result.get_final_molecule(),
                     attributes=entries.attributes,
                     keywords=result.keywords,
+                    extras=extras,
                 )
 
         return dataset
@@ -1412,6 +1429,7 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
         description: constr(min_length=8, regex="[a-zA-Z]"),
         tagline: constr(min_length=8, regex="[a-zA-Z]"),
         metadata: Optional[Metadata] = None,
+        mm_extras: bool = False,
     ) -> "TorsiondriveDataset":
         """
         Create a torsiondrive dataset from the results of the current dataset.
@@ -1421,6 +1439,7 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
             description: A longer description string of the datasets purpose.
             tagline: A short tag line explaining the datasets purpose that will be displayed on the archive.
             metadata: The required metadata that will be supplied to the dataset.
+           mm_extras:  If the dataset should include a molecules cmiles in its extras for mm calculations.
 
         Note:
             The final geometry of each torsiondrive constrained optimization is supplied as a starting geometry.
@@ -1455,12 +1474,19 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
         # now we need to fill in the dataset data
         for index, result in self.collection.items():
             # get the torsion drive trajectory onto the molecule
+            if mm_extras:
+                # we need to generate the extras to be passed
+                extras = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": result.attributes[
+                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"]}
+            else:
+                extras = None
             tdrive_mol = result.get_torsiondrive()
             dataset.add_molecule(
                 index=index,
                 molecule=tdrive_mol,
                 attributes=result.attributes,
                 dihedrals=result.dihedrals,
+                extras=extras,
             )
         return dataset
 

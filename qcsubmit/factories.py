@@ -804,6 +804,10 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
             # check for extras and keywords
             extras = molecule.properties.get("extras", {})
+            if self.program in self._mm_programs:
+                extras[
+                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                ] = attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
             keywords = molecule.properties.get("keywords", {})
 
             # check if the molecule has an atom map or dihedrals defined

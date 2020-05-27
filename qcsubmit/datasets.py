@@ -210,7 +210,6 @@ class DatasetEntry(DatasetConfig):
         if off_molecule is not None:
             if off_molecule.n_conformers == 0:
                 off_molecule.generate_conformers(n_conformers=1)
-            # TODO add extras here when we can
             schema_mols = [
                 off_molecule.to_qcschema(conformer=conformer, extras=extras)
                 for conformer in range(off_molecule.n_conformers)
@@ -854,17 +853,12 @@ class OptimizationDataset(BasicDataset):
                 "OptimizationDataset", self.dataset_name
             )
         except KeyError:
-            # we are making a new dataset so make sure the url metadata is supplied
-            if self.metadata.long_description_url is None:
-                raise DatasetInputError(
-                    "Please provide a long_description_url for the metadata before submitting."
-                )
+            # we are making a new dataset so make sure the metadata is complete
+            self.metadata.validate_metadata(raise_errors=True)
 
             collection = ptl.collections.OptimizationDataset(
                 name=self.dataset_name,
                 client=target_client,
-                default_driver=self.driver,
-                default_program=self.program,
                 tagline=self.dataset_tagline,
                 tags=self.dataset_tags,
                 description=self.description,
@@ -987,8 +981,6 @@ class TorsiondriveDataset(OptimizationDataset):
             collection = ptl.collections.TorsionDriveDataset(
                 name=self.dataset_name,
                 client=target_client,
-                default_driver=self.driver,
-                default_program=self.program,
                 tagline=self.dataset_tagline,
                 tags=self.dataset_tags,
                 description=self.description,
