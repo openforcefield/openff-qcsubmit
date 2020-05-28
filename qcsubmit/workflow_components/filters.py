@@ -1,6 +1,7 @@
 """
 File containing the filters workflow components.
 """
+import re
 from typing import Dict, List, Optional, Union
 
 from pydantic import validator
@@ -364,10 +365,11 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
         Check the the string passed is valid by trying to create a ChemicalEnvironment in the toolkit.
         """
 
-        # try and make a new chemical environment
-        valid_env = ChemicalEnvironment(smirks=environment)
+        # try and make a new chemical environment checking for parse errors
+        _ = ChemicalEnvironment(smirks=environment)
 
-        if valid_env.getIndexedAtoms():
+        # check for numeric tags in the environment
+        if re.search(":[0-9]]+", environment) is not None:
             return environment
 
         else:
