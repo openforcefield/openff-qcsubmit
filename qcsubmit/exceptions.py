@@ -82,3 +82,12 @@ class DatasetInputError(QCSubmitException):
 
     error_type = "dataset_input_error"
     header = "Dataset Input Error"
+
+
+class MissingBasisCoverageError(QCSubmitException):
+    """
+    The basis set selected does not contain element coverage for all atoms in the dataset.
+    """
+
+    error_type = "missing_basis_coverage_error"
+    header = "Missing Basis Coverage Error"

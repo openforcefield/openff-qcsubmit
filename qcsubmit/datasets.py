@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import qcelemental as qcel
 import qcportal as ptl
@@ -9,7 +9,11 @@ from qcportal.models.common_models import DriverEnum, QCSpecification
 import openforcefield.topology as off
 
 from .common_structures import DatasetConfig, IndexCleaner, Metadata
-from .exceptions import DatasetInputError, UnsupportedFiletypeError
+from .exceptions import (
+    DatasetInputError,
+    MissingBasisCoverageError,
+    UnsupportedFiletypeError,
+)
 from .procedures import GeometricProcedure
 from .results import SingleResult
 
@@ -296,6 +300,7 @@ class BasicDataset(IndexCleaner, DatasetConfig):
     dataset: Dict[str, DatasetEntry] = {}
     filtered_molecules: Dict[str, FilterEntry] = {}
     _file_writers = {"json": json.dump}
+    elements: Set[str] = set()
 
     def __init__(self, **kwargs):
         """
@@ -517,6 +522,9 @@ class BasicDataset(IndexCleaner, DatasetConfig):
             )
 
             self.dataset[index] = data_entry
+            # add any extra elements to the metadata
+            self.metadata.elements.update(data_entry.initial_molecules[0].symbols)
+
         except qcel.exceptions.ValidationError:
             # the molecule has some qcschema issue and should be removed
             self.filter_molecules(
@@ -528,6 +536,31 @@ class BasicDataset(IndexCleaner, DatasetConfig):
                 },
                 component_provenance=self.provenance,
             )
+
+    def _get_missing_basis_coverage(self) -> Set[str]:
+        """
+        Work out if the selected basis set covers all of the elements in the dataset if not return the missing
+        element symbols.
+        """
+        import basis_set_exchange as bse
+        from simtk.openmm.app import Element
+
+        # check ani1 first
+        ani_coverage = {"ani1x": {"C", "H", "N", "O"}, "ani1ccx": {"C", "H", "N", "O"}}
+        covered_elements = ani_coverage.get(self.method.lower(), None)
+        if covered_elements is not None:
+            return covered_elements.symmetric_difference(self.metadata.elements)
+
+        # now check psi4
+        # TODO this list should be updated with more basis transfroms as we find them
+        psi4_converter = {"dzvp": "dgauss-dzvp"}
+        basis = psi4_converter.get(self.basis.lower(), self.basis)
+        basis_meta = bse.get_metadata()[basis]
+        elements = basis_meta["versions"][basis_meta["latest_version"]]["elements"]
+        covered_elements = set(
+            [Element.getByAtomicNumber(int(element)).symbol for element in elements]
+        )
+        return covered_elements.symmetric_difference(self.metadata.elements)
 
     def submit(
         self,
@@ -548,6 +581,14 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         Returns:
             The collection of the results which have completed.
         """
+
+        # pre submission checks
+        # basis set coverage check
+        missing_coverage = self._get_missing_basis_coverage()
+        if missing_coverage:
+            raise MissingBasisCoverageError(
+                f"The following elements are not covered by the selected basis: {missing_coverage}"
+            )
 
         target_client = self._activate_client(client)
         # work out if we are extending a collection

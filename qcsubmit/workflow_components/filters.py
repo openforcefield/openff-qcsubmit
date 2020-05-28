@@ -157,7 +157,7 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
                 return element
             except KeyError:
                 raise KeyError(
-                    f"An element could not be determined from symbol {element}, please eneter symbols only."
+                    f"An element could not be determined from symbol {element}, please enter symbols only."
                 )
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
