@@ -445,6 +445,24 @@ def test_torsiondrive_linear_torsion():
         assert bool(factory._detect_linear_torsions(molecule)) is True
 
 
+def test_torsiondrive_unconnected_torsions():
+    """
+    Test the torsiondrive factory when removing highlighted torsions which are not connected.
+    """
+
+    factory = TorsiondriveDatasetFactory()
+    ethanol = Molecule.from_file(get_data("methanol.sdf"), "sdf")
+
+    # tag a correct dihedral with scrambled index
+    assert factory._check_torsion_connection((5, 1, 4, 0), ethanol) is False
+
+    # tag atoms not in the molecule
+    assert factory._check_torsion_connection((12, 22, 23, 45), ethanol) is False
+
+    # tag a valid torsion
+    assert factory._check_torsion_connection((5, 1, 0, 4), ethanol) is True
+
+
 def test_torsiondrive_torsion_string():
     """
     Test the torsiondrive factories ability to create a torsion string for a given bond.
