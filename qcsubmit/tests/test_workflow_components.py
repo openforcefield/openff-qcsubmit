@@ -483,7 +483,7 @@ def test_environment_filter_validator():
     Make sure the validator is checking the allowed and filtered fields have valid smirks strings.
     """
 
-    from openforcefield.typing.chemistry import ChemicalEnvironment, SMIRKSParsingError
+    from openforcefield.typing.chemistry import SMIRKSParsingError
 
     filter = workflow_components.SmartsFilter()
 
@@ -502,8 +502,8 @@ def test_environment_filter_validator():
         # good smarts with no tagged atoms.
         filter.allowed_substructures = ["[C]=[C]"]
 
-    filter.allowed_substructures = [ChemicalEnvironment("[C:1]=[C:2]")]
-
+    # a good search string
+    filter.allowed_substructures = ["[C:1]=[C:2]"]
     assert len(filter.allowed_substructures) == 1
 
 

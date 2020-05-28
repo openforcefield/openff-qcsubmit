@@ -355,8 +355,8 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
         "The molecule did/didn't contain the given smarts patterns."
     )
 
-    allowed_substructures: Optional[List[Union[str, ChemicalEnvironment]]] = None
-    filtered_substructures: Optional[List[Union[str, ChemicalEnvironment]]] = None
+    allowed_substructures: Optional[List[str]] = None
+    filtered_substructures: Optional[List[str]] = None
 
     @validator("allowed_substructures", "filtered_substructures", each_item=True)
     def _check_environments(cls, environment):
@@ -364,12 +364,8 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
         Check the the string passed is valid by trying to create a ChemicalEnvironment in the toolkit.
         """
 
-        if not isinstance(environment, ChemicalEnvironment):
-            # try and make a new chemical environment
-            valid_env = ChemicalEnvironment(smirks=environment)
-
-        else:
-            valid_env = environment
+        # try and make a new chemical environment
+        valid_env = ChemicalEnvironment(smirks=environment)
 
         if valid_env.getIndexedAtoms():
             return environment
