@@ -760,11 +760,20 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         # create the initial component result
         workflow_molecules = self._create_initial_component_result(molecules=molecules)
 
-        # cach any linear torsions here
+        # catch any linear torsions here
         linear_torsions = {
             "component_name": "LinearTorsionRemoval",
             "component_description": {
                 "component_description": "Remove any molecules with a linear torsions selected to drive.",
+            },
+            "component_provenance": self.provenance(),
+            "molecules": [],
+        }
+
+        unconnected_torsions = {
+            "component_name": "UnconnectedTorsionRemoval",
+            "component_description": {
+                "component_description": "Remove any molecules with unconnected torsion indices highlighted to drive.",
             },
             "component_provenance": self.provenance(),
             "molecules": [],
@@ -809,7 +818,10 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             # check if the molecule has an atom map or dihedrals defined
             if "atom_map" in molecule.properties:
                 # we need to check the map and convert it to use the dihedrals method
-                if len(molecule.properties["atom_map"]) == 4:
+                if (
+                    len(molecule.properties["atom_map"]) == 4
+                    or len(molecules.properties["atom_map"]) == 8
+                ):
                     # the map is for the correct amount of atoms
                     atom_map = molecule.properties.pop("atom_map")
                     molecule.properties["dihedrals"] = {tuple(atom_map.keys()): None}
@@ -832,11 +844,16 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                         continue
 
                     for torsion in dihedrals:
+                        # check for linear torsions
                         if (
                             torsion[1:3] in linear_bonds
                             or torsion[2:0:-1] in linear_bonds
                         ):
                             linear_torsions["molecules"].append(molecule)
+                            break
+                        # check for unconnected torsions
+                        elif not self._check_torsion_connection(torsion, molecule):
+                            unconnected_torsions["molecules"].append(molecule)
                             break
                     else:
                         # create the index
@@ -878,6 +895,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
         # now we need to filter the linear molecules
         dataset.filter_molecules(**linear_torsions)
+        # and we need to filter any molecules with unconnected torsions
+        dataset.filter_molecules(**unconnected_torsions)
 
         return dataset
 
@@ -912,6 +931,31 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             torsion.insert(i, atom.molecule_atom_index)
 
         return tuple(torsion)
+
+    def _check_torsion_connection(
+        self, torsion: Tuple[int, int, int, int], molecule: off.Molecule
+    ) -> bool:
+        """
+        Check that the given torsion indices create a connected torsion in the molecule.
+
+        Parameters:
+            torsion: The torsion indices thats should be checked.
+            molecule: The molecule which we want to check the torsion in.
+
+        Returns:
+            `True` if the torsion is valid and connected else `False`.
+        """
+
+        for i in range(3):
+            # get the atoms to be checked
+            atoms = [torsion[i], torsion[i + 1]]
+            try:
+                _ = molecule.get_bond_between(*atoms)
+            except (off.topology.NotBondedError, IndexError):
+                # catch both notbonded errors and tags on atoms not in the molecule
+                return False
+
+        return True
 
     def create_index(self, molecule: off.Molecule) -> str:
         """
