@@ -375,8 +375,10 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
             return environment
 
         else:
-            raise SMIRKSParsingError("The smarts pattern passed had no tagged atoms please tag the atoms in the "
-                                     "substructure you wish to include/exclude.")
+            raise SMIRKSParsingError(
+                "The smarts pattern passed had no tagged atoms please tag the atoms in the "
+                "substructure you wish to include/exclude."
+            )
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
