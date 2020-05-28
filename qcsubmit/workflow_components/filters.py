@@ -1,11 +1,16 @@
 """
 File containing the filters workflow components.
 """
+import re
 from typing import Dict, List, Optional, Union
 
 from pydantic import validator
 
 from openforcefield.topology import Molecule
+from openforcefield.typing.chemistry.environment import (
+    ChemicalEnvironment,
+    SMIRKSParsingError,
+)
 from openforcefield.typing.engines.smirnoff import ForceField
 from openforcefield.utils.structure import get_molecule_parameterIDs
 from qcsubmit.datasets import ComponentResult
@@ -332,5 +337,86 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
 
             else:
                 result.add_molecule(molecule)
+
+        return result
+
+
+class SmartsFilter(BasicSettings, CustomWorkflowComponent):
+    """
+    Filters molecules based on if they contain certain smarts substructures.
+
+    Note:
+        * The smarts tags used for filtering should be numerically tagged in order to work with the toolkit.
+        * If None is passed to the allowed list all molecules that dont match a filter pattern will be passed.
+    """
+
+    component_name = "SmartsFilter"
+    component_description = "Filter molecules based on the given smarts patterns."
+    component_fail_message = (
+        "The molecule did/didn't contain the given smarts patterns."
+    )
+
+    allowed_substructures: Optional[List[str]] = None
+    filtered_substructures: Optional[List[str]] = None
+
+    @validator("allowed_substructures", "filtered_substructures", each_item=True)
+    def _check_environments(cls, environment):
+        """
+        Check the the string passed is valid by trying to create a ChemicalEnvironment in the toolkit.
+        """
+
+        # try and make a new chemical environment checking for parse errors
+        _ = ChemicalEnvironment(smirks=environment)
+
+        # check for numeric tags in the environment
+        if re.search(":[0-9]]+", environment) is not None:
+            return environment
+
+        else:
+            raise SMIRKSParsingError(
+                "The smarts pattern passed had no tagged atoms please tag the atoms in the "
+                "substructure you wish to include/exclude."
+            )
+
+    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+        """
+        Apply the filter to the input list of molecules removing those that match the filtered set or do not contain an
+        allowed substructure.
+
+        Parameters:
+            molecules: The list of molecules the component should be applied on.
+
+        Returns:
+            A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
+            that passed and were filtered by the component and details about the component which generated the result.
+        """
+
+        # create the return
+        result = self._create_result()
+
+        if self.allowed_substructures is None:
+            # pass all of the molecules
+            result.molecules = molecules
+
+        else:
+            for molecule in molecules:
+                for substructure in self.allowed_substructures:
+                    if molecule.chemical_environment_matches(query=substructure):
+                        result.add_molecule(molecule=molecule)
+                        break
+                else:
+                    self.fail_molecule(molecule=molecule, component_result=result)
+
+        if self.filtered_substructures is not None:
+            # now we only want to check the molecules in the pass list
+            molecules_to_remove = []
+            for molecule in result.molecules:
+                for substructure in self.filtered_substructures:
+                    if molecule.chemical_environment_matches(query=substructure):
+                        molecules_to_remove.append(molecule)
+                        break
+
+            for molecule in molecules_to_remove:
+                self.fail_molecule(molecule=molecule, component_result=result)
 
         return result

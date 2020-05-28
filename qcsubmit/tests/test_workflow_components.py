@@ -211,6 +211,7 @@ def test_weight_filter_validator():
         pytest.param((workflow_components.EnumerateTautomers, "max_tautomers", 2), id="EnumerateTautomers"),
         pytest.param((workflow_components.EnumerateStereoisomers, "undefined_only", True), id="EnumerateStereoisomers"),
         pytest.param((workflow_components.RotorFilter, "maximum_rotors", 3), id="RotorFilter"),
+        pytest.param((workflow_components.SmartsFilter, "allowed_substructures", ["[C:1]-[C:2]"]), id="SmartsFilter")
     ],
 )
 def test_to_from_object(data):
@@ -475,3 +476,84 @@ def test_rotor_filter():
     result = rotor_filter.apply(molecule_container.molecules)
     for molecule in result.molecules:
         assert len(molecule.find_rotatable_bonds()) <= rotor_filter.maximum_rotors
+
+
+def test_environment_filter_validator():
+    """
+    Make sure the validator is checking the allowed and filtered fields have valid smirks strings.
+    """
+
+    from openforcefield.typing.chemistry import SMIRKSParsingError
+
+    filter = workflow_components.SmartsFilter()
+
+    with pytest.raises(SMIRKSParsingError):
+        filter.allowed_substructures = [1, 2, 3, 4]
+
+    with pytest.raises(SMIRKSParsingError):
+        # bad string
+        filter.allowed_substructures = ["fkebfsjb"]
+
+    with pytest.raises(SMIRKSParsingError):
+        # make sure each item is checked
+        filter.allowed_substructures = ["[C:1]-[C:2]", "ksbfsb"]
+
+    with pytest.raises(SMIRKSParsingError):
+        # good smarts with no tagged atoms.
+        filter.allowed_substructures = ["[C]=[C]"]
+
+    # a good search string
+    filter.allowed_substructures = ["[C:1]=[C:2]"]
+    assert len(filter.allowed_substructures) == 1
+
+
+def test_environment_filter_apply_parameters():
+    """
+    Make sure the environment filter is correctly identifying substructures.
+    """
+
+    filter = workflow_components.SmartsFilter()
+
+    # this should only allow C, H, N, O containing molecules through similar to the element filter
+    filter.allowed_substructures = ["[C:1]", "[c:1]", "[H:1]", "[O:1]", "[N:1]"]
+    filter.filtered_substructures = ["[Cl:1]", "[F:1]", "[P:1]", "[Br:1]", "[S:1]", "[I:1]", "[B:1]"]
+    allowed_elements = [1, 6, 7, 8]
+
+    molecules = get_molecues(incude_undefined_stereo=False, include_conformers=False)
+
+    result = filter.apply(molecules)
+
+    assert result.component_name == filter.component_name
+    assert result.component_description == filter.dict()
+    # make sure there are no unwanted elements in the pass set
+    for molecule in result.molecules:
+        for atom in molecule.atoms:
+            assert atom.atomic_number in allowed_elements, print(molecule)
+
+    for molecule in result.filtered:
+        elements = set([atom.atomic_number for atom in molecule.atoms])
+        assert sorted(elements) != sorted(allowed_elements)
+
+
+def test_environment_filter_apply_none():
+    """
+    Make sure we get the expected behaviour when we supply None as the filter list.
+    """
+
+    filter = workflow_components.SmartsFilter()
+
+    filter.allowed_substructures = None
+
+    molecules = get_molecues(incude_undefined_stereo=False, include_conformers=False)
+
+    # this should allow all molecules through
+    result = filter.apply(molecules=molecules)
+
+    assert len(result.molecules) == len(molecules)
+
+    # now filter the molecule set again removing aromatic carbons
+    filter.filtered_substructures = ["[c:1]"]
+
+    result2 = filter.apply(molecules=result.molecules)
+
+    assert len(result2.molecules) != result.molecules
