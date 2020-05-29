@@ -4,7 +4,7 @@ This file contains common starting structures which can be mixed into datasets, 
 import getpass
 import re
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 from pydantic import BaseModel, HttpUrl, validator
@@ -83,6 +83,7 @@ class Metadata(DatasetConfig):
     short_description: Optional[str] = None
     long_description_url: Optional[HttpUrl] = None
     long_description: Optional[str] = None
+    elements: Set[str] = set()
 
     @validator("short_description", "long_description")
     def _check_strings(cls, string):

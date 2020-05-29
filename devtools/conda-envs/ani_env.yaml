@@ -25,3 +25,4 @@ dependencies:
     # Pip-only installs
   - pip:
     - torchani
+    - basis_set_exchange

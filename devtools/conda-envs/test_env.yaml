@@ -22,5 +22,5 @@ dependencies:
   - openeye-toolkits
 
     # Pip-only installs
-#  - pip:
-#    - torchani
+  - pip:
+    - basis_set_exchange
