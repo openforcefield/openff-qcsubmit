@@ -300,7 +300,6 @@ class BasicDataset(IndexCleaner, DatasetConfig):
     dataset: Dict[str, DatasetEntry] = {}
     filtered_molecules: Dict[str, FilterEntry] = {}
     _file_writers = {"json": json.dump}
-    elements: Set[str] = set()
 
     def __init__(self, **kwargs):
         """
@@ -537,7 +536,7 @@ class BasicDataset(IndexCleaner, DatasetConfig):
                 component_provenance=self.provenance,
             )
 
-    def _get_missing_basis_coverage(self) -> Set[str]:
+    def _get_missing_basis_coverage(self, raise_errors: bool = True) -> Set[str]:
         """
         Work out if the selected basis set covers all of the elements in the dataset if not return the missing
         element symbols.
@@ -549,18 +548,26 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         ani_coverage = {"ani1x": {"C", "H", "N", "O"}, "ani1ccx": {"C", "H", "N", "O"}}
         covered_elements = ani_coverage.get(self.method.lower(), None)
         if covered_elements is not None:
-            return covered_elements.symmetric_difference(self.metadata.elements)
+            difference = self.metadata.elements.difference(covered_elements)
+        else:
+            # now check psi4
+            # TODO this list should be updated with more basis transfroms as we find them
+            psi4_converter = {"dzvp": "dgauss-dzvp"}
+            basis = psi4_converter.get(self.basis.lower(), self.basis.lower())
+            basis_meta = bse.get_metadata()[basis]
+            elements = basis_meta["versions"][basis_meta["latest_version"]]["elements"]
+            covered_elements = set(
+                [Element.getByAtomicNumber(int(element)).symbol for element in elements]
+            )
+            difference = self.metadata.elements.difference(covered_elements)
 
-        # now check psi4
-        # TODO this list should be updated with more basis transfroms as we find them
-        psi4_converter = {"dzvp": "dgauss-dzvp"}
-        basis = psi4_converter.get(self.basis.lower(), self.basis)
-        basis_meta = bse.get_metadata()[basis]
-        elements = basis_meta["versions"][basis_meta["latest_version"]]["elements"]
-        covered_elements = set(
-            [Element.getByAtomicNumber(int(element)).symbol for element in elements]
-        )
-        return covered_elements.symmetric_difference(self.metadata.elements)
+        if raise_errors and difference:
+            raise MissingBasisCoverageError(
+                f"The following elements are not covered by the selected basis: {difference}"
+            )
+
+        else:
+            return difference
 
     def submit(
         self,
@@ -580,15 +587,14 @@ class BasicDataset(IndexCleaner, DatasetConfig):
 
         Returns:
             The collection of the results which have completed.
+
+        Raises:
+            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
 
         # pre submission checks
         # basis set coverage check
-        missing_coverage = self._get_missing_basis_coverage()
-        if missing_coverage:
-            raise MissingBasisCoverageError(
-                f"The following elements are not covered by the selected basis: {missing_coverage}"
-            )
+        self._get_missing_basis_coverage(raise_errors=True)
 
         target_client = self._activate_client(client)
         # work out if we are extending a collection
@@ -886,7 +892,14 @@ class OptimizationDataset(BasicDataset):
         Returns:
             Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
             calculations.
+
+        Raises:
+            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
+
+        # pre submission checks
+        # basis set coverage check
+        self._get_missing_basis_coverage(raise_errors=True)
 
         target_client = self._activate_client(client)
         # work out if we are extending a collection
@@ -1013,7 +1026,14 @@ class TorsiondriveDataset(OptimizationDataset):
         Returns:
             Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
             calculations.
+
+        Raises:
+            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
+
+        # pre submission checks
+        # basis set coverage check
+        self._get_missing_basis_coverage(raise_errors=True)
 
         target_client = self._activate_client(client)
         # work out if we are extending a collection

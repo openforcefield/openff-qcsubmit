@@ -85,12 +85,6 @@ class Metadata(DatasetConfig):
     long_description: Optional[str] = None
     elements: Set[str] = set()
 
-    @validator("elements", each_item=True)
-    def _check_elements(cls, element):
-        """
-        Make sure that each element given is valid and saved as a symbol
-        """
-
     @validator("short_description", "long_description")
     def _check_strings(cls, string):
         """
