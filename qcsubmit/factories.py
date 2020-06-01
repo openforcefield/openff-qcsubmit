@@ -19,6 +19,7 @@ from .datasets import (
 )
 from .exceptions import (
     CompoenentRequirementError,
+    DatasetInputError,
     DriverError,
     InvalidWorkflowComponentError,
     MissingWorkflowComponentError,
@@ -56,7 +57,7 @@ class BasicDatasetFactory(BaseModel):
     program: str = "psi4"
     maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
-    scf_properties: List[str] = ["dipole", "qudrupole", "wiberg_lowdin_indices"]
+    scf_properties: List[str] = ["dipole", "quadrupole", "wiberg_lowdin_indices"]
     spec_name: str = "default"
     spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
     priority: str = "normal"
@@ -81,6 +82,20 @@ class BasicDatasetFactory(BaseModel):
     @validator("scf_properties")
     def _check_scf_props(cls, scf_props):
         """Make sure wiberg_lowdin_indices is always included in the scf props."""
+
+        allowed_properties = [
+            "dipole",
+            "quadrupole",
+            "mulliken_charges",
+            "lowdin_charges",
+            "wiberg_lowdin_indices",
+            "mayer_indices",
+        ]
+        for prop in scf_props:
+            if prop not in allowed_properties:
+                raise DatasetInputError(
+                    f"The scf property {prop} is not a valid option please choose from {allowed_properties}."
+                )
 
         if "wiberg_lowdin_indices" not in scf_props:
             scf_props.append("wiberg_lowdin_indices")

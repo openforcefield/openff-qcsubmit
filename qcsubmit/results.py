@@ -198,7 +198,7 @@ class BasicResult(ResultsConfig):
     """
 
     entries: List[SingleResult] = []
-    attributes: Dict[str, str] = {}
+    attributes: Dict[str, Any] = {}
     index: str
 
     def add_single_result(
@@ -367,7 +367,7 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
         collection: ptl.collections.Dataset,
         client: ptl.FractalClient,
         spec_name: Optional[str] = "default",
-        program: Optional[str] = "psi4",
+        program: Optional[str] = None,
         method: Optional[str] = None,
         basis: Optional[str] = None,
     ) -> Dict[str, str]:
@@ -387,18 +387,18 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
         """
 
         data_model = collection.data
-        scf_keywords = client.query_keywords(
-            data_model.alias_keywords[program][spec_name]
-        )[0]
         for history in data_model.history:
-            _, _, ran_method, ran_basis, ran_spec = history
+            _, ran_program, ran_method, ran_basis, ran_spec = history
             if spec_name == ran_spec:
+                scf_keywords = client.query_keywords(
+                    data_model.alias_keywords[program or ran_program][spec_name]
+                )[0]
                 data = {
                     "spec_name": spec_name,
                     "dataset_name": collection.name,
                     "method": method or ran_method,
                     "basis": basis or ran_basis,
-                    "program": program,
+                    "program": program or ran_program,
                     "driver": data_model.default_driver,
                     "maxiter": scf_keywords.values["maxiter"],
                     "scf_properties": scf_keywords.values["scf_properties"],
