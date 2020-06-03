@@ -8,7 +8,11 @@ from pydantic import ValidationError
 from openforcefield.topology import Molecule
 from qcsubmit import workflow_components
 from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
-from qcsubmit.exceptions import DriverError, InvalidWorkflowComponentError
+from qcsubmit.exceptions import (
+    DatasetInputError,
+    DriverError,
+    InvalidWorkflowComponentError,
+)
 from qcsubmit.factories import (
     BasicDatasetFactory,
     OptimizationDatasetFactory,
@@ -16,6 +20,20 @@ from qcsubmit.factories import (
 )
 from qcsubmit.testing import temp_directory
 from qcsubmit.utils import get_data
+
+
+def test_scf_properties():
+    """Test adding different scf_properties and make sure they are validated correctly."""
+
+    factory = BasicDatasetFactory()
+
+    # incorrect spellings
+    with pytest.raises(DatasetInputError):
+        factory.scf_properties = ["diapole", "qudrupole"]
+
+    # make sure wbo is auto added
+    factory.scf_properties = []
+    assert "wiberg_lowdin_indices" in factory.scf_properties
 
 
 @pytest.mark.parametrize("factory_type", [

@@ -10,7 +10,7 @@ from qcportal.models.common_models import DriverEnum
 import openforcefield.topology as off
 
 from . import workflow_components
-from .common_structures import Metadata
+from .common_structures import ClientHandler, Metadata
 from .datasets import (
     BasicDataset,
     ComponentResult,
@@ -19,6 +19,7 @@ from .datasets import (
 )
 from .exceptions import (
     CompoenentRequirementError,
+    DatasetInputError,
     DriverError,
     InvalidWorkflowComponentError,
     MissingWorkflowComponentError,
@@ -27,7 +28,7 @@ from .exceptions import (
 from .procedures import GeometricProcedure
 
 
-class BasicDatasetFactory(BaseModel):
+class BasicDatasetFactory(ClientHandler, BaseModel):
     """
     Basic dataset generator factory used to build work flows using workflow components before executing them to generate
     a dataset.
@@ -56,7 +57,7 @@ class BasicDatasetFactory(BaseModel):
     program: str = "psi4"
     maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
-    scf_properties: List[str] = ["dipole", "qudrupole", "wiberg_lowdin_indices"]
+    scf_properties: List[str] = ["dipole", "quadrupole", "wiberg_lowdin_indices"]
     spec_name: str = "default"
     spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
     priority: str = "normal"
@@ -81,6 +82,20 @@ class BasicDatasetFactory(BaseModel):
     @validator("scf_properties")
     def _check_scf_props(cls, scf_props):
         """Make sure wiberg_lowdin_indices is always included in the scf props."""
+
+        allowed_properties = [
+            "dipole",
+            "quadrupole",
+            "mulliken_charges",
+            "lowdin_charges",
+            "wiberg_lowdin_indices",
+            "mayer_indices",
+        ]
+        for prop in scf_props:
+            if prop not in allowed_properties:
+                raise DatasetInputError(
+                    f"The scf property {prop} is not a valid option please choose from {allowed_properties}."
+                )
 
         if "wiberg_lowdin_indices" not in scf_props:
             scf_props.append("wiberg_lowdin_indices")
@@ -382,6 +397,22 @@ class BasicDatasetFactory(BaseModel):
         # now we want to add the workflow back in
         self.import_workflow(workflow=workflow, clear_existing=clear_workflow)
 
+    def _get_collection(
+        self, dataset_type: str, dataset_name: str, client: Union[str, FractalClient]
+    ) -> "Collection":
+        """
+        Try and get the requested collection from the archive.
+        """
+
+        try:
+            collection = client.get_collection(dataset_type, dataset_name)
+            return collection
+        except KeyError:
+            raise KeyError(
+                f"The collection: {dataset_name} could not be found, you can only add compute to existing"
+                f" collections."
+            )
+
     def add_compute(
         self,
         dataset_name: str,
@@ -397,22 +428,14 @@ class BasicDatasetFactory(BaseModel):
             await_result: If the function should block until the calculations have finished.
             client: The name of the file containing the client information or the client instance.
         """
+
         import qcportal as ptl
 
-        if isinstance(client, ptl.FractalClient):
-            target_client = client
-        elif client == "public":
-            target_client = ptl.FractalClient()
-        else:
-            target_client = ptl.FractalClient.from_file(client)
+        target_client = self._activate_client(client)
 
-        try:
-            collection = target_client.get_collection("Dataset", dataset_name)
-        except KeyError:
-            raise KeyError(
-                f"The collection: {dataset_name} could not be found, you can only add compute to existing"
-                f"collections."
-            )
+        collection = self._get_collection(
+            dataset_type="Dataset", dataset_name=dataset_name, client=target_client
+        )
 
         kw = ptl.models.KeywordSet(
             values=self.dict(include={"maxiter", "scf_properties"})
@@ -688,15 +711,56 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
         await_result: bool = False,
     ) -> None:
         """
-        Add compute to an exsiting collection of molecules.
+        A method that can add compute to an existing collection, this involves registering the QM settings and keywords
+        and running the compute.
 
         Parameters:
-            dataset_name:
-            client:
-            await_result:
+            dataset_name: The name of the collection in the qcarchive instance that the compute should be added to.
+            await_result: If the function should block until the calculations have finished.
+            client: The name of the file containing the client information or the client instance.
         """
 
-        raise NotImplementedError()
+        import qcportal as ptl
+
+        target_client = self._activate_client(client)
+
+        # try and get the collection.
+        collection = self._get_collection(
+            dataset_type=self._dataset_type.__name__,
+            dataset_name=dataset_name,
+            client=target_client,
+        )
+
+        # create the keywords
+        kw = ptl.models.KeywordSet(
+            values=self.dict(include={"maxiter", "scf_properties"})
+        )
+
+        kw_id = target_client.add_keywords([kw])[0]
+        # create the spec
+        opt_spec = self.optimization_program.get_optimzation_spec()
+        qc_spec = ptl.models.common_models.QCSpecification(
+            driver=self.driver,
+            method=self.method,
+            basis=self.basis,
+            keywords=kw_id,
+            program=self.program,
+        )
+
+        # now add the compute tasks
+        collection.add_specification(
+            name=self.spec_name,
+            optimization_spec=opt_spec,
+            qc_spec=qc_spec,
+            description=self.spec_description,
+            overwrite=False,
+        )
+
+        response = collection.compute(
+            specification=self.spec_name, tag=self.compute_tag, priority=self.priority
+        )
+
+        return response
 
 
 class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
@@ -891,6 +955,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                         attributes=attributes,
                         dihedrals=[torsion_index],
                         extras=extras,
+                        keywords=keywords,
                     )
 
         # now we need to filter the linear molecules
@@ -1000,15 +1065,3 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         matches = molecule.chemical_environment_matches(linear_smarts)
 
         return matches
-
-    def add_compute(
-        self,
-        dataset_name: str,
-        client: Union[str, FractalClient],
-        await_result: bool = False,
-    ) -> None:
-        """
-
-        """
-
-        raise NotImplementedError()

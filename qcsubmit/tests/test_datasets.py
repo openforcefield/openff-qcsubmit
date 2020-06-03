@@ -516,20 +516,20 @@ def test_Basicdataset_export_json(dataset_type):
 
 
 @pytest.mark.parametrize("basis_data", [
-    pytest.param(("ani1x", None, {"P"}, True), id="Ani1x with Error"),
-    pytest.param(("ani1ccx", None, {"C", "H", "N"}, False), id="Ani1ccx Pass"),
-    pytest.param(("b3lyp-d3bj", "dzvp", {"C", "H", "O"}, False), id="DZVP psi4 convert Pass"),
-    pytest.param(("hf", "6-311++G", {"Br", "C", "O", "N"}, True), id="6-311++G Error"),
-    pytest.param(("hf", "def2-qzvp", {"H", "C", "B", "N", "O", "F", "Cl", "Si", "P", "S", "I", "Br"}, False), id="Def2-QZVP Pass"),
-    pytest.param(("wb97x-d", "aug-cc-pV(5+d)Z", {"I", "C", "H"}, True), id="aug-cc-pV(5+d)Z Error")
+    pytest.param(("ani1x", None, {"P"}, "torchani", True), id="Ani1x with Error"),
+    pytest.param(("ani1ccx", None, {"C", "H", "N"}, "torchani", False), id="Ani1ccx Pass"),
+    pytest.param(("b3lyp-d3bj", "dzvp", {"C", "H", "O"}, "psi4", False), id="DZVP psi4 convert Pass"),
+    pytest.param(("hf", "6-311++G", {"Br", "C", "O", "N"}, "psi4", True), id="6-311++G Error"),
+    pytest.param(("hf", "def2-qzvp", {"H", "C", "B", "N", "O", "F", "Cl", "Si", "P", "S", "I", "Br"}, "psi4", False), id="Def2-QZVP Pass"),
+    pytest.param(("wb97x-d", "aug-cc-pV(5+d)Z", {"I", "C", "H"}, "psi4", True), id="aug-cc-pV(5+d)Z Error")
 ])
 def test_basis_coverage(basis_data):
     """
     Make sure that the datasets can work out if the elements in the basis are covered.
     """
 
-    method, basis, elements, error = basis_data
-    dataset = BasicDataset(method=method, basis=basis, metadata={"elements": elements})
+    method, basis, elements, program, error = basis_data
+    dataset = BasicDataset(method=method, basis=basis, metadata={"elements": elements}, program=program)
 
     if error:
         with pytest.raises(MissingBasisCoverageError):
@@ -545,7 +545,7 @@ def test_Basicdataset_schema():
     """
 
     dataset = BasicDataset()
-    # make a scehma
+    # make a schema
     schema = dataset.schema()
     assert schema["title"] == dataset.dataset_name
     assert schema["properties"]["method"]["type"] == "string"

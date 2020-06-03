@@ -7,7 +7,8 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
-from pydantic import BaseModel, HttpUrl, validator
+import qcportal as ptl
+from pydantic import BaseModel, HttpUrl, constr
 
 from qcsubmit.exceptions import DatasetInputError
 
@@ -71,6 +72,31 @@ class IndexCleaner:
         return core, tag
 
 
+class ClientHandler:
+    """
+    This mixin class offers the ability to handle activating qcportal Fractal client instances.
+    """
+
+    @staticmethod
+    def _activate_client(client) -> ptl.FractalClient:
+        """
+        Make the fractal client and connect to the requested instance.
+
+        Parameters:
+            client: The name of the file containing the client information or the client instance.
+
+        Returns:
+            A qcportal.FractalClient instance.
+        """
+
+        if isinstance(client, ptl.FractalClient):
+            return client
+        elif client == "public":
+            return ptl.FractalClient()
+        else:
+            return ptl.FractalClient.from_file(client)
+
+
 class Metadata(DatasetConfig):
     """
     A general metadata class which is required to be filled in before submitting a dataset to the qcarchive.
@@ -80,26 +106,10 @@ class Metadata(DatasetConfig):
     creation_date: date = datetime.today().date()
     collection_type: Optional[str] = None
     dataset_name: Optional[str] = None
-    short_description: Optional[str] = None
+    short_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = None
     long_description_url: Optional[HttpUrl] = None
-    long_description: Optional[str] = None
+    long_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = None
     elements: Set[str] = set()
-
-    @validator("short_description", "long_description")
-    def _check_strings(cls, string):
-        """
-        Make sure that users a not supplying short or empty strings.
-        """
-
-        # make sure some characters are present
-        match = re.search("[a-zA-Z]", string)
-
-        if match is None or len(string) < 10:
-            raise DatasetInputError(
-                "Short and long description should be longer than 8 characters and not be "
-                "empty strings."
-            )
-        return string
 
     def validate_metadata(self, raise_errors: bool = False) -> Optional[List[str]]:
         """

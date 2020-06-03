@@ -8,7 +8,7 @@ from qcportal.models.common_models import DriverEnum, QCSpecification
 
 import openforcefield.topology as off
 
-from .common_structures import DatasetConfig, IndexCleaner, Metadata
+from .common_structures import ClientHandler, DatasetConfig, IndexCleaner, Metadata
 from .exceptions import (
     DatasetInputError,
     MissingBasisCoverageError,
@@ -201,8 +201,8 @@ class DatasetEntry(DatasetConfig):
     initial_molecules: List[qcel.models.Molecule]
     attributes: Dict[str, Any]
     dihedrals: Optional[List[Tuple[int, int, int, int]]]
-    extras: Optional[Dict[str, Any]] = None
-    keywords: Optional[Dict[str, Any]] = None
+    extras: Optional[Dict[str, Any]] = {}
+    keywords: Optional[Dict[str, Any]] = {}
 
     def __init__(self, off_molecule: off.Molecule = None, **kwargs):
         """
@@ -261,7 +261,7 @@ class FilterEntry(DatasetConfig):
         super().__init__(**kwargs)
 
 
-class BasicDataset(IndexCleaner, DatasetConfig):
+class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to
     submission.
@@ -284,7 +284,7 @@ class BasicDataset(IndexCleaner, DatasetConfig):
     program: str = "psi4"
     maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
-    scf_properties: List[str] = ["dipole", "qudrupole", "wiberg_lowdin_indices"]
+    scf_properties: List[str] = ["dipole", "quadrupole", "wiberg_lowdin_indices"]
     spec_name: str = "default"
     spec_description: constr(
         min_length=8, regex="[a-zA-Z]"
@@ -317,6 +317,30 @@ class BasicDataset(IndexCleaner, DatasetConfig):
             self.metadata.short_description = self.dataset_tagline
         if self.metadata.long_description is None:
             self.metadata.long_description = self.description
+
+    @validator("scf_properties")
+    def _check_scf_props(cls, scf_props):
+        """Make sure wiberg_lowdin_indices is always included in the scf props."""
+
+        allowed_properties = [
+            "dipole",
+            "quadrupole",
+            "mulliken_charges",
+            "lowdin_charges",
+            "wiberg_lowdin_indices",
+            "mayer_indices",
+        ]
+        for prop in scf_props:
+            if prop not in allowed_properties:
+                raise DatasetInputError(
+                    f"The scf property {prop} is not a valid option please choose from {allowed_properties}."
+                )
+
+        if "wiberg_lowdin_indices" not in scf_props:
+            scf_props.append("wiberg_lowdin_indices")
+            return scf_props
+        else:
+            return scf_props
 
     @property
     def filtered(self) -> off.Molecule:
@@ -515,8 +539,8 @@ class BasicDataset(IndexCleaner, DatasetConfig):
                 off_molecule=molecule,
                 index=index,
                 attributes=attributes,
-                extras=extras,
-                keywords=keywords,
+                extras=extras or {},
+                keywords=keywords or {},
                 **kwargs,
             )
 
@@ -544,12 +568,19 @@ class BasicDataset(IndexCleaner, DatasetConfig):
         import basis_set_exchange as bse
         from simtk.openmm.app import Element
 
-        # check ani1 first
-        ani_coverage = {"ani1x": {"C", "H", "N", "O"}, "ani1ccx": {"C", "H", "N", "O"}}
-        covered_elements = ani_coverage.get(self.method.lower(), None)
-        if covered_elements is not None:
-            difference = self.metadata.elements.difference(covered_elements)
-        else:
+        if self.program.lower() == "torchani":
+            # check ani1 first
+            ani_coverage = {
+                "ani1x": {"C", "H", "N", "O"},
+                "ani1ccx": {"C", "H", "N", "O"},
+            }
+            covered_elements = ani_coverage.get(self.method.lower(), None)
+            if covered_elements is not None:
+                difference = self.metadata.elements.difference(covered_elements)
+            else:
+                raise ValueError(f"The torchani method {self.method} is not supported.")
+
+        elif self.program.lower() == "psi4":
             # now check psi4
             # TODO this list should be updated with more basis transfroms as we find them
             psi4_converter = {"dzvp": "dgauss-dzvp"}
@@ -560,6 +591,15 @@ class BasicDataset(IndexCleaner, DatasetConfig):
                 [Element.getByAtomicNumber(int(element)).symbol for element in elements]
             )
             difference = self.metadata.elements.difference(covered_elements)
+
+        elif self.program.lower() == "openmm":
+            # smirnoff covered elements
+            covered_elements = {"C", "H", "N", "O", "P", "S", "Cl", "Br", "F", "I"}
+            difference = self.metadata.elements.difference(covered_elements)
+
+        elif self.program.lower() == "rdkit":
+            # all atoms are defined in the uff so return an empty set.
+            difference = set()
 
         if raise_errors and difference:
             raise MissingBasisCoverageError(
@@ -741,24 +781,6 @@ class BasicDataset(IndexCleaner, DatasetConfig):
 
         return coverage
 
-    def _activate_client(self, client) -> ptl.FractalClient:
-        """
-        Make the fractal client and connect to the requested instance.
-
-        Parameters:
-            client: The name of the file containing the client information or the client instance.
-
-        Returns:
-            A qcportal.FractalClient instance.
-        """
-
-        if isinstance(client, ptl.FractalClient):
-            return client
-        elif client == "public":
-            return ptl.FractalClient()
-        else:
-            return ptl.FractalClient.from_file(client)
-
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
         """
         Write the molecules to the requested file type.
@@ -917,8 +939,6 @@ class OptimizationDataset(BasicDataset):
             collection = ptl.collections.OptimizationDataset(
                 name=self.dataset_name,
                 client=target_client,
-                default_driver=self.driver,
-                default_program=self.program,
                 tagline=self.dataset_tagline,
                 tags=self.dataset_tags,
                 description=self.description,
@@ -1048,8 +1068,6 @@ class TorsiondriveDataset(OptimizationDataset):
             collection = ptl.collections.TorsionDriveDataset(
                 name=self.dataset_name,
                 client=target_client,
-                default_driver=self.driver,
-                default_program=self.program,
                 tagline=self.dataset_tagline,
                 tags=self.dataset_tags,
                 description=self.description,
@@ -1067,7 +1085,7 @@ class TorsiondriveDataset(OptimizationDataset):
             optimization_spec=opt_spec,
             qc_spec=qc_spec,
             description=self.spec_description,
-            overwrite=True,
+            overwrite=False,
         )
 
         # start add the molecule to the dataset, multipule conformers/molecules can be used as the starting geometry

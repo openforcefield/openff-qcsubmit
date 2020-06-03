@@ -19,10 +19,12 @@ dependencies:
   - smirnoff99Frosst
   - pyyaml
   - codecov
-  - qcportal
-  - qcengine
-  - psi4
+  - qcportal >=0.13.0
+  - qcengine >=0.14.0
+  - psi4 >=1.3
   - openeye-toolkits
+  - qcfractal >=0.13.0
+  - torsiondrive
 
     # Pip-only installs
   - pip:
