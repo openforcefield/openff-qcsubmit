@@ -8,7 +8,7 @@ from qcportal.models.common_models import DriverEnum, QCSpecification
 
 import openforcefield.topology as off
 
-from .common_structures import DatasetConfig, IndexCleaner, Metadata
+from .common_structures import ClientHandler, DatasetConfig, IndexCleaner, Metadata
 from .exceptions import (
     DatasetInputError,
     MissingBasisCoverageError,
@@ -201,8 +201,8 @@ class DatasetEntry(DatasetConfig):
     initial_molecules: List[qcel.models.Molecule]
     attributes: Dict[str, Any]
     dihedrals: Optional[List[Tuple[int, int, int, int]]]
-    extras: Optional[Dict[str, Any]] = None
-    keywords: Optional[Dict[str, Any]] = None
+    extras: Optional[Dict[str, Any]] = {}
+    keywords: Optional[Dict[str, Any]] = {}
 
     def __init__(self, off_molecule: off.Molecule = None, **kwargs):
         """
@@ -261,7 +261,7 @@ class FilterEntry(DatasetConfig):
         super().__init__(**kwargs)
 
 
-class BasicDataset(IndexCleaner, DatasetConfig):
+class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to
     submission.
@@ -539,8 +539,8 @@ class BasicDataset(IndexCleaner, DatasetConfig):
                 off_molecule=molecule,
                 index=index,
                 attributes=attributes,
-                extras=extras,
-                keywords=keywords,
+                extras=extras or {},
+                keywords=keywords or {},
                 **kwargs,
             )
 
@@ -780,24 +780,6 @@ class BasicDataset(IndexCleaner, DatasetConfig):
             coverage[forcefield] = result
 
         return coverage
-
-    def _activate_client(self, client) -> ptl.FractalClient:
-        """
-        Make the fractal client and connect to the requested instance.
-
-        Parameters:
-            client: The name of the file containing the client information or the client instance.
-
-        Returns:
-            A qcportal.FractalClient instance.
-        """
-
-        if isinstance(client, ptl.FractalClient):
-            return client
-        elif client == "public":
-            return ptl.FractalClient()
-        else:
-            return ptl.FractalClient.from_file(client)
 
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
         """
@@ -1086,8 +1068,6 @@ class TorsiondriveDataset(OptimizationDataset):
             collection = ptl.collections.TorsionDriveDataset(
                 name=self.dataset_name,
                 client=target_client,
-                default_driver=self.driver,
-                default_program=self.program,
                 tagline=self.dataset_tagline,
                 tags=self.dataset_tags,
                 description=self.description,
@@ -1105,7 +1085,7 @@ class TorsiondriveDataset(OptimizationDataset):
             optimization_spec=opt_spec,
             qc_spec=qc_spec,
             description=self.spec_description,
-            overwrite=True,
+            overwrite=False,
         )
 
         # start add the molecule to the dataset, multipule conformers/molecules can be used as the starting geometry

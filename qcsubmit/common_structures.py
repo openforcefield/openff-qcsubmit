@@ -7,6 +7,7 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
+import qcportal as ptl
 from pydantic import BaseModel, HttpUrl, constr
 
 from qcsubmit.exceptions import DatasetInputError
@@ -69,6 +70,31 @@ class IndexCleaner:
             tag = 0
 
         return core, tag
+
+
+class ClientHandler:
+    """
+    This mixin class offers the ability to handle activating qcportal Fractal client instances.
+    """
+
+    @staticmethod
+    def _activate_client(client) -> ptl.FractalClient:
+        """
+        Make the fractal client and connect to the requested instance.
+
+        Parameters:
+            client: The name of the file containing the client information or the client instance.
+
+        Returns:
+            A qcportal.FractalClient instance.
+        """
+
+        if isinstance(client, ptl.FractalClient):
+            return client
+        elif client == "public":
+            return ptl.FractalClient()
+        else:
+            return ptl.FractalClient.from_file(client)
 
 
 class Metadata(DatasetConfig):

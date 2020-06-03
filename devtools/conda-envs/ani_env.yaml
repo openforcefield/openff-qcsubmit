@@ -21,6 +21,8 @@ dependencies:
   - qcportal
   - qcengine
   - openeye-toolkits
+  - qcfractal
+  - torsiondrive
 
     # Pip-only installs
   - pip:

@@ -24,7 +24,7 @@ from qcsubmit.utils import get_data
     pytest.param(("hf", "3-21g", "psi4", "energy"), id="PSI4 hf 3-21g energy"),
     pytest.param(("ani1ccx", None, "torchani", "hessian"), id="ANI1CCX hessian"),
     pytest.param(("openff-1.0.0", "smirnoff", "openmm", "energy"), id="SMIRNOFF openff-1.0.0 energy"),
-    pytest.param(("UFF", None, "rdkit", "gradient"), id="RDKit UFF gradient")
+    pytest.param(("uff", None, "rdkit", "gradient"), id="RDKit UFF gradient")
 ])
 def test_basic_submissions(fractal_compute_server, specification):
     """Test submitting a basic dataset to a snowflake server."""
@@ -103,7 +103,7 @@ def test_basic_submissions(fractal_compute_server, specification):
 
 @pytest.mark.parametrize("specification", [
     pytest.param(("hf", "3-21g", "psi4", "gradient"), id="PSI4 hf 3-21g gradient"),
-    pytest.param(("openff-1.0.0", "smirnoff", "openmm", "gradient"), id="SMIRNOFF openff-1.0.0 gradient"),
+    pytest.param(("openff_unconstrained-1.0.0", "smirnoff", "openmm", "gradient"), id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
     pytest.param(("uff", None, "rdkit", "gradient"), id="RDKit UFF gradient")
 ])
 def test_optimization_submissions(fractal_compute_server, specification):
@@ -120,10 +120,10 @@ def test_optimization_submissions(fractal_compute_server, specification):
 
     factory = OptimizationDatasetFactory(method=method, basis=basis, program=program, driver=driver)
 
-    dataset = factory.create_dataset(dataset_name=f"Test single points info {program}, {driver}",
+    dataset = factory.create_dataset(dataset_name=f"Test optimizations info {program}, {driver}",
                                      molecules=molecules[:2],
-                                     description="Test basics dataset",
-                                     tagline="Testing single point datasets",
+                                     description="Test optimization dataset",
+                                     tagline="Testing optimization datasets",
                                      )
 
     with pytest.raises(DatasetInputError):
@@ -166,6 +166,85 @@ def test_optimization_submissions(fractal_compute_server, specification):
     ds.query(dataset.spec_name)
 
     for index in ds.df.index:
-        assert ds.df.loc[index].default.status.value == "COMPLETE"
-        assert ds.df.loc[index].default.error is None
-        assert len(ds.df.loc[index].default.trajectory) > 1
+        record = ds.df.loc[index].default
+        assert record.status.value == "COMPLETE"
+        assert record.error is None
+        assert len(record.trajectory) > 1
+        # if we used psi4 make sure the properties were captured
+        if program == "psi4":
+            result = record.get_trajectory()[0]
+            assert "CURRENT DIPOLE X" in result["qcvars"].keys()
+            assert "SCF QUADRUPOLE XX" in result["qcvars"].keys()
+
+
+@pytest.mark.parametrize("specification", [
+    pytest.param(("openff_unconstrained-1.1.0", "smirnoff", "openmm", "gradient"), id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
+    pytest.param(("mmff94", None, "rdkit", "gradient"), id="RDKit mmff94 gradient")
+])
+def test_torsiondrive_submissions(fractal_compute_server, specification):
+    """
+    Test submitting a torsiondrive dataset and computing it.
+    """
+
+    client = FractalClient(fractal_compute_server)
+
+    method, basis, program, driver = specification
+
+    if not has_program(program):
+        pytest.skip(f"Program '{program}' not found.")
+
+    molecules = Molecule.from_smiles("CO")
+
+    factory = TorsiondriveDatasetFactory(method=method, basis=basis, program=program, driver=driver)
+
+    dataset = factory.create_dataset(dataset_name=f"Test torsiondrives info {program}, {driver}",
+                                     molecules=molecules,
+                                     description="Test torsiondrive dataset",
+                                     tagline="Testing torsiondrive datasets",
+                                     )
+
+    with pytest.raises(DatasetInputError):
+        dataset.submit(client=client, await_result=False)
+
+    # now add a mock url so we can submit the data
+    dataset.metadata.long_description_url = "https://test.org"
+
+    # now submit again
+    dataset.submit(client=client, await_result=False)
+
+    fractal_compute_server.await_services(max_iter=50)
+
+    # make sure of the results are complete
+    ds = client.get_collection("TorsionDriveDataset", dataset.dataset_name)
+
+    # check the metadata
+    meta = Metadata(**ds.data.metadata)
+    assert meta == dataset.metadata
+
+    # check the provenance
+    assert dataset.provenance == ds.data.provenance
+
+    # check the qc spec
+    spec = ds.data.specs[dataset.spec_name]
+
+    assert spec.description == dataset.spec_description
+    assert spec.qc_spec.driver == dataset.driver
+    assert spec.qc_spec.method == dataset.method
+    assert spec.qc_spec.basis == dataset.basis
+    assert spec.qc_spec.program == dataset.program
+
+    # check the keywords
+    keywords = client.query_keywords(spec.qc_spec.keywords)[0]
+
+    assert keywords.values["maxiter"] == dataset.maxiter
+    assert keywords.values["scf_properties"] == dataset.scf_properties
+
+    # query the dataset
+    ds.query(dataset.spec_name)
+
+    for index in ds.df.index:
+        record = ds.df.loc[index].default
+        # this will take some time so make sure it is running with no error
+        assert record.status.value == "COMPLETE", print(record.dict())
+        assert record.error is None
+        assert len(record.final_energy_dict) == 24

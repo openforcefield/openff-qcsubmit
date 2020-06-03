@@ -20,6 +20,8 @@ dependencies:
   - codecov
   - qcportal
   - openeye-toolkits
+  - qcfractal
+  - torsiondrive
 
     # Pip-only installs
   - pip:

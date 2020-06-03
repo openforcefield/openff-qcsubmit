@@ -23,6 +23,8 @@ dependencies:
   - qcengine
   - psi4
   - openeye-toolkits
+  - qcfractal
+  - torsiondrive
 
     # Pip-only installs
   - pip:
