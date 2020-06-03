@@ -1,5 +1,5 @@
 """
-Test submissions to a local qcarchive instance using different compute backends, RDKit, OpenMM, PSI4, ANI1
+Test submissions to a local qcarchive instance using different compute backends, RDKit, OpenMM, PSI4
 
 Here we use the qcfractal fractal_compute_server fixture to set up the database.
 """
@@ -22,7 +22,6 @@ from qcsubmit.utils import get_data
 
 @pytest.mark.parametrize("specification", [
     pytest.param(("hf", "3-21g", "psi4", "energy"), id="PSI4 hf 3-21g energy"),
-    pytest.param(("ani1ccx", None, "torchani", "hessian"), id="ANI1CCX hessian"),
     pytest.param(("openff-1.0.0", "smirnoff", "openmm", "energy"), id="SMIRNOFF openff-1.0.0 energy"),
     pytest.param(("uff", None, "rdkit", "gradient"), id="RDKit UFF gradient")
 ])
