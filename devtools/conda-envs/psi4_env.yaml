@@ -21,7 +21,7 @@ dependencies:
   - codecov
   - qcportal
   - qcengine
-  - psi4
+  - psi4=1.3
   - openeye-toolkits
   - qcfractal
   - torsiondrive

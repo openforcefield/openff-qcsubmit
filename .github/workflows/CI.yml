@@ -28,9 +28,6 @@ jobs:
           - os: ubuntu-latest
             prog: PSI4
 
-          - os: ubuntu-latest
-            prog: ANI
-
           - os: macOS-latest
             prog: NONE
 
@@ -94,8 +91,6 @@ jobs:
             python devtools/scripts/create_conda_env.py -n=test -p=$PYVER devtools/conda-envs/test_env.yaml
           elif [ $PROG == "PSI4" ]; then
             python devtools/scripts/create_conda_env.py -n=test -p=$PYVER devtools/conda-envs/psi4_env.yaml
-          elif [ $PROG == "ANI" ]; then
-            python devtools/scripts/create_conda_env.py -n=test -p=$PYVER devtools/conda-envs/ani_env.yaml
           else
             echo "ERROR: No match for PROG ($PROG)."
           fi
