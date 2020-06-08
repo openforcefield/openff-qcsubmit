@@ -1,14 +1,14 @@
 import json
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+import numpy as np
 import qcelemental as qcel
 import qcportal as ptl
 from pydantic import PositiveInt, constr, validator
 from qcportal.models.common_models import DriverEnum, QCSpecification
+from simtk import unit
 
 import openforcefield.topology as off
-from simtk import unit
-import numpy as np
 
 from .common_structures import (
     ClientHandler,
@@ -1174,7 +1174,9 @@ class TorsiondriveDataset(OptimizationDataset):
                     energy_upper_limit=self.energy_upper_limit,
                     attributes=data.attributes,
                     energy_decrease_thresh=self.energy_decrease_thresh,
-                    dihedral_ranges=data.keywords.get("dihedral_ranges", self.dihedral_ranges)
+                    dihedral_ranges=data.keywords.get(
+                        "dihedral_ranges", self.dihedral_ranges
+                    ),
                 )
             except KeyError:
                 continue

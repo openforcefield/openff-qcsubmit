@@ -67,7 +67,9 @@ class SingleTorsion(ResultsConfig):
         """
         Get the formatted representation of the dihedrals to scan over.
         """
-        return [self.torsion1, ]
+        return [
+            self.torsion1,
+        ]
 
     @property
     def get_scan_range(self) -> Optional[List[Tuple[int, int]]]:
@@ -75,7 +77,9 @@ class SingleTorsion(ResultsConfig):
         Get the formatted representation of the dihedral scan ranges.
         """
         if self.scan_range1 is not None:
-            return [self.scan_range1, ]
+            return [
+                self.scan_range1,
+            ]
         else:
             return self.scan_range1
 
@@ -101,7 +105,7 @@ class DoubleTorsion(SingleTorsion):
 
         central_bond = tuple(
             sorted(
-                [tuple(sorted(self.torsion1[1:3])), tuple(sorted(self.torsion2[1:3])), ]
+                [tuple(sorted(self.torsion1[1:3])), tuple(sorted(self.torsion2[1:3])),]
             )
         )
         return central_bond
@@ -111,7 +115,10 @@ class DoubleTorsion(SingleTorsion):
         """
         Get the formatted representation of the dihedrals to scan over.
         """
-        return [self.torsion1, self.torsion2, ]
+        return [
+            self.torsion1,
+            self.torsion2,
+        ]
 
     @property
     def get_scan_range(self) -> Optional[List[Tuple[int, int]]]:
@@ -119,7 +126,10 @@ class DoubleTorsion(SingleTorsion):
         Get the formatted representation of the dihedral scan ranges.
         """
         if self.scan_range1 is not None and self.scan_range2 is not None:
-            return [self.scan_range1, self.scan_range2, ]
+            return [
+                self.scan_range1,
+                self.scan_range2,
+            ]
         else:
             return None
 
@@ -149,7 +159,9 @@ class ImproperTorsion(ResultsConfig):
         """
         Get the formatted representation of the dihedrals to scan over.
         """
-        return [self.improper, ]
+        return [
+            self.improper,
+        ]
 
     @property
     def get_scan_range(self) -> Optional[List[Tuple[int, int]]]:
@@ -157,7 +169,9 @@ class ImproperTorsion(ResultsConfig):
         Get the formatted representation of the dihedral scan ranges.
         """
         if self.scan_range is not None:
-            return [self.scan_range, ]
+            return [
+                self.scan_range,
+            ]
         else:
             return self.scan_range
 
@@ -179,7 +193,9 @@ class TorsionIndexer(DatasetConfig):
     imporpers: Dict[int, ImproperTorsion] = {}
 
     @property
-    def get_dihedrals(self) -> List[Union[SingleTorsion, DoubleTorsion, ImproperTorsion]]:
+    def get_dihedrals(
+        self,
+    ) -> List[Union[SingleTorsion, DoubleTorsion, ImproperTorsion]]:
         """
         Return a list of all of the dihedrals tagged making it easy to loop over.
         """

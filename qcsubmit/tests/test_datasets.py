@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from simtk import unit
 
 from openforcefield.topology import Molecule
+from qcsubmit.common_structures import TorsionIndexer
 from qcsubmit.datasets import (
     BasicDataset,
     ComponentResult,
@@ -17,7 +18,6 @@ from qcsubmit.datasets import (
 from qcsubmit.exceptions import DatasetInputError, MissingBasisCoverageError
 from qcsubmit.testing import temp_directory
 from qcsubmit.utils import get_data
-from qcsubmit. common_structures import TorsionIndexer
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):

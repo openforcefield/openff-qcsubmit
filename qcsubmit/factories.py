@@ -892,16 +892,18 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 for dihedral in molecule.properties["dihedrals"].get_dihedrals:
 
                     # check for linear torsions in 1 and 2-D torsions
-                    if dihedral.__class__.__name__ == "SingleTorsion" or dihedral.__class__.__name__ == "DoubleTorsion":
+                    if (
+                        dihedral.__class__.__name__ == "SingleTorsion"
+                        or dihedral.__class__.__name__ == "DoubleTorsion"
+                    ):
                         if dihedral.__class__.__name__ == "SingleTorsion":
-                            central_bond = [dihedral.central_bond, ]
+                            central_bond = [
+                                dihedral.central_bond,
+                            ]
                         else:
                             central_bond = dihedral.central_bond
                         for bond in central_bond:
-                            if (
-                                    bond in linear_bonds
-                                    or bond[::-1] in linear_bonds
-                            ):
+                            if bond in linear_bonds or bond[::-1] in linear_bonds:
                                 linear_torsions["molecules"].append(molecule)
                                 break
                         for torsion in dihedral.get_dihedrals:
@@ -910,7 +912,9 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                                 unconnected_torsions["molecules"].append(molecule)
                                 break
                     # else this is an improper so check it
-                    elif not self._check_improper_connection(dihedral.improper, molecule):
+                    elif not self._check_improper_connection(
+                        dihedral.improper, molecule
+                    ):
                         unconnected_torsions["molecules"].append(molecule)
                         break
 
@@ -1014,7 +1018,9 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
         return True
 
-    def _check_improper_connection(self, improper: Tuple[int, int, int, int], molecule: off.Molecule) -> bool:
+    def _check_improper_connection(
+        self, improper: Tuple[int, int, int, int], molecule: off.Molecule
+    ) -> bool:
         """
         Check that the given improper is part of the molecule, this makes sure that all atoms are connected to the
         central atom.

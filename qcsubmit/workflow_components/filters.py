@@ -2,7 +2,7 @@
 File containing the filters workflow components.
 """
 import re
-from typing import Dict, List, Optional, Union, Set
+from typing import Dict, List, Optional, Set, Union
 
 from pydantic import validator
 
@@ -12,10 +12,10 @@ from openforcefield.typing.chemistry.environment import (
     SMIRKSParsingError,
 )
 from openforcefield.typing.engines.smirnoff import ForceField
+from qcsubmit.common_structures import TorsionIndexer
 from qcsubmit.datasets import ComponentResult
 
 from .base_component import BasicSettings, CustomWorkflowComponent
-from qcsubmit.common_structures import TorsionIndexer
 
 
 class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):

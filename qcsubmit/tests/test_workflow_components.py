@@ -463,12 +463,41 @@ def test_coverage_filter():
     expected = parameters_by_ID["b83"]
     for molecule in result.molecules:
         assert molecule.to_smiles() in expected
+        assert "dihedrals" not in molecule.properties
 
     # we now need to check that the molecules passed contain only the allowed atoms
     # do this by running the component again
     result2 = coverage_filter.apply(result.molecules)
     assert result2.n_filtered == 0
     assert result.n_molecules == result.n_molecules
+
+
+def test_coverage_filter_tag_dihedrals():
+    """
+    Make sure the coverage filter tags dihedrals that we request.
+    """
+
+    coverage_filter = workflow_components.CoverageFilter()
+    coverage_filter.allowed_ids = ["t1"]
+    coverage_filter.tag_dihedrals = True
+
+    mols = get_tautomers()
+
+    # we have to remove duplicated records
+    # remove duplicates from the set
+    molecule_container = ComponentResult(
+        component_name="intial", component_description={"description": "initial filter"}, molecules=mols,
+        component_provenance={"test": "test component"}
+    )
+
+    result = coverage_filter.apply(molecule_container.molecules)
+
+    for molecule in result.molecules:
+        assert "dihedrals" in molecule.properties
+        torsion_indexer = molecule.properties["dihedrals"]
+        assert torsion_indexer.n_torsions > 0, print(molecule)
+        assert torsion_indexer.n_double_torsions == 0
+        assert torsion_indexer.n_impropers == 0
 
 
 def test_rotor_filter():
