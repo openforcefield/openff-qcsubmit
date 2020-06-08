@@ -17,6 +17,7 @@ from qcsubmit.datasets import (
 from qcsubmit.exceptions import DatasetInputError, MissingBasisCoverageError
 from qcsubmit.testing import temp_directory
 from qcsubmit.utils import get_data
+from qcsubmit. common_structures import TorsionIndexer
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
@@ -116,6 +117,51 @@ def test_componentresult_deduplication_diff_coords(duplicates):
                     assert molecule.conformers[i].tolist() != molecule.conformers[j].tolist()
 
 
+def test_componentresult_deduplication_torsions_same_bond_same_coords():
+    """
+    Make sure that the same rotatable bond is not highlighted more than once when deduplicating molecules.
+    """
+
+    result = ComponentResult(component_name="Test deduplication", component_description={},
+                             component_provenance={})
+
+    molecules = [Molecule.from_file(get_data("methanol.sdf"), 'sdf')] * 3
+    methanol_dihedrals = [(5, 1, 0, 2), (5, 1, 0, 3), (5, 1, 0, 4)]
+    for molecule, dihedral in zip(molecules, methanol_dihedrals):
+        torsion_indexer = TorsionIndexer()
+        torsion_indexer.add_torsion(torsion=dihedral, scan_range=None)
+        molecule.properties["dihedrals"] = torsion_indexer
+        result.add_molecule(molecule)
+
+    # now make sure only one dihedral is selected
+    assert len(result.molecules) == 1
+    assert result.molecules[0].properties["dihedrals"].n_torsions == 1
+    # this checks the bond has been ordered
+    assert (0, 1) in result.molecules[0].properties["dihedrals"].torsions
+    print(result.molecules[0].properties["dihedrals"])
+
+
+def test_componenetresult_deduplication_torsions_same_bond_different_coords():
+    """
+    Make sure that similar molecules with different coords but the same selected rotatable bonds are correctly handled.
+    """
+
+    result = ComponentResult(component_name="Test deduplication", component_description={},
+                             component_provenance={})
+
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
+    butane_dihedral = (0, 1, 2, 3)
+    for molecule in molecules:
+        torsion_indexer = TorsionIndexer()
+        torsion_indexer.add_torsion(torsion=butane_dihedral, scan_range=None)
+        molecule.properties["dihedrals"] = torsion_indexer
+        result.add_molecule(molecule)
+
+    assert len(result.molecules) == 1
+    assert result.molecules[0].n_conformers == 7
+    assert result.molecules[0].properties["dihedrals"].n_torsions == 1
+
+
 def test_componentresult_deduplication_torsions_1d():
     """
     Make sure that any torsion index results are correctly transferred when deduplicating molecules.
@@ -128,13 +174,16 @@ def test_componentresult_deduplication_torsions_1d():
     molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)
 
     for molecule in molecules:
-        molecule.properties["dihedrals"] = {tuple(np.random.randint(low=0, high=7, size=4).tolist()): tuple(np.random.randint(low=-165, high=180, size=2).tolist())}
+        torsion_indexer = TorsionIndexer()
+        torsion_indexer.add_torsion(torsion=tuple(np.random.randint(low=0, high=7, size=4).tolist()),
+                                    scan_range=tuple(np.random.randint(low=-165, high=180, size=2).tolist()))
+        molecule.properties["dihedrals"] = torsion_indexer
 
         result.add_molecule(molecule)
 
     for molecule in result.molecules:
         assert "dihedrals" in molecule.properties
-        assert len(molecule.properties["dihedrals"]) == duplicates
+        assert molecule.properties["dihedrals"].n_torsions == duplicates
 
 
 def test_componentresult_deduplication_torsions_2d():
@@ -149,15 +198,23 @@ def test_componentresult_deduplication_torsions_2d():
     molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)
 
     for molecule in molecules:
-        molecule.properties["dihedrals"] = {tuple(np.random.randint(low=0, high=7, size=4).tolist()): tuple(np.random.randint(low=-165, high=180, size=2).tolist()),
-                                            (tuple(np.random.randint(low=0, high=7, size=4).tolist()), tuple(np.random.randint(low=0, high=7, size=4).tolist())): (tuple(np.random.randint(low=-165, high=180, size=2)), tuple(np.random.randint(low=-165, high=180, size=2)))}
+        torsion_indexer = TorsionIndexer()
+        torsion_indexer.add_torsion(torsion=tuple(np.random.randint(low=0, high=7, size=4).tolist()),
+                                    scan_range=tuple(np.random.randint(low=-165, high=180, size=2)))
+
+        torsion_indexer.add_double_torsion(torsion1=tuple(np.random.randint(low=0, high=7, size=4).tolist()),
+                                           torsion2=tuple(np.random.randint(low=0, high=7, size=4).tolist()),
+                                           scan_range1=tuple(np.random.randint(low=-165, high=180, size=2)),
+                                           scan_range2=tuple(np.random.randint(low=-165, high=180, size=2)))
+
+        molecule.properties["dihedrals"] = torsion_indexer
 
         result.add_molecule(molecule)
 
     for molecule in result.molecules:
         assert "dihedrals" in molecule.properties
-        assert len(molecule.properties["dihedrals"]) == duplicates * 2
-
+        assert molecule.properties["dihedrals"].n_torsions == duplicates
+        assert molecule.properties["dihedrals"].n_double_torsions == duplicates
 
 def test_componentresult_filter_molecules():
     """

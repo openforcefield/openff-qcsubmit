@@ -2,7 +2,7 @@
 File containing the filters workflow components.
 """
 import re
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Set
 
 from pydantic import validator
 
@@ -12,10 +12,10 @@ from openforcefield.typing.chemistry.environment import (
     SMIRKSParsingError,
 )
 from openforcefield.typing.engines.smirnoff import ForceField
-from openforcefield.utils.structure import get_molecule_parameterIDs
 from qcsubmit.datasets import ComponentResult
 
 from .base_component import BasicSettings, CustomWorkflowComponent
+from qcsubmit.common_structures import TorsionIndexer
 
 
 class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
@@ -219,13 +219,17 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     Important:
         The ids supplied to the respective group are the ids that are allowed, if `None` is passed all ids are allowed.
 
-    Atributes:
+    Attributes:
         allowed_ids: The list of parameter ids that we want to actively pass the filter.
         filtered_ids: The list of parameter ids that we want to actively filter out and fail the filter.
+        forcefield: The name of the force field we are checking against.
+        tag_dihedrals: If any dihedral terms are in the allowed IDs they will be tagged as well as being passed, note
+            only one dihedral per rotatable bond will be tagged for driving.
 
     Note:
-        If a molecule has any id in the allowed_ids and not in the filtered ids it is passed. Any molecule with a
-        parameter in both sets is failed.
+        * If a molecule has any id in the allowed_ids and not in the filtered ids it is passed. Any molecule with a
+            parameter in both sets is failed.
+        * If None is passed to allowed IDs and tag_dihedrals will have no effect as all dihedrals are scanned by default.
 
     Important:
         A value of None in a list will let all molecules through.
@@ -237,9 +241,10 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     )
     component_fail_message = "The molecule was typed with disallowed parameters."
 
-    allowed_ids: Optional[List[str]] = None
-    filtered_ids: Optional[List[str]] = None
+    allowed_ids: Optional[Set[str]] = None
+    filtered_ids: Optional[Set[str]] = None
     forcefield: str = "openff_unconstrained-1.0.0.offxml"
+    tag_dihedrals: bool = False
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -254,31 +259,56 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        # pass all of the molecules then filter ones that have elements that are not allowed
         result = self._create_result()
-        # build a molecule mapping
-        molecule_mapping = dict(
-            (molecule.to_smiles(), molecule) for molecule in molecules
-        )
 
-        for molecule in molecules:
-            result.add_molecule(molecule)
-
-        # the forcefield we are testing against
         forcefield = ForceField(self.forcefield)
-        parameters_by_molecule, parameters_by_ID = get_molecule_parameterIDs(
-            molecules, forcefield
-        )
 
-        # loop through the tags
-        if self.filtered_ids is not None:
-            for filtered_id in self.filtered_ids:
-                try:
-                    filtered = parameters_by_ID.pop(filtered_id)
-                    for molecule in filtered:
-                        self.fail_molecule(molecule_mapping[molecule], result)
-                except KeyError:
-                    continue
+        # type the molecules
+        for molecule in molecules:
+            labels = forcefield.label_molecules(molecule.to_topology())[0]
+            # format the labels into a set
+            covered_types = set(
+                [label.id for types in labels.values() for label in types.values()]
+            )
+            # use set intersection to check coverage for unwanted types
+            # if filtered is None change to an empty set.
+            unwanted_types = covered_types.intersection(self.filtered_ids or set())
+            if unwanted_types:
+                # fail the molecule for any unwanted matches
+                self.fail_molecule(molecule, result)
+                continue
+
+            # now check for wanted common types
+            # if the allowed option is None change to have overlap
+            common_types = covered_types.intersection(self.allowed_ids or covered_types)
+            if common_types:
+                # here we have to find improper and proper dihedrals to tag
+                if self.tag_dihedrals:
+                    torsion_indexer = TorsionIndexer()
+                    # combine a full torsion list
+                    torsion_labels = labels["ProperTorsions"]
+                    torsion_labels.update(labels["ImproperTorsions"])
+                    for type_label in common_types:
+                        if "t" in type_label or "i" in type_label:
+                            for torsion, parameter in torsion_labels.items():
+                                if type_label == parameter.id:
+                                    if "Improper" in parameter.__class__.__name__:
+                                        torsion_indexer.add_improper(
+                                            central_atom=torsion[1],
+                                            improper=torsion,
+                                            scan_range=None,
+                                        )
+                                    elif "Proper" in parameter.__class__.__name__:
+                                        torsion_indexer.add_torsion(
+                                            torsion=torsion, scan_range=None
+                                        )
+
+                    molecule.properties["dihedrals"] = torsion_indexer
+
+                result.add_molecule(molecule)
+
+            else:
+                self.fail_molecule(molecule, result)
 
         return result
 

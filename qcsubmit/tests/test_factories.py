@@ -481,6 +481,21 @@ def test_torsiondrive_unconnected_torsions():
     assert factory._check_torsion_connection((5, 1, 0, 4), ethanol) is True
 
 
+def test_torsiondrive_unconnected_improper():
+    """
+    Test the torsiondrive factory when flagging impropers which are not valid.
+    """
+
+    factory = TorsiondriveDatasetFactory()
+    benzene = Molecule.from_file(get_data("benzene.sdf"), "sdf")
+
+    # tag a correct improper dihedral with the central atom second
+    assert factory._check_improper_connection((0, 1, 2, 7), benzene) is True
+
+    # tag a normal dihedral which should fail
+    assert factory._check_improper_connection((5, 0, 1, 2), benzene) is False
+
+
 def test_torsiondrive_torsion_string():
     """
     Test the torsiondrive factories ability to create a torsion string for a given bond.

@@ -436,12 +436,15 @@ def test_coverage_filter():
     """
     Make sure the coverage filter removes the correct molecules.
     """
+    from openforcefield.utils.structure import get_molecule_parameterIDs
+    from openforcefield.typing.engines.smirnoff import ForceField
 
     coverage_filter = workflow_components.CoverageFilter()
     coverage_filter.allowed_ids = ["b83"]
     coverage_filter.filtered_ids = ["b87"]
 
     mols = get_tautomers()
+
 
     # we have to remove duplicated records
     # remove duplicates from the set
@@ -450,6 +453,17 @@ def test_coverage_filter():
         component_provenance={"test": "test component"}
     )
     result = coverage_filter.apply(molecule_container.molecules)
+
+    forcefield = ForceField("openff_unconstrained-1.0.0.offxml")
+    # now see if any molecules do not have b83
+    parameters_by_molecule, parameters_by_ID = get_molecule_parameterIDs(
+        result.molecules, forcefield
+    )
+
+    expected = parameters_by_ID["b83"]
+    for molecule in result.molecules:
+        assert molecule.to_smiles() in expected
+
     # we now need to check that the molecules passed contain only the allowed atoms
     # do this by running the component again
     result2 = coverage_filter.apply(result.molecules)

@@ -7,8 +7,16 @@ from pydantic import PositiveInt, constr, validator
 from qcportal.models.common_models import DriverEnum, QCSpecification
 
 import openforcefield.topology as off
+from simtk import unit
+import numpy as np
 
-from .common_structures import ClientHandler, DatasetConfig, IndexCleaner, Metadata
+from .common_structures import (
+    ClientHandler,
+    DatasetConfig,
+    IndexCleaner,
+    Metadata,
+    TorsionIndexer,
+)
 from .exceptions import (
     DatasetInputError,
     MissingBasisCoverageError,
@@ -98,7 +106,7 @@ class ComponentResult:
     def add_molecule(self, molecule: off.Molecule):
         """
         Add a molecule to the molecule list after checking that it is not present already. If it is de-duplicate the
-        record and condense the conformers.
+        record and condense the conformers and metadata.
         """
 
         import numpy as np
@@ -112,28 +120,76 @@ class ComponentResult:
                 molecule, self.molecules[mol_id], return_atom_map=True
             )
             assert isomorphic is True
-            # transfer any torsion indexs for similar fragments
+            # transfer any torsion indexes for similar fragments
             if "dihedrals" in molecule.properties:
-                # remap the dihedrals
-                for dihedral, dihedral_range in molecule.properties[
-                    "dihedrals"
-                ].items():
-                    if len(dihedral) == 4:
-                        mapped_dihedral = tuple([mapping[i] for i in dihedral])
-                    elif len(dihedral) == 2:
-                        # this is a 2d dihedral
-                        mapped_dihedral = (
-                            tuple([mapping[i] for i in dihedral[0]]),
-                            tuple([mapping[i] for i in dihedral[1]]),
-                        )
-                    try:
-                        self.molecules[mol_id].properties["dihedrals"][
-                            mapped_dihedral
-                        ] = dihedral_range
-                    except KeyError:
-                        self.molecules[mol_id].properties["dihedrals"] = {
-                            mapped_dihedral: dihedral_range
-                        }
+                # we need to transfer the properties; get the current molecule dihedrals indexer
+                # if one is missing create a new one
+                current_indexer = self.molecules[mol_id].properties.get(
+                    "dihedrals", TorsionIndexer()
+                )
+
+                # update it with the new molecule info
+                current_indexer.update(
+                    torsion_indexer=molecule.properties["dihedrals"],
+                    reorder_mapping=mapping,
+                )
+
+                # store it back
+                self.molecules[mol_id].properties["dihedrals"] = current_indexer
+
+                # for dihedral, dihedral_range in molecule.properties[
+                #     "dihedrals"
+                # ].items():
+                #     if len(dihedral) == 4:
+                #         mapped_dihedral = tuple([mapping[i] for i in dihedral])
+                #     else:
+                #         # this is a 2d dihedral of 2 tuples
+                #         mapped_dihedral = (
+                #             tuple([mapping[i] for i in dihedral[0]]),
+                #             tuple([mapping[i] for i in dihedral[1]]),
+                #         )
+                #     try:
+                #         # check that the rotatable bonds have not already been selected
+                #         # put 2d and 1d scans in the same list
+                #         covered_torsions = []
+                #         for torsion in (
+                #             self.molecules[mol_id].properties["dihedrals"].keys()
+                #         ):
+                #             if len(torsion) == 4:
+                #                 # 1-D scan
+                #                 covered_torsions.append(tuple(sorted(torsion[1:3])))
+                #             elif len(torsion) == 2:
+                #                 # 2-D scan
+                #                 covered_torsions.append(
+                #                     tuple(
+                #                         sorted(
+                #                             atom_index
+                #                             for dih in torsion
+                #                             for atom_index in dih[1:3]
+                #                         )
+                #                     )
+                #                 )
+                #
+                #         if len(mapped_dihedral) == 4:
+                #             dihedral_check = tuple(sorted(mapped_dihedral[1:3]))
+                #         else:
+                #             dihedral_check = tuple(
+                #                 sorted(
+                #                     atom_index
+                #                     for dih in mapped_dihedral
+                #                     for atom_index in dih[1:3]
+                #                 )
+                #             )
+                #
+                #         if dihedral_check not in covered_torsions:
+                #             self.molecules[mol_id].properties["dihedrals"][
+                #                 mapped_dihedral
+                #             ] = dihedral_range
+                #
+                #     except KeyError:
+                #         self.molecules[mol_id].properties["dihedrals"] = {
+                #             mapped_dihedral: dihedral_range
+                #         }
 
             if molecule.n_conformers != 0:
 
@@ -235,6 +291,22 @@ class DatasetEntry(DatasetConfig):
                 "generated first."
             )
         return attributes
+
+    @property
+    def off_molecule(self) -> off.Molecule:
+        """Build and openforcefield.topology.Molecule representation of the input molecule."""
+
+        molecule = off.Molecule.from_mapped_smiles(
+            mapped_smiles=self.attributes[
+                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+            ],
+            allow_undefined_stereo=True,
+        )
+        molecule.name = self.index
+        for conformer in self.initial_molecules:
+            geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
+            molecule.add_conformer(geometry.in_units_of(unit.angstrom))
+        return molecule
 
 
 class FilterEntry(DatasetConfig):
@@ -342,6 +414,22 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         else:
             return scf_props
 
+    def get_molecule_entry(self, molecule: Union[off.Molecule, str]) -> List[str]:
+        """
+        Search through the dataset for a molecule and return the dataset index of any exact molecule matches.
+
+        Parameters:
+            molecule: The smiles string for the molecule or an openforcefield.topology.Molecule that is to be searched for.
+        """
+
+        hits = [
+            entry.index
+            for entry in self.dataset.values()
+            if molecule == entry.off_molecule
+        ]
+
+        return hits
+
     @property
     def filtered(self) -> off.Molecule:
         """
@@ -418,22 +506,9 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
             Editing the molecule will not effect the data stored in the dataset as it is immutable.
         """
 
-        from simtk import unit
-        import numpy as np
-
-        for index_name, molecule_data in self.dataset.items():
+        for molecule_data in self.dataset.values():
             # create the molecule from the cmiles data
-            offmol = off.Molecule.from_mapped_smiles(
-                mapped_smiles=molecule_data.attributes[
-                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                ],
-                allow_undefined_stereo=True,
-            )
-            offmol.name = index_name
-            for conformer in molecule_data.initial_molecules:
-                geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
-                offmol.add_conformer(geometry.in_units_of(unit.angstrom))
-            yield offmol
+            yield molecule_data.off_molecule
 
     @property
     def n_components(self) -> int:
@@ -1099,8 +1174,7 @@ class TorsiondriveDataset(OptimizationDataset):
                     energy_upper_limit=self.energy_upper_limit,
                     attributes=data.attributes,
                     energy_decrease_thresh=self.energy_decrease_thresh,
-                    dihedral_ranges=data.keywords.get("dihedral_ranges", None)
-                    or self.dihedral_ranges,
+                    dihedral_ranges=data.keywords.get("dihedral_ranges", self.dihedral_ranges)
                 )
             except KeyError:
                 continue
