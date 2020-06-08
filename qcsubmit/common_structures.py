@@ -46,6 +46,16 @@ def order_torsion(torsion: Tuple[int, int, int, int]) -> Tuple[int, int, int, in
         return torsion[::-1]
 
 
+def order_scan_range(scan_range: Tuple[int, int]) -> Optional[Tuple[int, int]]:
+    """
+    Order the scan range.
+    """
+    if scan_range is not None:
+        return tuple(sorted(scan_range))
+    else:
+        return None
+
+
 class SingleTorsion(ResultsConfig):
     """
     A class used to mark torsions that will be driven for torsiondrive datasets.
@@ -55,6 +65,7 @@ class SingleTorsion(ResultsConfig):
     scan_range1: Optional[Tuple[int, int]] = None
 
     _order_torsion1 = validator("torsion1", allow_reuse=True)(order_torsion)
+    _order_scan_range1 = validator("scan_range1", allow_reuse=True)(order_scan_range)
 
     @property
     def central_bond(self) -> Tuple[int, int]:
@@ -98,6 +109,7 @@ class DoubleTorsion(SingleTorsion):
     scan_range2: Optional[Tuple[int, int]] = None
 
     _order_torsion2 = validator("torsion2", allow_reuse=True)(order_torsion)
+    _order_scan_range2 = validator("scan_range2", allow_reuse=True)(order_scan_range)
 
     @property
     def central_bond(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
@@ -139,9 +151,11 @@ class DoubleTorsion(SingleTorsion):
         Create an atom map which will tag the correct dihedral atoms.
         """
         atom_map = {}
+        i = 0
         for torsion in self.get_dihedrals:
-            for i, atom in enumerate(torsion):
+            for atom in torsion:
                 atom_map[atom] = i
+                i += 1
         return atom_map
 
 
@@ -152,7 +166,9 @@ class ImproperTorsion(ResultsConfig):
 
     central_atom: int
     improper: Tuple[int, int, int, int]
-    scan_range: Optional[Tuple[int, int]]
+    scan_range: Optional[Tuple[int, int]] = None
+
+    _order_scan_range = validator("scan_range", allow_reuse=True)(order_scan_range)
 
     @property
     def get_dihedrals(self) -> List[Tuple[int, int, int, int]]:
@@ -249,7 +265,7 @@ class TorsionIndexer(DatasetConfig):
         self,
         central_atom: int,
         improper: Tuple[int, int, int, int],
-        scan_range: Optional[Tuple[int, int]],
+        scan_range: Optional[Tuple[int, int]] = None,
         overwrite: bool = False,
     ) -> None:
         """

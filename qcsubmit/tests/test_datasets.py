@@ -216,6 +216,112 @@ def test_componentresult_deduplication_torsions_2d():
         assert molecule.properties["dihedrals"].n_torsions == duplicates
         assert molecule.properties["dihedrals"].n_double_torsions == duplicates
 
+
+def test_torsion_indexing_torsion():
+    """
+    Test the torsion indexer class.
+    """
+
+    torsion_indexer = TorsionIndexer()
+    # add a 1-D torsion
+    torsion_indexer.add_torsion((3, 2, 1, 0), (180, -165))
+    # make sure they have been ordered
+    assert (1, 2) in torsion_indexer.torsions
+    single_torsion = torsion_indexer.torsions[(1, 2)]
+    assert single_torsion.scan_range1 == (-165, 180)
+    assert single_torsion.get_dihedrals == [(0, 1, 2, 3), ]
+    assert single_torsion.get_scan_range == [(-165, 180), ]
+    assert single_torsion.get_atom_map == {0: 0, 1: 1, 2: 2, 3: 3}
+
+    assert torsion_indexer.n_torsions == 1
+
+def test_torsion_indexing_double():
+    """
+    Test the torsion indexer with double torsions.
+    """
+
+    torsion_indexer = TorsionIndexer()
+    # add a 2-D scan
+    torsion_indexer.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(0, 1, 2, 3), scan_range1=[40, -40],
+                                       scan_range2=[-165, 180])
+    # check the central bond was ordered
+    assert ((1, 2), (7, 8)) in torsion_indexer.double_torsions
+    double_torsion = torsion_indexer.double_torsions[((1, 2), (7, 8))]
+    assert double_torsion.scan_range1 == (-40, 40)
+    assert double_torsion.scan_range2 == (-165, 180)
+    assert double_torsion.get_dihedrals == [(6, 7, 8, 9), (0, 1, 2, 3)]
+    assert double_torsion.get_scan_range == [(-40, 40), (-165, 180)]
+    assert double_torsion.get_atom_map == {0: 4, 1: 5, 2: 6, 3: 7, 6: 0, 7: 1, 8: 2, 9: 3}
+    assert torsion_indexer.n_double_torsions == 1
+
+
+def test_torsion_indexing_improper():
+    """
+    Test the torsion indexer with improper torsions.
+    """
+
+    torsion_indexer = TorsionIndexer()
+    torsion_indexer.add_improper(1, (0, 1, 2, 3), scan_range=[40, -40])
+    assert 1 in torsion_indexer.imporpers
+    assert torsion_indexer.n_impropers == 1
+    torsion_indexer.add_improper(1, (3, 2, 1, 0), scan_range=[-60, 60], overwrite=True)
+    # make sure it was over writen
+    assert 1 in torsion_indexer.imporpers
+    assert torsion_indexer.n_impropers == 1
+    improper = torsion_indexer.imporpers[1]
+    assert improper.get_dihedrals == [(3, 2, 1, 0), ]
+    assert improper.get_scan_range == [(-60, 60), ]
+    assert improper.get_atom_map == {3: 0, 2: 1, 1: 2, 0: 3}
+
+
+def test_torsion_index_iterator():
+    """
+    Make sure the iterator combines all torsions together.
+    """
+    from qcsubmit.common_structures import SingleTorsion, DoubleTorsion, ImproperTorsion
+    torsion_indexer = TorsionIndexer()
+    torsion_indexer.add_torsion((3, 2, 1, 0), (180, -165))
+    torsion_indexer.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(0, 1, 2, 3), scan_range1=[40, -40],
+                                       scan_range2=[-165, 180])
+    torsion_indexer.add_improper(1, (0, 1, 2, 3), scan_range=[40, -40])
+    assert torsion_indexer.n_torsions == 1
+    assert torsion_indexer.n_double_torsions == 1
+    assert torsion_indexer.n_impropers == 1
+    dihedrals = torsion_indexer.get_dihedrals
+    assert len(dihedrals) == 3
+    assert isinstance(dihedrals[0], SingleTorsion)
+    assert isinstance(dihedrals[1], DoubleTorsion)
+    assert isinstance(dihedrals[2], ImproperTorsion)
+
+
+def test_torsion_indexer_update_no_mapping():
+    """
+    Test updating one torsion indexer with another with no mapping.
+    """
+
+    torsion_indexer1 = TorsionIndexer()
+    torsion_indexer1.add_torsion((0, 1, 2, 3))
+    torsion_indexer1.add_double_torsion(torsion1=(0, 1, 2, 3), torsion2=(9, 8, 7, 6))
+    torsion_indexer1.add_improper(1, (0, 1, 2, 3))
+    assert torsion_indexer1.n_torsions == 1
+    assert torsion_indexer1.n_double_torsions == 1
+    assert torsion_indexer1.n_impropers == 1
+
+    torsion_indexer2 = TorsionIndexer()
+    torsion_indexer2.add_torsion((9, 8, 7, 6))
+    torsion_indexer2.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(10, 11, 12, 13))
+    torsion_indexer2.add_improper(5, (5, 6, 7, 8))
+    assert torsion_indexer2.n_torsions == 1
+    assert torsion_indexer2.n_double_torsions == 1
+    assert torsion_indexer2.n_impropers == 1
+
+    # update 1 with 2
+    torsion_indexer1.update(torsion_indexer2)
+    assert torsion_indexer1.n_torsions == 2
+    assert torsion_indexer1.n_double_torsions == 2
+    assert torsion_indexer1.n_impropers == 2
+
+
 def test_componentresult_filter_molecules():
     """
     Test component results ability to filter out molecules.
