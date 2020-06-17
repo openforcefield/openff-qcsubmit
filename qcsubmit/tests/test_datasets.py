@@ -647,11 +647,13 @@ def test_Dataset_export_dict(dataset_type):
     assert dataset.n_molecules == dataset2.n_molecules
     assert dataset.n_records == dataset2.n_records
     assert dataset.metadata == dataset2.metadata
-    assert dataset.json() == dataset2.json()
+    for record in dataset.dataset.keys():
+        assert record in dataset2.dataset
 
 
 @pytest.mark.parametrize("dataset_type", [
-    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(BasicDataset, id="BasicDataset"),
+    pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
 def test_Basicdataset_export_json(dataset_type):
@@ -675,7 +677,8 @@ def test_Basicdataset_export_json(dataset_type):
     dataset2 = dataset_type.parse_raw(dataset.json())
     assert dataset.n_molecules == dataset2.n_molecules
     assert dataset.n_records == dataset2.n_records
-    assert dataset.json() == dataset2.json()
+    for record in dataset.dataset.keys():
+        assert record in dataset2.dataset
 
 
 @pytest.mark.parametrize("basis_data", [
