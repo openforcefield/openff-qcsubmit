@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
@@ -43,6 +44,7 @@ class ComponentResult:
         component_provenance: Dict[str, str],
         molecules: Optional[Union[List[off.Molecule], off.Molecule]] = None,
         input_file: Optional[str] = None,
+        input_directory: Optional[str] = None,
     ):
         """Register the list of molecules to process.
 
@@ -53,6 +55,7 @@ class ComponentResult:
             component_provenance: The dictionary of the provenance information about the component that was used to generate the data.
             molecules: The list of molecules that have been possessed by a component and returned as a result.
             input_file: The name of the input file used to produce the result if not from a component.
+            input_directory: The name of the input directory which contains input molecule files.
         """
 
         self.molecules: List[off.Molecule] = []
@@ -70,6 +73,19 @@ class ComponentResult:
             molecules = off.Molecule.from_file(
                 file_path=input_file, allow_undefined_stereo=True
             )
+
+        if input_directory is not None:
+            molecules = []
+            for file in os.listdir(input_directory):
+                # each file could have many molecules in it so combine
+                mols = off.Molecule.from_file(
+                    file_path=os.path.join(input_directory, file),
+                    allow_undefined_stereo=True,
+                )
+                try:
+                    molecules.extend(mols)
+                except TypeError:
+                    molecules.append(mols)
 
         # now lets process the molecules and add them to the class
         if molecules is not None:
@@ -1051,6 +1067,24 @@ class TorsiondriveDataset(OptimizationDataset):
     energy_upper_limit: float = 0.05
     dihedral_ranges: Optional[List[Tuple[int, int]]] = None
     energy_decrease_thresh: Optional[float] = None
+
+    @property
+    def n_molecules(self) -> int:
+        """
+        Calculate the number of unique molecules to be submitted.
+        """
+
+        molecules = set()
+        for molecule in self.molecules:
+            molecules.add(molecule)
+        return len(molecules)
+
+    @property
+    def n_records(self) -> int:
+        """
+        Calculate the number of records that will be submitted.
+        """
+        return len(self.dataset)
 
     def submit(
         self, client: Union[str, ptl.FractalClient], await_result: bool = False
