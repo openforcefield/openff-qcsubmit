@@ -1,8 +1,6 @@
-import json
 import os
 from typing import Dict, List, Optional, Tuple, Union
 
-import yaml
 from pydantic import BaseModel, PositiveInt, constr, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
@@ -23,9 +21,9 @@ from .exceptions import (
     DriverError,
     InvalidWorkflowComponentError,
     MissingWorkflowComponentError,
-    UnsupportedFiletypeError,
 )
 from .procedures import GeometricProcedure
+from .serializers import serialize, deserialize
 
 
 class BasicDatasetFactory(ClientHandler, BaseModel):
@@ -69,10 +67,6 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         "openmm",
         "rdkit",
     ]  # a list of mm programs which require cmiles in the extras
-
-    # hidden variable not included in the schema
-    _file_readers = {"json": json.load, "yaml": yaml.full_load, "yml": yaml.full_load}
-    _file_writers = {"json": json.dump, "yaml": yaml.dump, "yml": yaml.dump}
 
     class Config:
         validate_assignment: bool = True
@@ -238,7 +232,7 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             self.clear_workflow()
 
         if isinstance(workflow, str):
-            workflow = self._read_file(workflow)
+            workflow = deserialize(workflow)
 
         if isinstance(workflow, dict):
             # this should be a workflow dict that we can just load
@@ -256,39 +250,6 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             if component is not None:
                 self.add_workflow_component(component.parse_obj(value))
 
-    def _read_file(self, file_name: str) -> Dict:
-        """
-        Method to help with file reading and returning the data object from the file.
-
-        Parameters:
-            file_name: The name of the file to be read.
-
-        Returns:
-            The dictionary representation of the json or yaml file.
-
-        Raises:
-            UnsupportedFiletypeError: The file give was not of the supported types ie json or yaml.
-            RuntimeError: The given file could not be found to be opened.
-        """
-
-        # check that the file exists
-        if os.path.exists(file_name):
-            file_type = self._get_file_type(file_name)
-            try:
-                reader = self._file_readers[file_type]
-                with open(file_name) as input_data:
-                    data = reader(input_data)
-
-                    return data
-
-            except KeyError:
-                raise UnsupportedFiletypeError(
-                    f"The requested file type {file_type} is not supported "
-                    f"currently we can write to {self._file_writers}."
-                )
-        else:
-            raise RuntimeError(f"The file {file_name} could not be found.")
-
     def export_workflow(self, file_name: str) -> None:
         """
         Export the workflow components and their settings to file so that they can be loaded latter.
@@ -300,36 +261,9 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             UnsupportedFiletypeError: If the file type is not supported.
         """
 
-        file_type = self._get_file_type(file_name=file_name)
-
-        # try and get the file writer
-        workflow = self.dict()["workflow"]
-        try:
-            writer = self._file_writers[file_type]
-            with open(file_name, "w") as output:
-                if file_type == "json":
-                    writer(workflow, output, indent=2)
-                else:
-                    writer(workflow, output)
-        except KeyError:
-            raise UnsupportedFiletypeError(
-                f"The requested file type {file_type} is not supported, "
-                f"currently we can write to {self._file_writers}."
-            )
-
-    def _get_file_type(self, file_name: str) -> str:
-        """
-        Helper function to work out the file type being requested from the file name.
-
-        Parameters:
-            file_name: The name of the file from which we should work out the file type.
-
-        Returns:
-            The file type extension.
-        """
-
-        file_type = file_name.split(".")[-1]
-        return file_type
+        # grab only the workflow
+        workflow = self.dict(include={"workflow"})
+        serialize(serializable=workflow, file_name=file_name)
 
     def export_settings(self, file_name: str) -> None:
         """
@@ -342,23 +276,10 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             UnsupportedFiletypeError: When the file type requested is not supported.
         """
 
-        file_type = self._get_file_type(file_name=file_name)
-
-        # try and get the file writer
-        try:
-            writer = self._file_writers[file_type]
-            with open(file_name, "w") as output:
-                if file_type == "json":
-                    writer(self.dict(), output, indent=2)
-                else:
-                    data = self.dict(exclude={"driver"})
-                    data["driver"] = self.driver.value
-                    writer(data, output)
-        except KeyError:
-            raise UnsupportedFiletypeError(
-                f"The requested file type {file_type} is not supported, "
-                f"currently we can write to {self._file_writers}."
-            )
+        # yaml type driver fix
+        data = self.dict(exclude={"driver"})
+        data["driver"] = self.driver.value
+        serialize(serializable=data, file_name=file_name)
 
     def import_settings(
         self, settings: Union[str, Dict], clear_workflow: bool = True
@@ -373,7 +294,7 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         """
 
         if isinstance(settings, str):
-            data = self._read_file(settings)
+            data = deserialize(settings)
 
             # take the workflow out and import the settings
             workflow = data.pop("workflow")
@@ -798,14 +719,12 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
         Note:
             The torsiondrive dataset allows for multiple starting geometries.
+            If fragmentation is used each molecule in the dataset will have the torsion indexes already set else indexes
+            are generated for each rotatable torsion in the molecule.
 
         Important:
             Any molecules with linear torsions identified for torsion driving will be removed and failed from the
             workflow.
-
-        Important:
-            If fragmentation is used each molecule in the dataset will have the torsion indexes already set else indexes
-            are generated for each rotatable torsion in the molecule.
 
         Parameters:
              dataset_name: The name that will be given to the collection on submission to an archive instance.

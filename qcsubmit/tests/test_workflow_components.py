@@ -211,7 +211,8 @@ def test_weight_filter_validator():
         pytest.param((workflow_components.EnumerateTautomers, "max_tautomers", 2), id="EnumerateTautomers"),
         pytest.param((workflow_components.EnumerateStereoisomers, "undefined_only", True), id="EnumerateStereoisomers"),
         pytest.param((workflow_components.RotorFilter, "maximum_rotors", 3), id="RotorFilter"),
-        pytest.param((workflow_components.SmartsFilter, "allowed_substructures", ["[C:1]-[C:2]"]), id="SmartsFilter")
+        pytest.param((workflow_components.SmartsFilter, "allowed_substructures", ["[C:1]-[C:2]"]), id="SmartsFilter"),
+        pytest.param((workflow_components.WBOFragmenter, "heuristic", "wbo"), id="WBOFragmenter")
     ],
 )
 def test_to_from_object(data):
@@ -498,6 +499,47 @@ def test_coverage_filter_tag_dihedrals():
         assert torsion_indexer.n_torsions > 0, print(molecule)
         assert torsion_indexer.n_double_torsions == 0
         assert torsion_indexer.n_impropers == 0
+
+
+def test_fragmentation_settings():
+    """
+    Make sure the settings are correctly handled.
+    """
+
+    fragmenter = workflow_components.WBOFragmenter()
+    with pytest.raises(ValueError):
+        fragmenter.functional_groups = get_data("functional_groups_error.yaml")
+
+    fragmenter.functional_groups = get_data("functional_groups.yaml")
+
+    assert fragmenter.functional_groups is not None
+
+
+def test_fragmentation_apply():
+    """
+    Make sure that fragmentation is working.
+    """
+
+    fragmenter = workflow_components.WBOFragmenter()
+
+    # check that a molecule with no rotatable bonds fails if we dont want the parent back
+    benzene = Molecule.from_file(get_data("benzene.sdf"), "sdf")
+    result = fragmenter.apply([benzene, ])
+    assert result.n_molecules == 0
+
+    # now try ethanol
+    ethanol = Molecule.from_file(get_data("methanol.sdf"), "sdf")
+    fragmenter.include_parent = True
+    result = fragmenter.apply([ethanol, ])
+    assert result.n_molecules == 1
+
+    # now try a molecule which should give fragments
+    diphenhydramine = Molecule.from_smiles("O(CCN(C)C)C(c1ccccc1)c2ccccc2")
+    fragmenter.include_parent = False
+    result = fragmenter.apply([diphenhydramine, ])
+    assert result.n_molecules == 4
+    for molecule in result.molecules:
+        assert "dihedrals" in molecule.properties
 
 
 def test_rotor_filter():

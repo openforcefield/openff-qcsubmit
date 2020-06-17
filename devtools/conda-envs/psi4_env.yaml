@@ -25,6 +25,7 @@ dependencies:
   - openeye-toolkits
   - qcfractal >=0.13.0
   - torsiondrive
+  - fragmenter
 
     # Pip-only installs
   - pip:
