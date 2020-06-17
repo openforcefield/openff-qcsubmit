@@ -137,60 +137,6 @@ class ComponentResult:
                 # store it back
                 self.molecules[mol_id].properties["dihedrals"] = current_indexer
 
-                # for dihedral, dihedral_range in molecule.properties[
-                #     "dihedrals"
-                # ].items():
-                #     if len(dihedral) == 4:
-                #         mapped_dihedral = tuple([mapping[i] for i in dihedral])
-                #     else:
-                #         # this is a 2d dihedral of 2 tuples
-                #         mapped_dihedral = (
-                #             tuple([mapping[i] for i in dihedral[0]]),
-                #             tuple([mapping[i] for i in dihedral[1]]),
-                #         )
-                #     try:
-                #         # check that the rotatable bonds have not already been selected
-                #         # put 2d and 1d scans in the same list
-                #         covered_torsions = []
-                #         for torsion in (
-                #             self.molecules[mol_id].properties["dihedrals"].keys()
-                #         ):
-                #             if len(torsion) == 4:
-                #                 # 1-D scan
-                #                 covered_torsions.append(tuple(sorted(torsion[1:3])))
-                #             elif len(torsion) == 2:
-                #                 # 2-D scan
-                #                 covered_torsions.append(
-                #                     tuple(
-                #                         sorted(
-                #                             atom_index
-                #                             for dih in torsion
-                #                             for atom_index in dih[1:3]
-                #                         )
-                #                     )
-                #                 )
-                #
-                #         if len(mapped_dihedral) == 4:
-                #             dihedral_check = tuple(sorted(mapped_dihedral[1:3]))
-                #         else:
-                #             dihedral_check = tuple(
-                #                 sorted(
-                #                     atom_index
-                #                     for dih in mapped_dihedral
-                #                     for atom_index in dih[1:3]
-                #                 )
-                #             )
-                #
-                #         if dihedral_check not in covered_torsions:
-                #             self.molecules[mol_id].properties["dihedrals"][
-                #                 mapped_dihedral
-                #             ] = dihedral_range
-                #
-                #     except KeyError:
-                #         self.molecules[mol_id].properties["dihedrals"] = {
-                #             mapped_dihedral: dihedral_range
-                #         }
-
             if molecule.n_conformers != 0:
 
                 # transfer the coordinates

@@ -3,17 +3,24 @@ Serialization methods.
 """
 
 import abc
-from typing import Dict, Union
 import json
-import yaml
 import os
-
 from enum import Enum
+from typing import Dict, Union
+
+import yaml
 from pydantic import BaseModel
 
 from .exceptions import UnsupportedFiletypeError
 
-__all__ = ["Serializer", "DeSerializer", "register_serializer", "register_deserializer", "serialize", "deserialize"]
+__all__ = [
+    "Serializer",
+    "DeSerializer",
+    "register_serializer",
+    "register_deserializer",
+    "serialize",
+    "deserialize",
+]
 
 serializers = {}
 deserializers = {}
@@ -23,6 +30,7 @@ class DataType(str, Enum):
     """
     The type of data the de/serializers deal with, which helps with file loading.
     """
+
     TEXT = ""
     BYTES = "b"
 
@@ -37,7 +45,6 @@ class GeneralSerializer(BaseModel):
 
 
 class Serializer(GeneralSerializer, abc.ABC):
-
     @abc.abstractmethod
     def serialize(self, serializable: Dict) -> Union[str, bytes]:
         """
@@ -47,7 +54,6 @@ class Serializer(GeneralSerializer, abc.ABC):
 
 
 class DeSerializer(GeneralSerializer, abc.ABC):
-
     @abc.abstractmethod
     def deserialize(self, file_object) -> Dict:
         """
@@ -128,8 +134,10 @@ def get_serializer(format_name: str) -> "Serializer":
     """
     serializer = serializers.get(format_name.lower(), None)
     if serializer is None:
-        raise UnsupportedFiletypeError(f"The specified serialization format {format_name} is not supported; "
-                                       f"supported formats are {serializers.keys()}")
+        raise UnsupportedFiletypeError(
+            f"The specified serialization format {format_name} is not supported; "
+            f"supported formats are {serializers.keys()}"
+        )
     return serializer()
 
 
@@ -139,8 +147,10 @@ def get_deserializer(format_name: str) -> "DeSerializer":
     """
     deserailizer = deserializers.get(format_name.lower(), None)
     if deserailizer is None:
-        raise UnsupportedFiletypeError(f"The specified deserialization format {format_name} is not supported; "
-                                       f"supported formats are {deserializers.keys()}")
+        raise UnsupportedFiletypeError(
+            f"The specified deserialization format {format_name} is not supported; "
+            f"supported formats are {deserializers.keys()}"
+        )
     return deserailizer()
 
 

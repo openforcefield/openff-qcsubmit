@@ -23,7 +23,7 @@ from .exceptions import (
     MissingWorkflowComponentError,
 )
 from .procedures import GeometricProcedure
-from .serializers import serialize, deserialize
+from .serializers import deserialize, serialize
 
 
 class BasicDatasetFactory(ClientHandler, BaseModel):

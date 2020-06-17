@@ -1,16 +1,16 @@
 """
 Components that aid with Fragmentation of molecules.
 """
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Optional, Union
 
 from pydantic import validator
 
 from openforcefield.topology import Molecule
 
-from ..datasets import ComponentResult
-from .base_component import CustomWorkflowComponent, ToolkitValidator
 from ..common_structures import TorsionIndexer
+from ..datasets import ComponentResult
 from ..serializers import deserialize
+from .base_component import CustomWorkflowComponent, ToolkitValidator
 
 
 class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
