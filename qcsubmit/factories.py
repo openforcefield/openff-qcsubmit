@@ -57,7 +57,12 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
     program: str = "psi4"
     maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
-    scf_properties: List[str] = ["dipole", "quadrupole", "wiberg_lowdin_indices", "mayer_indices"]
+    scf_properties: List[str] = [
+        "dipole",
+        "quadrupole",
+        "wiberg_lowdin_indices",
+        "mayer_indices",
+    ]
     spec_name: str = "default"
     spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
     priority: str = "normal"

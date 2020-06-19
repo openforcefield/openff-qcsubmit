@@ -59,7 +59,9 @@ class SingleResult(ResultsConfig):
             return gradient.reshape((-1, 3))
 
     @classmethod
-    def from_result_and_molecule(cls, result: ptl.models.ResultRecord, molecule: ptl.models.Molecule, index: str) -> "SingleResult":
+    def from_result_and_molecule(
+        cls, result: ptl.models.ResultRecord, molecule: ptl.models.Molecule, index: str
+    ) -> "SingleResult":
         """
         Instance the class from a result and corresponding molecule.
 
@@ -75,9 +77,7 @@ class SingleResult(ResultsConfig):
             wbo=extras.get("WIBERG_LOWDIN_INDICES", None)
             if extras is not None
             else None,
-            mbo=extras.get("MAYER_INDICES", None)
-            if extras is not None
-            else None,
+            mbo=extras.get("MAYER_INDICES", None) if extras is not None else None,
             energy=result.properties.return_energy,
             gradient=result.return_result
             if result.driver.value == "gradient"
@@ -238,7 +238,9 @@ class BasicResult(ResultsConfig):
         Create and add a single result to the collection from the result, molecule and index.
         """
 
-        single_result = SingleResult.from_result_and_molecule(result=result, molecule=molecule, index=index)
+        single_result = SingleResult.from_result_and_molecule(
+            result=result, molecule=molecule, index=index
+        )
         self.add_entry(single_result)
 
     def add_entry(self, entry: SingleResult) -> None:
@@ -712,7 +714,9 @@ class OptimizationEntryResult(ResultsConfig):
         A helpful method to turn the molecule details and the result record into a SingleResult.
         """
 
-        single_result = SingleResult.from_result_and_molecule(result=result, molecule=molecule, index=None)
+        single_result = SingleResult.from_result_and_molecule(
+            result=result, molecule=molecule, index=None
+        )
         self.trajectory.append(single_result)
 
     def detect_connectivity_changes_wbo(self, wbo_threshold: float = 0.5) -> bool:
