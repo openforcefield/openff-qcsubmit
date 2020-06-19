@@ -398,21 +398,22 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         """
 
         #  check if we have been given an input file with molecules inside
-        if os.path.isfile(molecules):
-            workflow_molecules = ComponentResult(
-                component_name=self.Config.title,
-                component_description={"component_name": self.Config.title},
-                component_provenance=self.provenance(),
-                input_file=molecules,
-            )
+        if isinstance(molecules, str):
+            if os.path.isfile(molecules):
+                workflow_molecules = ComponentResult(
+                    component_name=self.Config.title,
+                    component_description={"component_name": self.Config.title},
+                    component_provenance=self.provenance(),
+                    input_file=molecules,
+                )
 
-        elif os.path.isdir(molecules):
-            workflow_molecules = ComponentResult(
-                component_name=self.Config.title,
-                component_description={"component_name": self.Config.title},
-                component_provenance=self.provenance(),
-                input_directory=molecules,
-            )
+            elif os.path.isdir(molecules):
+                workflow_molecules = ComponentResult(
+                    component_name=self.Config.title,
+                    component_description={"component_name": self.Config.title},
+                    component_provenance=self.provenance(),
+                    input_directory=molecules,
+                )
 
         elif isinstance(molecules, off.Molecule):
             workflow_molecules = ComponentResult(
