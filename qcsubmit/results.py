@@ -29,6 +29,7 @@ class SingleResult(ResultsConfig):
 
     molecule: ptl.models.Molecule
     wbo: Optional[Array[np.ndarray]] = None
+    mbo: Optional[Array[np.ndarray]] = None
     id: int
     energy: Optional[float] = None
     gradient: Optional[Array[np.ndarray]] = None
@@ -36,7 +37,7 @@ class SingleResult(ResultsConfig):
     extras: Optional[Dict] = None
     index: Optional[str] = None
 
-    @validator("wbo")
+    @validator("wbo", "mbo")
     def _check_wbo_and_hessian(cls, array):
         """
         Take the input wbo/hessian which is normally a list and cast it to a np.ndarry of the correct shape.
@@ -56,6 +57,35 @@ class SingleResult(ResultsConfig):
             return gradient
         else:
             return gradient.reshape((-1, 3))
+
+    @classmethod
+    def from_result_and_molecule(cls, result: ptl.models.ResultRecord, molecule: ptl.models.Molecule, index: str) -> "SingleResult":
+        """
+        Instance the class from a result and corresponding molecule.
+
+        Parameters:
+            result: The qcportal results record where we pull out extra information.
+            molecule: The qcportal molecule record which the result was computed for.
+            index: An optional index that should be given to the result.
+        """
+
+        extras = result.extras.get("qcvars", None)
+        return cls(
+            molecule=molecule,
+            wbo=extras.get("WIBERG_LOWDIN_INDICES", None)
+            if extras is not None
+            else None,
+            mbo=extras.get("MAYER_INDICES", None)
+            if extras is not None
+            else None,
+            energy=result.properties.return_energy,
+            gradient=result.return_result
+            if result.driver.value == "gradient"
+            else None,
+            hessian=result.return_result if result.driver.value == "hessian" else None,
+            id=result.id,
+            index=index,
+        )
 
     def guess_connectivity(self) -> List[Tuple[int, int]]:
         """
@@ -208,20 +238,7 @@ class BasicResult(ResultsConfig):
         Create and add a single result to the collection from the result, molecule and index.
         """
 
-        extras = result.extras.get("qcvars", None)
-        single_result = SingleResult(
-            molecule=molecule,
-            wbo=extras.get("WIBERG_LOWDIN_INDICES", None)
-            if extras is not None
-            else None,
-            energy=result.properties.return_energy,
-            gradient=result.return_result
-            if result.driver.value == "gradient"
-            else None,
-            hessian=result.return_result if result.driver.value == "hessian" else None,
-            id=result.id,
-            index=index,
-        )
+        single_result = SingleResult.from_result_and_molecule(result=result, molecule=molecule, index=index)
         self.add_entry(single_result)
 
     def add_entry(self, entry: SingleResult) -> None:
@@ -695,20 +712,7 @@ class OptimizationEntryResult(ResultsConfig):
         A helpful method to turn the molecule details and the result record into a SingleResult.
         """
 
-        extras = result.extras.get("qcvars", None)
-        single_result = SingleResult(
-            molecule=molecule,
-            wbo=extras.get("WIBERG_LOWDIN_INDICES", None)
-            if extras is not None
-            else None,
-            energy=result.properties.return_energy,
-            gradient=result.return_result
-            if result.driver.value == "gradient"
-            else None,
-            hessian=result.return_result if result.driver.value == "hessian" else None,
-            id=result.id,
-        )
-
+        single_result = SingleResult.from_result_and_molecule(result=result, molecule=molecule, index=None)
         self.trajectory.append(single_result)
 
     def detect_connectivity_changes_wbo(self, wbo_threshold: float = 0.5) -> bool:
