@@ -642,6 +642,13 @@ def test_Dataset_export_dict(dataset_type):
 
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=[(0, 1, 2, 3)])
 
+    # add one failure
+    fail = Molecule.from_smiles("C")
+    dataset.filter_molecules(molecules=[fail, ],
+                             component_name="TestFailure",
+                             component_description={"name": "TestFailure"},
+                             component_provenance={"test": "v1.0"})
+
     dataset2 = dataset_type(**dataset.dict())
 
     assert dataset.n_molecules == dataset2.n_molecules
@@ -671,6 +678,13 @@ def test_Basicdataset_export_json(dataset_type):
                       "standard_inchi": molecule.to_inchi(),
                       "inchi_key": molecule.to_inchikey()}
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=[(0, 1, 2, 3)])
+
+    # add one failure
+    fail = Molecule.from_smiles("C")
+    dataset.filter_molecules(molecules=[fail, ],
+                             component_name="TestFailure",
+                             component_description={"name": "TestFailure"},
+                             component_provenance={"test": "v1.0"})
 
 
     # try parse the json string to build the dataset

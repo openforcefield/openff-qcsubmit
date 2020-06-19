@@ -286,11 +286,12 @@ class FilterEntry(DatasetConfig):
         """
         Init the dataclass handling conversions of the molecule first.
         """
-        molecules = [
-            molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
-            for molecule in off_molecules
-        ]
-        kwargs["molecules"] = molecules
+        if off_molecules is not None:
+            molecules = [
+                molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
+                for molecule in off_molecules
+            ]
+            kwargs["molecules"] = molecules
 
         super().__init__(**kwargs)
 
