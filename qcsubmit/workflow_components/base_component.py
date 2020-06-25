@@ -24,9 +24,9 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         validate_assignment = True
         arbitrary_types_allowed = True
 
-    @staticmethod
+    @classmethod
     @abc.abstractmethod
-    def is_available() -> bool:
+    def is_available(cls) -> bool:
         """
         This method should identify if the component can be used by checking if the requirements are available.
 
@@ -146,13 +146,13 @@ class ToolkitValidator(BaseModel):
 
         return provenance
 
-    @staticmethod
-    def is_available() -> bool:
+    @classmethod
+    def is_available(cls) -> bool:
         """
         Check if any of the requested backend toolkits can be used.
         """
 
-        for toolkit in ToolkitValidator._toolkits.values():
+        for toolkit in cls._toolkits.values():
             if toolkit.is_available():
                 return True
 
@@ -164,8 +164,8 @@ class BasicSettings(BaseModel):
     This mixin identifies the class as being basic and always being available as it only requires basic packages.
     """
 
-    @staticmethod
-    def is_available() -> bool:
+    @classmethod
+    def is_available(cls) -> bool:
         """
         This component is basic if it requires no extra dependencies.
         """

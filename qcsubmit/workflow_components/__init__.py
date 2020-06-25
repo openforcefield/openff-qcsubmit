@@ -8,4 +8,4 @@ from .filters import (
     SmartsFilter,
 )
 from .fragmentation import WBOFragmenter
-from .state_enumeration import EnumerateStereoisomers, EnumerateTautomers
+from .state_enumeration import EnumerateStereoisomers, EnumerateTautomers, EnumerateProtomers
