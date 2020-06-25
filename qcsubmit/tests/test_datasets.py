@@ -2,13 +2,14 @@
 Unit test for the vairous dataset classes in the package.
 """
 
+from typing import Dict, Tuple
+
 import numpy as np
 import pytest
+from openforcefield.topology import Molecule
 from pydantic import ValidationError
-from typing import Dict, Tuple
 from simtk import unit
 
-from openforcefield.topology import Molecule
 from qcsubmit.common_structures import TorsionIndexer
 from qcsubmit.datasets import (
     BasicDataset,
@@ -16,10 +17,15 @@ from qcsubmit.datasets import (
     OptimizationDataset,
     TorsiondriveDataset,
 )
-from qcsubmit.exceptions import DatasetInputError, MissingBasisCoverageError, DihedralConnectionError, LinearTorsionError
+from qcsubmit.exceptions import (
+    DatasetInputError,
+    DihedralConnectionError,
+    LinearTorsionError,
+    MissingBasisCoverageError,
+)
+from qcsubmit.factories import BasicDatasetFactory
 from qcsubmit.testing import temp_directory
 from qcsubmit.utils import get_data
-from qcsubmit.factories import BasicDatasetFactory
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):

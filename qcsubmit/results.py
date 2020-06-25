@@ -9,13 +9,12 @@ import numpy as np
 import pandas as pd
 import qcelemental as qcel
 import qcportal as ptl
+from openforcefield.topology import Molecule
 from pydantic import constr, validator
 from qcelemental.models.types import Array
 from qcportal.models import OptimizationRecord, ResultRecord
 from qcportal.models.common_models import DriverEnum
 from simtk import unit
-
-from openforcefield.topology import Molecule
 
 from .common_structures import IndexCleaner, Metadata, ResultsConfig
 from .procedures import GeometricProcedure

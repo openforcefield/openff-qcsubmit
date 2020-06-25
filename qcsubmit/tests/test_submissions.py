@@ -5,10 +5,10 @@ Here we use the qcfractal fractal_compute_server fixture to set up the database.
 """
 
 import pytest
+from openforcefield.topology import Molecule
 from qcfractal.testing import fractal_compute_server
 from qcportal import FractalClient
 
-from openforcefield.topology import Molecule
 from qcengine.testing import has_program
 from qcsubmit.common_structures import Metadata
 from qcsubmit.exceptions import DatasetInputError

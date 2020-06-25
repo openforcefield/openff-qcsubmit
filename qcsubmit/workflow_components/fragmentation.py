@@ -3,9 +3,8 @@ Components that aid with Fragmentation of molecules.
 """
 from typing import Dict, List, Optional, Union
 
-from pydantic import validator
-
 from openforcefield.topology import Molecule
+from pydantic import validator
 
 from ..common_structures import TorsionIndexer
 from ..datasets import ComponentResult
@@ -80,6 +79,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         try:
             import fragmenter
             import openeye
+
             return True
 
         except ImportError:

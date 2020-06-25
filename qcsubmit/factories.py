@@ -1,11 +1,10 @@
 import os
 from typing import Dict, List, Optional, Tuple, Union
 
+import openforcefield.topology as off
 from pydantic import BaseModel, PositiveInt, constr, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
-
-import openforcefield.topology as off
 
 from . import workflow_components
 from .common_structures import ClientHandler, Metadata
@@ -17,11 +16,11 @@ from .datasets import (
 )
 from .exceptions import (
     CompoenentRequirementError,
+    DihedralConnectionError,
     DriverError,
     InvalidWorkflowComponentError,
+    LinearTorsionError,
     MissingWorkflowComponentError,
-    DihedralConnectionError,
-    LinearTorsionError
 )
 from .procedures import GeometricProcedure
 from .serializers import deserialize, serialize
@@ -70,7 +69,9 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         "rdkit",
     ]  # a list of mm programs which require cmiles in the extras
 
-    _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(scf_property_validator)
+    _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(
+        scf_property_validator
+    )
 
     class Config:
         validate_assignment: bool = True

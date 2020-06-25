@@ -3,9 +3,10 @@ Centralise the validators for easy reuse between factories and datasets.
 """
 
 from typing import Dict, Tuple
-from .exceptions import DatasetInputError, DihedralConnectionError, LinearTorsionError
 
 import openforcefield.topology as off
+
+from .exceptions import DatasetInputError, DihedralConnectionError, LinearTorsionError
 
 
 def cmiles_validator(cmiles: Dict[str, str]) -> Dict[str, str]:
@@ -19,14 +20,23 @@ def cmiles_validator(cmiles: Dict[str, str]) -> Dict[str, str]:
         DatasetInputError: If the cmiles is missing a field.
     """
 
-    expected_cmiles = {"canonical_smiles", "canonical_isomeric_smiles", "canonical_explicit_hydrogen_smiles",
-                       "canonical_isomeric_explicit_hydrogen_smiles", "canonical_isomeric_explicit_hydrogen_mapped_smiles",
-                       "molecular_formula", "standard_inchi", "inchi_key"}
+    expected_cmiles = {
+        "canonical_smiles",
+        "canonical_isomeric_smiles",
+        "canonical_explicit_hydrogen_smiles",
+        "canonical_isomeric_explicit_hydrogen_smiles",
+        "canonical_isomeric_explicit_hydrogen_mapped_smiles",
+        "molecular_formula",
+        "standard_inchi",
+        "inchi_key",
+    }
     # use set logic to find missing expected attributes from cmiles
     supplied_cmiles = set(cmiles.keys())
     difference = expected_cmiles.difference(supplied_cmiles)
     if difference:
-        raise DatasetInputError(f"The supplied cmiles is missing the following fields {difference}.")
+        raise DatasetInputError(
+            f"The supplied cmiles is missing the following fields {difference}."
+        )
 
     return cmiles
 
@@ -52,12 +62,16 @@ def scf_property_validator(scf_property: str) -> str:
     ]
 
     if scf_property not in allowed_properties:
-        raise DatasetInputError(f"The requested scf_property {scf_property} is not valid please chose from {allowed_properties}.")
+        raise DatasetInputError(
+            f"The requested scf_property {scf_property} is not valid please chose from {allowed_properties}."
+        )
 
     return scf_property
 
 
-def check_improper_connection(improper: Tuple[int, int, int, int], molecule: off.Molecule) -> Tuple[int, int, int, int]:
+def check_improper_connection(
+    improper: Tuple[int, int, int, int], molecule: off.Molecule
+) -> Tuple[int, int, int, int]:
     """
     Check that the given improper is part of the molecule, this makes sure that all atoms are connected to the
     central atom.
@@ -82,10 +96,14 @@ def check_improper_connection(improper: Tuple[int, int, int, int], molecule: off
         if len(bonded_atoms.intersection(set(improper))) == 3:
             return improper
 
-    raise DihedralConnectionError(f"The given improper dihedral {improper} was not valid for molecule {molecule}.")
+    raise DihedralConnectionError(
+        f"The given improper dihedral {improper} was not valid for molecule {molecule}."
+    )
 
 
-def check_torsion_connection(torsion: Tuple[int, int, int, int], molecule: off.Molecule) -> Tuple[int, int, int, int]:
+def check_torsion_connection(
+    torsion: Tuple[int, int, int, int], molecule: off.Molecule
+) -> Tuple[int, int, int, int]:
     """
     Check that the given torsion indices create a connected torsion in the molecule.
 
@@ -107,12 +125,16 @@ def check_torsion_connection(torsion: Tuple[int, int, int, int], molecule: off.M
             _ = molecule.get_bond_between(*atoms)
         except (off.topology.NotBondedError, IndexError):
             # catch both notbonded errors and tags on atoms not in the molecule
-            raise DihedralConnectionError(f"The dihedral {torsion} was not valid for the molecule {molecule}, as there is no bond between atoms {atoms}.")
+            raise DihedralConnectionError(
+                f"The dihedral {torsion} was not valid for the molecule {molecule}, as there is no bond between atoms {atoms}."
+            )
 
     return torsion
 
 
-def check_linear_torsions(torsion: Tuple[int, int, int, int], molecule: off.Molecule) -> Tuple[int, int, int, int]:
+def check_linear_torsions(
+    torsion: Tuple[int, int, int, int], molecule: off.Molecule
+) -> Tuple[int, int, int, int]:
     """
     Check that the torsion supplied is not for a linear bond.
 
@@ -131,6 +153,8 @@ def check_linear_torsions(torsion: Tuple[int, int, int, int], molecule: off.Mole
     matches = molecule.chemical_environment_matches(linear_smarts)
 
     if torsion[1:3] in matches or torsion[2:0:-1] in matches:
-        raise LinearTorsionError(f"The dihedral {torsion} in molecule {molecule} highlights a linear bond.")
+        raise LinearTorsionError(
+            f"The dihedral {torsion} in molecule {molecule} highlights a linear bond."
+        )
 
     return torsion

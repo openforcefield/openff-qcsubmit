@@ -1,10 +1,9 @@
 import abc
 from typing import Dict, List
 
-from pydantic import BaseModel, validator
-
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
+from pydantic import BaseModel, validator
 
 from ..datasets import ComponentResult
 

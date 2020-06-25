@@ -3,9 +3,9 @@ Tests for building and running workflows, exporting and importing settings.
 """
 
 import pytest
+from openforcefield.topology import Molecule
 from pydantic import ValidationError
 
-from openforcefield.topology import Molecule
 from qcsubmit import workflow_components
 from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
 from qcsubmit.exceptions import (

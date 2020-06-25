@@ -3,13 +3,12 @@ import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
+import openforcefield.topology as off
 import qcelemental as qcel
 import qcportal as ptl
 from pydantic import PositiveInt, constr, validator
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from simtk import unit
-
-import openforcefield.topology as off
 
 from .common_structures import (
     ClientHandler,
@@ -20,13 +19,19 @@ from .common_structures import (
 )
 from .exceptions import (
     DatasetInputError,
+    DihedralConnectionError,
     MissingBasisCoverageError,
     UnsupportedFiletypeError,
-    DihedralConnectionError,
 )
 from .procedures import GeometricProcedure
 from .results import SingleResult
-from .validators import cmiles_validator, scf_property_validator, check_improper_connection, check_torsion_connection, check_linear_torsions
+from .validators import (
+    check_improper_connection,
+    check_linear_torsions,
+    check_torsion_connection,
+    cmiles_validator,
+    scf_property_validator,
+)
 
 
 class ComponentResult:
@@ -250,8 +255,8 @@ class DatasetEntry(DatasetConfig):
                 for dihedral in off_molecule.properties["dihedrals"].get_dihedrals:
                     for torsion in dihedral.get_dihedrals:
                         if (
-                                dihedral.__class__.__name__ == "SingleTorsion"
-                                or dihedral.__class__.__name__ == "DoubleTorsion"
+                            dihedral.__class__.__name__ == "SingleTorsion"
+                            or dihedral.__class__.__name__ == "DoubleTorsion"
                         ):
                             check_torsion_connection(torsion, off_molecule)
                         else:
@@ -277,10 +282,14 @@ class DatasetEntry(DatasetConfig):
                 except DihedralConnectionError:
                     # if this fails as well raise
                     try:
-                        check_improper_connection(improper=torsion, molecule=off_molecule)
+                        check_improper_connection(
+                            improper=torsion, molecule=off_molecule
+                        )
                     except DihedralConnectionError:
-                        raise DihedralConnectionError(f"The dihedral {torsion} for molecule {off_molecule} is not a valid"
-                                                      f" proper/improper torsion.")
+                        raise DihedralConnectionError(
+                            f"The dihedral {torsion} for molecule {off_molecule} is not a valid"
+                            f" proper/improper torsion."
+                        )
 
     @property
     def off_molecule(self) -> off.Molecule:
@@ -364,7 +373,9 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
     filtered_molecules: Dict[str, FilterEntry] = {}
     _file_writers = {"json": json.dump}
 
-    _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(scf_property_validator)
+    _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(
+        scf_property_validator
+    )
 
     def __init__(self, **kwargs):
         """

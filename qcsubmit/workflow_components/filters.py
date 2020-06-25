@@ -4,14 +4,14 @@ File containing the filters workflow components.
 import re
 from typing import Dict, List, Optional, Set, Union
 
-from pydantic import validator
-
 from openforcefield.topology import Molecule
 from openforcefield.typing.chemistry.environment import (
     ChemicalEnvironment,
     SMIRKSParsingError,
 )
 from openforcefield.typing.engines.smirnoff import ForceField
+from pydantic import validator
+
 from qcsubmit.common_structures import TorsionIndexer
 from qcsubmit.datasets import ComponentResult
 

@@ -5,12 +5,9 @@ from functools import lru_cache
 from typing import Dict, List
 
 import pytest
-
 from openforcefield.topology import Molecule
-from openforcefield.utils.toolkits import (
-    OpenEyeToolkitWrapper,
-    RDKitToolkitWrapper,
-)
+from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
+
 from qcsubmit import workflow_components
 from qcsubmit.datasets import ComponentResult
 from qcsubmit.utils import get_data
