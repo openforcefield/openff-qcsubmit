@@ -39,14 +39,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-        with:
-          path: main
-
-      - name: Checkout openforcefield
-        uses: actions/checkout@master
-        with:
-          repository: openforcefield/openforcefield
-          path: openforcefield
+#        with:
+#          path: main
+#
+#      - name: Checkout openforcefield
+#        uses: actions/checkout@master
+#        with:
+#          repository: openforcefield/openforcefield
+#          path: openforcefield
 
       - name: Additional info about the build
         shell: bash
@@ -74,17 +74,17 @@ jobs:
           conda info --all
           conda list
 
-      - name: Decrypt OpenEye license
+      - name: Decrypt ORG OpenEye license
         shell: bash
         env:
-          ENC_OE_LICENSE: ${{ secrets.OE_LICENSE__EXP_DEC2020 }}
+          ENC_OE_LICENSE: ${{ secrets.OE_LICENSE }}
         run: |
             echo "${ENC_OE_LICENSE}" > ${OE_LICENSE}
 
       - name: Prepare test enviroment
         shell: bash
         run: |
-          cd "$GITHUB_WORKSPACE"/main/
+#          cd "$GITHUB_WORKSPACE"/main/
           . devtools/gh-actions/initialize_conda.sh
           conda activate
           if [ $PROG == "NONE" ]; then
@@ -96,18 +96,21 @@ jobs:
           fi
           conda activate test
           python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
-          conda uninstall openforcefield --force
+#          conda uninstall openforcefield --force
           python -m pip install --no-deps .
-          cd "$GITHUB_WORKSPACE"/openforcefield/
-          python -m pip install --no-deps .
+#          cd "$GITHUB_WORKSPACE"/openforcefield/
+#          python -m pip install --no-deps .
 
       - name: Test the package
         shell: bash
         run: |
-          cd "$GITHUB_WORKSPACE"/main/
+#          cd "$GITHUB_WORKSPACE"/main/
           . devtools/gh-actions/initialize_conda.sh
           conda activate test
-          pytest --verbose --cov=qcsubmit/ --cov-config=setup.cfg qcsubmit/tests/ --cov-report=xml
+          pytest -v --cov=qcsubmit/ --cov-config=setup.cfg qcsubmit/tests/ --cov-report=xml
 
       - name: Codecov
         uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: true
