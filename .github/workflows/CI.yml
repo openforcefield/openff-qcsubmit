@@ -39,15 +39,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-#        with:
-#          path: main
-#
-#      - name: Checkout openforcefield
-#        uses: actions/checkout@master
-#        with:
-#          repository: openforcefield/openforcefield
-#          path: openforcefield
-
       - name: Additional info about the build
         shell: bash
         run: |
