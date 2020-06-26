@@ -3,9 +3,8 @@ Components that aid with Fragmentation of molecules.
 """
 from typing import Dict, List, Optional, Union
 
-from pydantic import validator
-
 from openforcefield.topology import Molecule
+from pydantic import validator
 
 from ..common_structures import TorsionIndexer
 from ..datasets import ComponentResult
@@ -71,14 +70,8 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
             return functional_group
 
-        else:
-            raise ValueError(
-                f"The given input is not supported please give the path to a file containing the "
-                f"functional group smarts."
-            )
-
-    @staticmethod
-    def is_available() -> bool:
+    @classmethod
+    def is_available(cls) -> bool:
         """
         Check if fragmenter can be imported.
         """
@@ -88,6 +81,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
             import openeye
 
             return True
+
         except ImportError:
             return False
 

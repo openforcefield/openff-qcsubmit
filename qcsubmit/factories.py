@@ -1,11 +1,10 @@
 import os
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
+import openforcefield.topology as off
 from pydantic import BaseModel, PositiveInt, constr, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
-
-import openforcefield.topology as off
 
 from . import workflow_components
 from .common_structures import ClientHandler, Metadata
@@ -17,13 +16,16 @@ from .datasets import (
 )
 from .exceptions import (
     CompoenentRequirementError,
-    DatasetInputError,
+    DihedralConnectionError,
     DriverError,
     InvalidWorkflowComponentError,
+    LinearTorsionError,
     MissingWorkflowComponentError,
+    MolecularComplexError,
 )
 from .procedures import GeometricProcedure
 from .serializers import deserialize, serialize
+from .validators import scf_property_validator
 
 
 class BasicDatasetFactory(ClientHandler, BaseModel):
@@ -68,34 +70,30 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         "rdkit",
     ]  # a list of mm programs which require cmiles in the extras
 
+    _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(
+        scf_property_validator
+    )
+
     class Config:
         validate_assignment: bool = True
         arbitrary_types_allowed: bool = True
         title: str = "QCFractalDatasetFactory"
 
-    @validator("scf_properties")
-    def _check_scf_props(cls, scf_props):
-        """Make sure wiberg_lowdin_indices is always included in the scf props."""
+    def _get_molecular_complex_info(self) -> Dict[str, Any]:
+        """
+        Make a molecular complex dummy filter
 
-        allowed_properties = [
-            "dipole",
-            "quadrupole",
-            "mulliken_charges",
-            "lowdin_charges",
-            "wiberg_lowdin_indices",
-            "mayer_indices",
-        ]
-        for prop in scf_props:
-            if prop not in allowed_properties:
-                raise DatasetInputError(
-                    f"The scf property {prop} is not a valid option please choose from {allowed_properties}."
-                )
-
-        if "wiberg_lowdin_indices" not in scf_props:
-            scf_props.append("wiberg_lowdin_indices")
-            return scf_props
-        else:
-            return scf_props
+        Returns:
+            A dictionary to collect any molecules which are molecular complexes and should be removed.
+        """
+        return {
+            "component_name": "MolecularComplexRemoval",
+            "component_description": {
+                "component_description": "Remove any molecules which are complexes.",
+            },
+            "component_provenance": self.provenance(),
+            "molecules": [],
+        }
 
     def provenance(self) -> Dict[str, str]:
         """
@@ -511,6 +509,9 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
                     component_provenance=workflow_molecules.component_provenance,
                 )
 
+        # get a molecular complex filter
+        molecular_complex = self._get_molecular_complex_info()
+
         # now add the molecules to the correct attributes
         for molecule in workflow_molecules.molecules:
             # order the molecule
@@ -528,13 +529,20 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             keywords = molecule.properties.get("keywords", None)
 
             # now submit the molecule
-            dataset.add_molecule(
-                index=self.create_index(molecule=order_mol),
-                molecule=order_mol,
-                attributes=attributes,
-                extras=extras if bool(extras) else None,
-                keywords=keywords,
-            )
+            try:
+                dataset.add_molecule(
+                    index=self.create_index(molecule=order_mol),
+                    molecule=order_mol,
+                    attributes=attributes,
+                    extras=extras if bool(extras) else None,
+                    keywords=keywords,
+                )
+            except MolecularComplexError:
+                molecular_complex["molecules"].append(molecule)
+
+        # add the complexes if there are any
+        if molecular_complex["molecules"]:
+            dataset.filter_molecules(**molecular_complex)
 
         return dataset
 
@@ -770,6 +778,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             "molecules": [],
         }
 
+        molecular_complex = self._get_molecular_complex_info()
+
         # first we need to instance the dataset and assign the metadata
         object_meta = self.dict(exclude={"workflow"})
 
@@ -799,9 +809,6 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         # now add the molecules to the correct attributes
         for molecule in workflow_molecules.molecules:
 
-            # check if there are any linear torsions in the molecule
-            linear_bonds = self._detect_linear_torsions(molecule)
-
             # check for extras and keywords
             extras = molecule.properties.get("extras", {})
             keywords = molecule.properties.get("keywords", {})
@@ -817,48 +824,27 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             if "dihedrals" in molecule.properties:
                 # first do 1-D torsions
                 for dihedral in molecule.properties["dihedrals"].get_dihedrals:
-
-                    # check for linear torsions in 1 and 2-D torsions
-                    if (
-                        dihedral.__class__.__name__ == "SingleTorsion"
-                        or dihedral.__class__.__name__ == "DoubleTorsion"
-                    ):
-                        if dihedral.__class__.__name__ == "SingleTorsion":
-                            central_bond = [
-                                dihedral.central_bond,
-                            ]
-                        else:
-                            central_bond = dihedral.central_bond
-                        for bond in central_bond:
-                            if bond in linear_bonds or bond[::-1] in linear_bonds:
-                                linear_torsions["molecules"].append(molecule)
-                                break
-                        for torsion in dihedral.get_dihedrals:
-                            # check for unconnected torsions
-                            if not self._check_torsion_connection(torsion, molecule):
-                                unconnected_torsions["molecules"].append(molecule)
-                                break
-                    # else this is an improper so check it
-                    elif not self._check_improper_connection(
-                        dihedral.improper, molecule
-                    ):
-                        unconnected_torsions["molecules"].append(molecule)
-                        break
-
                     # create the index
                     molecule.properties["atom_map"] = dihedral.get_atom_map
                     index = self.create_index(molecule=molecule)
                     del molecule.properties["atom_map"]
 
                     keywords["dihedral_ranges"] = dihedral.get_scan_range
-                    dataset.add_molecule(
-                        index=index,
-                        molecule=molecule,
-                        attributes=attributes,
-                        dihedrals=dihedral.get_dihedrals,
-                        keywords=keywords,
-                        extras=extras,
-                    )
+                    try:
+                        dataset.add_molecule(
+                            index=index,
+                            molecule=molecule,
+                            attributes=attributes,
+                            dihedrals=dihedral.get_dihedrals,
+                            keywords=keywords,
+                            extras=extras,
+                        )
+                    except DihedralConnectionError:
+                        unconnected_torsions["molecules"].append(molecule)
+                    except LinearTorsionError:
+                        linear_torsions["molecules"].append(molecule)
+                    except MolecularComplexError:
+                        molecular_complex["molecules"].append(molecule)
 
             else:
                 # the molecule has not had its atoms identified yet so process them here
@@ -872,19 +858,29 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                     order_mol.properties["atom_map"] = dict(
                         (atom, index) for index, atom in enumerate(torsion_index)
                     )
-                    dataset.add_molecule(
-                        index=self.create_index(molecule=order_mol),
-                        molecule=order_mol,
-                        attributes=attributes,
-                        dihedrals=[torsion_index],
-                        extras=extras,
-                        keywords=keywords,
-                    )
+                    try:
+                        dataset.add_molecule(
+                            index=self.create_index(molecule=order_mol),
+                            molecule=order_mol,
+                            attributes=attributes,
+                            dihedrals=[torsion_index],
+                            extras=extras,
+                            keywords=keywords,
+                        )
+                    except DihedralConnectionError:
+                        unconnected_torsions["molecules"].append(molecule)
+                    except LinearTorsionError:
+                        linear_torsions["molecules"].append(molecule)
+                    except MolecularComplexError:
+                        molecular_complex["molecules"].append(molecule)
 
         # now we need to filter the linear molecules
         dataset.filter_molecules(**linear_torsions)
         # and we need to filter any molecules with unconnected torsions
         dataset.filter_molecules(**unconnected_torsions)
+        # add molecular complex errors
+        if molecular_complex["molecules"]:
+            dataset.filter_molecules(**molecular_complex)
 
         return dataset
 
@@ -919,57 +915,6 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             torsion.insert(i, atom.molecule_atom_index)
 
         return tuple(torsion)
-
-    def _check_torsion_connection(
-        self, torsion: Tuple[int, int, int, int], molecule: off.Molecule
-    ) -> bool:
-        """
-        Check that the given torsion indices create a connected torsion in the molecule.
-
-        Parameters:
-            torsion: The torsion indices thats should be checked.
-            molecule: The molecule which we want to check the torsion in.
-
-        Returns:
-            `True` if the torsion is valid and connected else `False`.
-        """
-
-        for i in range(3):
-            # get the atoms to be checked
-            atoms = [torsion[i], torsion[i + 1]]
-            try:
-                _ = molecule.get_bond_between(*atoms)
-            except (off.topology.NotBondedError, IndexError):
-                # catch both notbonded errors and tags on atoms not in the molecule
-                return False
-
-        return True
-
-    def _check_improper_connection(
-        self, improper: Tuple[int, int, int, int], molecule: off.Molecule
-    ) -> bool:
-        """
-        Check that the given improper is part of the molecule, this makes sure that all atoms are connected to the
-        central atom.
-
-        Parameters:
-            improper: The imporper torsion that should be checked.
-            molecule: The molecule which we want to check the improper in.
-
-        Returns:
-            `True` if the improper is valid else `False`.
-        """
-
-        for atom_index in improper:
-            atom = molecule.atoms[atom_index]
-            bonded_atoms = set()
-            for neighbour in atom.bonded_atoms:
-                bonded_atoms.add(neighbour.molecule_atom_index)
-            # if the set has three common atoms this is the central atom of an improper
-            if len(bonded_atoms.intersection(set(improper))) == 3:
-                return True
-
-        return False
 
     def create_index(self, molecule: off.Molecule) -> str:
         """
@@ -1009,7 +954,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
         # this is based on the past submissions to QCarchive which have failed
         # highlight the central bond of a linear torsion
-        linear_smarts = "[*!D1:1]-,#[$(*#*)&D2:2]"
+        linear_smarts = "[*!D1:1]~[$(*#*)&D2,$(C=*)&D2:2]"
 
         matches = molecule.chemical_environment_matches(linear_smarts)
 

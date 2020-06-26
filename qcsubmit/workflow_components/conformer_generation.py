@@ -1,6 +1,7 @@
 from typing import List
 
 from openforcefield.topology import Molecule
+
 from qcsubmit.datasets import ComponentResult
 
 from .base_component import CustomWorkflowComponent, ToolkitValidator

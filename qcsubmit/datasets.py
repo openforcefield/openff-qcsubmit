@@ -3,13 +3,12 @@ import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
+import openforcefield.topology as off
 import qcelemental as qcel
 import qcportal as ptl
 from pydantic import PositiveInt, constr, validator
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from simtk import unit
-
-import openforcefield.topology as off
 
 from .common_structures import (
     ClientHandler,
@@ -20,11 +19,20 @@ from .common_structures import (
 )
 from .exceptions import (
     DatasetInputError,
+    DihedralConnectionError,
     MissingBasisCoverageError,
     UnsupportedFiletypeError,
 )
 from .procedures import GeometricProcedure
 from .results import SingleResult
+from .validators import (
+    check_improper_connection,
+    check_linear_torsions,
+    check_torsion_connection,
+    check_valence_connectivity,
+    cmiles_validator,
+    scf_property_validator,
+)
 
 
 class ComponentResult:
@@ -222,37 +230,70 @@ class DatasetEntry(DatasetConfig):
     extras: Optional[Dict[str, Any]] = {}
     keywords: Optional[Dict[str, Any]] = {}
 
+    _attribute_validator = validator("attributes", allow_reuse=True)(cmiles_validator)
+    _qcel_molecule_validator = validator(
+        "initial_molecules", allow_reuse=True, each_item=True
+    )(check_valence_connectivity)
+
     def __init__(self, off_molecule: off.Molecule = None, **kwargs):
         """
         Init the dataclass handling conversions of the molecule first.
         This is needed to make sure the extras are passed into the qcschema molecule.
         """
+
+        dihedrals_validated = False
         extras = kwargs["extras"]
         # if we get an off_molecule we need to convert it
         if off_molecule is not None:
             if off_molecule.n_conformers == 0:
                 off_molecule.generate_conformers(n_conformers=1)
-            # TODO add extras here when we can
             schema_mols = [
                 off_molecule.to_qcschema(conformer=conformer, extras=extras)
                 for conformer in range(off_molecule.n_conformers)
             ]
             kwargs["initial_molecules"] = schema_mols
 
+            # the molecule may have a torsion index on it
+            if "dihedrals" in off_molecule.properties:
+                # use the indexer class to dictate the check
+                for dihedral in off_molecule.properties["dihedrals"].get_dihedrals:
+                    for torsion in dihedral.get_dihedrals:
+                        if (
+                            dihedral.__class__.__name__ == "SingleTorsion"
+                            or dihedral.__class__.__name__ == "DoubleTorsion"
+                        ):
+                            check_torsion_connection(torsion, off_molecule)
+                        else:
+                            check_improper_connection(torsion, off_molecule)
+                        # always check linear
+                        check_linear_torsions(torsion, off_molecule)
+
+                    kwargs["dihedrals"] = dihedral.get_dihedrals
+                    dihedrals_validated = True
+
         super().__init__(**kwargs)
+        # now validate the torsions check proper first
+        if self.dihedrals is not None and not dihedrals_validated:
+            if off_molecule is None:
+                off_molecule = self.off_molecule
 
-    @validator("attributes")
-    def _check_cmiles(cls, attributes):
-        """
-        Make sure that the explicit hydrogen mapped smiles is in the attributes.
-        """
-
-        if "canonical_isomeric_explicit_hydrogen_mapped_smiles" not in attributes:
-            raise DatasetInputError(
-                "The attributes do not contain valid cmiles identifiers make sure they are"
-                "generated first."
-            )
-        return attributes
+            # now validate the dihedrals
+            for torsion in self.dihedrals:
+                # check for linear torsions
+                check_linear_torsions(torsion, off_molecule)
+                try:
+                    check_torsion_connection(torsion=torsion, molecule=off_molecule)
+                except DihedralConnectionError:
+                    # if this fails as well raise
+                    try:
+                        check_improper_connection(
+                            improper=torsion, molecule=off_molecule
+                        )
+                    except DihedralConnectionError:
+                        raise DihedralConnectionError(
+                            f"The dihedral {torsion} for molecule {off_molecule} is not a valid"
+                            f" proper/improper torsion."
+                        )
 
     @property
     def off_molecule(self) -> off.Molecule:
@@ -336,6 +377,10 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
     filtered_molecules: Dict[str, FilterEntry] = {}
     _file_writers = {"json": json.dump}
 
+    _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(
+        scf_property_validator
+    )
+
     def __init__(self, **kwargs):
         """
         Make sure the metadata has been assigned correctly if not autofill some information.
@@ -353,37 +398,19 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         if self.metadata.long_description is None:
             self.metadata.long_description = self.description
 
-    @validator("scf_properties")
-    def _check_scf_props(cls, scf_props):
-        """Make sure wiberg_lowdin_indices is always included in the scf props."""
-
-        allowed_properties = [
-            "dipole",
-            "quadrupole",
-            "mulliken_charges",
-            "lowdin_charges",
-            "wiberg_lowdin_indices",
-            "mayer_indices",
-        ]
-        for prop in scf_props:
-            if prop not in allowed_properties:
-                raise DatasetInputError(
-                    f"The scf property {prop} is not a valid option please choose from {allowed_properties}."
-                )
-
-        if "wiberg_lowdin_indices" not in scf_props:
-            scf_props.append("wiberg_lowdin_indices")
-            return scf_props
-        else:
-            return scf_props
-
     def get_molecule_entry(self, molecule: Union[off.Molecule, str]) -> List[str]:
         """
         Search through the dataset for a molecule and return the dataset index of any exact molecule matches.
 
         Parameters:
             molecule: The smiles string for the molecule or an openforcefield.topology.Molecule that is to be searched for.
+
+        Returns:
+            A list of dataset indices which contain the target molecule.
         """
+        # if we have a smiles string convert it
+        if isinstance(molecule, str):
+            molecule = off.Molecule.from_smiles(molecule, allow_undefined_stereo=True)
 
         hits = [
             entry.index

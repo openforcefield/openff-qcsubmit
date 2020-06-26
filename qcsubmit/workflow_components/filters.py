@@ -4,14 +4,14 @@ File containing the filters workflow components.
 import re
 from typing import Dict, List, Optional, Set, Union
 
-from pydantic import validator
-
 from openforcefield.topology import Molecule
 from openforcefield.typing.chemistry.environment import (
     ChemicalEnvironment,
     SMIRKSParsingError,
 )
 from openforcefield.typing.engines.smirnoff import ForceField
+from pydantic import validator
+
 from qcsubmit.common_structures import TorsionIndexer
 from qcsubmit.datasets import ComponentResult
 
@@ -52,16 +52,12 @@ class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        from simtk import unit
+        from rdkit.Chem import Descriptors
 
         result = self._create_result()
         for molecule in molecules:
-            total_weight = sum(
-                [
-                    atom.element.mass.value_in_unit(unit.daltons)
-                    for atom in molecule.atoms
-                ]
-            )
+
+            total_weight = Descriptors.ExactMolWt(molecule.to_rdkit())
 
             if self.minimum_weight < total_weight < self.maximum_weight:
                 result.add_molecule(molecule)
