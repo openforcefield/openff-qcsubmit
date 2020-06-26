@@ -4,7 +4,7 @@ channels:
   - conda-forge
   - omnia
   - defaults
-  - psi4
+  - psi4/label/dev
 
 dependencies:
     # Base depends

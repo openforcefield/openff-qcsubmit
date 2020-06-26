@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import openforcefield.topology as off
 from pydantic import BaseModel, PositiveInt, constr, validator
@@ -21,6 +21,7 @@ from .exceptions import (
     InvalidWorkflowComponentError,
     LinearTorsionError,
     MissingWorkflowComponentError,
+    MolecularComplexError,
 )
 from .procedures import GeometricProcedure
 from .serializers import deserialize, serialize
@@ -77,6 +78,22 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         validate_assignment: bool = True
         arbitrary_types_allowed: bool = True
         title: str = "QCFractalDatasetFactory"
+
+    def _get_molecular_complex_info(self) -> Dict[str, Any]:
+        """
+        Make a molecular complex dummy filter
+
+        Returns:
+            A dictionary to collect any molecules which are molecular complexes and should be removed.
+        """
+        return {
+            "component_name": "MolecularComplexRemoval",
+            "component_description": {
+                "component_description": "Remove any molecules which are complexes.",
+            },
+            "component_provenance": self.provenance(),
+            "molecules": [],
+        }
 
     def provenance(self) -> Dict[str, str]:
         """
@@ -492,6 +509,9 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
                     component_provenance=workflow_molecules.component_provenance,
                 )
 
+        # get a molecular complex filter
+        molecular_complex = self._get_molecular_complex_info()
+
         # now add the molecules to the correct attributes
         for molecule in workflow_molecules.molecules:
             # order the molecule
@@ -509,13 +529,20 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             keywords = molecule.properties.get("keywords", None)
 
             # now submit the molecule
-            dataset.add_molecule(
-                index=self.create_index(molecule=order_mol),
-                molecule=order_mol,
-                attributes=attributes,
-                extras=extras if bool(extras) else None,
-                keywords=keywords,
-            )
+            try:
+                dataset.add_molecule(
+                    index=self.create_index(molecule=order_mol),
+                    molecule=order_mol,
+                    attributes=attributes,
+                    extras=extras if bool(extras) else None,
+                    keywords=keywords,
+                )
+            except MolecularComplexError:
+                molecular_complex["molecules"].append(molecule)
+
+        # add the complexes if there are any
+        if molecular_complex["molecules"]:
+            dataset.filter_molecules(**molecular_complex)
 
         return dataset
 
@@ -751,6 +778,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             "molecules": [],
         }
 
+        molecular_complex = self._get_molecular_complex_info()
+
         # first we need to instance the dataset and assign the metadata
         object_meta = self.dict(exclude={"workflow"})
 
@@ -814,6 +843,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                         unconnected_torsions["molecules"].append(molecule)
                     except LinearTorsionError:
                         linear_torsions["molecules"].append(molecule)
+                    except MolecularComplexError:
+                        molecular_complex["molecules"].append(molecule)
 
             else:
                 # the molecule has not had its atoms identified yet so process them here
@@ -840,11 +871,16 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                         unconnected_torsions["molecules"].append(molecule)
                     except LinearTorsionError:
                         linear_torsions["molecules"].append(molecule)
+                    except MolecularComplexError:
+                        molecular_complex["molecules"].append(molecule)
 
         # now we need to filter the linear molecules
         dataset.filter_molecules(**linear_torsions)
         # and we need to filter any molecules with unconnected torsions
         dataset.filter_molecules(**unconnected_torsions)
+        # add molecular complex errors
+        if molecular_complex["molecules"]:
+            dataset.filter_molecules(**molecular_complex)
 
         return dataset
 

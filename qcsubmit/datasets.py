@@ -29,6 +29,7 @@ from .validators import (
     check_improper_connection,
     check_linear_torsions,
     check_torsion_connection,
+    check_valence_connectivity,
     cmiles_validator,
     scf_property_validator,
 )
@@ -230,6 +231,9 @@ class DatasetEntry(DatasetConfig):
     keywords: Optional[Dict[str, Any]] = {}
 
     _attribute_validator = validator("attributes", allow_reuse=True)(cmiles_validator)
+    _qcel_molecule_validator = validator(
+        "initial_molecules", allow_reuse=True, each_item=True
+    )(check_valence_connectivity)
 
     def __init__(self, off_molecule: off.Molecule = None, **kwargs):
         """

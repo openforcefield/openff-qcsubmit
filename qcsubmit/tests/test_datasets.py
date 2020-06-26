@@ -232,6 +232,30 @@ def test_dataset_dihedral_validation(ethanol_data):
         assert dataset.n_molecules == 1
 
 
+def test_dataset_valence_validator():
+    """
+    Make sure a warning about the valence of a molecule with a net charge is produced.
+    """
+    import warnings
+    dataset = BasicDataset()
+    charged_molecules = Molecule.from_file(get_data("charged_molecules.smi"))
+    for molecule in charged_molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        with pytest.warns(UserWarning):
+            dataset.add_molecule(index=index, molecule=molecule, attributes=attributes)
+
+
+def test_molecular_complex_validator():
+    """
+    Make sure that molecular complexes are caught by the validator.
+    """
+
+    from qcsubmit.exceptions import MolecularComplexError
+    with pytest.raises(MolecularComplexError):
+        _ = BasicDataset.parse_file(get_data("molecular_complex.json"))
+
+
 def test_dataset_linear_dihedral_validator():
     """
     Make sure that dataset rejects molecules with tagged linear bonds.

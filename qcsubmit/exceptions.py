@@ -109,3 +109,12 @@ class LinearTorsionError(QCSubmitException):
 
     error_type = "linear_torsion_error"
     header = "Linear Torsion Error"
+
+
+class MolecularComplexError(QCSubmitException):
+    """
+    The molecule is a complex of two or more units.
+    """
+
+    error_type = "molecular_complex_error"
+    header = "Molecular Complex Error"
