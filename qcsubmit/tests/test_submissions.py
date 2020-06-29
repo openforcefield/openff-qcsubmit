@@ -45,7 +45,6 @@ def test_basic_submissions(fractal_compute_server, specification):
                                      tagline="Testing single point datasets",
                                      )
 
-
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client, await_result=False)
 
@@ -85,7 +84,6 @@ def test_basic_submissions(fractal_compute_server, specification):
             break
     else:
         raise RuntimeError(f"The requested compute was not found in the history {ds.data.history}")
-
 
 
     query = ds.get_records(

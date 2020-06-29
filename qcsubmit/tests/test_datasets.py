@@ -737,6 +737,43 @@ def test_Basicdataset_molecules_to_file(file_data):
                 assert data[i].strip() == result
 
 
+@pytest.mark.parametrize("toolkit_data", [
+    pytest.param(("openeye", None, False), id="openeye no highlights"),
+    pytest.param(("openeye", None, True), id="openeye with highlights"),
+    pytest.param(("rdkit", None, False), id="rdkit, no highlights"),
+    pytest.param(("rdkit", None, True), id="rdkit with highlights"),
+    pytest.param((None, None, False), id="Openeye by default."),
+    pytest.param(("bad_toolkit", ValueError, False), id="Bad toolkit name.")
+])
+def test_dataset_to_pdf_no_torsions(toolkit_data):
+    """
+    Test exporting molecules to pdf with no torsions.
+    """
+
+    dataset = BasicDataset()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    # add them to the dataset
+    toolkit, error, highlight = toolkit_data
+    for molecule in molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        if highlight:
+            first_dihedral = list(molecule.propers)[0]
+            # get the atomic numbers
+            dihedrals = [tuple([atom.molecule_atom_index for atom in first_dihedral])]
+        else:
+            dihedrals = None
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
+
+    with temp_directory():
+        # try and export the pdf file
+        if error:
+            with pytest.raises(error):
+                dataset.visualize(file_name="molecules.pdf", toolkit=toolkit)
+        else:
+            dataset.visualize(file_name="molecules.pdf", toolkit=toolkit)
+            
+
 @pytest.mark.parametrize("dataset_type", [
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
