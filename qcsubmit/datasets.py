@@ -846,6 +846,154 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
 
         return coverage
 
+    def visualize(self, file_name: str, toolkit: str = None) -> None:
+        """
+        Create a pdf file of the molecules with any torsions highlighted using either openeye or rdkit.
+
+        Parameters:
+            file_name: The name of the pdf file which will be produced.
+            toolkit: The option to specify the backend toolkit used to produce the pdf file.
+        """
+        from openforcefield.utils.toolkits import RDKIT_AVAILABLE, OPENEYE_AVAILABLE
+
+        toolkits = {
+            "openeye": (OPENEYE_AVAILABLE, self._create_openeye_pdf),
+            "rdkit": (RDKIT_AVAILABLE, self._create_rdkit_pdf),
+        }
+
+        if toolkit:
+            try:
+                _, pdf_func = toolkits[toolkit.lower()]
+                return pdf_func(file_name)
+            except KeyError:
+                raise ValueError(
+                    f"The requested toolkit backend: {toolkit} is not supported, chose from {toolkits.keys()}"
+                )
+
+        else:
+            for toolkit in toolkits:
+                available, pdf_func = toolkits[toolkit]
+                if available:
+                    return pdf_func(file_name)
+            raise ImportError(
+                f"No backend toolkit was found to generate the pdf please install openeye and/or rdkit."
+            )
+
+    def _create_openeye_pdf(self, file_name: str) -> None:
+        """
+        Make the pdf of the molecules use openeye.
+        """
+
+        from openeye import oedepict, oechem
+
+        itf = oechem.OEInterface()
+        suppress_h = True
+        rows = 10
+        cols = 4
+        ropts = oedepict.OEReportOptions(rows, cols)
+        ropts.SetHeaderHeight(25)
+        ropts.SetFooterHeight(25)
+        ropts.SetCellGap(2)
+        ropts.SetPageMargins(10)
+        report = oedepict.OEReport(ropts)
+        cellwidth, cellheight = report.GetCellWidth(), report.GetCellHeight()
+        opts = oedepict.OE2DMolDisplayOptions(
+            cellwidth, cellheight, oedepict.OEScale_Default * 0.5
+        )
+        opts.SetAromaticStyle(oedepict.OEAromaticStyle_Circle)
+        pen = oedepict.OEPen(oechem.OEBlack, oechem.OEBlack, oedepict.OEFill_On, 1.0)
+        opts.SetDefaultBondPen(pen)
+        oedepict.OESetup2DMolDisplayOptions(opts, itf)
+
+        # now we load the molecules
+        for data in self.dataset.values():
+            off_mol = data.off_molecule
+            off_mol.name = None
+            cell = report.NewCell()
+            mol = off_mol.to_openeye()
+            oedepict.OEPrepareDepiction(mol, False, suppress_h)
+            disp = oedepict.OE2DMolDisplay(mol, opts)
+
+            if data.dihedrals is not None:
+                # work out if we have a double or single torsion
+                if len(data.dihedrals) == 1:
+                    dihedrals = data.dihedrals[0]
+                    center_bonds = dihedrals[1:3]
+                else:
+                    # double torsion case
+                    dihedrals = [*data.dihedrals[0], *data.dihedrals[1]]
+                    center_bonds = [*data.dihedrals[0][1:3], *data.dihedrals[1][1:3]]
+
+                # Highlight element of interest
+                class NoAtom(oechem.OEUnaryAtomPred):
+                    def __call__(self, atom):
+                        return False
+
+                class AtomInTorsion(oechem.OEUnaryAtomPred):
+                    def __call__(self, atom):
+                        return atom.GetIdx() in dihedrals
+
+                class NoBond(oechem.OEUnaryBondPred):
+                    def __call__(self, bond):
+                        return False
+
+                class CentralBondInTorsion(oechem.OEUnaryBondPred):
+                    def __call__(self, bond):
+                        return (bond.GetBgn().GetIdx() in center_bonds) and (
+                            bond.GetEnd().GetIdx() in center_bonds
+                        )
+
+                atoms = mol.GetAtoms(AtomInTorsion())
+                bonds = mol.GetBonds(NoBond())
+                abset = oechem.OEAtomBondSet(atoms, bonds)
+                oedepict.OEAddHighlighting(
+                    disp,
+                    oechem.OEColor(oechem.OEYellow),
+                    oedepict.OEHighlightStyle_BallAndStick,
+                    abset,
+                )
+
+                atoms = mol.GetAtoms(NoAtom())
+                bonds = mol.GetBonds(CentralBondInTorsion())
+                abset = oechem.OEAtomBondSet(atoms, bonds)
+                oedepict.OEAddHighlighting(
+                    disp,
+                    oechem.OEColor(oechem.OEOrange),
+                    oedepict.OEHighlightStyle_BallAndStick,
+                    abset,
+                )
+
+            oedepict.OERenderMolecule(cell, disp)
+
+        oedepict.OEWriteReport(file_name, report)
+
+    def _create_rdkit_pdf(self, file_name: str) -> None:
+        """
+        Make the pdf of the molecules using rdkit.
+        """
+        from rdkit.Chem import AllChem, Draw
+
+        molecules = []
+        tagged_atoms = []
+        for data in self.dataset.values():
+            rdkit_mol = data.off_molecule.to_rdkit()
+            AllChem.Compute2DCoords(rdkit_mol)
+            molecules.append(rdkit_mol)
+            if data.dihedrals is not None:
+                tagged_atoms.extend(data.dihedrals)
+        # if no atoms are to be tagged set to None
+        if not tagged_atoms:
+            tagged_atoms = None
+
+        # now make the image
+        imagie = Draw.MolsToGridImage(
+            molecules,
+            molsPerRow=3,
+            subImgSize=(500, 500),
+            highlightAtomLists=tagged_atoms,
+        )
+        imagie.save(file_name)
+
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
         """
         Write the molecules to the requested file type.
