@@ -876,7 +876,7 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
                 if available:
                     return pdf_func(file_name)
             raise ImportError(
-                f"No backend toolkit was found to generate the pdf please install openeye or rdkit."
+                f"No backend toolkit was found to generate the pdf please install openeye and/or rdkit."
             )
 
     def _create_openeye_pdf(self, file_name: str) -> None:
