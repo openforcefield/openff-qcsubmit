@@ -22,7 +22,7 @@ from qcsubmit.testing import temp_directory
 from qcsubmit.utils import get_data
 
 
-def test_scf_properties():
+def test_scf_properties_asignment():
     """Test adding different scf_properties and make sure they are validated correctly."""
 
     factory = BasicDatasetFactory()
@@ -30,6 +30,24 @@ def test_scf_properties():
     # incorrect spellings
     with pytest.raises(DatasetInputError):
         factory.scf_properties = ["diapole", "qudrupole"]
+
+
+def test_adding_removing_scf_properties():
+    """
+    Test adding different scf_properties which should be passed through validation.
+    """
+
+    factory = BasicDatasetFactory()
+    # test strange caps
+    factory.scf_properties = ["QuaDruPole"]
+    factory.remove_scf_property(scf_property="QuaDruPole")
+    # test adding new property
+    factory.add_scf_property(scf_property="mulliken_charges")
+    # add the wrong property
+    with pytest.raises(DatasetInputError):
+        factory.add_scf_property(scf_property="FakeProperty")
+
+    assert factory.scf_properties == ["mulliken_charges"]
 
 
 @pytest.mark.parametrize("factory_type", [

@@ -67,12 +67,12 @@ def scf_property_validator(scf_property: str) -> str:
         "mayer_indices",
     ]
 
-    if scf_property not in allowed_properties:
+    if scf_property.lower() not in allowed_properties:
         raise DatasetInputError(
             f"The requested scf_property {scf_property} is not valid please chose from {allowed_properties}."
         )
 
-    return scf_property
+    return scf_property.lower()
 
 
 def check_improper_connection(

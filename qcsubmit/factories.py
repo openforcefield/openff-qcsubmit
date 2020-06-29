@@ -84,6 +84,32 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         arbitrary_types_allowed: bool = True
         title: str = "QCFractalDatasetFactory"
 
+    def add_scf_property(self, scf_property: str) -> None:
+        """
+        Add an scf_property to the list of scf_properties requested during a calculation.
+
+        Parameters:
+            scf_property: The name of the property which should be entered into the list.
+
+        Raises:
+            DatasetInputError: If the scf_property is not valid.
+        """
+
+        validated_property = scf_property_validator(scf_property)
+        if validated_property not in self.scf_properties:
+            self.scf_properties.append(validated_property)
+
+    def remove_scf_property(self, scf_property: str) -> None:
+        """
+        Remove an scf_property from the validated list.
+
+        Parameters:
+            scf_property: The name of the property which should be removed.
+        """
+        validated_property = scf_property_validator(scf_property)
+        if validated_property in self.scf_properties:
+            self.scf_properties.remove(validated_property)
+
     def _get_molecular_complex_info(self) -> Dict[str, Any]:
         """
         Make a molecular complex dummy filter
