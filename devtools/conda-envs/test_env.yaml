@@ -13,15 +13,17 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - openforcefield
+  - openforcefield >=0.7.0
   - openforcefields
   - smirnoff99Frosst
+  - py-cpuinfo <= 5 # remove pin when qcengine is fixed
   - pyyaml
   - codecov
   - qcportal
   - openeye-toolkits
   - qcfractal
   - torsiondrive
+  - fragmenter
 
     # Pip-only installs
   - pip:

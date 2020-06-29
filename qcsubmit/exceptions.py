@@ -91,3 +91,30 @@ class MissingBasisCoverageError(QCSubmitException):
 
     error_type = "missing_basis_coverage_error"
     header = "Missing Basis Coverage Error"
+
+
+class DihedralConnectionError(QCSubmitException):
+    """
+    The tagged dihedral is not connected on this molecule and should not be driven.
+    """
+
+    error_type = "dihedral_connection_error"
+    header = "Dihedral Connection Error"
+
+
+class LinearTorsionError(QCSubmitException):
+    """
+    The tagged dihedral involves a linear bond which should not be driven.
+    """
+
+    error_type = "linear_torsion_error"
+    header = "Linear Torsion Error"
+
+
+class MolecularComplexError(QCSubmitException):
+    """
+    The molecule is a complex of two or more units.
+    """
+
+    error_type = "molecular_complex_error"
+    header = "Molecular Complex Error"

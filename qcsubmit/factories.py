@@ -1,13 +1,10 @@
-import json
 import os
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import yaml
+import openforcefield.topology as off
 from pydantic import BaseModel, PositiveInt, constr, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
-
-import openforcefield.topology as off
 
 from . import workflow_components
 from .common_structures import ClientHandler, Metadata
@@ -19,13 +16,16 @@ from .datasets import (
 )
 from .exceptions import (
     CompoenentRequirementError,
-    DatasetInputError,
+    DihedralConnectionError,
     DriverError,
     InvalidWorkflowComponentError,
+    LinearTorsionError,
     MissingWorkflowComponentError,
-    UnsupportedFiletypeError,
+    MolecularComplexError,
 )
 from .procedures import GeometricProcedure
+from .serializers import deserialize, serialize
+from .validators import scf_property_validator
 
 
 class BasicDatasetFactory(ClientHandler, BaseModel):
@@ -75,38 +75,30 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         "rdkit",
     ]  # a list of mm programs which require cmiles in the extras
 
-    # hidden variable not included in the schema
-    _file_readers = {"json": json.load, "yaml": yaml.full_load, "yml": yaml.full_load}
-    _file_writers = {"json": json.dump, "yaml": yaml.dump, "yml": yaml.dump}
+    _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(
+        scf_property_validator
+    )
 
     class Config:
         validate_assignment: bool = True
         arbitrary_types_allowed: bool = True
         title: str = "QCFractalDatasetFactory"
 
-    @validator("scf_properties")
-    def _check_scf_props(cls, scf_props):
-        """Make sure wiberg_lowdin_indices is always included in the scf props."""
+    def _get_molecular_complex_info(self) -> Dict[str, Any]:
+        """
+        Make a molecular complex dummy filter
 
-        allowed_properties = [
-            "dipole",
-            "quadrupole",
-            "mulliken_charges",
-            "lowdin_charges",
-            "wiberg_lowdin_indices",
-            "mayer_indices",
-        ]
-        for prop in scf_props:
-            if prop not in allowed_properties:
-                raise DatasetInputError(
-                    f"The scf property {prop} is not a valid option please choose from {allowed_properties}."
-                )
-
-        if "wiberg_lowdin_indices" not in scf_props:
-            scf_props.append("wiberg_lowdin_indices")
-            return scf_props
-        else:
-            return scf_props
+        Returns:
+            A dictionary to collect any molecules which are molecular complexes and should be removed.
+        """
+        return {
+            "component_name": "MolecularComplexRemoval",
+            "component_description": {
+                "component_description": "Remove any molecules which are complexes.",
+            },
+            "component_provenance": self.provenance(),
+            "molecules": [],
+        }
 
     def provenance(self) -> Dict[str, str]:
         """
@@ -243,7 +235,7 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             self.clear_workflow()
 
         if isinstance(workflow, str):
-            workflow = self._read_file(workflow)
+            workflow = deserialize(workflow)
 
         if isinstance(workflow, dict):
             # this should be a workflow dict that we can just load
@@ -261,39 +253,6 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             if component is not None:
                 self.add_workflow_component(component.parse_obj(value))
 
-    def _read_file(self, file_name: str) -> Dict:
-        """
-        Method to help with file reading and returning the data object from the file.
-
-        Parameters:
-            file_name: The name of the file to be read.
-
-        Returns:
-            The dictionary representation of the json or yaml file.
-
-        Raises:
-            UnsupportedFiletypeError: The file give was not of the supported types ie json or yaml.
-            RuntimeError: The given file could not be found to be opened.
-        """
-
-        # check that the file exists
-        if os.path.exists(file_name):
-            file_type = self._get_file_type(file_name)
-            try:
-                reader = self._file_readers[file_type]
-                with open(file_name) as input_data:
-                    data = reader(input_data)
-
-                    return data
-
-            except KeyError:
-                raise UnsupportedFiletypeError(
-                    f"The requested file type {file_type} is not supported "
-                    f"currently we can write to {self._file_writers}."
-                )
-        else:
-            raise RuntimeError(f"The file {file_name} could not be found.")
-
     def export_workflow(self, file_name: str) -> None:
         """
         Export the workflow components and their settings to file so that they can be loaded latter.
@@ -305,36 +264,9 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             UnsupportedFiletypeError: If the file type is not supported.
         """
 
-        file_type = self._get_file_type(file_name=file_name)
-
-        # try and get the file writer
-        workflow = self.dict()["workflow"]
-        try:
-            writer = self._file_writers[file_type]
-            with open(file_name, "w") as output:
-                if file_type == "json":
-                    writer(workflow, output, indent=2)
-                else:
-                    writer(workflow, output)
-        except KeyError:
-            raise UnsupportedFiletypeError(
-                f"The requested file type {file_type} is not supported, "
-                f"currently we can write to {self._file_writers}."
-            )
-
-    def _get_file_type(self, file_name: str) -> str:
-        """
-        Helper function to work out the file type being requested from the file name.
-
-        Parameters:
-            file_name: The name of the file from which we should work out the file type.
-
-        Returns:
-            The file type extension.
-        """
-
-        file_type = file_name.split(".")[-1]
-        return file_type
+        # grab only the workflow
+        workflow = self.dict(include={"workflow"})
+        serialize(serializable=workflow, file_name=file_name)
 
     def export_settings(self, file_name: str) -> None:
         """
@@ -347,23 +279,10 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             UnsupportedFiletypeError: When the file type requested is not supported.
         """
 
-        file_type = self._get_file_type(file_name=file_name)
-
-        # try and get the file writer
-        try:
-            writer = self._file_writers[file_type]
-            with open(file_name, "w") as output:
-                if file_type == "json":
-                    writer(self.dict(), output, indent=2)
-                else:
-                    data = self.dict(exclude={"driver"})
-                    data["driver"] = self.driver.value
-                    writer(data, output)
-        except KeyError:
-            raise UnsupportedFiletypeError(
-                f"The requested file type {file_type} is not supported, "
-                f"currently we can write to {self._file_writers}."
-            )
+        # yaml type driver fix
+        data = self.dict(exclude={"driver"})
+        data["driver"] = self.driver.value
+        serialize(serializable=data, file_name=file_name)
 
     def import_settings(
         self, settings: Union[str, Dict], clear_workflow: bool = True
@@ -378,7 +297,7 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         """
 
         if isinstance(settings, str):
-            data = self._read_file(settings)
+            data = deserialize(settings)
 
             # take the workflow out and import the settings
             workflow = data.pop("workflow")
@@ -483,7 +402,7 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
 
         #  check if we have been given an input file with molecules inside
         if isinstance(molecules, str):
-            if os.path.exists(molecules):
+            if os.path.isfile(molecules):
                 workflow_molecules = ComponentResult(
                     component_name=self.Config.title,
                     component_description={"component_name": self.Config.title},
@@ -491,12 +410,20 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
                     input_file=molecules,
                 )
 
+            elif os.path.isdir(molecules):
+                workflow_molecules = ComponentResult(
+                    component_name=self.Config.title,
+                    component_description={"component_name": self.Config.title},
+                    component_provenance=self.provenance(),
+                    input_directory=molecules,
+                )
+
         elif isinstance(molecules, off.Molecule):
             workflow_molecules = ComponentResult(
                 component_name=self.Config.title,
                 component_description={"component_name": self.Config.title},
                 component_provenance=self.provenance(),
-                molecules=[molecules],
+                molecules=[molecules,],
             )
 
         else:
@@ -587,6 +514,9 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
                     component_provenance=workflow_molecules.component_provenance,
                 )
 
+        # get a molecular complex filter
+        molecular_complex = self._get_molecular_complex_info()
+
         # now add the molecules to the correct attributes
         for molecule in workflow_molecules.molecules:
             # order the molecule
@@ -604,13 +534,20 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             keywords = molecule.properties.get("keywords", None)
 
             # now submit the molecule
-            dataset.add_molecule(
-                index=self.create_index(molecule=order_mol),
-                molecule=order_mol,
-                attributes=attributes,
-                extras=extras if bool(extras) else None,
-                keywords=keywords,
-            )
+            try:
+                dataset.add_molecule(
+                    index=self.create_index(molecule=order_mol),
+                    molecule=order_mol,
+                    attributes=attributes,
+                    extras=extras if bool(extras) else None,
+                    keywords=keywords,
+                )
+            except MolecularComplexError:
+                molecular_complex["molecules"].append(molecule)
+
+        # add the complexes if there are any
+        if molecular_complex["molecules"]:
+            dataset.filter_molecules(**molecular_complex)
 
         return dataset
 
@@ -803,14 +740,12 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
         Note:
             The torsiondrive dataset allows for multiple starting geometries.
+            If fragmentation is used each molecule in the dataset will have the torsion indexes already set else indexes
+            are generated for each rotatable torsion in the molecule.
 
         Important:
             Any molecules with linear torsions identified for torsion driving will be removed and failed from the
             workflow.
-
-        Important:
-            If fragmentation is used each molecule in the dataset will have the torsion indexes already set else indexes
-            are generated for each rotatable torsion in the molecule.
 
         Parameters:
              dataset_name: The name that will be given to the collection on submission to an archive instance.
@@ -848,6 +783,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             "molecules": [],
         }
 
+        molecular_complex = self._get_molecular_complex_info()
+
         # first we need to instance the dataset and assign the metadata
         object_meta = self.dict(exclude={"workflow"})
 
@@ -877,70 +814,42 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         # now add the molecules to the correct attributes
         for molecule in workflow_molecules.molecules:
 
-            # check if there are any linear torsions in the molecule
-            linear_bonds = self._detect_linear_torsions(molecule)
-
             # check for extras and keywords
             extras = molecule.properties.get("extras", {})
             keywords = molecule.properties.get("keywords", {})
 
-            # check if the molecule has an atom map or dihedrals defined
-            if "atom_map" in molecule.properties:
-                # we need to check the map and convert it to use the dihedrals method
-                if (
-                    len(molecule.properties["atom_map"]) == 4
-                    or len(molecules.properties["atom_map"]) == 8
-                ):
-                    # the map is for the correct amount of atoms
-                    atom_map = molecule.properties.pop("atom_map")
-                    molecule.properties["dihedrals"] = {tuple(atom_map.keys()): None}
-
             # make the general attributes
             attributes = self.create_cmiles_metadata(molecule=molecule)
+            if self.program in self._mm_programs:
+                extras[
+                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                ] = attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
 
             # now check for the dihedrals
             if "dihedrals" in molecule.properties:
-                for dihedral, dihedral_range in molecule.properties[
-                    "dihedrals"
-                ].items():
-                    # check for a 2d torsion scan
-                    if len(dihedral) == 8:
-                        # create the dihedrals list of tuples
-                        dihedrals = [tuple(dihedral[0:4]), tuple(dihedral[4:8])]
-                    elif len(dihedral) == 4:
-                        dihedrals = [dihedral]
-                    else:
-                        continue
+                # first do 1-D torsions
+                for dihedral in molecule.properties["dihedrals"].get_dihedrals:
+                    # create the index
+                    molecule.properties["atom_map"] = dihedral.get_atom_map
+                    index = self.create_index(molecule=molecule)
+                    del molecule.properties["atom_map"]
 
-                    for torsion in dihedrals:
-                        # check for linear torsions
-                        if (
-                            torsion[1:3] in linear_bonds
-                            or torsion[2:0:-1] in linear_bonds
-                        ):
-                            linear_torsions["molecules"].append(molecule)
-                            break
-                        # check for unconnected torsions
-                        elif not self._check_torsion_connection(torsion, molecule):
-                            unconnected_torsions["molecules"].append(molecule)
-                            break
-                    else:
-                        # create the index
-                        molecule.properties["atom_map"] = dict(
-                            (atom, i) for i, atom in enumerate(dihedral)
-                        )
-                        index = self.create_index(molecule=molecule)
-                        del molecule.properties["atom_map"]
-
-                        keywords["dihedral_ranges"] = dihedral_range
+                    keywords["dihedral_ranges"] = dihedral.get_scan_range
+                    try:
                         dataset.add_molecule(
                             index=index,
                             molecule=molecule,
                             attributes=attributes,
-                            dihedrals=dihedrals,
+                            dihedrals=dihedral.get_dihedrals,
                             keywords=keywords,
                             extras=extras,
                         )
+                    except DihedralConnectionError:
+                        unconnected_torsions["molecules"].append(molecule)
+                    except LinearTorsionError:
+                        linear_torsions["molecules"].append(molecule)
+                    except MolecularComplexError:
+                        molecular_complex["molecules"].append(molecule)
 
             else:
                 # the molecule has not had its atoms identified yet so process them here
@@ -954,19 +863,29 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                     order_mol.properties["atom_map"] = dict(
                         (atom, index) for index, atom in enumerate(torsion_index)
                     )
-                    dataset.add_molecule(
-                        index=self.create_index(molecule=order_mol),
-                        molecule=order_mol,
-                        attributes=attributes,
-                        dihedrals=[torsion_index],
-                        extras=extras,
-                        keywords=keywords,
-                    )
+                    try:
+                        dataset.add_molecule(
+                            index=self.create_index(molecule=order_mol),
+                            molecule=order_mol,
+                            attributes=attributes,
+                            dihedrals=[torsion_index],
+                            extras=extras,
+                            keywords=keywords,
+                        )
+                    except DihedralConnectionError:
+                        unconnected_torsions["molecules"].append(molecule)
+                    except LinearTorsionError:
+                        linear_torsions["molecules"].append(molecule)
+                    except MolecularComplexError:
+                        molecular_complex["molecules"].append(molecule)
 
         # now we need to filter the linear molecules
         dataset.filter_molecules(**linear_torsions)
         # and we need to filter any molecules with unconnected torsions
         dataset.filter_molecules(**unconnected_torsions)
+        # add molecular complex errors
+        if molecular_complex["molecules"]:
+            dataset.filter_molecules(**molecular_complex)
 
         return dataset
 
@@ -1001,31 +920,6 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             torsion.insert(i, atom.molecule_atom_index)
 
         return tuple(torsion)
-
-    def _check_torsion_connection(
-        self, torsion: Tuple[int, int, int, int], molecule: off.Molecule
-    ) -> bool:
-        """
-        Check that the given torsion indices create a connected torsion in the molecule.
-
-        Parameters:
-            torsion: The torsion indices thats should be checked.
-            molecule: The molecule which we want to check the torsion in.
-
-        Returns:
-            `True` if the torsion is valid and connected else `False`.
-        """
-
-        for i in range(3):
-            # get the atoms to be checked
-            atoms = [torsion[i], torsion[i + 1]]
-            try:
-                _ = molecule.get_bond_between(*atoms)
-            except (off.topology.NotBondedError, IndexError):
-                # catch both notbonded errors and tags on atoms not in the molecule
-                return False
-
-        return True
 
     def create_index(self, molecule: off.Molecule) -> str:
         """
@@ -1065,7 +959,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
         # this is based on the past submissions to QCarchive which have failed
         # highlight the central bond of a linear torsion
-        linear_smarts = "[*!D1:1]-,#[$(*#*)&D2:2]"
+        linear_smarts = "[*!D1:1]~[$(*#*)&D2,$(C=*)&D2:2]"
 
         matches = molecule.chemical_environment_matches(linear_smarts)
 

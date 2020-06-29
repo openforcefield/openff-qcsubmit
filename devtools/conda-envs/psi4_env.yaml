@@ -4,7 +4,7 @@ channels:
   - conda-forge
   - omnia
   - defaults
-  - psi4
+  - psi4/label/dev
 
 dependencies:
     # Base depends
@@ -14,17 +14,19 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - openforcefield
+  - openforcefield >=0.7.0
   - openforcefields
   - smirnoff99Frosst
+  - py-cpuinfo <= 5 # remove pin when qcengine is fixed
   - pyyaml
   - codecov
   - qcportal >=0.13.0
-  - qcengine >=0.14.0
+  - qcengine =0.14.0
   - psi4 >=1.3
   - openeye-toolkits
   - qcfractal >=0.13.0
   - torsiondrive
+  - fragmenter
 
     # Pip-only installs
   - pip:

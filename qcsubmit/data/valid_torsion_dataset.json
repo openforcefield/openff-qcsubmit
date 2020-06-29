@@ -1,0 +1,185 @@
+{
+  "dataset_name": "TorsionDriveDataset",
+  "dataset_tagline": "OpenForcefield TorsionDrives.",
+  "dataset_type": "TorsiondriveDataset",
+  "method": "B3LYP-D3BJ",
+  "basis": "DZVP",
+  "program": "psi4",
+  "maxiter": 200,
+  "driver": "gradient",
+  "scf_properties": [
+    "dipole",
+    "quadrupole",
+    "wiberg_lowdin_indices"
+  ],
+  "spec_name": "default",
+  "spec_description": "Standard OpenFF optimization quantum chemistry specification.",
+  "priority": "normal",
+  "description": "A TorsionDrive dataset using geometric.",
+  "dataset_tags": [
+    "openff"
+  ],
+  "compute_tag": "openff",
+  "metadata": {
+    "submitter": "joshuahorton",
+    "creation_date": "2020-06-23",
+    "collection_type": "TorsiondriveDataset",
+    "dataset_name": "TorsionDriveDataset",
+    "short_description": "OpenForcefield TorsionDrives.",
+    "long_description_url": null,
+    "long_description": "A TorsionDrive dataset using geometric.",
+    "elements": [
+      "H",
+      "C",
+      "O"
+    ]
+  },
+  "provenance": {},
+  "dataset": {
+    "test1": {
+      "index": "test1",
+      "initial_molecules": [
+        {
+          "schema_name": "qcschema_molecule",
+          "schema_version": 2,
+          "validated": true,
+          "symbols": [
+            "C",
+            "C",
+            "O",
+            "H",
+            "H",
+            "H",
+            "H",
+            "H",
+            "H"
+          ],
+          "geometry": [
+            0.0,
+            0.0,
+            0.0,
+            1.88972613,
+            0.0,
+            0.0,
+            3.77945225,
+            0.0,
+            0.0,
+            0.0,
+            -1.41729459,
+            0.0,
+            0.0,
+            1.41729459,
+            0.0,
+            -1.41729459,
+            0.0,
+            0.0,
+            1.88972613,
+            1.41729459,
+            0.0,
+            1.88972613,
+            -1.41729459,
+            0.0,
+            4.48809955,
+            1.22737714,
+            0.0
+          ],
+          "name": "C2H6O",
+          "molecular_charge": 0.0,
+          "molecular_multiplicity": 1,
+          "connectivity": [
+            [
+              0,
+              1,
+              1.0
+            ],
+            [
+              0,
+              3,
+              1.0
+            ],
+            [
+              0,
+              4,
+              1.0
+            ],
+            [
+              0,
+              5,
+              1.0
+            ],
+            [
+              1,
+              2,
+              1.0
+            ],
+            [
+              1,
+              6,
+              1.0
+            ],
+            [
+              1,
+              7,
+              1.0
+            ],
+            [
+              2,
+              8,
+              1.0
+            ]
+          ],
+          "fix_com": false,
+          "fix_orientation": false,
+          "provenance": {
+            "creator": "QCElemental",
+            "version": "v0.14.0",
+            "routine": "qcelemental.molparse.from_schema"
+          },
+          "extras": {}
+        }
+      ],
+      "attributes": {
+        "canonical_smiles": "CCO",
+        "canonical_isomeric_smiles": "CCO",
+        "canonical_explicit_hydrogen_smiles": "[H]C([H])([H])C([H])([H])O[H]",
+        "canonical_isomeric_explicit_hydrogen_smiles": "[H]C([H])([H])C([H])([H])O[H]",
+        "canonical_isomeric_explicit_hydrogen_mapped_smiles": "[H:4][C:1]([H:5])([H:6])[C:2]([H:7])([H:8])[O:3][H:9]",
+        "molecular_formula": "C2H6O",
+        "standard_inchi": "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3",
+        "inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"
+      },
+      "dihedrals": [
+        [
+          0,
+          1,
+          2,
+          8
+        ]
+      ],
+      "extras": {},
+      "keywords": {}
+    }
+  },
+  "filtered_molecules": {},
+  "optimization_procedure": {
+    "program": "geometric",
+    "coordsys": "tric",
+    "enforce": 0.1,
+    "epsilon": 0.0,
+    "reset": true,
+    "qccnv": true,
+    "molcnv": false,
+    "check": 0,
+    "trust": 0.1,
+    "tmax": 0.3,
+    "maxiter": 300,
+    "convergence_set": "GAU",
+    "constraints": {}
+  },
+  "grid_spacings": [
+    15
+  ],
+  "energy_upper_limit": 0.05,
+  "dihedral_ranges": null,
+  "energy_decrease_thresh": null
+}

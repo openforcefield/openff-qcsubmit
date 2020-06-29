@@ -2,19 +2,28 @@
 Unit test for the vairous dataset classes in the package.
 """
 
+from typing import Dict, Tuple
+
 import numpy as np
 import pytest
+from openforcefield.topology import Molecule
 from pydantic import ValidationError
 from simtk import unit
 
-from openforcefield.topology import Molecule
+from qcsubmit.common_structures import TorsionIndexer
 from qcsubmit.datasets import (
     BasicDataset,
     ComponentResult,
     OptimizationDataset,
     TorsiondriveDataset,
 )
-from qcsubmit.exceptions import DatasetInputError, MissingBasisCoverageError
+from qcsubmit.exceptions import (
+    DatasetInputError,
+    DihedralConnectionError,
+    LinearTorsionError,
+    MissingBasisCoverageError,
+)
+from qcsubmit.factories import BasicDatasetFactory
 from qcsubmit.testing import temp_directory
 from qcsubmit.utils import get_data
 
@@ -39,6 +48,47 @@ def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
             molecules.append(mol)
 
     return molecules
+
+
+def get_dhiedral(molecule: Molecule) -> Tuple[int, int, int, int]:
+    """
+    Get a valid dihedral for the molecule.
+    """
+    torsion = list(molecule.propers)[0]
+    dihedral = [atom.molecule_atom_index for atom in torsion]
+    return tuple(dihedral)
+
+
+def get_cmiles(molecule: Molecule) -> Dict[str, str]:
+    """
+    Generate a valid and full cmiles for the given molecule.
+    """
+
+    factory = BasicDatasetFactory()
+    return factory.create_cmiles_metadata(molecule)
+
+
+def test_componentresult_repr():
+    """
+    Make sure the __repr__ is working.
+    """
+    result = ComponentResult(component_name="Test deduplication", component_description={},
+                             component_provenance={},
+                             molecules=duplicated_molecules(include_conformers=False, duplicates=1))
+
+    assert repr(result) == "ComponentResult(name=Test deduplication, molecules=4, filtered=0)"
+
+
+def test_componentresult_str():
+    """
+    Make sure the __str__ is working.
+    """
+
+    result = ComponentResult(component_name="Test deduplication", component_description={},
+                             component_provenance={},
+                             molecules=duplicated_molecules(include_conformers=False, duplicates=1))
+
+    assert str(result) == "<ComponentResult name='Test deduplication' molecules='4' filtered='0'>"
 
 
 def test_componetresult_deduplication_standard():
@@ -116,6 +166,167 @@ def test_componentresult_deduplication_diff_coords(duplicates):
                     assert molecule.conformers[i].tolist() != molecule.conformers[j].tolist()
 
 
+def test_componentresult_deduplication_torsions_same_bond_same_coords():
+    """
+    Make sure that the same rotatable bond is not highlighted more than once when deduplicating molecules.
+    """
+
+    result = ComponentResult(component_name="Test deduplication", component_description={},
+                             component_provenance={})
+
+    molecules = [Molecule.from_file(get_data("methanol.sdf"), 'sdf')] * 3
+    ethanol_dihedrals = [(5, 1, 0, 2), (5, 1, 0, 3), (5, 1, 0, 4)]
+    for molecule, dihedral in zip(molecules, ethanol_dihedrals):
+        torsion_indexer = TorsionIndexer()
+        torsion_indexer.add_torsion(torsion=dihedral, scan_range=None)
+        molecule.properties["dihedrals"] = torsion_indexer
+        result.add_molecule(molecule)
+
+    # now make sure only one dihedral is selected
+    assert len(result.molecules) == 1
+    assert result.molecules[0].properties["dihedrals"].n_torsions == 1
+    # this checks the bond has been ordered
+    assert (0, 1) in result.molecules[0].properties["dihedrals"].torsions
+
+
+@pytest.mark.parametrize("ethanol_data", [
+    pytest.param(("ethanol.sdf", {"torsion": (8, 2, 1, 0)}, "torsion", None), id="correct torsion ethanol"),
+    pytest.param(("ethanol.sdf", {"torsion": (22, 23, 24, 100)}, "torsion", DihedralConnectionError),
+                 id="incorrect torsion ethanol"),
+    pytest.param(("ethanol.sdf", {"torsion": (7, 2, 1, 0)}, "torsion", DihedralConnectionError),
+                 id="incorrect torsion ethanol"),
+    pytest.param(("ethanol.sdf", {"torsion1": (8, 2, 1, 0), "torsion2": (4, 0, 1, 2)}, "double_torsion", None),
+                 id="correct double torsion ethanol"),
+    pytest.param(("ethanol.sdf", {"torsion1": (7, 2, 1, 0), "torsion2": (4, 0, 1, 2)}, "double_torsion",
+                  DihedralConnectionError), id="incorrect double torsion ethanol"),
+    pytest.param(("ethanol.sdf", {"improper": (3, 0, 4, 5), "central_atom": 0}, "improper", None),
+                 id="correct improper ethanol"),
+    pytest.param(("ethanol.sdf", {"improper": (7, 0, 4, 5), "central_atom": 0}, "improper", DihedralConnectionError),
+                 id="incorrect improper ethanol"),
+    pytest.param(("benzene.sdf", {"improper": (0, 1, 2, 7), "central_atom": 1}, "improper", None),
+                 id="correct improper benzene"),
+    pytest.param(("benzene.sdf", {"improper": (5, 0, 1, 2), "central_atom": 0}, "improper", DihedralConnectionError),
+                 id="correct improper benzene"),
+
+])
+def test_dataset_dihedral_validation(ethanol_data):
+    """
+    Test adding molecules to a dataset with different dihedrals, this will make sure that the dataset validators work.
+    """
+
+    dataset = TorsiondriveDataset()
+    molecule_file, torsion, torsion_type, error = ethanol_data
+    ethanol = Molecule.from_file(get_data(molecule_file))
+    torsion_indexer = TorsionIndexer()
+    method = f"add_{torsion_type}"
+    func = getattr(torsion_indexer, method)
+    func(**torsion)
+    ethanol.properties["dihedrals"] = torsion_indexer
+    attributes = get_cmiles(ethanol)
+    index = "test1"
+    if error is not None:
+        with pytest.raises(error):
+            dataset.add_molecule(index=index, molecule=ethanol, attributes=attributes)
+    else:
+        dataset.add_molecule(index=index, molecule=ethanol, attributes=attributes)
+        assert dataset.n_molecules == 1
+
+
+def test_dataset_valence_validator():
+    """
+    Make sure a warning about the valence of a molecule with a net charge is produced.
+    """
+    import warnings
+    dataset = BasicDataset()
+    charged_molecules = Molecule.from_file(get_data("charged_molecules.smi"))
+    for molecule in charged_molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        with pytest.warns(UserWarning):
+            dataset.add_molecule(index=index, molecule=molecule, attributes=attributes)
+
+
+def test_molecular_complex_validator():
+    """
+    Make sure that molecular complexes are caught by the validator.
+    """
+
+    from qcsubmit.exceptions import MolecularComplexError
+    with pytest.raises(MolecularComplexError):
+        _ = BasicDataset.parse_file(get_data("molecular_complex.json"))
+
+
+def test_dataset_linear_dihedral_validator():
+    """
+    Make sure that dataset rejects molecules with tagged linear bonds.
+    """
+
+    from qcsubmit.factories import TorsiondriveDatasetFactory
+    dataset = BasicDataset()
+    molecules = Molecule.from_file(get_data("linear_molecules.sdf"), allow_undefined_stereo=True)
+    factory = TorsiondriveDatasetFactory()
+    linear_smarts = "[*!D1:1]~[$(*#*)&D2,$(C=*)&D2:2]"
+
+    # for each molecule we want to tag each linear dihedral
+    for molecule in molecules:
+        matches = molecule.chemical_environment_matches(linear_smarts)
+        bond = molecule.get_bond_between(*matches[0])
+        dihedral = factory._get_torsion_string(bond)
+        attributes = get_cmiles(molecule)
+        torsion_indexer = TorsionIndexer()
+        torsion_indexer.add_torsion(torsion=dihedral)
+        molecule.properties["dihedrals"] = torsion_indexer
+        with pytest.raises(LinearTorsionError):
+            dataset.add_molecule(index="linear test", molecule=molecule, attributes=attributes)
+
+
+@pytest.mark.parametrize("dataset_data", [
+    pytest.param(("valid_torsion_dataset.json", None), id="valid torsion dataset"),
+    pytest.param(("invalid_torsion_dataset.json", DihedralConnectionError), id="invalid torsion dataset"),
+    pytest.param(("valid_double_torsion_dataset.json", None), id="valid double torsion dataset"),
+    pytest.param(("invalid_double_torsion_dataset.json", DihedralConnectionError), id="invalid double torsion dataset"),
+    pytest.param(("valid_improper_dataset.json", None), id="valid improper dataset"),
+    pytest.param(("invalid_improper_dataset.json", DihedralConnectionError), id="invalid improper dataset"),
+    pytest.param(("invalid_linear_dataset.json", LinearTorsionError), id="invalid linear dataset"),
+])
+def test_importing_dihedral_dataset(dataset_data):
+    """
+    Make sure that the dataset validators run when importing datasets.
+    """
+
+    dataset_name, error = dataset_data
+    if error is None:
+        dataset = TorsiondriveDataset.parse_file(get_data(dataset_name))
+        assert dataset.n_molecules == 1
+    else:
+        with pytest.raises(error):
+            _ = TorsiondriveDataset.parse_file(get_data(dataset_name))
+
+
+def test_componenetresult_deduplication_torsions_same_bond_different_coords():
+    """
+    Make sure that similar molecules with different coords but the same selected rotatable bonds are correctly handled.
+    """
+
+    result = ComponentResult(component_name="Test deduplication", component_description={},
+                             component_provenance={})
+
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
+    butane_dihedral = (0, 1, 2, 3)
+    for molecule in molecules:
+        torsion_indexer = TorsionIndexer()
+        torsion_indexer.add_torsion(torsion=butane_dihedral, scan_range=None)
+        molecule.properties["dihedrals"] = torsion_indexer
+        result.add_molecule(molecule)
+
+    assert len(result.molecules) == 1
+    assert result.molecules[0].n_conformers == 7
+    assert result.molecules[0].properties["dihedrals"].n_torsions == 1
+    assert result.n_molecules == 1
+    assert result.n_conformers == 7
+    assert result.n_filtered == 0
+
+
 def test_componentresult_deduplication_torsions_1d():
     """
     Make sure that any torsion index results are correctly transferred when deduplicating molecules.
@@ -126,15 +337,18 @@ def test_componentresult_deduplication_torsions_1d():
 
     duplicates = 2
     molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)
+    dihedrals = [((0, 1, 2, 3), (-165, 150)), ((1, 2, 3, 4), (0, 180))]
 
-    for molecule in molecules:
-        molecule.properties["dihedrals"] = {tuple(np.random.randint(low=0, high=7, size=4).tolist()): tuple(np.random.randint(low=-165, high=180, size=2).tolist())}
+    for i, molecule in enumerate(molecules):
+        torsion_indexer = TorsionIndexer()
+        torsion_indexer.add_torsion(*dihedrals[i % 2])
+        molecule.properties["dihedrals"] = torsion_indexer
 
         result.add_molecule(molecule)
 
     for molecule in result.molecules:
         assert "dihedrals" in molecule.properties
-        assert len(molecule.properties["dihedrals"]) == duplicates
+        assert molecule.properties["dihedrals"].n_torsions == duplicates
 
 
 def test_componentresult_deduplication_torsions_2d():
@@ -146,17 +360,129 @@ def test_componentresult_deduplication_torsions_2d():
                              component_provenance={})
 
     duplicates = 2
-    molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)
+    molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)[:2]
+    dihedrals = [((0, 1, 2, 3), (-165, 150)), ((1, 2, 3, 4), (0, 180))]
+    double_dihedrals = [((0, 1, 2, 3), (1, 2, 3, 4), (-165, 150), (0, 180)), ((1, 2, 3, 4), (5, 6, 7, 8), (125, 150), (-10, 180))]
+    for i, molecule in enumerate(molecules):
+        torsion_indexer = TorsionIndexer()
+        torsion_indexer.add_torsion(*dihedrals[i % 2])
 
-    for molecule in molecules:
-        molecule.properties["dihedrals"] = {tuple(np.random.randint(low=0, high=7, size=4).tolist()): tuple(np.random.randint(low=-165, high=180, size=2).tolist()),
-                                            (tuple(np.random.randint(low=0, high=7, size=4).tolist()), tuple(np.random.randint(low=0, high=7, size=4).tolist())): (tuple(np.random.randint(low=-165, high=180, size=2)), tuple(np.random.randint(low=-165, high=180, size=2)))}
+        torsion_indexer.add_double_torsion(*double_dihedrals[i % 2])
+
+        molecule.properties["dihedrals"] = torsion_indexer
 
         result.add_molecule(molecule)
 
     for molecule in result.molecules:
         assert "dihedrals" in molecule.properties
-        assert len(molecule.properties["dihedrals"]) == duplicates * 2
+        assert molecule.properties["dihedrals"].n_torsions == duplicates
+        assert molecule.properties["dihedrals"].n_double_torsions == duplicates
+
+
+def test_torsion_indexing_torsion():
+    """
+    Test the torsion indexer class.
+    """
+
+    torsion_indexer = TorsionIndexer()
+    # add a 1-D torsion
+    torsion_indexer.add_torsion((3, 2, 1, 0), (180, -165))
+    # make sure they have been ordered
+    assert (1, 2) in torsion_indexer.torsions
+    single_torsion = torsion_indexer.torsions[(1, 2)]
+    assert single_torsion.scan_range1 == (-165, 180)
+    assert single_torsion.get_dihedrals == [(0, 1, 2, 3), ]
+    assert single_torsion.get_scan_range == [(-165, 180), ]
+    assert single_torsion.get_atom_map == {0: 0, 1: 1, 2: 2, 3: 3}
+
+    assert torsion_indexer.n_torsions == 1
+
+
+def test_torsion_indexing_double():
+    """
+    Test the torsion indexer with double torsions.
+    """
+
+    torsion_indexer = TorsionIndexer()
+    # add a 2-D scan
+    torsion_indexer.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(0, 1, 2, 3), scan_range1=[40, -40],
+                                       scan_range2=[-165, 180])
+    # check the central bond was ordered
+    assert ((1, 2), (7, 8)) in torsion_indexer.double_torsions
+    double_torsion = torsion_indexer.double_torsions[((1, 2), (7, 8))]
+    assert double_torsion.scan_range1 == (-40, 40)
+    assert double_torsion.scan_range2 == (-165, 180)
+    assert double_torsion.get_dihedrals == [(6, 7, 8, 9), (0, 1, 2, 3)]
+    assert double_torsion.get_scan_range == [(-40, 40), (-165, 180)]
+    assert double_torsion.get_atom_map == {0: 4, 1: 5, 2: 6, 3: 7, 6: 0, 7: 1, 8: 2, 9: 3}
+    assert torsion_indexer.n_double_torsions == 1
+
+
+def test_torsion_indexing_improper():
+    """
+    Test the torsion indexer with improper torsions.
+    """
+
+    torsion_indexer = TorsionIndexer()
+    torsion_indexer.add_improper(1, (0, 1, 2, 3), scan_range=[40, -40])
+    assert 1 in torsion_indexer.imporpers
+    assert torsion_indexer.n_impropers == 1
+    torsion_indexer.add_improper(1, (3, 2, 1, 0), scan_range=[-60, 60], overwrite=True)
+    # make sure it was over writen
+    assert 1 in torsion_indexer.imporpers
+    assert torsion_indexer.n_impropers == 1
+    improper = torsion_indexer.imporpers[1]
+    assert improper.get_dihedrals == [(3, 2, 1, 0), ]
+    assert improper.get_scan_range == [(-60, 60), ]
+    assert improper.get_atom_map == {3: 0, 2: 1, 1: 2, 0: 3}
+
+
+def test_torsion_index_iterator():
+    """
+    Make sure the iterator combines all torsions together.
+    """
+    from qcsubmit.common_structures import SingleTorsion, DoubleTorsion, ImproperTorsion
+    torsion_indexer = TorsionIndexer()
+    torsion_indexer.add_torsion((3, 2, 1, 0), (180, -165))
+    torsion_indexer.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(0, 1, 2, 3), scan_range1=[40, -40],
+                                       scan_range2=[-165, 180])
+    torsion_indexer.add_improper(1, (0, 1, 2, 3), scan_range=[40, -40])
+    assert torsion_indexer.n_torsions == 1
+    assert torsion_indexer.n_double_torsions == 1
+    assert torsion_indexer.n_impropers == 1
+    dihedrals = torsion_indexer.get_dihedrals
+    assert len(dihedrals) == 3
+    assert isinstance(dihedrals[0], SingleTorsion)
+    assert isinstance(dihedrals[1], DoubleTorsion)
+    assert isinstance(dihedrals[2], ImproperTorsion)
+
+
+def test_torsion_indexer_update_no_mapping():
+    """
+    Test updating one torsion indexer with another with no mapping.
+    """
+
+    torsion_indexer1 = TorsionIndexer()
+    torsion_indexer1.add_torsion((0, 1, 2, 3))
+    torsion_indexer1.add_double_torsion(torsion1=(0, 1, 2, 3), torsion2=(9, 8, 7, 6))
+    torsion_indexer1.add_improper(1, (0, 1, 2, 3))
+    assert torsion_indexer1.n_torsions == 1
+    assert torsion_indexer1.n_double_torsions == 1
+    assert torsion_indexer1.n_impropers == 1
+
+    torsion_indexer2 = TorsionIndexer()
+    torsion_indexer2.add_torsion((9, 8, 7, 6))
+    torsion_indexer2.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(10, 11, 12, 13))
+    torsion_indexer2.add_improper(5, (5, 6, 7, 8))
+    assert torsion_indexer2.n_torsions == 1
+    assert torsion_indexer2.n_double_torsions == 1
+    assert torsion_indexer2.n_impropers == 1
+
+    # update 1 with 2
+    torsion_indexer1.update(torsion_indexer2)
+    assert torsion_indexer1.n_torsions == 2
+    assert torsion_indexer1.n_double_torsions == 2
+    assert torsion_indexer1.n_impropers == 2
 
 
 def test_componentresult_filter_molecules():
@@ -188,6 +514,7 @@ def test_componentresult_filter_molecules():
     # make sure all of the molecules have been removed and filtered
     assert result.molecules == []
     assert len(result.filtered) == len(molecules)
+
 
 @pytest.mark.parametrize("dataset_type", [
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
@@ -251,6 +578,28 @@ def test_Dataset_exporting_same_type(dataset_type):
         assert dataset.metadata == dataset2.metadata
 
 
+@pytest.mark.parametrize("molecule_data", [
+    pytest.param((Molecule.from_smiles("CC"), 0), id="Molecule 0 entries"),
+    pytest.param(("CC", 0), id="Smiles 0 entries"),
+    pytest.param(("CCC", 1), id="Smiles 1 entries"),
+])
+def test_get_molecule_entry(molecule_data):
+    """
+    Test getting a molecule entry from dataset.
+    """
+    dataset = BasicDataset()
+    query_molecule, entries_no = molecule_data
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    for molecule in molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
+
+    # check for molecule entries
+    entries = dataset.get_molecule_entry(query_molecule)
+    assert len(entries) == entries_no
+
+
 def test_BasicDataset_add_molecules_single_conformer():
     """
     Test creating a basic dataset.
@@ -262,8 +611,7 @@ def test_BasicDataset_add_molecules_single_conformer():
     # store the molecules in the dataset under a common index
     for molecule in molecules:
         index = molecule.to_smiles()
-        attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(mapped=True),
-                      "test_tag": "test"}
+        attributes = get_cmiles(molecule)
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
 
     # now we need to make sure the dataset has been filled.
@@ -291,8 +639,7 @@ def test_BasicDataset_add_molecules_conformers():
     assert butane.n_conformers == 7
     # now add to the dataset
     index = butane.to_smiles()
-    attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": butane.to_smiles(mapped=True),
-                  "test_tag": "test"}
+    attributes = get_cmiles(butane)
     dataset.add_molecule(index=index, attributes=attributes, molecule=butane)
 
     assert dataset.n_molecules == 1
@@ -315,8 +662,7 @@ def test_BasicDataset_coverage_reporter():
     # add them to the dataset
     for molecule in molecules:
         index = molecule.to_smiles()
-        attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(mapped=True),
-                      "test_tag": "test"}
+        attributes = get_cmiles(molecule)
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
 
     ff = "openff_unconstrained-1.0.0.offxml"
@@ -338,8 +684,7 @@ def test_Basicdataset_add_molecule_no_conformer():
     ethane = Molecule.from_smiles('CC')
     # add the molecule to the dataset with no conformer
     index = ethane.to_smiles()
-    attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": ethane.to_smiles(mapped=True),
-                  "test_tag": "test"}
+    attributes = get_cmiles(ethane)
     dataset.add_molecule(index=index, attributes=attributes, molecule=ethane)
 
     assert len(dataset.dataset) == 1
@@ -364,8 +709,8 @@ def test_Basicdataset_add_molecule_missing_attributes():
 
 
 @pytest.mark.parametrize("file_data", [
-    pytest.param(("molecules.smi", "SMI", "to_smiles"), id="smiles"), pytest.param(("molecules.inchi", "INCHI", "to_inchi"), id="inchi"),
-    pytest.param(("molecules.inchikey", "inchikey", "to_inchikey"), id="inchikey")
+    pytest.param(("molecules.smi", "SMI", "to_smiles", {"isomeric": True, "explicit_hydrogens": False}), id="smiles"), pytest.param(("molecules.inchi", "INCHI", "to_inchi", {}), id="inchi"),
+    pytest.param(("molecules.inchikey", "inchikey", "to_inchikey", {}), id="inchikey")
 ])
 def test_Basicdataset_molecules_to_file(file_data):
     """
@@ -377,10 +722,7 @@ def test_Basicdataset_molecules_to_file(file_data):
     # add them to the dataset
     for molecule in molecules:
         index = molecule.to_smiles()
-        attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(mapped=True),
-                      "canonical_isomeric_smiles": molecule.to_smiles(isomeric=True),
-                      "standard_inchi": molecule.to_inchi(),
-                      "inchi_key": molecule.to_inchikey()}
+        attributes = get_cmiles(molecule)
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
     with temp_directory():
         dataset.molecules_to_file(file_name=file_data[0], file_type=file_data[1])
@@ -389,8 +731,8 @@ def test_Basicdataset_molecules_to_file(file_data):
         with open(file_data[0]) as molecule_data:
             data = molecule_data.readlines()
             for i, molecule in enumerate(dataset.molecules):
-                # get the function and call it
-                result = getattr(molecule, file_data[2])()
+                # get the function and call it, also pass any extra arguments
+                result = getattr(molecule, file_data[2])(**file_data[3])
                 # now compare the data in the file to what we have calculated
                 assert data[i].strip() == result
 
@@ -409,14 +751,12 @@ def test_Dataset_export_full_dataset_json(dataset_type):
     # add them to the dataset
     for molecule in molecules:
         index = molecule.to_smiles()
-        attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(mapped=True),
-                      "canonical_smiles": molecule.to_smiles(),
-                      "standard_inchi": molecule.to_inchi(),
-                      "inchi_key": molecule.to_inchikey()}
+        attributes = get_cmiles(molecule)
         try:
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
         except TypeError:
-            dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, atom_indices=(0, 1, 2, 3))
+            dihedrals = [get_dhiedral(molecule), ]
+            dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
     with temp_directory():
         dataset.export_dataset("dataset.json")
 
@@ -445,12 +785,9 @@ def test_Dataset_export_full_dataset_json_mixing(dataset_type):
     # add them to the dataset
     for molecule in molecules:
         index = molecule.to_smiles()
-        attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(mapped=True),
-                      "canonical_smiles": molecule.to_smiles(),
-                      "standard_inchi": molecule.to_inchi(),
-                      "inchi_key": molecule.to_inchikey()}
-
-        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=[(0, 1, 2, 3)])
+        attributes = get_cmiles(molecule)
+        dihedrals = [get_dhiedral(molecule), ]
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
     with temp_directory():
         dataset.export_dataset("dataset.json")
 
@@ -472,23 +809,29 @@ def test_Dataset_export_dict(dataset_type):
     # add them to the dataset
     for molecule in molecules:
         index = molecule.to_smiles()
-        attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(mapped=True),
-                      "canonical_smiles": molecule.to_smiles(),
-                      "standard_inchi": molecule.to_inchi(),
-                      "inchi_key": molecule.to_inchikey()}
+        attributes = get_cmiles(molecule)
+        dihedrals = [get_dhiedral(molecule), ]
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
 
-        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=[(0, 1, 2, 3)])
+    # add one failure
+    fail = Molecule.from_smiles("C")
+    dataset.filter_molecules(molecules=[fail, ],
+                             component_name="TestFailure",
+                             component_description={"name": "TestFailure"},
+                             component_provenance={"test": "v1.0"})
 
     dataset2 = dataset_type(**dataset.dict())
 
     assert dataset.n_molecules == dataset2.n_molecules
     assert dataset.n_records == dataset2.n_records
     assert dataset.metadata == dataset2.metadata
-    assert dataset.json() == dataset2.json()
+    for record in dataset.dataset.keys():
+        assert record in dataset2.dataset
 
 
 @pytest.mark.parametrize("dataset_type", [
-    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(BasicDataset, id="BasicDataset"),
+    pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
 def test_Basicdataset_export_json(dataset_type):
@@ -501,18 +844,24 @@ def test_Basicdataset_export_json(dataset_type):
     # add them to the dataset
     for molecule in molecules:
         index = molecule.to_smiles()
-        attributes = {"canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(mapped=True),
-                      "canonical_smiles": molecule.to_smiles(),
-                      "standard_inchi": molecule.to_inchi(),
-                      "inchi_key": molecule.to_inchikey()}
-        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=[(0, 1, 2, 3)])
+        attributes = get_cmiles(molecule)
+        dihedrals = [get_dhiedral(molecule), ]
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
+
+    # add one failure
+    fail = Molecule.from_smiles("C")
+    dataset.filter_molecules(molecules=[fail, ],
+                             component_name="TestFailure",
+                             component_description={"name": "TestFailure"},
+                             component_provenance={"test": "v1.0"})
 
 
     # try parse the json string to build the dataset
     dataset2 = dataset_type.parse_raw(dataset.json())
     assert dataset.n_molecules == dataset2.n_molecules
     assert dataset.n_records == dataset2.n_records
-    assert dataset.json() == dataset2.json()
+    for record in dataset.dataset.keys():
+        assert record in dataset2.dataset
 
 
 @pytest.mark.parametrize("basis_data", [
@@ -626,3 +975,18 @@ def test_Optimizationdataset_qc_spec():
         assert tag in qc_spec.dict()
     # make sure the driver was set back to gradient
     assert qc_spec.driver == "gradient"
+
+
+def test_TorsionDriveDataset_torsion_indices():
+    """
+    Test adding molecules to a torsiondrive dataset with incorrect torsion indices.
+    """
+
+    dataset = TorsiondriveDataset()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+
+    for molecule in molecules:
+        with pytest.raises(DihedralConnectionError):
+            index = molecule.to_smiles()
+            attributes = get_cmiles(molecule)
+            dataset.add_molecule(index=index, molecule=molecule, attributes=attributes, dihedrals=[(0, 1, 1, 1)])

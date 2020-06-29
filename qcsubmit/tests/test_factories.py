@@ -3,9 +3,9 @@ Tests for building and running workflows, exporting and importing settings.
 """
 
 import pytest
+from openforcefield.topology import Molecule
 from pydantic import ValidationError
 
-from openforcefield.topology import Molecule
 from qcsubmit import workflow_components
 from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
 from qcsubmit.exceptions import (
@@ -30,10 +30,6 @@ def test_scf_properties():
     # incorrect spellings
     with pytest.raises(DatasetInputError):
         factory.scf_properties = ["diapole", "qudrupole"]
-
-    # make sure wbo is auto added
-    factory.scf_properties = []
-    assert "wiberg_lowdin_indices" in factory.scf_properties
 
 
 @pytest.mark.parametrize("factory_type", [
@@ -463,24 +459,6 @@ def test_torsiondrive_linear_torsion():
         assert bool(factory._detect_linear_torsions(molecule)) is True
 
 
-def test_torsiondrive_unconnected_torsions():
-    """
-    Test the torsiondrive factory when removing highlighted torsions which are not connected.
-    """
-
-    factory = TorsiondriveDatasetFactory()
-    ethanol = Molecule.from_file(get_data("methanol.sdf"), "sdf")
-
-    # tag a correct dihedral with scrambled index
-    assert factory._check_torsion_connection((5, 1, 4, 0), ethanol) is False
-
-    # tag atoms not in the molecule
-    assert factory._check_torsion_connection((12, 22, 23, 45), ethanol) is False
-
-    # tag a valid torsion
-    assert factory._check_torsion_connection((5, 1, 0, 4), ethanol) is True
-
-
 def test_torsiondrive_torsion_string():
     """
     Test the torsiondrive factories ability to create a torsion string for a given bond.
@@ -524,7 +502,7 @@ def test_create_dataset(factory_dataset_type):
     conformer_generator = workflow_components.StandardConformerGenerator(max_conformers=1)
     factory.add_workflow_component(conformer_generator)
 
-    mols = Molecule.from_file(get_data("tautomers.smi"), "smi", allow_undefined_stereo=True)
+    mols = Molecule.from_file(get_data("tautomers_small.smi"), "smi", allow_undefined_stereo=True)
 
     # set some settings
     changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "compute_tag": "test tag",
