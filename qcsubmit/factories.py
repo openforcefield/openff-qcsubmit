@@ -57,7 +57,12 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
     program: str = "psi4"
     maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
-    scf_properties: List[str] = ["dipole", "quadrupole", "wiberg_lowdin_indices"]
+    scf_properties: List[str] = [
+        "dipole",
+        "quadrupole",
+        "wiberg_lowdin_indices",
+        "mayer_indices",
+    ]
     spec_name: str = "default"
     spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
     priority: str = "normal"
@@ -78,6 +83,32 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         validate_assignment: bool = True
         arbitrary_types_allowed: bool = True
         title: str = "QCFractalDatasetFactory"
+
+    def add_scf_property(self, scf_property: str) -> None:
+        """
+        Add an scf_property to the list of scf_properties requested during a calculation.
+
+        Parameters:
+            scf_property: The name of the property which should be entered into the list.
+
+        Raises:
+            DatasetInputError: If the scf_property is not valid.
+        """
+
+        validated_property = scf_property_validator(scf_property)
+        if validated_property not in self.scf_properties:
+            self.scf_properties.append(validated_property)
+
+    def remove_scf_property(self, scf_property: str) -> None:
+        """
+        Remove an scf_property from the validated list.
+
+        Parameters:
+            scf_property: The name of the property which should be removed.
+        """
+        validated_property = scf_property_validator(scf_property)
+        if validated_property in self.scf_properties:
+            self.scf_properties.remove(validated_property)
 
     def _get_molecular_complex_info(self) -> Dict[str, Any]:
         """

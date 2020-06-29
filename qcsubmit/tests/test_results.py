@@ -46,6 +46,10 @@ def test_optimization_default_results(public_client):
         for entry in optimization.entries:
             assert len(entry.trajectory) == 2
 
+            for single_result in entry.trajectory:
+                assert single_result.wbo is not None
+                assert single_result.mbo is not None
+
 
 def test_optimization_trajectory_results(public_client):
     """
