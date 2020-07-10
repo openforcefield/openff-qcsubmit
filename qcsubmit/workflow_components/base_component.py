@@ -126,6 +126,7 @@ class ToolkitValidator(BaseModel):
         """
 
         import openforcefield
+
         import qcsubmit
 
         provenance = {
@@ -177,6 +178,7 @@ class BasicSettings(BaseModel):
         """
 
         import openforcefield
+
         import qcsubmit
 
         provenance = {

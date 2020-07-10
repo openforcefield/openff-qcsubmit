@@ -441,7 +441,7 @@ def test_torsion_index_iterator():
     """
     Make sure the iterator combines all torsions together.
     """
-    from qcsubmit.common_structures import SingleTorsion, DoubleTorsion, ImproperTorsion
+    from qcsubmit.common_structures import DoubleTorsion, ImproperTorsion, SingleTorsion
     torsion_indexer = TorsionIndexer()
     torsion_indexer.add_torsion((3, 2, 1, 0), (180, -165))
     torsion_indexer.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(0, 1, 2, 3), scan_range1=[40, -40],
