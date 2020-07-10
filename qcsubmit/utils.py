@@ -6,8 +6,9 @@ def get_data(relative_path):
         relative_path: The relative path to the data
     """
 
-    from pkg_resources import resource_filename
     import os
+
+    from pkg_resources import resource_filename
 
     fn = resource_filename("qcsubmit", os.path.join("data", relative_path))
 

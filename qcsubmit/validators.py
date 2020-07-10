@@ -4,8 +4,8 @@ Centralise the validators for easy reuse between factories and datasets.
 
 from typing import Dict, Tuple
 
-import openforcefield.topology as off
 import qcelemental as qcel
+from openforcefield import topology as off
 
 from .exceptions import (
     DatasetInputError,

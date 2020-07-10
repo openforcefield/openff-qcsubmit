@@ -447,8 +447,8 @@ def test_coverage_filter():
     """
     Make sure the coverage filter removes the correct molecules.
     """
-    from openforcefield.utils.structure import get_molecule_parameterIDs
     from openforcefield.typing.engines.smirnoff import ForceField
+    from openforcefield.utils.structure import get_molecule_parameterIDs
 
     coverage_filter = workflow_components.CoverageFilter()
     coverage_filter.allowed_ids = ["b83"]

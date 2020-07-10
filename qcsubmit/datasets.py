@@ -3,9 +3,9 @@ import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
-import openforcefield.topology as off
 import qcelemental as qcel
 import qcportal as ptl
+from openforcefield import topology as off
 from pydantic import PositiveInt, constr, validator
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from simtk import unit
@@ -851,15 +851,16 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
 
         return coverage
 
-    def visualize(self, file_name: str, toolkit: str = None) -> None:
+    def visualize(self, file_name: str, columns: int = 4, toolkit: str = None) -> None:
         """
         Create a pdf file of the molecules with any torsions highlighted using either openeye or rdkit.
 
         Parameters:
             file_name: The name of the pdf file which will be produced.
+            columns: The number of molecules per row.
             toolkit: The option to specify the backend toolkit used to produce the pdf file.
         """
-        from openforcefield.utils.toolkits import RDKIT_AVAILABLE, OPENEYE_AVAILABLE
+        from openforcefield.utils.toolkits import OPENEYE_AVAILABLE, RDKIT_AVAILABLE
 
         toolkits = {
             "openeye": (OPENEYE_AVAILABLE, self._create_openeye_pdf),
@@ -869,7 +870,7 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         if toolkit:
             try:
                 _, pdf_func = toolkits[toolkit.lower()]
-                return pdf_func(file_name)
+                return pdf_func(file_name, columns)
             except KeyError:
                 raise ValueError(
                     f"The requested toolkit backend: {toolkit} is not supported, chose from {toolkits.keys()}"
@@ -879,22 +880,22 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
             for toolkit in toolkits:
                 available, pdf_func = toolkits[toolkit]
                 if available:
-                    return pdf_func(file_name)
+                    return pdf_func(file_name, columns)
             raise ImportError(
                 f"No backend toolkit was found to generate the pdf please install openeye and/or rdkit."
             )
 
-    def _create_openeye_pdf(self, file_name: str) -> None:
+    def _create_openeye_pdf(self, file_name: str, columns: int) -> None:
         """
         Make the pdf of the molecules use openeye.
         """
 
-        from openeye import oedepict, oechem
+        from openeye import oechem, oedepict
 
         itf = oechem.OEInterface()
         suppress_h = True
         rows = 10
-        cols = 4
+        cols = columns
         ropts = oedepict.OEReportOptions(rows, cols)
         ropts.SetHeaderHeight(25)
         ropts.SetFooterHeight(25)
@@ -972,7 +973,7 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
 
         oedepict.OEWriteReport(file_name, report)
 
-    def _create_rdkit_pdf(self, file_name: str) -> None:
+    def _create_rdkit_pdf(self, file_name: str, columns: int) -> None:
         """
         Make the pdf of the molecules using rdkit.
         """
@@ -993,7 +994,7 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         # now make the image
         imagie = Draw.MolsToGridImage(
             molecules,
-            molsPerRow=3,
+            molsPerRow=columns,
             subImgSize=(500, 500),
             highlightAtomLists=tagged_atoms,
         )

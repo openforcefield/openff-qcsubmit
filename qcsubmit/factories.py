@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import openforcefield.topology as off
+from openforcefield import topology as off
 from pydantic import BaseModel, PositiveInt, constr, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
@@ -138,6 +138,7 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         """
 
         import openforcefield
+
         import qcsubmit
 
         provenance = {
