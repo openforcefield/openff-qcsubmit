@@ -1313,15 +1313,27 @@ class TorsionDriveResult(ResultsConfig):
         Get the torsiondrive trajectory collapsed onto a single openforcefield.topology.Molecule for viewing or
         exporting.
         """
-
+        import re
         molecule = self.molecule
         # now sort the angles
-        angles = [angle for angle in self.optimization.keys()]
+        angles = [[int(x) for x in re.findall("-*[0-9]+", angle)] for angle in self.optimization.keys()]
         angles.sort(key=lambda x: x[0])
         for angle in angles:
-            or_molecule = self.optimization[angle].get_final_molecule()
+            or_molecule = self.optimization[str(angle)].get_final_molecule()
             molecule.add_conformer(or_molecule.conformers[0])
         return molecule
+
+    def get_ordered_results(self) -> List[Tuple[List[int], SingleResult]]:
+        """
+        Create an ordered list of the optimization results sorted by the angle of the dihedral.
+        """
+        import re
+        results = []
+        for angles, optimization in self.optimization.items():
+            results.append(([int(x) for x in re.findall("-*[0-9]+", angles)], optimization.final_molecule))
+        # now sort the list
+        results.sort(key=lambda x: x[0])
+        return results
 
     def detect_connectivity_changes_wbo(
         self, wbo_threshold: float = 0.5
