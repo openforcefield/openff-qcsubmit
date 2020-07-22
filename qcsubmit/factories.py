@@ -7,7 +7,7 @@ from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
 
 from . import workflow_components
-from .common_structures import ClientHandler, Metadata
+from .common_structures import ClientHandler, Metadata, QCSpec
 from .datasets import (
     BasicDataset,
     ComponentResult,
@@ -52,9 +52,7 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         workflow: A dictionary which holds the workflow components to be executed in the set order.
     """
 
-    method: constr(strip_whitespace=True) = "B3LYP-D3BJ"
-    basis: Optional[constr(strip_whitespace=True)] = "DZVP"
-    program: str = "psi4"
+    qc_specifications: Dict[str, QCSpec] = {"default": QCSpec()}
     maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
     scf_properties: List[str] = [
@@ -63,8 +61,6 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         "wiberg_lowdin_indices",
         "mayer_indices",
     ]
-    spec_name: str = "default"
-    spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
     priority: str = "normal"
     dataset_tags: List[str] = ["openff"]
     compute_tag: str = "openff"
@@ -83,6 +79,12 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         validate_assignment: bool = True
         arbitrary_types_allowed: bool = True
         title: str = "QCFractalDatasetFactory"
+
+    def add_qc_spec(self, method: str, basis: str, program: str, spec_name: str, spec_description: str, wavefunction_options: str = "none") -> None:
+        """
+        Add a new qcspecification to the factory which will be applied to the dataset.
+        """
+
 
     def add_scf_property(self, scf_property: str) -> None:
         """

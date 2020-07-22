@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import qcportal as ptl
+from qcelemental.models.results import WavefunctionProtocolEnum
 from pydantic import BaseModel, HttpUrl, constr, validator
 
 from qcsubmit.exceptions import DatasetInputError
@@ -34,6 +35,32 @@ class ResultsConfig(BaseModel):
         arbitrary_types_allowed: bool = True
         allow_mutation: bool = False
         json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
+
+
+class QCSpec(ResultsConfig):
+
+    method: constr(strip_whitespace=True) = "B3LYP-D3BJ"
+    basis: Optional[constr(strip_whitespace=True)] = "DZVP"
+    program: str = "psi4"
+    spec_name: str = "default"
+    spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
+    store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none
+
+    def dict(
+        self,
+        *,
+        include: Union['AbstractSetIntStr', 'MappingIntStrAny'] = None,
+        exclude: Union['AbstractSetIntStr', 'MappingIntStrAny'] = None,
+        by_alias: bool = False,
+        skip_defaults: bool = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+    ) -> 'DictStrAny':
+
+        data = super().dict(exclude={"store_wavefunction"})
+        data["store_wavefunction"] = self.store_wavefunction.value
+        return data
 
 
 def order_torsion(torsion: Tuple[int, int, int, int]) -> Tuple[int, int, int, int]:
