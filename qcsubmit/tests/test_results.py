@@ -172,8 +172,8 @@ def test_torsiondrivedataset_result_default(public_client):
     """
     Test downloading a basic torsiondrive dataset from the archive.
     """
-    from simtk import unit
     import numpy as np
+    from simtk import unit
 
     result = TorsionDriveCollectionResult.from_server(client=public_client,
                                                       spec_name="default",
