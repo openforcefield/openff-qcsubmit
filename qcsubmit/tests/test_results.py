@@ -166,3 +166,103 @@ def test_basicdataset_export_round_trip(public_client):
         assert result.dict(exclude={"collection"}) == result2.dict(exclude={"collection"})
         for molecule in result.collection:
             assert molecule in result2.collection
+
+
+def test_torsiondrivedataset_result_default(public_client):
+    """
+    Test downloading a basic torsiondrive dataset from the archive.
+    """
+    from simtk import unit
+    import numpy as np
+
+    result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                      spec_name="default",
+                                                      dataset_name="TorsionDrive Paper",
+                                                      include_trajectory=False,
+                                                      final_molecule_only=False)
+
+    # now we need to make sure that each optimization traj has only one molecule in it.
+    for torsiondrive in result.collection.values():
+        for optimization in torsiondrive.optimization.values():
+            assert len(optimization.trajectory) == 2
+
+    # make sure the three torsiondrives are pulled
+    assert len(result.collection) == 3
+
+    # now check the utility functions
+    torsiondrive = result.collection["[ch2:3]([ch2:2][oh:4])[oh:1]_12"]
+    assert torsiondrive.final_energies is not None
+    # make sure there is an energy of every result
+    assert len(torsiondrive.final_energies) == len(torsiondrive.optimization)
+    mol = torsiondrive.molecule
+    molecule = torsiondrive.get_torsiondrive()
+    assert mol == molecule
+    # make sure the conformers are loaded onto the molecule
+    assert molecule.n_conformers == len(torsiondrive.optimization)
+    # now check each conformer
+    ordered_results = torsiondrive.get_ordered_results()
+    for conformer, single_result in zip(molecule.conformers, ordered_results):
+        assert np.allclose(conformer.in_units_of(unit.bohr).tolist(), single_result[1].molecule.geometry.tolist())
+
+    # now make sure the lowest energy optimization is recognized
+    lowest_result = torsiondrive.get_lowest_energy_optimisation()
+    all_energies = list(torsiondrive.final_energies.values())
+    assert lowest_result.final_energy == min(all_energies)
+
+
+def test_torsiondrivedataset_final_result_only(public_client):
+    """
+    Make sure the final_molecule_only keyword is working
+    """
+
+    result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                      spec_name="default",
+                                                      dataset_name="TorsionDrive Paper",
+                                                      include_trajectory=False,
+                                                      final_molecule_only=True)
+
+    # now we need to make sure that each optimization traj has only one molecule in it.
+    for torsiondrive in result.collection.values():
+        for optimization in torsiondrive.optimization.values():
+            assert len(optimization.trajectory) == 1
+
+
+def test_torsiondrivedataset_traj_subset(public_client):
+    """
+    Make sure the full trajectories are pulled when requested for a subset of molecules in a collection.
+    """
+
+    result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                      spec_name="default",
+                                                      dataset_name="TorsionDrive Paper",
+                                                      include_trajectory=True,
+                                                      final_molecule_only=False,
+                                                      subset=["[ch2:3]([ch2:2][oh:4])[oh:1]_12"])
+
+    # make sure one torsiondrive was pulled down
+    assert len(result.collection) == 1
+    # now make sure the full trajectory is pulled
+    torsiondrive = result.collection["[ch2:3]([ch2:2][oh:4])[oh:1]_12"]
+    for optimization in torsiondrive.optimization.values():
+        assert len(optimization.trajectory) > 2
+
+
+def test_torsiondrivedataset_export(public_client):
+    """
+    Make sure that the torsiondrive datasets can be exported.
+    """
+
+    with temp_directory():
+        result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                          spec_name="default",
+                                                          dataset_name="TorsionDrive Paper",
+                                                          include_trajectory=False,
+                                                          final_molecule_only=True)
+
+        result.export_results("dataset.json")
+
+        result2 = TorsionDriveCollectionResult.parse_file("dataset.json")
+
+        assert result.dict(exclude={"collection"}) == result2.dict(exclude={"collection"})
+        for molecule in result.collection:
+            assert molecule in result2.collection
