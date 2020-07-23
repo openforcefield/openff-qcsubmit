@@ -1314,9 +1314,13 @@ class TorsionDriveResult(ResultsConfig):
         exporting.
         """
         import re
+
         molecule = self.molecule
         # now sort the angles
-        angles = [[int(x) for x in re.findall("-*[0-9]+", angle)] for angle in self.optimization.keys()]
+        angles = [
+            [int(x) for x in re.findall("-*[0-9]+", angle)]
+            for angle in self.optimization.keys()
+        ]
         angles.sort(key=lambda x: x[0])
         for angle in angles:
             or_molecule = self.optimization[str(angle)].get_final_molecule()
@@ -1328,9 +1332,15 @@ class TorsionDriveResult(ResultsConfig):
         Create an ordered list of the optimization results sorted by the angle of the dihedral.
         """
         import re
+
         results = []
         for angles, optimization in self.optimization.items():
-            results.append(([int(x) for x in re.findall("-*[0-9]+", angles)], optimization.final_molecule))
+            results.append(
+                (
+                    [int(x) for x in re.findall("-*[0-9]+", angles)],
+                    optimization.final_molecule,
+                )
+            )
         # now sort the list
         results.sort(key=lambda x: x[0])
         return results
