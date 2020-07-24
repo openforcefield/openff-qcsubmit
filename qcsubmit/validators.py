@@ -94,14 +94,16 @@ def check_improper_connection(
     """
 
     for atom_index in improper:
-        atom = molecule.atoms[atom_index]
-        bonded_atoms = set()
-        for neighbour in atom.bonded_atoms:
-            bonded_atoms.add(neighbour.molecule_atom_index)
-        # if the set has three common atoms this is the central atom of an improper
-        if len(bonded_atoms.intersection(set(improper))) == 3:
-            return improper
-
+        try:
+            atom = molecule.atoms[atom_index]
+            bonded_atoms = set()
+            for neighbour in atom.bonded_atoms:
+                bonded_atoms.add(neighbour.molecule_atom_index)
+            # if the set has three common atoms this is the central atom of an improper
+            if len(bonded_atoms.intersection(set(improper))) == 3:
+                return improper
+        except IndexError:
+            continue
     raise DihedralConnectionError(
         f"The given improper dihedral {improper} was not valid for molecule {molecule}."
     )

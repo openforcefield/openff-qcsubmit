@@ -201,6 +201,8 @@ def test_componentresult_deduplication_torsions_same_bond_same_coords():
                   DihedralConnectionError), id="incorrect double torsion ethanol"),
     pytest.param(("ethanol.sdf", {"improper": (3, 0, 4, 5), "central_atom": 0}, "improper", None),
                  id="correct improper ethanol"),
+    pytest.param(("ethanol.sdf", {"improper": (100, 0, 4, 5), "central_atom": 0}, "improper", DihedralConnectionError),
+                 id="incorrect improper ethanol index error"),
     pytest.param(("ethanol.sdf", {"improper": (7, 0, 4, 5), "central_atom": 0}, "improper", DihedralConnectionError),
                  id="incorrect improper ethanol"),
     pytest.param(("benzene.sdf", {"improper": (0, 1, 2, 7), "central_atom": 1}, "improper", None),

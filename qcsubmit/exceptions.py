@@ -118,3 +118,9 @@ class MolecularComplexError(QCSubmitException):
 
     error_type = "molecular_complex_error"
     header = "Molecular Complex Error"
+
+
+class ConstraintError(QCSubmitException):
+
+    error_type = "constraint_error"
+    header = "Constraint Error"
