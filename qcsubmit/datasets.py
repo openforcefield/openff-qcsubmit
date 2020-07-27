@@ -634,7 +634,6 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
                 keywords=keywords or {},
                 **kwargs,
             )
-            print(data_entry)
             self.dataset[index] = data_entry
             # add any extra elements to the metadata
             self.metadata.elements.update(data_entry.initial_molecules[0].symbols)
