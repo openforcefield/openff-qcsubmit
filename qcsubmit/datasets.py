@@ -248,7 +248,7 @@ class DatasetEntry(DatasetConfig):
         # if the constraints are in the keywords move them out for validation
         if "constraints" in kwargs["keywords"]:
             constraint_dict = kwargs["keywords"].pop("constraints")
-            constraints = Constraints.parse_obj(constraint_dict)
+            constraints = Constraints(**constraint_dict)
             kwargs["constraints"] = constraints.dict()
 
         dihedrals_validated = False

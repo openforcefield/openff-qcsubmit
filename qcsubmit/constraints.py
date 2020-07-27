@@ -3,7 +3,7 @@ Constraint base classes and methods.
 """
 from typing import List, Tuple, Union
 
-from pydantic import constr, validator
+from pydantic import constr, validator, ValidationError
 
 from .common_structures import ResultsConfig
 from .exceptions import ConstraintError
@@ -60,6 +60,7 @@ class PositionConstraint(DistanceConstraint):
 
 
 class PositionConstraintSet(PositionConstraint):
+    indices: Tuple[int]
     value: Union[str, Tuple[float, float, float]]
 
     @validator("value")
@@ -67,18 +68,16 @@ class PositionConstraintSet(PositionConstraint):
         """
         The position must be a space separated string so we do conversion here.
         """
+        from .utils import clean_strings
         split_value = None
         if isinstance(value, str):
             # split the string and check the length
             if len(value.split()) == 3:
-                split_value = value.split()
+                split_value = clean_strings(value.split())
             elif len(value.split(",")) == 3:
-                split_value = value.split(",")
+                split_value = clean_strings(value.split(","))
 
         elif isinstance(value, tuple):
-            if len(value) == 3:
-                split_value = value
-        elif isinstance(value, list):
             if len(value) == 3:
                 split_value = value
         if split_value is None:
@@ -100,15 +99,15 @@ class Constraints(ResultsConfig):
 
     freeze: List[
         Union[
-            PositionConstraint, DihedralConstraint, AngleConstraint, DistanceConstraint
+            DihedralConstraint, AngleConstraint, DistanceConstraint, PositionConstraint
         ]
     ] = []
     set: List[
         Union[
-            PositionConstraintSet,
             DihedralConstraintSet,
             AngleConstraintSet,
             DistanceConstraintSet,
+            PositionConstraintSet
         ]
     ] = []
     _constraint_types_freeze = {
@@ -129,27 +128,27 @@ class Constraints(ResultsConfig):
         Add a new freeze constraint to the constraint holder after validating it and making sure it is not already present.
         """
         try:
-            constraint = self._constraint_types_freeze[constraint_type.lower()](indices)
+            constraint = self._constraint_types_freeze[constraint_type.lower()](indices=indices)
             if constraint not in self.freeze:
                 self.freeze.append(constraint)
         except KeyError:
             raise ConstraintError(
                 f"The constraint type {constraint_type} is not supported please chose from {self._constraint_types_freeze.keys()}"
             )
-        except Exception as e:
+        except ValidationError as e:
             raise ConstraintError(
                 f"A valid constraint could not be built due to the above validation error."
             ) from e
 
     def add_set_constraint(
-        self, constraint_type: str, indices: List[int], value: float
+        self, constraint_type: str, indices: List[int], value: Union[float, List[float], str]
     ) -> None:
         """
         Add a new set constraint to the constraint holder after validating it and making sure it is not already present.
         """
         try:
             constraint = self._constraint_types_set[constraint_type.lower()](
-                indices, value
+                indices=indices, value=value
             )
             if constraint not in self.set:
                 self.set.append(constraint)
@@ -157,7 +156,7 @@ class Constraints(ResultsConfig):
             raise ConstraintError(
                 f"The constraint type {constraint_type} is not supported please chose from {self._constraint_types_set.keys()}"
             )
-        except Exception as e:
+        except ValidationError as e:
             raise ConstraintError(
                 f"A valid constraint could not be built due to the above validation error."
             ) from e
