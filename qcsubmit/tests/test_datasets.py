@@ -193,26 +193,25 @@ def test_componentresult_deduplication_torsions_same_bond_same_coords():
 
 
 @pytest.mark.parametrize("ethanol_data", [
-    pytest.param(("ethanol.sdf", {"torsion": (8, 2, 1, 0)}, "torsion", None), id="correct torsion ethanol"),
-    pytest.param(("ethanol.sdf", {"torsion": (22, 23, 24, 100)}, "torsion", DihedralConnectionError),
+    pytest.param(("ethanol.sdf",  [(8, 2, 1, 0)], None), id="correct torsion ethanol"),
+    pytest.param(("ethanol.sdf",  [(22, 23, 24, 100)], DihedralConnectionError),
                  id="incorrect torsion ethanol"),
-    pytest.param(("ethanol.sdf", {"torsion": (7, 2, 1, 0)}, "torsion", DihedralConnectionError),
+    pytest.param(("ethanol.sdf", [(7, 2, 1, 4)], DihedralConnectionError),
                  id="incorrect torsion ethanol"),
-    pytest.param(("ethanol.sdf", {"torsion1": (8, 2, 1, 0), "torsion2": (4, 0, 1, 2)}, "double_torsion", None),
+    pytest.param(("ethanol.sdf", [(8, 2, 1, 0), (4, 0, 1, 2)], None),
                  id="correct double torsion ethanol"),
-    pytest.param(("ethanol.sdf", {"torsion1": (7, 2, 1, 0), "torsion2": (4, 0, 1, 2)}, "double_torsion",
+    pytest.param(("ethanol.sdf", [(7, 2, 1, 4), (4, 0, 1, 2)],
                   DihedralConnectionError), id="incorrect double torsion ethanol"),
-    pytest.param(("ethanol.sdf", {"improper": (3, 0, 4, 5), "central_atom": 0}, "improper", None),
+    pytest.param(("ethanol.sdf", [(3, 0, 4, 5)], None),
                  id="correct improper ethanol"),
-    pytest.param(("ethanol.sdf", {"improper": (100, 0, 4, 5), "central_atom": 0}, "improper", DihedralConnectionError),
+    pytest.param(("ethanol.sdf", [(100, 0, 4, 5)], DihedralConnectionError),
                  id="incorrect improper ethanol index error"),
-    pytest.param(("ethanol.sdf", {"improper": (7, 0, 4, 5), "central_atom": 0}, "improper", DihedralConnectionError),
+    pytest.param(("ethanol.sdf", [(7, 0, 4, 5)], DihedralConnectionError),
                  id="incorrect improper ethanol"),
-    pytest.param(("benzene.sdf", {"improper": (0, 1, 2, 7), "central_atom": 1}, "improper", None),
+    pytest.param(("benzene.sdf", [(0, 1, 2, 7)], None),
                  id="correct improper benzene"),
-    pytest.param(("benzene.sdf", {"improper": (5, 0, 1, 2), "central_atom": 0}, "improper", DihedralConnectionError),
-                 id="correct improper benzene"),
-
+    pytest.param(("benzene.sdf", [(4, 0, 1, 2)], DihedralConnectionError),
+                 id="incorrect improper benzene"),
 ])
 def test_dataset_dihedral_validation(ethanol_data):
     """
@@ -220,20 +219,15 @@ def test_dataset_dihedral_validation(ethanol_data):
     """
 
     dataset = TorsiondriveDataset()
-    molecule_file, torsion, torsion_type, error = ethanol_data
+    molecule_file, dihedrals, error = ethanol_data
     ethanol = Molecule.from_file(get_data(molecule_file))
-    torsion_indexer = TorsionIndexer()
-    method = f"add_{torsion_type}"
-    func = getattr(torsion_indexer, method)
-    func(**torsion)
-    ethanol.properties["dihedrals"] = torsion_indexer
     attributes = get_cmiles(ethanol)
     index = "test1"
     if error is not None:
         with pytest.raises(error):
-            dataset.add_molecule(index=index, molecule=ethanol, attributes=attributes)
+            dataset.add_molecule(index=index, molecule=ethanol, attributes=attributes, dihedrals=dihedrals)
     else:
-        dataset.add_molecule(index=index, molecule=ethanol, attributes=attributes)
+        dataset.add_molecule(index=index, molecule=ethanol, attributes=attributes, dihedrals=dihedrals)
         assert dataset.n_molecules == 1
 
 
@@ -278,11 +272,8 @@ def test_dataset_linear_dihedral_validator():
         bond = molecule.get_bond_between(*matches[0])
         dihedral = factory._get_torsion_string(bond)
         attributes = get_cmiles(molecule)
-        torsion_indexer = TorsionIndexer()
-        torsion_indexer.add_torsion(torsion=dihedral)
-        molecule.properties["dihedrals"] = torsion_indexer
         with pytest.raises(LinearTorsionError):
-            dataset.add_molecule(index="linear test", molecule=molecule, attributes=attributes)
+            dataset.add_molecule(index="linear test", molecule=molecule, attributes=attributes, dihedrals=[dihedral, ])
 
 
 @pytest.mark.parametrize("constraint_settings", [
@@ -543,6 +534,11 @@ def test_torsion_indexing_torsion():
     assert single_torsion.get_atom_map == {0: 0, 1: 1, 2: 2, 3: 3}
 
     assert torsion_indexer.n_torsions == 1
+    # test overwrite
+    torsion_indexer.add_torsion(torsion=(3, 2, 1, 0), scan_range=None, overwrite=True)
+    assert torsion_indexer.n_torsions == 1
+    single_torsion = torsion_indexer.torsions[(1, 2)]
+    assert single_torsion.get_scan_range is None
 
 
 def test_torsion_indexing_double():
@@ -564,6 +560,13 @@ def test_torsion_indexing_double():
     assert double_torsion.get_atom_map == {0: 4, 1: 5, 2: 6, 3: 7, 6: 0, 7: 1, 8: 2, 9: 3}
     assert torsion_indexer.n_double_torsions == 1
 
+    # test overwrite
+    torsion_indexer.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(0, 1, 2, 3), scan_range1=None,
+                                       scan_range2=None, overwrite=True)
+    assert torsion_indexer.n_double_torsions == 1
+    double_torsion = torsion_indexer.double_torsions[((1, 2), (7, 8))]
+    assert double_torsion.get_scan_range is None
+
 
 def test_torsion_indexing_improper():
     """
@@ -574,13 +577,15 @@ def test_torsion_indexing_improper():
     torsion_indexer.add_improper(1, (0, 1, 2, 3), scan_range=[40, -40])
     assert 1 in torsion_indexer.imporpers
     assert torsion_indexer.n_impropers == 1
-    torsion_indexer.add_improper(1, (3, 2, 1, 0), scan_range=[-60, 60], overwrite=True)
+    improper = torsion_indexer.imporpers[1]
+    assert improper.get_scan_range == [(-40, 40), ]
+    torsion_indexer.add_improper(1, (3, 2, 1, 0), scan_range=None, overwrite=True)
     # make sure it was over writen
     assert 1 in torsion_indexer.imporpers
     assert torsion_indexer.n_impropers == 1
     improper = torsion_indexer.imporpers[1]
     assert improper.get_dihedrals == [(3, 2, 1, 0), ]
-    assert improper.get_scan_range == [(-60, 60), ]
+    assert improper.get_scan_range is None
     assert improper.get_atom_map == {3: 0, 2: 1, 1: 2, 0: 3}
 
 
