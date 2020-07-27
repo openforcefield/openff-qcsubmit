@@ -251,7 +251,6 @@ class DatasetEntry(DatasetConfig):
             constraints = Constraints(**constraint_dict)
             kwargs["constraints"] = constraints.dict()
 
-        # dihedrals_validated = False
         extras = kwargs["extras"]
         # if we get an off_molecule we need to convert it
         if off_molecule is not None:
@@ -262,24 +261,6 @@ class DatasetEntry(DatasetConfig):
                 for conformer in range(off_molecule.n_conformers)
             ]
             kwargs["initial_molecules"] = schema_mols
-
-            # # the molecule may have a torsion index on it
-            # if "dihedrals" in off_molecule.properties:
-            #     # use the indexer class to dictate the check
-            #     for dihedral in off_molecule.properties["dihedrals"].get_dihedrals:
-            #         for torsion in dihedral.get_dihedrals:
-            #             if (
-            #                 dihedral.__class__.__name__ == "SingleTorsion"
-            #                 or dihedral.__class__.__name__ == "DoubleTorsion"
-            #             ):
-            #                 check_torsion_connection(torsion, off_molecule)
-            #             else:
-            #                 check_improper_connection(torsion, off_molecule)
-            #             # always check linear
-            #             check_linear_torsions(torsion, off_molecule)
-            #
-            #         kwargs["dihedrals"] = dihedral.get_dihedrals
-            #         dihedrals_validated = True
 
         super().__init__(**kwargs)
         # now validate the torsions check proper first
