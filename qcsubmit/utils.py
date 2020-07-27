@@ -1,5 +1,6 @@
 from typing import List
 
+
 def get_data(relative_path):
     """
     Get the file path to some data in the qcsubmit package.

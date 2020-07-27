@@ -342,6 +342,7 @@ class DatasetEntry(DatasetConfig):
         Format the keywords with the constraints values.
         """
         import copy
+
         if self.constraints.has_constraints:
             constraints = self.constraints.dict()
             keywords = copy.deepcopy(self.keywords)

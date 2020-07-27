@@ -3,7 +3,7 @@ Constraint base classes and methods.
 """
 from typing import List, Tuple, Union
 
-from pydantic import constr, validator, ValidationError
+from pydantic import ValidationError, constr, validator
 
 from .common_structures import ResultsConfig
 from .exceptions import ConstraintError
@@ -69,6 +69,7 @@ class PositionConstraintSet(PositionConstraint):
         The position must be a space separated string so we do conversion here.
         """
         from .utils import clean_strings
+
         split_value = None
         if isinstance(value, str):
             # split the string and check the length
@@ -81,7 +82,9 @@ class PositionConstraintSet(PositionConstraint):
             if len(value) == 3:
                 split_value = value
         if split_value is None:
-            raise ConstraintError(f"Position constraints require a valid 3 number position as a string or list/tuple.")
+            raise ConstraintError(
+                f"Position constraints require a valid 3 number position as a string or list/tuple."
+            )
 
         # now make sure each value is a valid float and convert to the correct string
         try:
@@ -89,7 +92,9 @@ class PositionConstraintSet(PositionConstraint):
             return str_value
 
         except ValueError as e:
-            raise ConstraintError(f"Position constraints require a valid 3 float position") from e
+            raise ConstraintError(
+                f"Position constraints require a valid 3 float position"
+            ) from e
 
 
 class Constraints(ResultsConfig):
@@ -107,7 +112,7 @@ class Constraints(ResultsConfig):
             DihedralConstraintSet,
             AngleConstraintSet,
             DistanceConstraintSet,
-            PositionConstraintSet
+            PositionConstraintSet,
         ]
     ] = []
     _constraint_types_freeze = {
@@ -128,7 +133,9 @@ class Constraints(ResultsConfig):
         Add a new freeze constraint to the constraint holder after validating it and making sure it is not already present.
         """
         try:
-            constraint = self._constraint_types_freeze[constraint_type.lower()](indices=indices)
+            constraint = self._constraint_types_freeze[constraint_type.lower()](
+                indices=indices
+            )
             if constraint not in self.freeze:
                 self.freeze.append(constraint)
         except KeyError:
@@ -141,7 +148,10 @@ class Constraints(ResultsConfig):
             ) from e
 
     def add_set_constraint(
-        self, constraint_type: str, indices: List[int], value: Union[float, List[float], str]
+        self,
+        constraint_type: str,
+        indices: List[int],
+        value: Union[float, List[float], str],
     ) -> None:
         """
         Add a new set constraint to the constraint holder after validating it and making sure it is not already present.

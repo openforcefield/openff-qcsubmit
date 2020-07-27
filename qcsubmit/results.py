@@ -1456,7 +1456,15 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
         """
         from qcsubmit.datasets import OptimizationDataset
 
-        data = self.dict(exclude={"collection", "description", "dataset_name", "dataset_tagline", "metadata"})
+        data = self.dict(
+            exclude={
+                "collection",
+                "description",
+                "dataset_name",
+                "dataset_tagline",
+                "metadata",
+            }
+        )
 
         if metadata is not None:
             data["metadata"] = metadata.dict()
@@ -1473,11 +1481,13 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
             # now we need to add a new optimization for each of the geometries in the torsiondrive
             index = result.attributes["canonical_isomeric_smiles"]
             for i, optimization in enumerate(result.optimization.values()):
-                dataset.add_molecule(index=index + f"_{i}",
-                                     molecule=optimization.get_final_molecule(),
-                                     attributes=attributes,
-                                     extras={},
-                                     keywords=optimization.keywords)
+                dataset.add_molecule(
+                    index=index + f"_{i}",
+                    molecule=optimization.get_final_molecule(),
+                    attributes=attributes,
+                    extras={},
+                    keywords=optimization.keywords,
+                )
         return dataset
 
     def create_basic_dataset(
@@ -1503,6 +1513,7 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
 
         """
         from qcsubmit.datasets import BasicDataset
+
         # create the dataset basic data
         data = self.dict(
             exclude={
@@ -1528,8 +1539,11 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
 
         # now we need to fill the dataset
         for result in self.collection.values():
-            dataset.add_molecule(index=result.attributes["canonical_isomeric_smiles"],
-                                 molecule=result.get_torsiondrive(), attributes=result.attributes)
+            dataset.add_molecule(
+                index=result.attributes["canonical_isomeric_smiles"],
+                molecule=result.get_torsiondrive(),
+                attributes=result.attributes,
+            )
 
         return dataset
 

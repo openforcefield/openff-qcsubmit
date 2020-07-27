@@ -11,24 +11,24 @@ from pydantic import ValidationError
 from simtk import unit
 
 from qcsubmit.common_structures import TorsionIndexer
+from qcsubmit.constraints import Constraints, PositionConstraintSet
 from qcsubmit.datasets import (
     BasicDataset,
     ComponentResult,
+    DatasetEntry,
     OptimizationDataset,
     TorsiondriveDataset,
-    DatasetEntry,
 )
 from qcsubmit.exceptions import (
+    ConstraintError,
     DatasetInputError,
     DihedralConnectionError,
     LinearTorsionError,
     MissingBasisCoverageError,
-    ConstraintError,
 )
 from qcsubmit.factories import BasicDatasetFactory
 from qcsubmit.testing import temp_directory
 from qcsubmit.utils import get_data
-from qcsubmit.constraints import Constraints, PositionConstraintSet
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
