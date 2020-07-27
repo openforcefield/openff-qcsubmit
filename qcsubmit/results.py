@@ -1435,6 +1435,118 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
     class Config:
         title = "TorsionDriveCollectionResult"
 
+    def create_optimization_dataset(
+        self,
+        dataset_name: str,
+        description: constr(min_length=8, regex="[a-zA-Z]"),
+        tagline: constr(min_length=8, regex="[a-zA-Z]"),
+        metadata: Optional[Metadata] = None,
+    ) -> "OptimizationDataset":
+        """
+        Create an optimization dataset from the results of the current torsion drive dataset. This will result in many constrained optimizations for each molecule.
+
+        Parameters:
+            dataset_name: The name that the new dataset will be submitted under.
+            description: A longer description string of the datasets purpose.
+            tagline: A short tag line explaining the datasets purpose that will be displayed on the archive.
+            metadata: The required metadata that will be supplied to the dataset.
+
+        Note:
+            The final geometry of each torsiondrive constrained optimization is supplied as a starting geometry.
+        """
+        from qcsubmit.datasets import OptimizationDataset
+
+        data = self.dict(
+            exclude={
+                "collection",
+                "description",
+                "dataset_name",
+                "dataset_tagline",
+                "metadata",
+            }
+        )
+
+        if metadata is not None:
+            data["metadata"] = metadata.dict()
+
+        dataset = OptimizationDataset(
+            **data,
+            dataset_name=dataset_name,
+            description=description,
+            dataset_tagline=tagline,
+        )
+        # now we need to fill the dataset
+        for result in self.collection.values():
+            attributes = result.attributes
+            # now we need to add a new optimization for each of the geometries in the torsiondrive
+            index = result.attributes["canonical_isomeric_smiles"]
+            for i, optimization in enumerate(result.optimization.values()):
+                dataset.add_molecule(
+                    index=index + f"_{i}",
+                    molecule=optimization.get_final_molecule(),
+                    attributes=attributes,
+                    extras={},
+                    keywords=optimization.keywords,
+                )
+        return dataset
+
+    def create_basic_dataset(
+        self,
+        dataset_name: str,
+        description: constr(min_length=8, regex="[a-zA-Z]"),
+        tagline: constr(min_length=8, regex="[a-zA-Z]"),
+        driver: DriverEnum,
+        metadata: Optional[Metadata] = None,
+    ) -> "BasicDataset":
+        """
+        Create a new basicdataset from the results of the current dataset.
+
+        Note:
+            The final geometries of the torsiondrive are rolled into a single molecule which is expanded on submission.
+
+         Parameters:
+            dataset_name: The name that the new dataset will be submitted under.
+            description: A longer description string of the datasets purpose.
+            tagline: A short tag line explaining the datasets purpose that will be displayed on the archive.
+            metadata: The required metadata that will be supplied to the dataset.
+            driver: The driver to be used on the basic dataset.
+
+        """
+        from qcsubmit.datasets import BasicDataset
+
+        # create the dataset basic data
+        data = self.dict(
+            exclude={
+                "collection",
+                "description",
+                "dataset_name",
+                "dataset_tagline",
+                "metadata",
+                "driver",
+            }
+        )
+
+        if metadata is not None:
+            data["metadata"] = metadata.dict()
+
+        dataset = BasicDataset(
+            **data,
+            dataset_name=dataset_name,
+            description=description,
+            dataset_tagline=tagline,
+            driver=driver,
+        )
+
+        # now we need to fill the dataset
+        for result in self.collection.values():
+            dataset.add_molecule(
+                index=result.attributes["canonical_isomeric_smiles"],
+                molecule=result.get_torsiondrive(),
+                attributes=result.attributes,
+            )
+
+        return dataset
+
     def create_torsiondrive_dataset(
         self,
         dataset_name: str,

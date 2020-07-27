@@ -7,6 +7,7 @@ import qcelemental as qcel
 import qcportal as ptl
 from openforcefield import topology as off
 from pydantic import PositiveInt, constr, validator
+from qcfractal.interface import FractalClient
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from simtk import unit
 
@@ -17,7 +18,9 @@ from .common_structures import (
     Metadata,
     TorsionIndexer,
 )
+from .constraints import Constraints
 from .exceptions import (
+    ConstraintError,
     DatasetInputError,
     DihedralConnectionError,
     MissingBasisCoverageError,
@@ -229,6 +232,7 @@ class DatasetEntry(DatasetConfig):
     dihedrals: Optional[List[Tuple[int, int, int, int]]]
     extras: Optional[Dict[str, Any]] = {}
     keywords: Optional[Dict[str, Any]] = {}
+    constraints: Constraints = Constraints()
 
     _attribute_validator = validator("attributes", allow_reuse=True)(cmiles_validator)
     _qcel_molecule_validator = validator(
@@ -240,6 +244,12 @@ class DatasetEntry(DatasetConfig):
         Init the dataclass handling conversions of the molecule first.
         This is needed to make sure the extras are passed into the qcschema molecule.
         """
+
+        # if the constraints are in the keywords move them out for validation
+        if "constraints" in kwargs["keywords"]:
+            constraint_dict = kwargs["keywords"].pop("constraints")
+            constraints = Constraints(**constraint_dict)
+            kwargs["constraints"] = constraints.dict()
 
         dihedrals_validated = False
         extras = kwargs["extras"]
@@ -310,6 +320,36 @@ class DatasetEntry(DatasetConfig):
             geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
             molecule.add_conformer(geometry.in_units_of(unit.angstrom))
         return molecule
+
+    def add_constraint(
+        self, constraint: str, constraint_type: str, indices: List[int], **kwargs
+    ) -> None:
+        """
+        Add new constraint of the given type.
+        """
+        if constraint.lower() == "freeze":
+            self.constraints.add_freeze_constraint(constraint_type, indices)
+        elif constraint.lower() == "set":
+            self.constraints.add_set_constraint(constraint_type, indices, **kwargs)
+        else:
+            raise ConstraintError(
+                f"The constraint {constraint} is not available please chose from freeze or set."
+            )
+
+    @property
+    def formatted_keywords(self) -> Dict[str, Any]:
+        """
+        Format the keywords with the constraints values.
+        """
+        import copy
+
+        if self.constraints.has_constraints:
+            constraints = self.constraints.dict()
+            keywords = copy.deepcopy(self.keywords)
+            keywords["constraints"] = constraints
+            return keywords
+        else:
+            return self.keywords
 
 
 class FilterEntry(DatasetConfig):
@@ -681,7 +721,7 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
 
     def submit(
         self,
-        client: Union[str, ptl.FractalClient],
+        client: Union[str, ptl.FractalClient, FractalClient],
         await_result: Optional[bool] = False,
     ) -> SingleResult:
         """
@@ -1120,7 +1160,9 @@ class OptimizationDataset(BasicDataset):
         return qc_spec
 
     def submit(
-        self, client: Union[str, ptl.FractalClient], await_result: bool = False
+        self,
+        client: Union[str, ptl.FractalClient, FractalClient],
+        await_result: bool = False,
     ) -> SingleResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
@@ -1192,7 +1234,7 @@ class OptimizationDataset(BasicDataset):
                         name=name,
                         initial_molecule=molecule,
                         attributes=data.attributes,
-                        additional_keywords=data.keywords,
+                        additional_keywords=data.formatted_keywords,
                         save=False,
                     )
                     i += 1
@@ -1269,7 +1311,9 @@ class TorsiondriveDataset(OptimizationDataset):
         return len(self.dataset)
 
     def submit(
-        self, client: Union[str, ptl.FractalClient], await_result: bool = False
+        self,
+        client: Union[str, ptl.FractalClient, FractalClient],
+        await_result: bool = False,
     ) -> SingleResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the

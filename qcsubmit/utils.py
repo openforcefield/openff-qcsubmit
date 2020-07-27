@@ -1,3 +1,6 @@
+from typing import List
+
+
 def get_data(relative_path):
     """
     Get the file path to some data in the qcsubmit package.
@@ -18,3 +21,14 @@ def get_data(relative_path):
         )
 
     return fn
+
+
+def clean_strings(string_list: List[str]) -> List[str]:
+    """
+    Clean up a list of strings ready to be cast to numbers.
+    """
+    clean_string = []
+    for string in string_list:
+        new_string = string.strip()
+        clean_string.append(new_string.strip(","))
+    return clean_string

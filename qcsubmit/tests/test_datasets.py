@@ -11,13 +11,16 @@ from pydantic import ValidationError
 from simtk import unit
 
 from qcsubmit.common_structures import TorsionIndexer
+from qcsubmit.constraints import Constraints, PositionConstraintSet
 from qcsubmit.datasets import (
     BasicDataset,
     ComponentResult,
+    DatasetEntry,
     OptimizationDataset,
     TorsiondriveDataset,
 )
 from qcsubmit.exceptions import (
+    ConstraintError,
     DatasetInputError,
     DihedralConnectionError,
     LinearTorsionError,
@@ -201,6 +204,8 @@ def test_componentresult_deduplication_torsions_same_bond_same_coords():
                   DihedralConnectionError), id="incorrect double torsion ethanol"),
     pytest.param(("ethanol.sdf", {"improper": (3, 0, 4, 5), "central_atom": 0}, "improper", None),
                  id="correct improper ethanol"),
+    pytest.param(("ethanol.sdf", {"improper": (100, 0, 4, 5), "central_atom": 0}, "improper", DihedralConnectionError),
+                 id="incorrect improper ethanol index error"),
     pytest.param(("ethanol.sdf", {"improper": (7, 0, 4, 5), "central_atom": 0}, "improper", DihedralConnectionError),
                  id="incorrect improper ethanol"),
     pytest.param(("benzene.sdf", {"improper": (0, 1, 2, 7), "central_atom": 1}, "improper", None),
@@ -278,6 +283,148 @@ def test_dataset_linear_dihedral_validator():
         molecule.properties["dihedrals"] = torsion_indexer
         with pytest.raises(LinearTorsionError):
             dataset.add_molecule(index="linear test", molecule=molecule, attributes=attributes)
+
+
+@pytest.mark.parametrize("constraint_settings", [
+    pytest.param(("distance", [0, 1], None), id="distance correct order"),
+    pytest.param(("angle", [0, 1, 2], None), id="angle correct order"),
+    pytest.param(("dihedral", [0, 1, 2, 3], None), id="dihedral correct order"),
+    pytest.param(("xyz", [0], None), id="position correct"),
+    pytest.param(("xyz", [0, 1, 2, 3, 4, 5, 6], None), id="position many"),
+    pytest.param(("xyz", [0, 0, 1, 2], ConstraintError), id="position not unique"),
+    pytest.param(("distance", [0, 1, 2], ConstraintError), id="distance too many indices"),
+    pytest.param(("bond", [0, 1], ConstraintError), id="invalid constraint type.")
+])
+def test_add_freeze_constraints_validator(constraint_settings):
+    """
+    Test out adding multiple types of constraints and their validators.
+    """
+    cons = Constraints()
+    assert cons.has_constraints is False
+    con_type, indices, error = constraint_settings
+    if error is not None:
+        with pytest.raises(error):
+            cons.add_freeze_constraint(constraint_type=con_type, indices=indices)
+    else:
+        cons.add_freeze_constraint(constraint_type=con_type, indices=indices)
+        # now make sure that the indices are being ordered by trying to add a constraint in reverse
+        cons.add_freeze_constraint(constraint_type=con_type, indices=list(reversed(indices)))
+        assert len(cons.freeze) == 1
+        # make sure the class knows it know has constraints
+        assert cons.has_constraints is True
+        cons_dict = cons.dict()
+        # make sure we drop empty constraint lists
+        assert "set" not in cons_dict
+
+
+@pytest.mark.parametrize("constraint_settings", [
+    pytest.param(("distance", [0, 1], 1, None), id="distance correct order"),
+    pytest.param(("angle", [0, 1, 2], 100, None), id="angle correct order"),
+    pytest.param(("dihedral", [0, 1, 2, 3], 50, None), id="dihedral correct order"),
+    pytest.param(("xyz", [0], [0, 1, 2], None), id="position correct"),
+    pytest.param(("xyz", [0, 1, 2, 3, 4, 5, 6], [0, 1, 0], ConstraintError), id="position too many atoms"),
+    pytest.param(("distance", [0, 1, 2], 1, ConstraintError), id="distance too many indices"),
+    pytest.param(("bond", [0, 1], 1, ConstraintError), id="invalid constraint type.")
+])
+def test_add_set_constraints_validator(constraint_settings):
+    """
+    Test out adding multiple types of constraints and their validators.
+    """
+    cons = Constraints()
+    assert cons.has_constraints is False
+    con_type, indices, value, error = constraint_settings
+    if error is not None:
+        with pytest.raises(error):
+            cons.add_set_constraint(constraint_type=con_type, indices=indices, value=value)
+    else:
+        cons.add_set_constraint(constraint_type=con_type, indices=indices, value=value)
+        # now make sure that the indices are being ordered by trying to add a constraint in reverse
+        cons.add_set_constraint(constraint_type=con_type, indices=list(reversed(indices)), value=value)
+        assert len(cons.set) == 1
+        # make sure the class knows it know has constraints
+        assert cons.has_constraints is True
+        cons_dict = cons.dict()
+        # make sure we drop empty constraint lists
+        assert "freeze" not in cons_dict
+
+
+@pytest.mark.parametrize("constraint_settings", [
+    pytest.param(("0, -1, -2", None), id="correct space list"),
+    pytest.param(("0 0 0 ", None), id="correct space list"),
+    pytest.param(("0-0-0", ConstraintError), id="incorrect hyphen list"),
+    pytest.param(("C, a, b", ConstraintError), id="none float position"),
+    pytest.param(("0,0,0", None), id="correct comma list"),
+    pytest.param(([0, 0, 0], None), id="correct list")
+
+])
+def test_position_set_constraint_validation(constraint_settings):
+    """
+    Test each of the valid inputs for the position set constraint and make sure the value is converted correctly.
+    """
+    value, error = constraint_settings
+    if error is None:
+        constraint = PositionConstraintSet(indices=(0, ), value=value)
+        # make sure a single string is made
+        assert len(constraint.value.split()) == 3
+    else:
+        with pytest.raises(error):
+            PositionConstraintSet(indices=(0, ), value=value)
+
+
+@pytest.mark.parametrize("constraint_settings", [
+    pytest.param(("freeze", "dihedral", [0, 1, 2, 3], None, None), id="freeze dihedral valid"),
+    pytest.param(("set", "dihedral", [0, 1, 2, 3], 50, None), id="set dihedral valid"),
+    pytest.param(("scan", "dihedral", [0, 1, 2, 3], 50, ConstraintError), id="invalid scan constraint"),
+])
+def test_add_constraints_to_entry(constraint_settings):
+    """
+    Test adding new constraints to a valid dataset entry.
+    """
+    mol = Molecule.from_smiles("CC")
+    entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
+    # get the constraint info
+    constraint, constraint_type, indices, value, error = constraint_settings
+    if error is None:
+        entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+        assert entry.constraints.has_constraints is True
+        assert "constraints" in entry.formatted_keywords
+
+    else:
+        with pytest.raises(error):
+            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+
+
+@pytest.mark.parametrize("constraint_setting", [
+    pytest.param("constraints", id="constraint"),
+    pytest.param("keywords", id="keywords"),
+    pytest.param(None, id="no constraints")
+])
+def test_add_entry_with_constraints(constraint_setting):
+    """
+    Add an entry to a dataset with constraints in the keywords and make sure they converted to the constraints field.
+    """
+    dataset = BasicDataset()
+    # now add a molecule with constraints in the keywords
+    mol = Molecule.from_smiles("CC")
+    constraints = {"set": [{"type": "dihedral", "indices": [0, 1, 2, 3], "value": 50},
+                           {"type": "angle", "indices": [0, 1, 2], "value": 50},
+                           {"type": "distance", "indices": [0, 1], "value": 1}]}
+    index = mol.to_smiles()
+
+    if constraint_setting == "constraints":
+        dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol), constraints=constraints)
+    elif constraint_setting == "keywords":
+        dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol), keywords={"constraints": constraints})
+    elif constraint_setting is None:
+        dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol))
+
+    entry = dataset.dataset[index]
+    if constraint_setting is not None:
+        assert "constraints" in entry.formatted_keywords
+        assert entry.constraints.has_constraints is True
+    else:
+        assert entry.keywords == entry.formatted_keywords
+        assert entry.constraints.has_constraints is False
 
 
 @pytest.mark.parametrize("dataset_data", [
