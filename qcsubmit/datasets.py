@@ -443,6 +443,31 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         if self.metadata.long_description is None:
             self.metadata.long_description = self.description
 
+    def __add__(self, other: "BasicDataset") -> "BasicDataset":
+        """
+        Add two datasets together accounting for duplicate inputs and transferring any molecule conformers.
+        """
+        import copy
+        new_dataset = copy.deepcopy(self)
+        for index, entry in other.dataset.items():
+            # search for the molecule
+            entry_ids = new_dataset.get_molecule_entry(entry.off_molecule)
+            if not entry_ids:
+                new_dataset.dataset[index] = entry
+            else:
+                # work out if the mapping is the same
+                for mol_id in entry_ids:
+                    current_entry = new_dataset.dataset[mol_id]
+                    isomorphic, atom_map = off.Molecule.are_isomorphic(entry.off_molecule, current_entry.off_molecule, return_atom_map=True)
+                    if atom_map == {(i, i) for i in range(current_entry.off_molecule.n_atoms)}:
+                        for mol in entry.initial_molecules:
+                            if mol not in current_entry.initial_molecules:
+                                current_entry.initial_molecules.append(mol)
+                    else:
+                        # we have to remap the geometry and then extend the molecules
+                        raise NotImplementedError()
+
+
     def get_molecule_entry(self, molecule: Union[off.Molecule, str]) -> List[str]:
         """
         Search through the dataset for a molecule and return the dataset index of any exact molecule matches.
