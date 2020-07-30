@@ -207,8 +207,6 @@ class ComponentResult:
         finally:
             if molecule not in self.filtered:
                 self.filtered.append(molecule)
-            else:
-                return
 
     def __repr__(self):
         return f"ComponentResult(name={self.component_name}, molecules={self.n_molecules}, filtered={self.n_filtered})"
@@ -447,10 +445,6 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
             if not entry_ids:
                 new_dataset.dataset[index] = entry
             else:
-                # work out if the mapping is the same
-                assert len(entry_ids) == 1, print(
-                    "The molecule appears more than once in the dataset."
-                )
                 mol_id = entry_ids[0]
                 current_entry = new_dataset.dataset[mol_id]
                 _, atom_map = off.Molecule.are_isomorphic(
@@ -712,7 +706,9 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
             if covered_elements is not None:
                 difference = self.metadata.elements.difference(covered_elements)
             else:
-                raise ValueError(f"The torchani method {self.method} is not supported.")
+                raise MissingBasisCoverageError(
+                    f"The torchani method {self.method} is not supported."
+                )
 
         elif self.program.lower() == "psi4":
             # now check psi4
@@ -868,7 +864,7 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         else:
             raise UnsupportedFiletypeError(
                 f"The requested file type {file_type} is not supported please use "
-                f"json or yaml"
+                f"json."
             )
 
     def coverage_report(self, forcefields: List[str]) -> Dict:
@@ -896,7 +892,9 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
             "n": "vdW",
         }
         if isinstance(forcefields, str):
-            forcefields = [forcefields]
+            forcefields = [
+                forcefields,
+            ]
 
         for forcefield in forcefields:
 

@@ -26,6 +26,7 @@ from qcsubmit.exceptions import (
     DihedralConnectionError,
     LinearTorsionError,
     MissingBasisCoverageError,
+    UnsupportedFiletypeError,
 )
 from qcsubmit.factories import BasicDatasetFactory
 from qcsubmit.testing import temp_directory
@@ -115,6 +116,26 @@ def test_componetresult_deduplication_standard():
     # make sure only 1 copy of each molecule is added
     assert len(result.molecules) == len(molecules) / duplicates
     assert len(result.filtered) == 0
+
+
+def test_componetresult_directory():
+    """
+    Test loading up some molecules from a driectory of files.
+    """
+    butane_conformers = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
+    butane = condense_molecules(butane_conformers)
+    ethanol = Molecule.from_file(get_data("ethanol.sdf"), "sdf")
+    with temp_directory():
+        # write the files out
+        ethanol.to_file("ethanol.sdf", "sdf")
+        butane.to_file("butane.pdb", "pdb")
+
+        # now make a result to load these molecules
+        result = ComponentResult(component_name="test",
+                                 component_description={},
+                                 component_provenance={},
+                                 input_directory=".")
+        assert result.n_molecules == 2
 
 
 def test_componentresult_deduplication_coordinates():
@@ -444,8 +465,9 @@ def test_constraints_are_equall():
 
 @pytest.mark.parametrize("dataset_types", [
     pytest.param((BasicDataset, OptimizationDataset), id="basic + optimization error"),
-    pytest.param((BasicDataset, TorsiondriveDataset), id="basic + torsiondrive error"),
-    pytest.param((OptimizationDataset, TorsiondriveDataset), id="optimization + torsiondrive error")
+    pytest.param((OptimizationDataset, TorsiondriveDataset), id="optimization + torsiondrive error"),
+    pytest.param((TorsiondriveDataset, BasicDataset), id="torsiondrive + basic error"),
+
 ])
 def test_dataset_adding(dataset_types):
     """
@@ -919,6 +941,26 @@ def test_componentresult_filter_molecules():
     assert len(result.filtered) == len(molecules)
 
 
+def test_dataset_add_filter_molecules():
+    """
+    Test adding extra molecules to filter.
+    """
+    dataset = BasicDataset()
+    methane = Molecule.from_smiles("C")
+    ethanol = Molecule.from_smiles("CC")
+    dataset.filter_molecules(molecules=methane,
+                             component_name="test",
+                             component_description={},
+                             component_provenance={})
+    # now we want to add this extra molecule to this group
+    dataset.filter_molecules(molecules=ethanol,
+                             component_name="test",
+                             component_description={},
+                             component_provenance={})
+    filtered = dataset.filtered_molecules["test"]
+    assert len(filtered.molecules) == 2
+
+
 @pytest.mark.parametrize("dataset_type", [
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
@@ -979,6 +1021,16 @@ def test_Dataset_exporting_same_type(dataset_type):
         dataset2 = dataset_type.parse_file('dataset.json')
         assert dataset2.method == "test method"
         assert dataset.metadata == dataset2.metadata
+
+
+def test_dataset_unsupported_exports():
+    """
+    Test trying to export to unsupported file types.
+    """
+    with temp_directory():
+        dataset = BasicDataset()
+        with pytest.raises(UnsupportedFiletypeError):
+            dataset.export_dataset("dataset.yaml")
 
 
 @pytest.mark.parametrize("molecule_data", [
@@ -1069,7 +1121,7 @@ def test_BasicDataset_coverage_reporter():
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
 
     ff = "openff_unconstrained-1.0.0.offxml"
-    coverage = dataset.coverage_report([ff])
+    coverage = dataset.coverage_report(ff)
 
     assert ff in coverage
     # make sure that every tag has been used
@@ -1112,8 +1164,10 @@ def test_Basicdataset_add_molecule_missing_attributes():
 
 
 @pytest.mark.parametrize("file_data", [
-    pytest.param(("molecules.smi", "SMI", "to_smiles", {"isomeric": True, "explicit_hydrogens": False}), id="smiles"), pytest.param(("molecules.inchi", "INCHI", "to_inchi", {}), id="inchi"),
-    pytest.param(("molecules.inchikey", "inchikey", "to_inchikey", {}), id="inchikey")
+    pytest.param(("molecules.smi", "SMI", "to_smiles", {"isomeric": True, "explicit_hydrogens": False}, False), id="smiles"),
+    pytest.param(("molecules.inchi", "INCHI", "to_inchi", {}, False), id="inchi"),
+    pytest.param(("molecules.inchikey", "inchikey", "to_inchikey", {}, False), id="inchikey"),
+    pytest.param(("molecules.hash", "hash", "to_hash", {}, True), id="hash error")
 ])
 def test_Basicdataset_molecules_to_file(file_data):
     """
@@ -1128,16 +1182,21 @@ def test_Basicdataset_molecules_to_file(file_data):
         attributes = get_cmiles(molecule)
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
     with temp_directory():
-        dataset.molecules_to_file(file_name=file_data[0], file_type=file_data[1])
+        # if we expect an error
+        if not file_data[4]:
+            dataset.molecules_to_file(file_name=file_data[0], file_type=file_data[1])
 
-        # now we need to read in the data
-        with open(file_data[0]) as molecule_data:
-            data = molecule_data.readlines()
-            for i, molecule in enumerate(dataset.molecules):
-                # get the function and call it, also pass any extra arguments
-                result = getattr(molecule, file_data[2])(**file_data[3])
-                # now compare the data in the file to what we have calculated
-                assert data[i].strip() == result
+            # now we need to read in the data
+            with open(file_data[0]) as molecule_data:
+                data = molecule_data.readlines()
+                for i, molecule in enumerate(dataset.molecules):
+                    # get the function and call it, also pass any extra arguments
+                    result = getattr(molecule, file_data[2])(**file_data[3])
+                    # now compare the data in the file to what we have calculated
+                    assert data[i].strip() == result
+        else:
+            with pytest.raises(UnsupportedFiletypeError):
+                dataset.molecules_to_file(file_name=file_data[0], file_type=file_data[1])
 
 
 @pytest.mark.parametrize("toolkit_data", [
@@ -1307,6 +1366,7 @@ def test_Basicdataset_export_json(dataset_type):
 @pytest.mark.parametrize("basis_data", [
     pytest.param(("ani1x", None, {"P"}, "torchani", True), id="Ani1x with Error"),
     pytest.param(("ani1ccx", None, {"C", "H", "N"}, "torchani", False), id="Ani1ccx Pass"),
+    pytest.param(("ani12", None, {"C", "H", "N"}, "torchani", True), id="Ani12 Error"),
     pytest.param(("b3lyp-d3bj", "dzvp", {"C", "H", "O"}, "psi4", False), id="DZVP psi4 convert Pass"),
     pytest.param(("hf", "6-311++G", {"Br", "C", "O", "N"}, "psi4", True), id="6-311++G Error"),
     pytest.param(("hf", "def2-qzvp", {"H", "C", "B", "N", "O", "F", "Cl", "Si", "P", "S", "I", "Br"}, "psi4", False), id="Def2-QZVP Pass"),
