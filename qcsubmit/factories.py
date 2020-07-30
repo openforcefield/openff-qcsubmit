@@ -862,6 +862,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                     molecule.properties["atom_map"] = dihedral.get_atom_map
                     index = self.create_index(molecule=molecule)
                     del molecule.properties["atom_map"]
+                    # get the dihedrals to scan
+                    dihedrals = dihedral.get_dihedrals
 
                     keywords["dihedral_ranges"] = dihedral.get_scan_range
                     try:
@@ -869,7 +871,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                             index=index,
                             molecule=molecule,
                             attributes=attributes,
-                            dihedrals=dihedral.get_dihedrals,
+                            dihedrals=dihedrals,
                             keywords=keywords,
                             extras=extras,
                         )

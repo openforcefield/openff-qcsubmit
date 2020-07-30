@@ -10,6 +10,7 @@ import numpy as np
 import qcportal as ptl
 from qcelemental.models.results import WavefunctionProtocolEnum
 from pydantic import BaseModel, HttpUrl, constr, validator
+from qcfractal.interface import FractalClient
 
 from qcsubmit.exceptions import DatasetInputError
 
@@ -444,6 +445,8 @@ class ClientHandler:
         """
 
         if isinstance(client, ptl.FractalClient):
+            return client
+        elif isinstance(client, FractalClient):
             return client
         elif client == "public":
             return ptl.FractalClient()

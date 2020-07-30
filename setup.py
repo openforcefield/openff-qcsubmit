@@ -3,7 +3,9 @@ qcsubmit
 Automated tools for submitting molecules to QCFractal
 """
 import sys
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
+
 import versioneer
 
 short_description = __doc__.split("\n")

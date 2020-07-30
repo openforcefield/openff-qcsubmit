@@ -89,6 +89,50 @@ def test_optimization_trajectory_results(public_client):
     assert len(traj.energies) == molecule.n_conformers
 
 
+def test_optimizationdataset_new_basicdataset(public_client):
+    """
+    Test creating a new basicdataset from the result of an optimization dataset.
+    """
+    result = OptimizationCollectionResult.from_server(
+        client=public_client,
+        spec_name="default",
+        dataset_name="OpenFF Gen 2 Opt Set 1 Roche",
+        include_trajectory=True,
+        final_molecule_only=False,
+        subset=["cn1c(cccc1=o)c2ccccc2oc-0"])
+    new_dataset = result.create_basic_dataset(dataset_name="new basicdataset",
+                                              description="test new optimizationdataset",
+                                              tagline='new optimization dataset',
+                                              driver="energy")
+    assert new_dataset.dataset_name == "new basicdataset"
+    assert new_dataset.n_molecules == 1
+    assert new_dataset.n_records == 1
+    result_geom = result.collection["Cn1c(cccc1=O)c2ccccc2OC"].entries[0].final_molecule.molecule.geometry
+    # make sure the geometry is correct
+    assert new_dataset.dataset["cn1c(cccc1=o)c2ccccc2oc-0"].initial_molecules[0].geometry.all() == result_geom.all()
+
+
+def test_optimizationdataset_new_optimization(public_client):
+    """
+    Test creating a new optimizationdataset from the result of an optimization dataset.
+    """
+    result = OptimizationCollectionResult.from_server(
+        client=public_client,
+        spec_name="default",
+        dataset_name="OpenFF Gen 2 Opt Set 1 Roche",
+        include_trajectory=True,
+        final_molecule_only=False,
+        subset=["cn1c(cccc1=o)c2ccccc2oc-0"])
+    new_dataset = result.create_optimization_dataset(dataset_name="new optimizationdataset",
+                                                     description="new test optimizationdataset",
+                                                     tagline="new optimizationdataset")
+    assert new_dataset.dataset_name == "new optimizationdataset"
+    assert new_dataset.n_records == 1
+    assert new_dataset.n_molecules == 1
+    result_geom = result.collection["Cn1c(cccc1=O)c2ccccc2OC"].entries[0].final_molecule.molecule.geometry
+    assert new_dataset.dataset["cn1c(cccc1=o)c2ccccc2oc-0"].initial_molecules[0].geometry.all() == result_geom.all()
+
+
 def test_optimization_final_only_result(public_client):
     """
     Test gathering a result with only the final molecules in the records.
@@ -166,3 +210,179 @@ def test_basicdataset_export_round_trip(public_client):
         assert result.dict(exclude={"collection"}) == result2.dict(exclude={"collection"})
         for molecule in result.collection:
             assert molecule in result2.collection
+
+
+def test_torsiondrivedataset_result_default(public_client):
+    """
+    Test downloading a basic torsiondrive dataset from the archive.
+    """
+    import numpy as np
+    from simtk import unit
+
+    result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                      spec_name="default",
+                                                      dataset_name="TorsionDrive Paper",
+                                                      include_trajectory=False,
+                                                      final_molecule_only=False)
+
+    # now we need to make sure that each optimization traj has only one molecule in it.
+    for torsiondrive in result.collection.values():
+        for optimization in torsiondrive.optimization.values():
+            assert len(optimization.trajectory) == 2
+
+    # make sure the three torsiondrives are pulled
+    assert len(result.collection) == 3
+
+    # now check the utility functions
+    torsiondrive = result.collection["[ch2:3]([ch2:2][oh:4])[oh:1]_12"]
+    assert torsiondrive.final_energies is not None
+    # make sure there is an energy of every result
+    assert len(torsiondrive.final_energies) == len(torsiondrive.optimization)
+    mol = torsiondrive.molecule
+    molecule = torsiondrive.get_torsiondrive()
+    assert mol == molecule
+    # make sure the conformers are loaded onto the molecule
+    assert molecule.n_conformers == len(torsiondrive.optimization)
+    # now check each conformer
+    ordered_results = torsiondrive.get_ordered_results()
+    for conformer, single_result in zip(molecule.conformers, ordered_results):
+        assert np.allclose(conformer.in_units_of(unit.bohr).tolist(), single_result[1].molecule.geometry.tolist())
+
+    # now make sure the lowest energy optimization is recognized
+    lowest_result = torsiondrive.get_lowest_energy_optimisation()
+    all_energies = list(torsiondrive.final_energies.values())
+    assert lowest_result.final_energy == min(all_energies)
+
+
+def test_torsiondrivedataset_final_result_only(public_client):
+    """
+    Make sure the final_molecule_only keyword is working
+    """
+
+    result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                      spec_name="default",
+                                                      dataset_name="TorsionDrive Paper",
+                                                      include_trajectory=False,
+                                                      final_molecule_only=True)
+
+    # now we need to make sure that each optimization traj has only one molecule in it.
+    for torsiondrive in result.collection.values():
+        for optimization in torsiondrive.optimization.values():
+            assert len(optimization.trajectory) == 1
+
+
+def test_torsiondrivedataset_traj_subset(public_client):
+    """
+    Make sure the full trajectories are pulled when requested for a subset of molecules in a collection.
+    """
+
+    result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                      spec_name="default",
+                                                      dataset_name="TorsionDrive Paper",
+                                                      include_trajectory=True,
+                                                      final_molecule_only=False,
+                                                      subset=["[ch2:3]([ch2:2][oh:4])[oh:1]_12"])
+
+    # make sure one torsiondrive was pulled down
+    assert len(result.collection) == 1
+    # now make sure the full trajectory is pulled
+    torsiondrive = result.collection["[ch2:3]([ch2:2][oh:4])[oh:1]_12"]
+    for optimization in torsiondrive.optimization.values():
+        assert len(optimization.trajectory) > 2
+
+
+def test_torsiondrivedataset_export(public_client):
+    """
+    Make sure that the torsiondrive datasets can be exported.
+    """
+
+    with temp_directory():
+        result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                          spec_name="default",
+                                                          dataset_name="TorsionDrive Paper",
+                                                          include_trajectory=False,
+                                                          final_molecule_only=True)
+
+        result.export_results("dataset.json")
+
+        result2 = TorsionDriveCollectionResult.parse_file("dataset.json")
+
+        assert result.dict(exclude={"collection"}) == result2.dict(exclude={"collection"})
+        for molecule in result.collection:
+            assert molecule in result2.collection
+
+
+def test_torsiondrivedataset_new_torsiondrive(public_client):
+    """
+    Test making a new torsiondrive dataset from the results of another.
+    """
+
+    result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                      spec_name="default",
+                                                      dataset_name="TorsionDrive Paper",
+                                                      include_trajectory=True,
+                                                      final_molecule_only=False,
+                                                      subset=["[ch2:3]([ch2:2][oh:4])[oh:1]_12"])
+    # make a new torsiondrive dataset
+    new_dataset = result.create_torsiondrive_dataset(dataset_name="new torsiondrive dataset",
+                                                     description="a test torsiondrive dataset",
+                                                     tagline="a test torsiondrive dataset.")
+    assert new_dataset.dataset_name == "new torsiondrive dataset"
+    assert new_dataset.n_molecules == 1
+    assert new_dataset.n_records == 1
+    entry = new_dataset.dataset["[ch2:3]([ch2:2][oh:4])[oh:1]_12"]
+    # make sure all starting molecules are present
+    assert len(entry.initial_molecules) == 24
+    assert entry.constraints.has_constraints is False
+
+
+def test_torsiondrivedataset_new_optimization(public_client):
+    """
+    Tast making a new optimization dataset of constrained optimizations from the results of a torsiondrive dataset.
+    """
+
+    result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                      spec_name="default",
+                                                      dataset_name="TorsionDrive Paper",
+                                                      include_trajectory=True,
+                                                      final_molecule_only=False,
+                                                      subset=["[ch2:3]([ch2:2][oh:4])[oh:1]_12"])
+    # make a new torsiondrive dataset
+    new_dataset = result.create_optimization_dataset(dataset_name="new optimization dataset",
+                                                     description="a test optimization dataset",
+                                                     tagline="a test optimization dataset.")
+
+    assert new_dataset.dataset_name == "new optimization dataset"
+    assert new_dataset.n_molecules == 1
+    assert new_dataset.n_records == 24
+    dihedrals = set()
+    for entry in new_dataset.dataset.values():
+        assert entry.constraints.has_constraints is True
+        assert len(entry.constraints.set) == 1
+        dihedrals.add(entry.constraints.set[0].value)
+
+    # now sort the dihedrals and make sure they are all present
+    dihs = sorted(dihedrals)
+    refs = [x for x in range(-165, 195, 15)]
+    assert dihs == refs
+
+
+def test_torsiondrive_new_basicdataset(public_client):
+    """
+    Test creating a new basicdataset of the final geometries of the current torsiondrive results class.
+    """
+    result = TorsionDriveCollectionResult.from_server(client=public_client,
+                                                      spec_name="default",
+                                                      dataset_name="TorsionDrive Paper",
+                                                      include_trajectory=True,
+                                                      final_molecule_only=False,
+                                                      subset=["[ch2:3]([ch2:2][oh:4])[oh:1]_12"])
+    new_dataset = result.create_basic_dataset(dataset_name="new basicdataset",
+                                              description="new basicdataset",
+                                              tagline="new basicdataset",
+                                              driver="gradient")
+    assert new_dataset.dataset_name == "new basicdataset"
+    assert new_dataset.n_molecules == 1
+    # make sure all of the molecule geometries are unpacked
+    assert new_dataset.n_records == 24
+    assert new_dataset.driver.value == "gradient"

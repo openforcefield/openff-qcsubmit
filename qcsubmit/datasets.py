@@ -7,6 +7,7 @@ import qcelemental as qcel
 import qcportal as ptl
 from openforcefield import topology as off
 from pydantic import PositiveInt, constr, validator
+from qcfractal.interface import FractalClient
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from simtk import unit
 
@@ -17,7 +18,10 @@ from .common_structures import (
     Metadata,
     TorsionIndexer,
 )
+from .constraints import Constraints
 from .exceptions import (
+    ConstraintError,
+    DatasetCombinationError,
     DatasetInputError,
     DihedralConnectionError,
     MissingBasisCoverageError,
@@ -203,8 +207,6 @@ class ComponentResult:
         finally:
             if molecule not in self.filtered:
                 self.filtered.append(molecule)
-            else:
-                return
 
     def __repr__(self):
         return f"ComponentResult(name={self.component_name}, molecules={self.n_molecules}, filtered={self.n_filtered})"
@@ -229,6 +231,7 @@ class DatasetEntry(DatasetConfig):
     dihedrals: Optional[List[Tuple[int, int, int, int]]]
     extras: Optional[Dict[str, Any]] = {}
     keywords: Optional[Dict[str, Any]] = {}
+    constraints: Constraints = Constraints()
 
     _attribute_validator = validator("attributes", allow_reuse=True)(cmiles_validator)
     _qcel_molecule_validator = validator(
@@ -241,7 +244,12 @@ class DatasetEntry(DatasetConfig):
         This is needed to make sure the extras are passed into the qcschema molecule.
         """
 
-        dihedrals_validated = False
+        # if the constraints are in the keywords move them out for validation
+        if "constraints" in kwargs["keywords"]:
+            constraint_dict = kwargs["keywords"].pop("constraints")
+            constraints = Constraints(**constraint_dict)
+            kwargs["constraints"] = constraints.dict()
+
         extras = kwargs["extras"]
         # if we get an off_molecule we need to convert it
         if off_molecule is not None:
@@ -253,27 +261,9 @@ class DatasetEntry(DatasetConfig):
             ]
             kwargs["initial_molecules"] = schema_mols
 
-            # the molecule may have a torsion index on it
-            if "dihedrals" in off_molecule.properties:
-                # use the indexer class to dictate the check
-                for dihedral in off_molecule.properties["dihedrals"].get_dihedrals:
-                    for torsion in dihedral.get_dihedrals:
-                        if (
-                            dihedral.__class__.__name__ == "SingleTorsion"
-                            or dihedral.__class__.__name__ == "DoubleTorsion"
-                        ):
-                            check_torsion_connection(torsion, off_molecule)
-                        else:
-                            check_improper_connection(torsion, off_molecule)
-                        # always check linear
-                        check_linear_torsions(torsion, off_molecule)
-
-                    kwargs["dihedrals"] = dihedral.get_dihedrals
-                    dihedrals_validated = True
-
         super().__init__(**kwargs)
         # now validate the torsions check proper first
-        if self.dihedrals is not None and not dihedrals_validated:
+        if self.dihedrals is not None:
             if off_molecule is None:
                 off_molecule = self.off_molecule
 
@@ -310,6 +300,36 @@ class DatasetEntry(DatasetConfig):
             geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
             molecule.add_conformer(geometry.in_units_of(unit.angstrom))
         return molecule
+
+    def add_constraint(
+        self, constraint: str, constraint_type: str, indices: List[int], **kwargs
+    ) -> None:
+        """
+        Add new constraint of the given type.
+        """
+        if constraint.lower() == "freeze":
+            self.constraints.add_freeze_constraint(constraint_type, indices)
+        elif constraint.lower() == "set":
+            self.constraints.add_set_constraint(constraint_type, indices, **kwargs)
+        else:
+            raise ConstraintError(
+                f"The constraint {constraint} is not available please chose from freeze or set."
+            )
+
+    @property
+    def formatted_keywords(self) -> Dict[str, Any]:
+        """
+        Format the keywords with the constraints values.
+        """
+        import copy
+
+        if self.constraints.has_constraints:
+            constraints = self.constraints.dict()
+            keywords = copy.deepcopy(self.keywords)
+            keywords["constraints"] = constraints
+            return keywords
+        else:
+            return self.keywords
 
 
 class FilterEntry(DatasetConfig):
@@ -402,6 +422,45 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
             self.metadata.short_description = self.dataset_tagline
         if self.metadata.long_description is None:
             self.metadata.long_description = self.description
+
+    def __add__(self, other: "BasicDataset") -> "BasicDataset":
+        """
+        Add two Basicdatasets together.
+        """
+        import copy
+
+        # make sure the dataset types match
+        if self.dataset_type != other.dataset_type:
+            raise DatasetCombinationError(
+                f"The datasets must be the same type, you can not add types {self.dataset_type} and {other.dataset_type}"
+            )
+
+        # create a new datset
+        new_dataset = copy.deepcopy(self)
+        # update the elements in the dataset
+        new_dataset.metadata.elements.update(other.metadata.elements)
+        for index, entry in other.dataset.items():
+            # search for the molecule
+            entry_ids = new_dataset.get_molecule_entry(entry.off_molecule)
+            if not entry_ids:
+                new_dataset.dataset[index] = entry
+            else:
+                mol_id = entry_ids[0]
+                current_entry = new_dataset.dataset[mol_id]
+                _, atom_map = off.Molecule.are_isomorphic(
+                    entry.off_molecule, current_entry.off_molecule, return_atom_map=True
+                )
+                # remap the molecule and all conformers
+                entry_mol = entry.off_molecule
+                mapped_mol = entry_mol.remap(mapping_dict=atom_map, current_to_new=True)
+                for i in range(mapped_mol.n_conformers):
+                    mapped_schema = mapped_mol.to_qcschema(
+                        conformer=i, extras=current_entry.initial_molecules[0].extras
+                    )
+                    if mapped_schema not in current_entry.initial_molecules:
+                        current_entry.initial_molecules.append(mapped_schema)
+
+        return new_dataset
 
     def get_molecule_entry(self, molecule: Union[off.Molecule, str]) -> List[str]:
         """
@@ -613,7 +672,6 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
                 keywords=keywords or {},
                 **kwargs,
             )
-
             self.dataset[index] = data_entry
             # add any extra elements to the metadata
             self.metadata.elements.update(data_entry.initial_molecules[0].symbols)
@@ -648,7 +706,9 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
             if covered_elements is not None:
                 difference = self.metadata.elements.difference(covered_elements)
             else:
-                raise ValueError(f"The torchani method {self.method} is not supported.")
+                raise MissingBasisCoverageError(
+                    f"The torchani method {self.method} is not supported."
+                )
 
         elif self.program.lower() == "psi4":
             # now check psi4
@@ -681,7 +741,7 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
 
     def submit(
         self,
-        client: Union[str, ptl.FractalClient],
+        client: Union[str, ptl.FractalClient, FractalClient],
         await_result: Optional[bool] = False,
     ) -> SingleResult:
         """
@@ -804,7 +864,7 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         else:
             raise UnsupportedFiletypeError(
                 f"The requested file type {file_type} is not supported please use "
-                f"json or yaml"
+                f"json."
             )
 
     def coverage_report(self, forcefields: List[str]) -> Dict:
@@ -832,7 +892,9 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
             "n": "vdW",
         }
         if isinstance(forcefields, str):
-            forcefields = [forcefields]
+            forcefields = [
+                forcefields,
+            ]
 
         for forcefield in forcefields:
 
@@ -1084,6 +1146,94 @@ class OptimizationDataset(BasicDataset):
             driver = DriverEnum.gradient
         return driver
 
+    def __add__(self, other: "OptimizationDataset") -> "OptimizationDataset":
+        """
+        Add two Optimization datasets together, if the constraints are different then the entries are considered different.
+        """
+        import copy
+
+        from .utils import remap_list
+
+        # make sure the dataset types match
+        if self.dataset_type != other.dataset_type:
+            raise DatasetCombinationError(
+                f"The datasets must be the same type, you can not add types {self.dataset_type} and {other.dataset_type}"
+            )
+
+        # create a new dataset
+        new_dataset = copy.deepcopy(self)
+        # update the elements in the dataset
+        new_dataset.metadata.elements.update(other.metadata.elements)
+        for entry in other.dataset.values():
+            # search for the molecule
+            entry_ids = new_dataset.get_molecule_entry(entry.off_molecule)
+            if entry_ids:
+                records = 0
+                for mol_id in entry_ids:
+                    current_entry = new_dataset.dataset[mol_id]
+                    # for each entry count the number of inputs incase we need a new entry
+                    records += len(current_entry.initial_molecules)
+                    _, atom_map = off.Molecule.are_isomorphic(
+                        entry.off_molecule,
+                        current_entry.off_molecule,
+                        return_atom_map=True,
+                    )
+
+                    current_constraints = current_entry.constraints
+                    # make sure all constraints are the same
+                    # remap the entry to compare
+                    entry_constraints = Constraints()
+                    for constraint in entry.constraints.freeze:
+                        entry_constraints.add_freeze_constraint(
+                            constraint.type, remap_list(constraint.indices, atom_map)
+                        )
+                    for constraint in entry.constraints.set:
+                        entry_constraints.add_set_constraint(
+                            constraint.type,
+                            remap_list(constraint.indices, atom_map),
+                            constraint.value,
+                        )
+
+                    if current_constraints == entry_constraints:
+                        # transfer the entries
+                        # remap and transfer
+                        off_mol = entry.off_molecule
+                        mapped_mol = off_mol.remap(
+                            mapping_dict=atom_map, current_to_new=True
+                        )
+                        for i in range(mapped_mol.n_conformers):
+                            mapped_schema = mapped_mol.to_qcschema(
+                                conformer=i,
+                                extras=current_entry.initial_molecules[0].extras,
+                            )
+                            if mapped_schema not in current_entry.initial_molecules:
+                                current_entry.initial_molecules.append(mapped_schema)
+                        break
+                    # else:
+                    #     # if they are not the same move on to the next entry
+                    #     continue
+                else:
+                    # we did not break so add the entry with a new unique index
+                    core, tag = self._clean_index(entry.index)
+                    entry.index = core + f"-{tag + records}"
+                    new_dataset.dataset[entry.index] = entry
+            else:
+                # if no other molecules just add it
+                new_dataset.dataset[entry.index] = entry
+
+        return new_dataset
+
+    @property
+    def n_molecules(self) -> int:
+        """
+        Calculate the number of unique molecules to be submitted.
+        """
+
+        molecules = set()
+        for molecule in self.molecules:
+            molecules.add(molecule)
+        return len(molecules)
+
     def _add_keywords(self, client: ptl.FractalClient) -> str:
         """
         Add the keywords to the client and return the index number of the keyword set.
@@ -1120,7 +1270,9 @@ class OptimizationDataset(BasicDataset):
         return qc_spec
 
     def submit(
-        self, client: Union[str, ptl.FractalClient], await_result: bool = False
+        self,
+        client: Union[str, ptl.FractalClient, FractalClient],
+        await_result: bool = False,
     ) -> SingleResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
@@ -1192,7 +1344,7 @@ class OptimizationDataset(BasicDataset):
                         name=name,
                         initial_molecule=molecule,
                         attributes=data.attributes,
-                        additional_keywords=data.keywords,
+                        additional_keywords=data.formatted_keywords,
                         save=False,
                     )
                     i += 1
@@ -1250,16 +1402,65 @@ class TorsiondriveDataset(OptimizationDataset):
     dihedral_ranges: Optional[List[Tuple[int, int]]] = None
     energy_decrease_thresh: Optional[float] = None
 
-    @property
-    def n_molecules(self) -> int:
+    def __add__(self, other: "TorsiondriveDataset") -> "TorsiondriveDataset":
         """
-        Calculate the number of unique molecules to be submitted.
+        Add two TorsiondriveDatasets together, if the central bond in the dihedral is the same the entries are considered the same.
         """
+        import copy
 
-        molecules = set()
-        for molecule in self.molecules:
-            molecules.add(molecule)
-        return len(molecules)
+        # make sure the dataset types match
+        if self.dataset_type != other.dataset_type:
+            raise DatasetCombinationError(
+                f"The datasets must be the same type, you can not add types {self.dataset_type} and {other.dataset_type}"
+            )
+
+        # create a new dataset
+        new_dataset = copy.deepcopy(self)
+        # update the elements in the dataset
+        new_dataset.metadata.elements.update(other.metadata.elements)
+        for index, entry in other.dataset.items():
+            # search for the molecule
+            entry_ids = new_dataset.get_molecule_entry(entry.off_molecule)
+            for mol_id in entry_ids:
+                current_entry = new_dataset.dataset[mol_id]
+                _, atom_map = off.Molecule.are_isomorphic(
+                    entry.off_molecule, current_entry.off_molecule, return_atom_map=True
+                )
+
+                # gather the current dihedrals forward and backwards
+                current_dihedrals = set(
+                    [(dihedral[1:3]) for dihedral in current_entry.dihedrals]
+                )
+                for dihedral in current_entry.dihedrals:
+                    current_dihedrals.add((dihedral[1:3]))
+                    current_dihedrals.add((dihedral[2:0:-1]))
+
+                # now gather the other entry dihedrals forwards and backwards
+                other_dihedrals = set()
+                for dihedral in entry.dihedrals:
+                    other_dihedrals.add(tuple(atom_map[i] for i in dihedral[1:3]))
+                    other_dihedrals.add(tuple(atom_map[i] for i in dihedral[2:0:-1]))
+
+                difference = current_dihedrals - other_dihedrals
+                if not difference:
+                    # the entry is already there so add new conformers and skip
+                    off_mol = entry.off_molecule
+                    mapped_mol = off_mol.remap(
+                        mapping_dict=atom_map, current_to_new=True
+                    )
+                    for i in range(mapped_mol.n_conformers):
+                        mapped_schema = mapped_mol.to_qcschema(
+                            conformer=i,
+                            extras=current_entry.initial_molecules[0].extras,
+                        )
+                        if mapped_schema not in current_entry.initial_molecules:
+                            current_entry.initial_molecules.append(mapped_schema)
+                    break
+            else:
+                # none of the entries matched so add it
+                new_dataset.dataset[index] = entry
+
+        return new_dataset
 
     @property
     def n_records(self) -> int:
@@ -1269,7 +1470,9 @@ class TorsiondriveDataset(OptimizationDataset):
         return len(self.dataset)
 
     def submit(
-        self, client: Union[str, ptl.FractalClient], await_result: bool = False
+        self,
+        client: Union[str, ptl.FractalClient, FractalClient],
+        await_result: bool = False,
     ) -> SingleResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the

@@ -118,3 +118,18 @@ class MolecularComplexError(QCSubmitException):
 
     error_type = "molecular_complex_error"
     header = "Molecular Complex Error"
+
+
+class ConstraintError(QCSubmitException):
+
+    error_type = "constraint_error"
+    header = "Constraint Error"
+
+
+class DatasetCombinationError(QCSubmitException):
+    """
+    The types of dataset are not the same and can not be combined.
+    """
+
+    error_type = "dataset combination error"
+    header = "Dataset Combination Error"

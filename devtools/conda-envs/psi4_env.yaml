@@ -24,7 +24,7 @@ dependencies:
   - qcportal >=0.13.0
   - qcengine >=0.15.0
   - psi4 >=1.3
-  - openeye-toolkits
+  - openeye-toolkits ==2019.10.2
   - qcfractal >=0.13.0
   - torsiondrive
   - fragmenter
