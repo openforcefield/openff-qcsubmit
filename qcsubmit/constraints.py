@@ -191,3 +191,15 @@ class Constraints(ResultsConfig):
             if not constraints:
                 drop_constraints.add(constraint)
         return super().dict(exclude=drop_constraints)
+
+    def __eq__(self, other: "Constraints") -> bool:
+        """
+        Check that all constraints are the same before returning.
+        """
+        for set_con in self.set:
+            if set_con not in other.set:
+                return False
+        for freeze_con in self.freeze:
+            if freeze_con not in other.freeze:
+                return False
+        return True

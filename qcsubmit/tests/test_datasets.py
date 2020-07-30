@@ -21,14 +21,16 @@ from qcsubmit.datasets import (
 )
 from qcsubmit.exceptions import (
     ConstraintError,
+    DatasetCombinationError,
     DatasetInputError,
     DihedralConnectionError,
     LinearTorsionError,
     MissingBasisCoverageError,
+    UnsupportedFiletypeError,
 )
 from qcsubmit.factories import BasicDatasetFactory
 from qcsubmit.testing import temp_directory
-from qcsubmit.utils import get_data
+from qcsubmit.utils import condense_molecules, get_data
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
@@ -114,6 +116,26 @@ def test_componetresult_deduplication_standard():
     # make sure only 1 copy of each molecule is added
     assert len(result.molecules) == len(molecules) / duplicates
     assert len(result.filtered) == 0
+
+
+def test_componetresult_directory():
+    """
+    Test loading up some molecules from a driectory of files.
+    """
+    butane_conformers = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
+    butane = condense_molecules(butane_conformers)
+    ethanol = Molecule.from_file(get_data("ethanol.sdf"), "sdf")
+    with temp_directory():
+        # write the files out
+        ethanol.to_file("ethanol.sdf", "sdf")
+        butane.to_file("butane.pdb", "pdb")
+
+        # now make a result to load these molecules
+        result = ComponentResult(component_name="test",
+                                 component_description={},
+                                 component_provenance={},
+                                 input_directory=".")
+        assert result.n_molecules == 2
 
 
 def test_componentresult_deduplication_coordinates():
@@ -418,6 +440,257 @@ def test_add_entry_with_constraints(constraint_setting):
         assert entry.constraints.has_constraints is False
 
 
+def test_constraints_are_equall():
+    """
+    Test if two constraints are equal.
+    """
+    const1 = Constraints()
+    const2 = Constraints()
+    assert const1 == const2
+
+    # now add a constraint
+    const1.add_freeze_constraint(constraint_type="dihedral", indices=[0, 1, 2, 3])
+    assert const1 != const2
+    const1.add_set_constraint(constraint_type="angle", indices=[0, 1, 2], value=90)
+    assert const1 != const2
+
+    # now add more restraints in different orders
+    const2.add_freeze_constraint(constraint_type="distance", indices=[0, 1])
+    const2.add_freeze_constraint(constraint_type="dihedral", indices=[0, 1, 2, 3])
+    const2.add_set_constraint(constraint_type="angle", indices=[0, 1, 2], value=90)
+
+    const1.add_freeze_constraint(constraint_type="distance", indices=[0, 1])
+    assert const1 == const2
+
+
+@pytest.mark.parametrize("dataset_types", [
+    pytest.param((BasicDataset, OptimizationDataset), id="basic + optimization error"),
+    pytest.param((OptimizationDataset, TorsiondriveDataset), id="optimization + torsiondrive error"),
+    pytest.param((TorsiondriveDataset, BasicDataset), id="torsiondrive + basic error"),
+
+])
+def test_dataset_adding(dataset_types):
+    """
+    Test combining two different datasets this should raise an error as they have different conditions to be considered equal.
+    """
+    data_type1, data_type2 = dataset_types
+    dataset1, dataset2 = data_type1(), data_type2()
+    with pytest.raises(DatasetCombinationError):
+        _ = dataset1 + dataset2
+
+
+@pytest.mark.parametrize("dataset_type", [
+    pytest.param(BasicDataset, id="BasicDataset"),
+    pytest.param(OptimizationDataset, id="Optimizationdataset"),
+])
+def test_basic_and_opt_dataset_addition(dataset_type):
+    """
+    Test adding two basic and opt datasets together.
+    Opt has no constraints and behaves like basic in this case.
+    """
+
+    dataset1 = dataset_type()
+    dataset2 = dataset_type()
+    # get some butane conformers and split them between the datasets
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
+    butane1 = condense_molecules(molecules[:4])
+    butane2 = condense_molecules(molecules[4:])
+    dataset1.add_molecule(index=butane1.to_smiles(),
+                          molecule=butane1,
+                          attributes=get_cmiles(butane1))
+    dataset2.add_molecule(index=butane2.to_smiles(),
+                          molecule=butane2,
+                          attributes=get_cmiles(butane2))
+    # now check the number of molecules in each dataset
+    assert dataset1.n_molecules == 1
+    assert dataset1.n_records == 4
+    assert dataset2.n_molecules == 1
+    assert dataset2.n_records == 3
+
+    # now add them
+    new_dataset = dataset1 + dataset2
+    assert new_dataset.n_molecules == 1
+    assert new_dataset.n_records == 7
+
+    # now add another molecule to dataset2
+    ethanol = Molecule.from_file(get_data("ethanol.sdf"), "sdf")
+    dataset2.add_molecule(index=ethanol.to_smiles(),
+                          molecule=ethanol,
+                          attributes=get_cmiles(ethanol))
+
+    new_dataset = dataset1 + dataset2
+    assert "O" in new_dataset.metadata.elements
+    assert new_dataset.n_molecules == 2
+    assert new_dataset.n_records == 8
+
+
+def test_optimization_dataset_addition_constraints_equal():
+    """
+    Test adding two optimizationdatasets with constraints.
+    """
+    dataset1 = OptimizationDataset()
+    dataset2 = OptimizationDataset()
+    # add molecules to each dataset
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
+    butane1 = condense_molecules(molecules[:4])
+    butane2 = condense_molecules(molecules[4:])
+    constraints = Constraints()
+    constraints.add_set_constraint(constraint_type="dihedral", indices=[0, 1, 2, 3], value=60)
+    constraints.add_freeze_constraint(constraint_type="distance", indices=[0, 1])
+    dataset1.add_molecule(index=butane1.to_smiles(),
+                          molecule=butane1,
+                          attributes=get_cmiles(butane1),
+                          constraints=constraints)
+    dataset2.add_molecule(index=butane2.to_smiles(),
+                          molecule=butane2,
+                          attributes=get_cmiles(butane2),
+                          constraints=constraints)
+    # make sure the records are added
+    assert dataset1.n_molecules == 1
+    assert dataset1.n_records == 4
+
+    assert dataset2.n_molecules == 1
+    assert dataset2.n_records == 3
+
+    # make sure the constraints are present
+    for entry in dataset1.dataset.values():
+        assert entry.constraints.has_constraints is True
+    for entry in dataset2.dataset.values():
+        assert entry.constraints.has_constraints is True
+
+    new_dataset = dataset1 + dataset2
+    # make the constraints are considered the same and the geometries are transferred
+    assert new_dataset.n_molecules == 1
+    assert new_dataset.n_records == 7
+
+
+def test_optimization_dataset_addition_constraints_not_equall():
+    """
+    Test adding two optimizationdatasets with constraints that are not the same.
+    """
+    dataset1 = OptimizationDataset()
+    dataset2 = OptimizationDataset()
+    # add molecules to each dataset
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
+    butane1 = condense_molecules(molecules[:4])
+    butane2 = condense_molecules(molecules[4:])
+    # make different constraints
+    constraints1 = Constraints()
+    constraints1.add_freeze_constraint(constraint_type="angle", indices=[0, 1, 2])
+    constraints2 = Constraints()
+    constraints2.add_set_constraint(constraint_type="distance", indices=[0, 1], value=1.5)
+
+    dataset1.add_molecule(index=butane1.to_smiles(),
+                          molecule=butane1,
+                          attributes=get_cmiles(butane1),
+                          constraints=constraints1)
+    dataset2.add_molecule(index=butane2.to_smiles(),
+                          molecule=butane2,
+                          attributes=get_cmiles(butane2),
+                          constraints=constraints2)
+    # make sure the records are added
+    assert dataset1.n_molecules == 1
+    assert dataset1.n_records == 4
+
+    assert dataset2.n_molecules == 1
+    assert dataset2.n_records == 3
+
+    # make sure the constraints are present
+    for entry in dataset1.dataset.values():
+        assert entry.constraints.has_constraints is True
+    for entry in dataset2.dataset.values():
+        assert entry.constraints.has_constraints is True
+
+    # now add the datasets
+    new_dataset = dataset1 + dataset2
+    # there is still one unique molecule
+    assert new_dataset.n_molecules == 1
+    assert new_dataset.n_records == 7
+    # there should be two entries however
+    assert len(new_dataset.dataset) == 2
+
+
+def test_torsiondrive_dataset_addition_same_dihedral():
+    """
+    Test adding together two different torsiondrive datasets.
+    """
+    from qcsubmit.factories import TorsiondriveDatasetFactory
+    factory = TorsiondriveDatasetFactory()
+    dataset1 = TorsiondriveDataset()
+    dataset2 = TorsiondriveDataset()
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
+    butane1 = condense_molecules(molecules[:4])
+    butane2 = condense_molecules(molecules[4:])
+    # select the same dihedral in both molecules
+    dihedral = [(0, 1, 2, 3)]
+    atom_map = {0: 0, 1: 1, 2: 2, 3: 3}
+    butane1.properties["atom_map"] = atom_map
+    dataset1.add_molecule(index=factory.create_index(butane1),
+                          molecule=butane1,
+                          attributes=get_cmiles(butane2),
+                          dihedrals=dihedral)
+    dataset2.add_molecule(index=factory.create_index(butane1),
+                          molecule=butane2,
+                          attributes=get_cmiles(butane2),
+                          dihedrals=dihedral)
+    assert dataset1.n_molecules == 1
+    assert dataset1.n_records == 1
+    assert dataset2.n_molecules == 1
+    assert dataset2.n_records == 1
+
+    new_dataset = dataset1 + dataset2
+
+    assert new_dataset.n_molecules == 1
+    assert new_dataset.n_records == 1
+    for entry in new_dataset.dataset.values():
+        assert len(entry.initial_molecules) == 7
+
+
+def test_torsiondrive_dataset_addition_different_dihedral():
+    """
+    Test adding together two different torsiondrive datasets.
+    """
+    from qcsubmit.factories import TorsiondriveDatasetFactory
+    factory = TorsiondriveDatasetFactory()
+    dataset1 = TorsiondriveDataset()
+    dataset2 = TorsiondriveDataset()
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
+    butane1 = condense_molecules(molecules[:4])
+    butane2 = condense_molecules(molecules[4:])
+    # select different dihedrals in the molecules
+    dihedral1 = [(0, 1, 2, 3)]
+    atom_map1 = {0: 0, 1: 1, 2: 2, 3: 3}
+    dihedral2 = [(4, 0, 1, 2)]
+    atom_map2 = {4: 0, 0: 1, 1: 2, 2: 3}
+    # set up the index
+    butane1.properties["atom_map"] = atom_map1
+    index1 = factory.create_index(butane1)
+    del butane1.properties["atom_map"]
+
+    butane2.properties["atom_map"] = atom_map2
+    index2 = factory.create_index(butane2)
+    del butane2.properties["atom_map"]
+
+
+    dataset1.add_molecule(index=index1,
+                          molecule=butane1,
+                          attributes=get_cmiles(butane1),
+                          dihedrals=dihedral1)
+    dataset2.add_molecule(index=index2,
+                          molecule=butane2,
+                          attributes=get_cmiles(butane2),
+                          dihedrals=dihedral2)
+    assert dataset1.n_molecules == 1
+    assert dataset1.n_records == 1
+    assert dataset2.n_molecules == 1
+    assert dataset2.n_records == 1
+
+    new_dataset = dataset1 + dataset2
+
+    assert new_dataset.n_molecules == 1
+    assert new_dataset.n_records == 2
+
+
 @pytest.mark.parametrize("dataset_data", [
     pytest.param(("valid_torsion_dataset.json", None), id="valid torsion dataset"),
     pytest.param(("invalid_torsion_dataset.json", DihedralConnectionError), id="invalid torsion dataset"),
@@ -668,6 +941,26 @@ def test_componentresult_filter_molecules():
     assert len(result.filtered) == len(molecules)
 
 
+def test_dataset_add_filter_molecules():
+    """
+    Test adding extra molecules to filter.
+    """
+    dataset = BasicDataset()
+    methane = Molecule.from_smiles("C")
+    ethanol = Molecule.from_smiles("CC")
+    dataset.filter_molecules(molecules=methane,
+                             component_name="test",
+                             component_description={},
+                             component_provenance={})
+    # now we want to add this extra molecule to this group
+    dataset.filter_molecules(molecules=ethanol,
+                             component_name="test",
+                             component_description={},
+                             component_provenance={})
+    filtered = dataset.filtered_molecules["test"]
+    assert len(filtered.molecules) == 2
+
+
 @pytest.mark.parametrize("dataset_type", [
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
@@ -728,6 +1021,16 @@ def test_Dataset_exporting_same_type(dataset_type):
         dataset2 = dataset_type.parse_file('dataset.json')
         assert dataset2.method == "test method"
         assert dataset.metadata == dataset2.metadata
+
+
+def test_dataset_unsupported_exports():
+    """
+    Test trying to export to unsupported file types.
+    """
+    with temp_directory():
+        dataset = BasicDataset()
+        with pytest.raises(UnsupportedFiletypeError):
+            dataset.export_dataset("dataset.yaml")
 
 
 @pytest.mark.parametrize("molecule_data", [
@@ -818,7 +1121,7 @@ def test_BasicDataset_coverage_reporter():
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
 
     ff = "openff_unconstrained-1.0.0.offxml"
-    coverage = dataset.coverage_report([ff])
+    coverage = dataset.coverage_report(ff)
 
     assert ff in coverage
     # make sure that every tag has been used
@@ -861,8 +1164,10 @@ def test_Basicdataset_add_molecule_missing_attributes():
 
 
 @pytest.mark.parametrize("file_data", [
-    pytest.param(("molecules.smi", "SMI", "to_smiles", {"isomeric": True, "explicit_hydrogens": False}), id="smiles"), pytest.param(("molecules.inchi", "INCHI", "to_inchi", {}), id="inchi"),
-    pytest.param(("molecules.inchikey", "inchikey", "to_inchikey", {}), id="inchikey")
+    pytest.param(("molecules.smi", "SMI", "to_smiles", {"isomeric": True, "explicit_hydrogens": False}, False), id="smiles"),
+    pytest.param(("molecules.inchi", "INCHI", "to_inchi", {}, False), id="inchi"),
+    pytest.param(("molecules.inchikey", "inchikey", "to_inchikey", {}, False), id="inchikey"),
+    pytest.param(("molecules.hash", "hash", "to_hash", {}, True), id="hash error")
 ])
 def test_Basicdataset_molecules_to_file(file_data):
     """
@@ -877,16 +1182,21 @@ def test_Basicdataset_molecules_to_file(file_data):
         attributes = get_cmiles(molecule)
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
     with temp_directory():
-        dataset.molecules_to_file(file_name=file_data[0], file_type=file_data[1])
+        # if we expect an error
+        if not file_data[4]:
+            dataset.molecules_to_file(file_name=file_data[0], file_type=file_data[1])
 
-        # now we need to read in the data
-        with open(file_data[0]) as molecule_data:
-            data = molecule_data.readlines()
-            for i, molecule in enumerate(dataset.molecules):
-                # get the function and call it, also pass any extra arguments
-                result = getattr(molecule, file_data[2])(**file_data[3])
-                # now compare the data in the file to what we have calculated
-                assert data[i].strip() == result
+            # now we need to read in the data
+            with open(file_data[0]) as molecule_data:
+                data = molecule_data.readlines()
+                for i, molecule in enumerate(dataset.molecules):
+                    # get the function and call it, also pass any extra arguments
+                    result = getattr(molecule, file_data[2])(**file_data[3])
+                    # now compare the data in the file to what we have calculated
+                    assert data[i].strip() == result
+        else:
+            with pytest.raises(UnsupportedFiletypeError):
+                dataset.molecules_to_file(file_name=file_data[0], file_type=file_data[1])
 
 
 @pytest.mark.parametrize("toolkit_data", [
@@ -1056,6 +1366,7 @@ def test_Basicdataset_export_json(dataset_type):
 @pytest.mark.parametrize("basis_data", [
     pytest.param(("ani1x", None, {"P"}, "torchani", True), id="Ani1x with Error"),
     pytest.param(("ani1ccx", None, {"C", "H", "N"}, "torchani", False), id="Ani1ccx Pass"),
+    pytest.param(("ani12", None, {"C", "H", "N"}, "torchani", True), id="Ani12 Error"),
     pytest.param(("b3lyp-d3bj", "dzvp", {"C", "H", "O"}, "psi4", False), id="DZVP psi4 convert Pass"),
     pytest.param(("hf", "6-311++G", {"Br", "C", "O", "N"}, "psi4", True), id="6-311++G Error"),
     pytest.param(("hf", "def2-qzvp", {"H", "C", "B", "N", "O", "F", "Cl", "Si", "P", "S", "I", "Br"}, "psi4", False), id="Def2-QZVP Pass"),

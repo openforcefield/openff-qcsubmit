@@ -147,7 +147,8 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
                 elif not fragmets_dict and not self.include_parent:
                     self.fail_molecule(molecule=molecule, component_result=result)
 
-            except RuntimeError:
+            except (RuntimeError, ValueError):
+                # this will catch cmiles errors for molecules with undefined stero
                 self.fail_molecule(molecule=molecule, component_result=result)
 
         return result
