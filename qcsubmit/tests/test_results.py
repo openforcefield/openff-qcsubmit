@@ -353,7 +353,7 @@ def test_torsiondrivedataset_new_optimization(public_client):
                                                      tagline="a test optimization dataset.")
 
     assert new_dataset.dataset_name == "new optimization dataset"
-    assert new_dataset.n_molecules == 24
+    assert new_dataset.n_molecules == 1
     assert new_dataset.n_records == 24
     dihedrals = set()
     for entry in new_dataset.dataset.values():

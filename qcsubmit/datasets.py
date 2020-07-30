@@ -21,6 +21,7 @@ from .common_structures import (
 from .constraints import Constraints
 from .exceptions import (
     ConstraintError,
+    DatasetCombinationError,
     DatasetInputError,
     DihedralConnectionError,
     MissingBasisCoverageError,
@@ -426,10 +427,20 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
 
     def __add__(self, other: "BasicDataset") -> "BasicDataset":
         """
-        Add two datasets together accounting for duplicate inputs and transferring any molecule conformers.
+        Add two Basicdatasets together.
         """
         import copy
+
+        # make sure the dataset types match
+        if self.dataset_type != other.dataset_type:
+            raise DatasetCombinationError(
+                f"The datasets must be the same type, you can not add types {self.dataset_type} and {other.dataset_type}"
+            )
+
+        # create a new datset
         new_dataset = copy.deepcopy(self)
+        # update the elements in the dataset
+        new_dataset.metadata.elements.update(other.metadata.elements)
         for index, entry in other.dataset.items():
             # search for the molecule
             entry_ids = new_dataset.get_molecule_entry(entry.off_molecule)
@@ -437,17 +448,25 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
                 new_dataset.dataset[index] = entry
             else:
                 # work out if the mapping is the same
-                for mol_id in entry_ids:
-                    current_entry = new_dataset.dataset[mol_id]
-                    isomorphic, atom_map = off.Molecule.are_isomorphic(entry.off_molecule, current_entry.off_molecule, return_atom_map=True)
-                    if atom_map == {(i, i) for i in range(current_entry.off_molecule.n_atoms)}:
-                        for mol in entry.initial_molecules:
-                            if mol not in current_entry.initial_molecules:
-                                current_entry.initial_molecules.append(mol)
-                    else:
-                        # we have to remap the geometry and then extend the molecules
-                        raise NotImplementedError()
+                assert len(entry_ids) == 1, print(
+                    "The molecule appears more than once in the dataset."
+                )
+                mol_id = entry_ids[0]
+                current_entry = new_dataset.dataset[mol_id]
+                _, atom_map = off.Molecule.are_isomorphic(
+                    entry.off_molecule, current_entry.off_molecule, return_atom_map=True
+                )
+                # remap the molecule and all conformers
+                entry_mol = entry.off_molecule
+                mapped_mol = entry_mol.remap(mapping_dict=atom_map, current_to_new=True)
+                for i in range(mapped_mol.n_conformers):
+                    mapped_schema = mapped_mol.to_qcschema(
+                        conformer=i, extras=current_entry.initial_molecules[0].extras
+                    )
+                    if mapped_schema not in current_entry.initial_molecules:
+                        current_entry.initial_molecules.append(mapped_schema)
 
+        return new_dataset
 
     def get_molecule_entry(self, molecule: Union[off.Molecule, str]) -> List[str]:
         """
@@ -1129,6 +1148,94 @@ class OptimizationDataset(BasicDataset):
             driver = DriverEnum.gradient
         return driver
 
+    def __add__(self, other: "OptimizationDataset") -> "OptimizationDataset":
+        """
+        Add two Optimization datasets together, if the constraints are different then the entries are considered different.
+        """
+        import copy
+
+        from .utils import remap_list
+
+        # make sure the dataset types match
+        if self.dataset_type != other.dataset_type:
+            raise DatasetCombinationError(
+                f"The datasets must be the same type, you can not add types {self.dataset_type} and {other.dataset_type}"
+            )
+
+        # create a new dataset
+        new_dataset = copy.deepcopy(self)
+        # update the elements in the dataset
+        new_dataset.metadata.elements.update(other.metadata.elements)
+        for entry in other.dataset.values():
+            # search for the molecule
+            entry_ids = new_dataset.get_molecule_entry(entry.off_molecule)
+            if entry_ids:
+                records = 0
+                for mol_id in entry_ids:
+                    current_entry = new_dataset.dataset[mol_id]
+                    # for each entry count the number of inputs incase we need a new entry
+                    records += len(current_entry.initial_molecules)
+                    _, atom_map = off.Molecule.are_isomorphic(
+                        entry.off_molecule,
+                        current_entry.off_molecule,
+                        return_atom_map=True,
+                    )
+
+                    current_constraints = current_entry.constraints
+                    # make sure all constraints are the same
+                    # remap the entry to compare
+                    entry_constraints = Constraints()
+                    for constraint in entry.constraints.freeze:
+                        entry_constraints.add_freeze_constraint(
+                            constraint.type, remap_list(constraint.indices, atom_map)
+                        )
+                    for constraint in entry.constraints.set:
+                        entry_constraints.add_set_constraint(
+                            constraint.type,
+                            remap_list(constraint.indices, atom_map),
+                            constraint.value,
+                        )
+
+                    if current_constraints == entry_constraints:
+                        # transfer the entries
+                        # remap and transfer
+                        off_mol = entry.off_molecule
+                        mapped_mol = off_mol.remap(
+                            mapping_dict=atom_map, current_to_new=True
+                        )
+                        for i in range(mapped_mol.n_conformers):
+                            mapped_schema = mapped_mol.to_qcschema(
+                                conformer=i,
+                                extras=current_entry.initial_molecules[0].extras,
+                            )
+                            if mapped_schema not in current_entry.initial_molecules:
+                                current_entry.initial_molecules.append(mapped_schema)
+                        break
+                    # else:
+                    #     # if they are not the same move on to the next entry
+                    #     continue
+                else:
+                    # we did not break so add the entry with a new unique index
+                    core, tag = self._clean_index(entry.index)
+                    entry.index = core + f"-{tag + records}"
+                    new_dataset.dataset[entry.index] = entry
+            else:
+                # if no other molecules just add it
+                new_dataset.dataset[entry.index] = entry
+
+        return new_dataset
+
+    @property
+    def n_molecules(self) -> int:
+        """
+        Calculate the number of unique molecules to be submitted.
+        """
+
+        molecules = set()
+        for molecule in self.molecules:
+            molecules.add(molecule)
+        return len(molecules)
+
     def _add_keywords(self, client: ptl.FractalClient) -> str:
         """
         Add the keywords to the client and return the index number of the keyword set.
@@ -1297,16 +1404,65 @@ class TorsiondriveDataset(OptimizationDataset):
     dihedral_ranges: Optional[List[Tuple[int, int]]] = None
     energy_decrease_thresh: Optional[float] = None
 
-    @property
-    def n_molecules(self) -> int:
+    def __add__(self, other: "TorsiondriveDataset") -> "TorsiondriveDataset":
         """
-        Calculate the number of unique molecules to be submitted.
+        Add two TorsiondriveDatasets together, if the central bond in the dihedral is the same the entries are considered the same.
         """
+        import copy
 
-        molecules = set()
-        for molecule in self.molecules:
-            molecules.add(molecule)
-        return len(molecules)
+        # make sure the dataset types match
+        if self.dataset_type != other.dataset_type:
+            raise DatasetCombinationError(
+                f"The datasets must be the same type, you can not add types {self.dataset_type} and {other.dataset_type}"
+            )
+
+        # create a new dataset
+        new_dataset = copy.deepcopy(self)
+        # update the elements in the dataset
+        new_dataset.metadata.elements.update(other.metadata.elements)
+        for index, entry in other.dataset.items():
+            # search for the molecule
+            entry_ids = new_dataset.get_molecule_entry(entry.off_molecule)
+            for mol_id in entry_ids:
+                current_entry = new_dataset.dataset[mol_id]
+                _, atom_map = off.Molecule.are_isomorphic(
+                    entry.off_molecule, current_entry.off_molecule, return_atom_map=True
+                )
+
+                # gather the current dihedrals forward and backwards
+                current_dihedrals = set(
+                    [(dihedral[1:3]) for dihedral in current_entry.dihedrals]
+                )
+                for dihedral in current_entry.dihedrals:
+                    current_dihedrals.add((dihedral[1:3]))
+                    current_dihedrals.add((dihedral[2:0:-1]))
+
+                # now gather the other entry dihedrals forwards and backwards
+                other_dihedrals = set()
+                for dihedral in entry.dihedrals:
+                    other_dihedrals.add(tuple(atom_map[i] for i in dihedral[1:3]))
+                    other_dihedrals.add(tuple(atom_map[i] for i in dihedral[2:0:-1]))
+
+                difference = current_dihedrals - other_dihedrals
+                if not difference:
+                    # the entry is already there so add new conformers and skip
+                    off_mol = entry.off_molecule
+                    mapped_mol = off_mol.remap(
+                        mapping_dict=atom_map, current_to_new=True
+                    )
+                    for i in range(mapped_mol.n_conformers):
+                        mapped_schema = mapped_mol.to_qcschema(
+                            conformer=i,
+                            extras=current_entry.initial_molecules[0].extras,
+                        )
+                        if mapped_schema not in current_entry.initial_molecules:
+                            current_entry.initial_molecules.append(mapped_schema)
+                    break
+            else:
+                # none of the entries matched so add it
+                new_dataset.dataset[index] = entry
+
+        return new_dataset
 
     @property
     def n_records(self) -> int:
