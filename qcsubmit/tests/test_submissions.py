@@ -119,7 +119,7 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
                             spec_description="testing the single points"
                             )
 
-    dataset = factory.create_dataset(dataset_name=f"Test single points info openmm, energy",
+    dataset = factory.create_dataset(dataset_name=f"Test single points multiple specs",
                                      molecules=molecules,
                                      description="Test basics dataset",
                                      tagline="Testing single point datasets",
