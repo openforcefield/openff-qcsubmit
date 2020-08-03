@@ -2,12 +2,12 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from openforcefield import topology as off
-from pydantic import BaseModel, PositiveInt, constr, validator
+from pydantic import BaseModel, PositiveInt, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
 
 from . import workflow_components
-from .common_structures import ClientHandler, Metadata, QCSpec
+from .common_structures import ClientHandler, Metadata, QCSpecificationHandler
 from .datasets import (
     BasicDataset,
     ComponentResult,
@@ -28,7 +28,7 @@ from .serializers import deserialize, serialize
 from .validators import scf_property_validator
 
 
-class BasicDatasetFactory(ClientHandler, BaseModel):
+class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
     """
     Basic dataset generator factory used to build work flows using workflow components before executing them to generate
     a dataset.
@@ -52,7 +52,6 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         workflow: A dictionary which holds the workflow components to be executed in the set order.
     """
 
-    qc_specifications: Dict[str, QCSpec] = {"default": QCSpec()}
     maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
     scf_properties: List[str] = [
@@ -79,12 +78,6 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         validate_assignment: bool = True
         arbitrary_types_allowed: bool = True
         title: str = "QCFractalDatasetFactory"
-
-    def add_qc_spec(self, method: str, basis: str, program: str, spec_name: str, spec_description: str, wavefunction_options: str = "none") -> None:
-        """
-        Add a new qcspecification to the factory which will be applied to the dataset.
-        """
-
 
     def add_scf_property(self, scf_property: str) -> None:
         """
@@ -553,12 +546,8 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             attributes = self.create_cmiles_metadata(molecule=order_mol)
             attributes["provenance"] = self.provenance()
 
-            # if we are using MM we should put the cmiles in the extras
+            # always put the cmiles in the extras from what we have just calculated to ensure correct order
             extras = molecule.properties.get("extras", {})
-            if self.program in self._mm_programs:
-                extras[
-                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                ] = attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
 
             keywords = molecule.properties.get("keywords", None)
 
@@ -849,10 +838,6 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
             # make the general attributes
             attributes = self.create_cmiles_metadata(molecule=molecule)
-            if self.program in self._mm_programs:
-                extras[
-                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                ] = attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
 
             # now check for the dihedrals
             if "dihedrals" in molecule.properties:

@@ -1,9 +1,9 @@
 basis: loaded basis
 client: public
 driver: gradient
-maxiter: 200
+maxiter: 400
 method: loaded method
-priority: normal
+priority: super_high
 program: loaded program
 scf_properties:
 - dipole

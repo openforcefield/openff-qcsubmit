@@ -26,6 +26,7 @@ from qcsubmit.exceptions import (
     DihedralConnectionError,
     LinearTorsionError,
     MissingBasisCoverageError,
+    QCSpecificationError,
     UnsupportedFiletypeError,
 )
 from qcsubmit.factories import BasicDatasetFactory
@@ -136,6 +137,22 @@ def test_componetresult_directory():
                                  component_provenance={},
                                  input_directory=".")
         assert result.n_molecules == 2
+
+
+@pytest.mark.parametrize("file_name", [
+    pytest.param("benzene.sdf", id="SDF file"),
+    pytest.param("butane_conformers.pdb", id="PDB file"),
+    pytest.param("tautomers_small.smi", id="SMI file")
+])
+def test_componetresult_input_file(file_name):
+    """
+    Test loading up some molecules from an input file
+    """
+    result = ComponentResult(component_name="Test",
+                             component_description={},
+                             component_provenance={},
+                             input_file=get_data(file_name))
+    assert result.n_molecules > 0
 
 
 def test_componentresult_deduplication_coordinates():
@@ -461,6 +478,22 @@ def test_constraints_are_equall():
 
     const1.add_freeze_constraint(constraint_type="distance", indices=[0, 1])
     assert const1 == const2
+
+
+def test_add_molecule_no_extras():
+    """
+    Test that adding a molecule with no extras automatically updates the extras to include the cmiles.
+    """
+    dataset = BasicDataset()
+    mols = duplicated_molecules(include_conformers=True, duplicates=1)
+    for mol in mols:
+        index = mol.to_smiles()
+        attributes = get_cmiles(mol)
+        dataset.add_molecule(index=index, molecule=mol, attributes=attributes)
+
+    for entry in dataset.dataset.values():
+        for mol in entry.initial_molecules:
+            assert "canonical_isomeric_explicit_hydrogen_mapped_smiles" in mol.extras
 
 
 @pytest.mark.parametrize("dataset_types", [
@@ -1006,7 +1039,8 @@ def test_wrong_metadata_collection_type(dataset_type):
 
 
 @pytest.mark.parametrize("dataset_type", [
-    pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(BasicDataset, id="BasicDataset"),
+    pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
 def test_Dataset_exporting_same_type(dataset_type):
@@ -1015,11 +1049,11 @@ def test_Dataset_exporting_same_type(dataset_type):
     """
 
     with temp_directory():
-        dataset = dataset_type(method="test method")
+        dataset = dataset_type(compute_tag="test tag")
         dataset.export_dataset('dataset.json')
 
         dataset2 = dataset_type.parse_file('dataset.json')
-        assert dataset2.method == "test method"
+        assert dataset2.compute_tag == "test tag"
         assert dataset.metadata == dataset2.metadata
 
 
@@ -1364,28 +1398,147 @@ def test_Basicdataset_export_json(dataset_type):
 
 
 @pytest.mark.parametrize("basis_data", [
-    pytest.param(("ani1x", None, {"P"}, "torchani", True), id="Ani1x with Error"),
-    pytest.param(("ani1ccx", None, {"C", "H", "N"}, "torchani", False), id="Ani1ccx Pass"),
-    pytest.param(("ani12", None, {"C", "H", "N"}, "torchani", True), id="Ani12 Error"),
-    pytest.param(("b3lyp-d3bj", "dzvp", {"C", "H", "O"}, "psi4", False), id="DZVP psi4 convert Pass"),
-    pytest.param(("hf", "6-311++G", {"Br", "C", "O", "N"}, "psi4", True), id="6-311++G Error"),
-    pytest.param(("hf", "def2-qzvp", {"H", "C", "B", "N", "O", "F", "Cl", "Si", "P", "S", "I", "Br"}, "psi4", False), id="Def2-QZVP Pass"),
-    pytest.param(("wb97x-d", "aug-cc-pV(5+d)Z", {"I", "C", "H"}, "psi4", True), id="aug-cc-pV(5+d)Z Error")
+    pytest.param(({"method": "ani1x", "basis": None, "program": "torchani"}, {"P"}, True), id="Ani1x with Error"),
+    pytest.param(({"method": "ani1ccx", "basis": None, "program": "torchani"}, {"C", "H", "N"}, False), id="Ani1ccx Pass"),
+    pytest.param(({"method": "b3lyp-d3bj", "basis": "dzvp", "program": "psi4"}, {"C", "H", "O"}, False), id="DZVP psi4 convert Pass"),
+    pytest.param(({"method": "hf", "basis": "6-311++G", "program": "psi4"}, {"Br", "C", "O", "N"}, True), id="6-311++G Error"),
+    pytest.param(({"method": "hf", "basis": "def2-qzvp", "program": "psi4"}, {"H", "C", "B", "N", "O", "F", "Cl", "Si", "P", "S", "I", "Br"}, False), id="Def2-QZVP Pass"),
+    pytest.param(({"method": "wb97x-d", "basis": "aug-cc-pV(5+d)Z", "program": "psi4"}, {"I", "C", "H"}, True), id="aug-cc-pV(5+d)Z Error"),
+    pytest.param(({"method": "openff-1.0.0", "basis": "smirnoff", "program": "openmm"}, {"C", "H", "N"}, False), id="Smirnoff Pass"),
+    pytest.param(({"method": "GFN2-xTB", "basis": None, "program": "xtb"}, {"C", "N", "Se"}, False), id="XTB Pass"),
+    pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, {"C", "N", "O"}, False), id="Rdkit UFF Pass")
 ])
-def test_basis_coverage(basis_data):
+def test_basis_coverage_single(basis_data):
     """
     Make sure that the datasets can work out if the elements in the basis are covered.
     """
 
-    method, basis, elements, program, error = basis_data
-    dataset = BasicDataset(method=method, basis=basis, metadata={"elements": elements}, program=program)
+    qc_spec, elements, error = basis_data
+    dataset = BasicDataset(metadata={"elements": elements})
+    dataset.add_qc_spec(**qc_spec, spec_name="default", spec_description="testing the basis", overwrite=True)
 
     if error:
         with pytest.raises(MissingBasisCoverageError):
             dataset._get_missing_basis_coverage(raise_errors=error)
     else:
 
-        assert bool(dataset._get_missing_basis_coverage(raise_errors=error)) is False
+        assert bool(dataset._get_missing_basis_coverage(raise_errors=error)["default"]) is False
+
+
+def test_basis_coverage_multiple():
+    """
+    Test getting the basis coverage for multiple specs.
+    """
+
+    # make a dataset covered by xtb, psi4, rdkit, smirnoff, but not ani
+    dataset = BasicDataset(metadata={"elements": {"I", "C", "H", "N", "O"}})
+    specs = [
+        {"method": "hf", "basis": "DZVP", "program": "psi4"},
+        {"method": "gfn2xtb", "basis": None, "program": "xtb"},
+        {"method": "openff-1.0.0", "basis": "smirnoff", "program": "openmm"},
+        {"method": "uff", "basis": None, "program": "rdkit"},
+        {"method": "ani1ccx", "basis": None, "program": "torchani"}
+    ]
+    # clear out all qcspecs
+    dataset.clear_qcspecs()
+    for spec in specs:
+        dataset.add_qc_spec(**spec, spec_name=spec["program"], spec_description="testing basis report")
+
+    # get the coverage
+    basis_coverage = dataset._get_missing_basis_coverage(raise_errors=False)
+    # all should pass but ani
+    ani_report  = basis_coverage.pop("torchani")
+    assert ani_report == {"I"}
+    # make sure the rest are all empty
+    for report in basis_coverage.values():
+        assert report == set()
+
+
+def test_remove_qcspec():
+    """
+    Test removing qcspecs.
+    """
+    dataset = BasicDataset()
+    dataset.remove_qcspec("default")
+    assert dataset.qc_specifications == {}
+
+
+@pytest.mark.parametrize("qc_spec", [
+    pytest.param(({"method": "hf", "basis": "DZVP", "program": "bad_program"}, True), id="Bad method Error"),
+    pytest.param(({"method": "gfn1xtb", "basis": "bad", "program": "xtb"}, True), id="Bad basis xtb Error"),
+    pytest.param(({"method": "ani1x", "basis": "ani1x", "program": "torchani"}, True), id="Bad basis torchani Error"),
+    pytest.param(({"method": "parsley", "basis": "smirnoff", "program": "openmm"}, True), id="Bad method smirnoff Error"),
+])
+def test_adding_qc_specs(qc_spec):
+    """
+    Test adding different qc_specs to a dataset/factory they are controlled by the mixin so just test that.
+    """
+    dataset = BasicDataset()
+    qc_spec_data, error = qc_spec
+    if error:
+        with pytest.raises(QCSpecificationError):
+            dataset.add_qc_spec(**qc_spec_data, spec_name="test", spec_description="test spec")
+    else:
+        dataset.add_qc_spec(**qc_spec_data, spec_name="test", spec_description="test spec")
+        assert dataset.qc_specifications["test"].dict(include={"method", "basis", "program"}) == qc_spec_data
+
+
+def test_qcspec_dict():
+    """
+    Test making a dict with the qcspec.
+    """
+    dataset = BasicDataset()
+    dataset.add_qc_spec(method="b3lyp",
+                        basis="dzvp",
+                        program="psi4",
+                        spec_name="test",
+                        spec_description="test qcspec",
+                        store_wavefunction="orbitals_and_eigenvalues")
+    data = dataset.qc_specifications["test"].dict()
+    assert "store_wavefunction" in data
+    data = dataset.qc_specifications["test"].dict(exclude={"store_wavefunction"})
+    assert "store_wavefunction" not in data
+
+
+def test_qc_spec_overwrite():
+    """
+    Test adding new qcspecs and overwiting.
+    """
+    dataset = BasicDataset()
+    # remove all qcspecs
+    dataset.clear_qcspecs()
+    # raise an error for no specs
+    with pytest.raises(QCSpecificationError):
+        dataset._check_qc_specs()
+    assert dataset.n_qc_specs == 0
+    # add a default spec
+    dataset.add_qc_spec(method="B3LYP-D3BJ", basis='DZVP',
+                        program="psi4",
+                        spec_name="default",
+                        spec_description="testing overwrite",
+                        store_wavefunction="none")
+    assert dataset.n_qc_specs == 1
+    # now try and add another default spec
+    with pytest.raises(QCSpecificationError):
+        dataset.add_qc_spec(method="ani1x",
+                            basis=None,
+                            program="torchani",
+                            spec_name="default",
+                            spec_description="testing ani1",
+                            store_wavefunction="none")
+    # now add with overwite
+    dataset.add_qc_spec(method="ani1x",
+                        basis=None,
+                        program="torchani",
+                        spec_name="default",
+                        spec_description="testing ani1",
+                        store_wavefunction="none",
+                        overwrite=True)
+    # now make sure it has been updated
+    spec = dataset.qc_specifications["default"]
+    assert spec.method == "ani1x"
+    assert spec.basis is None
+    assert spec.program == "torchani"
 
 
 def test_Basicdataset_schema():
@@ -1397,7 +1550,7 @@ def test_Basicdataset_schema():
     # make a schema
     schema = dataset.schema()
     assert schema["title"] == dataset.dataset_name
-    assert schema["properties"]["method"]["type"] == "string"
+    assert schema["properties"]["compute_tag"]["type"] == "string"
 
 
 @pytest.mark.parametrize("input_data", [
@@ -1466,9 +1619,8 @@ def test_Optimizationdataset_qc_spec():
     Test generating the qc spec for optimization datasets.
     """
 
-    dataset = OptimizationDataset(program="test_program", method="test_method", basis="test_basis",
-                                  driver="energy")
-    qc_spec = dataset.get_qc_spec(keyword_id="0")
+    dataset = OptimizationDataset(driver="energy")
+    qc_spec = dataset.get_qc_spec("default", keyword_id="0")
     assert qc_spec.keywords == "0"
     tags = ['program', "method", "basis", "driver"]
     for tag in tags:

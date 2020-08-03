@@ -213,7 +213,7 @@ def test_exporting_settings_no_workflow(file_type, factory_type):
     with temp_directory():
         factory = factory_type()
 
-        changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "compute_tag": "test tag"}
+        changed_attrs = {"maxiter": 400, "priority":  "super_high", "compute_tag": "test tag"}
         for attr, value in changed_attrs.items():
             setattr(factory, attr, value)
 
@@ -224,7 +224,7 @@ def test_exporting_settings_no_workflow(file_type, factory_type):
         with open(file_name) as f:
             data = f.read()
             for value in changed_attrs.values():
-                assert value in data
+                assert str(value) in data
 
 
 @pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
@@ -241,7 +241,7 @@ def test_exporting_settings_workflow(file_type, factory_type):
     with temp_directory():
 
         factory = factory_type()
-        changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "compute_tag": "test tag"}
+        changed_attrs = {"maxiter": 400, "priority":  "super_high", "compute_tag": "test tag"}
         for attr, value in changed_attrs.items():
             setattr(factory, attr, value)
 
@@ -276,9 +276,8 @@ def test_importing_settings_no_workflow(file_type, factory_type):
     factory.import_settings(get_data(file_name))
 
     changed_attrs = {
-        "method": "loaded method",
-        "basis": "loaded basis",
-        "program": "loaded program",
+        "maxiter": 400,
+        "priority": "super_high",
         "compute_tag": "loaded tag",
     }
     for attr, value in changed_attrs.items():
@@ -302,9 +301,8 @@ def test_importing_settings_workflow(file_type, factory_type):
     factory.import_settings(get_data(file_name))
 
     changed_attrs = {
-        "method": "loaded method",
-        "basis": "loaded basis",
-        "program": "loaded program",
+        "maxiter": 400,
+        "priority": "super_high",
         "compute_tag": "loaded tag",
     }
     for attr, value in changed_attrs.items():
@@ -523,8 +521,9 @@ def test_create_dataset(factory_dataset_type):
     mols = Molecule.from_file(get_data("tautomers_small.smi"), "smi", allow_undefined_stereo=True)
 
     # set some settings
-    changed_attrs = {"method": "test method", "basis": "test basis", "program": "test program", "compute_tag": "test tag",
-                     "dataset_tags": ["openff", "test"]}
+    changed_attrs = {"compute_tag": "test tag",
+                     "dataset_tags": ["openff", "test"],
+                     "maxiter": 400}
     for attr, value in changed_attrs.items():
         setattr(factory, attr, value)
 

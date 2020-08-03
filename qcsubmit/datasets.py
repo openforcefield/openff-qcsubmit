@@ -16,6 +16,7 @@ from .common_structures import (
     DatasetConfig,
     IndexCleaner,
     Metadata,
+    QCSpecificationHandler,
     TorsionIndexer,
 )
 from .constraints import Constraints
@@ -25,6 +26,7 @@ from .exceptions import (
     DatasetInputError,
     DihedralConnectionError,
     MissingBasisCoverageError,
+    QCSpecificationError,
     UnsupportedFiletypeError,
 )
 from .procedures import GeometricProcedure
@@ -85,6 +87,10 @@ class ComponentResult:
             molecules = off.Molecule.from_file(
                 file_path=input_file, allow_undefined_stereo=True
             )
+            if not isinstance(molecules, list):
+                molecules = [
+                    molecules,
+                ]
 
         if input_directory is not None:
             molecules = []
@@ -284,6 +290,18 @@ class DatasetEntry(DatasetConfig):
                             f"The dihedral {torsion} for molecule {off_molecule} is not a valid"
                             f" proper/improper torsion."
                         )
+        # now we need to process all of the initial molecules to make sure the cmiles is present
+        initial_molecules = []
+        for mol in self.initial_molecules:
+            extras = mol.extras or {}
+            extras[
+                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+            ] = self.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+            mol_data = mol.dict()
+            mol_data["extras"] = extras
+            initial_molecules.append(qcel.models.Molecule.parse_obj(mol_data))
+        # now assign the new molecules
+        self.initial_molecules = initial_molecules
 
     @property
     def off_molecule(self) -> off.Molecule:
@@ -357,7 +375,7 @@ class FilterEntry(DatasetConfig):
         super().__init__(**kwargs)
 
 
-class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
+class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetConfig):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to
     submission.
@@ -375,9 +393,6 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         min_length=8, regex="[a-zA-Z]"
     ) = "OpenForcefield single point evaluations."
     dataset_type: constr(regex="DataSet") = "DataSet"
-    method: constr(strip_whitespace=True) = "B3LYP-D3BJ"
-    basis: Optional[str] = "DZVP"
-    program: str = "psi4"
     maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
     scf_properties: List[str] = [
@@ -386,10 +401,6 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         "wiberg_lowdin_indices",
         "mayer_indices",
     ]
-    spec_name: str = "default"
-    spec_description: constr(
-        min_length=8, regex="[a-zA-Z]"
-    ) = "Standard OpenFF optimization quantum chemistry specification."
     priority: str = "normal"
     description: constr(
         min_length=8, regex="[a-zA-Z]"
@@ -688,56 +699,71 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
                 component_provenance=self.provenance,
             )
 
-    def _get_missing_basis_coverage(self, raise_errors: bool = True) -> Set[str]:
+    def _get_missing_basis_coverage(
+        self, raise_errors: bool = True
+    ) -> Dict[str, Set[str]]:
         """
-        Work out if the selected basis set covers all of the elements in the dataset if not return the missing
+        Work out if the selected basis set covers all of the elements in the dataset for each specification if not return the missing
         element symbols.
         """
         import basis_set_exchange as bse
         from simtk.openmm.app import Element
 
-        if self.program.lower() == "torchani":
-            # check ani1 first
-            ani_coverage = {
-                "ani1x": {"C", "H", "N", "O"},
-                "ani1ccx": {"C", "H", "N", "O"},
-            }
-            covered_elements = ani_coverage.get(self.method.lower(), None)
-            if covered_elements is not None:
+        basis_report = {}
+        for spec in self.qc_specifications.values():
+            if spec.program.lower() == "torchani":
+                # check ani1 first
+                ani_coverage = {
+                    "ani1x": {"C", "H", "N", "O"},
+                    "ani1ccx": {"C", "H", "N", "O"},
+                    "ani2x": {"C", "H", "N", "O", "S", "F", "Cl"},
+                }
+                covered_elements = ani_coverage[spec.method.lower()]
+                # this is validated at the spec level so we should not get an error here
                 difference = self.metadata.elements.difference(covered_elements)
-            else:
-                raise MissingBasisCoverageError(
-                    f"The torchani method {self.method} is not supported."
+
+            elif spec.program.lower() == "psi4":
+                # now check psi4
+                # TODO this list should be updated with more basis transfroms as we find them
+                psi4_converter = {"dzvp": "dgauss-dzvp"}
+                basis = psi4_converter.get(spec.basis.lower(), spec.basis.lower())
+                basis_meta = bse.get_metadata()[basis]
+                elements = basis_meta["versions"][basis_meta["latest_version"]][
+                    "elements"
+                ]
+                covered_elements = set(
+                    [
+                        Element.getByAtomicNumber(int(element)).symbol
+                        for element in elements
+                    ]
                 )
+                difference = self.metadata.elements.difference(covered_elements)
 
-        elif self.program.lower() == "psi4":
-            # now check psi4
-            # TODO this list should be updated with more basis transfroms as we find them
-            psi4_converter = {"dzvp": "dgauss-dzvp"}
-            basis = psi4_converter.get(self.basis.lower(), self.basis.lower())
-            basis_meta = bse.get_metadata()[basis]
-            elements = basis_meta["versions"][basis_meta["latest_version"]]["elements"]
-            covered_elements = set(
-                [Element.getByAtomicNumber(int(element)).symbol for element in elements]
-            )
-            difference = self.metadata.elements.difference(covered_elements)
+            elif spec.program.lower() == "openmm":
+                # smirnoff covered elements
+                covered_elements = {"C", "H", "N", "O", "P", "S", "Cl", "Br", "F", "I"}
+                difference = self.metadata.elements.difference(covered_elements)
 
-        elif self.program.lower() == "openmm":
-            # smirnoff covered elements
-            covered_elements = {"C", "H", "N", "O", "P", "S", "Cl", "Br", "F", "I"}
-            difference = self.metadata.elements.difference(covered_elements)
+            elif spec.program.lower() == "rdkit":
+                # all atoms are defined in the uff so return an empty set.
+                difference = set()
 
-        elif self.program.lower() == "rdkit":
-            # all atoms are defined in the uff so return an empty set.
-            difference = set()
+            else:
+                # xtb
+                # all atoms are covered and this must be xtb
+                difference = set()
 
-        if raise_errors and difference:
-            raise MissingBasisCoverageError(
-                f"The following elements are not covered by the selected basis: {difference}"
-            )
+            basis_report[spec.spec_name] = difference
+
+        if raise_errors:
+            for spec_name, report in basis_report.items():
+                if report:
+                    raise MissingBasisCoverageError(
+                        f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis}"
+                    )
 
         else:
-            return difference
+            return basis_report
 
     def submit(
         self,
@@ -763,6 +789,8 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         """
 
         # pre submission checks
+        # make sure we have some QCSpec to submit
+        self._check_qc_specs()
         # basis set coverage check
         self._get_missing_basis_coverage(raise_errors=True)
 
@@ -772,12 +800,13 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
             collection = target_client.get_collection("Dataset", self.dataset_name)
         except KeyError:
             # we are making a new dataset so make sure the metadata is complete
+            # we hard code the default to be psi4 but each spec can submit their own program to use
             self.metadata.validate_metadata(raise_errors=True)
             collection = ptl.collections.Dataset(
                 name=self.dataset_name,
                 client=target_client,
                 default_driver=self.driver,
-                default_program=self.program,
+                default_program="psi4",
                 tagline=self.dataset_tagline,
                 tags=self.dataset_tags,
                 description=self.description,
@@ -789,14 +818,19 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         kw = ptl.models.KeywordSet(
             values=self.dict(include={"maxiter", "scf_properties"})
         )
-        try:
-            # try and add the keywords if present then continue
-            collection.add_keywords(
-                alias=self.spec_name, program=self.program, keyword=kw, default=True
-            )
-            collection.save()
-        except (KeyError, AttributeError):
-            pass
+        # here we need to add a spec for each program and set the default
+        for spec in self.qc_specifications.values():
+            try:
+                # try and add the keywords if present then continue
+                collection.add_keywords(
+                    alias=spec.spec_name,
+                    program=spec.program,
+                    keyword=kw,
+                    default=False,
+                )
+                collection.save()
+            except (KeyError, AttributeError):
+                pass
 
         i = 0
         # now add the molecules to the database, saving every 30 for speed
@@ -820,19 +854,25 @@ class BasicDataset(IndexCleaner, ClientHandler, DatasetConfig):
         # save the final dataset
         collection.save()
 
-        # submit the calculations
-        response = collection.compute(
-            method=self.method,
-            basis=self.basis,
-            keywords=self.spec_name,
-            program=self.program,
-            tag=self.compute_tag,
-            priority=self.priority,
-        )
+        # submit the calculations for each spec
+        # only one spec is stored per program so we have to find the name
+        program_spec = collection.list_keywords()
+        responses = {}
+        for spec in self.qc_specifications.values():
+            response = collection.compute(
+                method=spec.method,
+                basis=spec.basis,
+                keywords=spec.spec_name,
+                program=spec.program,
+                tag=self.compute_tag,
+                priority=self.priority,
+            )
 
-        collection.save()
+            collection.save()
+            # save the response per submission
+            responses[spec.spec_name] = response
 
-        return response
+        return responses
         # result = BasicResult()
         # while await_result:
         #
@@ -1248,23 +1288,25 @@ class OptimizationDataset(BasicDataset):
         kw_id = client.add_keywords([kw])[0]
         return kw_id
 
-    def get_qc_spec(self, keyword_id: str) -> QCSpecification:
+    def get_qc_spec(self, spec_name: str, keyword_id: str) -> QCSpecification:
         """
         Create the QC specification for the computation.
 
         Parameters:
+            spec_name: The name of the spec we want to convert to a QCSpecification
             keyword_id: The string of the keyword set id number.
 
         Returns:
             The dictionary representation of the QC specification
         """
-
+        spec = self.qc_specifications[spec_name]
         qc_spec = QCSpecification(
             driver=self.driver,
-            method=self.method,
-            basis=self.basis,
+            method=spec.method,
+            basis=spec.basis,
             keywords=keyword_id,
-            program=self.program,
+            program=spec.program,
+            protocols={"wavefunction": spec.store_wavefunction},
         )
 
         return qc_spec
@@ -1291,6 +1333,8 @@ class OptimizationDataset(BasicDataset):
         """
 
         # pre submission checks
+        # check for qcspecs
+        self._check_qc_specs()
         # basis set coverage check
         self._get_missing_basis_coverage(raise_errors=True)
 
@@ -1321,15 +1365,16 @@ class OptimizationDataset(BasicDataset):
         kw_id = self._add_keywords(target_client)
         # create the optimization specification
         opt_spec = self.optimization_procedure.get_optimzation_spec()
-        # create the qc specification
-        qc_spec = self.get_qc_spec(keyword_id=kw_id)
-        collection.add_specification(
-            name=self.spec_name,
-            optimization_spec=opt_spec,
-            qc_spec=qc_spec,
-            description=self.spec_description,
-            overwrite=False,
-        )
+        # create the qc specification and add them all
+        for spec in self.qc_specifications.values():
+            qc_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
+            collection.add_specification(
+                name=spec.spec_name,
+                optimization_spec=opt_spec,
+                qc_spec=qc_spec,
+                description=spec.spec_description,
+                overwrite=False,
+            )
 
         i = 0
         # now add the molecules to the database, saving every 30 for speed
@@ -1358,13 +1403,15 @@ class OptimizationDataset(BasicDataset):
 
         # save the added entries
         collection.save()
+        responses = {}
+        # submit the calculations for each spec
+        for spec_name in self.qc_specifications.keys():
+            response = collection.compute(
+                specification=spec_name, tag=self.compute_tag, priority=self.priority
+            )
+            responses[spec_name] = response
 
-        # submit the calculations
-        response = collection.compute(
-            specification=self.spec_name, tag=self.compute_tag, priority=self.priority
-        )
-
-        return response
+        return responses
 
         # result = BasicResult()
         # while await_result:
@@ -1492,6 +1539,8 @@ class TorsiondriveDataset(OptimizationDataset):
         """
 
         # pre submission checks
+        # check for qcspecs
+        self._check_qc_specs()
         # basis set coverage check
         self._get_missing_basis_coverage(raise_errors=True)
 
@@ -1518,15 +1567,16 @@ class TorsiondriveDataset(OptimizationDataset):
         kw_id = self._add_keywords(target_client)
         # create the optimization specification
         opt_spec = self.optimization_procedure.get_optimzation_spec()
-        # create the qc specification
-        qc_spec = self.get_qc_spec(keyword_id=kw_id)
-        collection.add_specification(
-            name=self.spec_name,
-            optimization_spec=opt_spec,
-            qc_spec=qc_spec,
-            description=self.spec_description,
-            overwrite=False,
-        )
+        # create the qc specification for each spec
+        for spec in self.qc_specifications.values():
+            qc_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
+            collection.add_specification(
+                name=spec.spec_name,
+                optimization_spec=opt_spec,
+                qc_spec=qc_spec,
+                description=spec.spec_description,
+                overwrite=False,
+            )
 
         # start add the molecule to the dataset, multipule conformers/molecules can be used as the starting geometry
         for i, (index, data) in enumerate(self.dataset.items()):
@@ -1550,12 +1600,15 @@ class TorsiondriveDataset(OptimizationDataset):
                     collection.save()
 
         collection.save()
-        # submit the calculations
-        response = collection.compute(
-            specification=self.spec_name, tag=self.compute_tag, priority=self.priority
-        )
 
-        return response
+        responses = {}
+        # submit the calculations for each spec
+        for spec_name in self.qc_specifications.keys():
+            response = collection.compute(
+                specification=spec_name, tag=self.compute_tag, priority=self.priority
+            )
+            responses[spec_name] = response
+        return responses
 
 
 # class QCFractalDataset(object):

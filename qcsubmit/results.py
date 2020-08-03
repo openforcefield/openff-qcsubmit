@@ -971,6 +971,15 @@ class OptimizationCollectionResult(BasicCollectionResult):
             dataset_tagline=tagline,
             driver=driver,
         )
+        # now we need to add the QC_spec
+        dataset.clear_qcspecs()
+        dataset.add_qc_spec(
+            method=self.method,
+            basis=self.basis,
+            program=self.program,
+            spec_name=self.spec_name,
+            spec_description=self.spec_description,
+        )
 
         for common_index, entries in self.collection.items():
             for result in entries.entries:
@@ -1027,6 +1036,15 @@ class OptimizationCollectionResult(BasicCollectionResult):
             dataset_name=dataset_name,
             description=description,
             dataset_tagline=tagline,
+        )
+        # now we need to add the QC_spec
+        dataset.clear_qcspecs()
+        dataset.add_qc_spec(
+            method=self.method,
+            basis=self.basis,
+            program=self.program,
+            spec_name=self.spec_name,
+            spec_description=self.spec_description,
         )
 
         # now we need to add the molecules
@@ -1475,6 +1493,15 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
             description=description,
             dataset_tagline=tagline,
         )
+        # now we need to add the QC_spec
+        dataset.clear_qcspecs()
+        dataset.add_qc_spec(
+            method=self.method,
+            basis=self.basis,
+            program=self.program,
+            spec_name=self.spec_name,
+            spec_description=self.spec_description,
+        )
         # now we need to fill the dataset
         for result in self.collection.values():
             attributes = result.attributes
@@ -1536,6 +1563,15 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
             dataset_tagline=tagline,
             driver=driver,
         )
+        # now we need to add the QC_spec
+        dataset.clear_qcspecs()
+        dataset.add_qc_spec(
+            method=self.method,
+            basis=self.basis,
+            program=self.program,
+            spec_name=self.spec_name,
+            spec_description=self.spec_description,
+        )
 
         # now we need to fill the dataset
         for result in self.collection.values():
@@ -1591,6 +1627,15 @@ class TorsionDriveCollectionResult(OptimizationCollectionResult):
             dataset_name=dataset_name,
             description=description,
             dataset_tagline=tagline,
+        )
+        # now we need to add the QC_spec
+        dataset.clear_qcspecs()
+        dataset.add_qc_spec(
+            method=self.method,
+            basis=self.basis,
+            program=self.program,
+            spec_name=self.spec_name,
+            spec_description=self.spec_description,
         )
 
         # now we need to fill in the dataset data
