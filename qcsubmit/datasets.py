@@ -26,7 +26,6 @@ from .exceptions import (
     DatasetInputError,
     DihedralConnectionError,
     MissingBasisCoverageError,
-    QCSpecificationError,
     UnsupportedFiletypeError,
 )
 from .procedures import GeometricProcedure
@@ -759,7 +758,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             for spec_name, report in basis_report.items():
                 if report:
                     raise MissingBasisCoverageError(
-                        f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis}"
+                        f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis} and method : {self.qc_specifications[spec_name].method}"
                     )
 
         else:
@@ -855,8 +854,6 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         collection.save()
 
         # submit the calculations for each spec
-        # only one spec is stored per program so we have to find the name
-        program_spec = collection.list_keywords()
         responses = {}
         for spec in self.qc_specifications.values():
             response = collection.compute(

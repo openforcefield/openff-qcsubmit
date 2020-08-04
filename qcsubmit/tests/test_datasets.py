@@ -31,7 +31,7 @@ from qcsubmit.exceptions import (
 )
 from qcsubmit.factories import BasicDatasetFactory
 from qcsubmit.testing import temp_directory
-from qcsubmit.utils import condense_molecules, get_data
+from qcsubmit.utils import condense_molecules, get_data, update_specification_and_metadata
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
@@ -494,6 +494,29 @@ def test_add_molecule_no_extras():
     for entry in dataset.dataset.values():
         for mol in entry.initial_molecules:
             assert "canonical_isomeric_explicit_hydrogen_mapped_smiles" in mol.extras
+
+
+@pytest.mark.parametrize("dataset_data", [
+    pytest.param((BasicDataset, "OpenFF NCI250K Boron 1", ["default"]), id="Dataset no metadata"),
+    pytest.param((OptimizationDataset, "OpenFF NCI250K Boron 1", ["default"]), id="OptimizationDataset no metadata"),
+    pytest.param((TorsiondriveDataset, "OpenFF Fragmenter Phenyl Benchmark", ["UFF", "B3LYP-D3"]), id="TorsiondriveDataset no metadata"),
+    pytest.param((TorsiondriveDataset, "OpenFF Rowley Biaryl v1.0", ["default"]), id="Torsiondrive with metadata")
+])
+def test_dataset_update(dataset_data):
+    """
+    Make sure the utils function can update elements and pull the correct specs.
+    """
+    import qcportal as ptl
+    dataset_type, dataset_name, specs = dataset_data
+    client = ptl.FractalClient()
+    # set up the dataset
+    dataset = dataset_type(dataset_name=dataset_name)
+    assert bool(dataset.metadata.elements) is False
+    dataset = update_specification_and_metadata(dataset, client)
+    # now make sure the elements have been updated and the spec added
+    assert bool(dataset.metadata.elements) is True
+    for spec in specs:
+        assert spec in dataset.qc_specifications
 
 
 @pytest.mark.parametrize("dataset_types", [

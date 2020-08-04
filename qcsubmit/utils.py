@@ -1,6 +1,8 @@
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from openforcefield import topology as off
+
+from qcsubmit.datasets import BasicDataset, TorsiondriveDataset, OptimizationDataset
 
 
 def get_data(relative_path):
@@ -56,3 +58,67 @@ def condense_molecules(molecules: List[off.Molecule]) -> off.Molecule:
         for geometry in mapped_mol.conformers:
             molecule.add_conformer(geometry)
     return molecule
+
+
+def update_specification_and_metadata(
+    dataset: Union["BasicDataset", "OptimizationDataset", "TorsiondriveDataset"], client
+) -> Union[BasicDataset, OptimizationDataset, TorsiondriveDataset]:
+    """
+    For the given dataset update the metadata and specifications using data from an archive instance.
+
+    Parameters:
+        dataset: The dataset which should be updated this should have no qc_specs and contain the name of the dataset
+        client: The archive client instance
+    """
+    import re
+
+    # make sure all specs are gone
+    dataset.clear_qcspecs()
+    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    metadata = ds.data.metadata
+    if "elements" in metadata:
+        dataset.metadata = metadata
+
+    if dataset.dataset_type == "DataSet":
+        if not dataset.metadata.elements:
+            # now grab the elements
+            elements = set()
+            molecules = ds.get_molecules()
+            for index in molecules.index:
+                mol = molecules.loc[index].molecule
+                elements.update(mol.symbols)
+            dataset.metadata.elements = elements
+        # now we need to add each ran spec
+        for history in ds.data.history:
+            _, program, method, basis, spec = history
+            dataset.add_qc_spec(
+                method=method,
+                basis=basis,
+                program=program,
+                spec_name=spec,
+                spec_description="basic dataset spec",
+                )
+    else:
+        # we have the opt or torsiondrive
+        if not dataset.metadata.elements:
+            elements = set()
+            for record in ds.data.records.values():
+                formula = record.attributes["molecular_formula"]
+                # use regex to parse the formula
+                match = re.findall("[A-Z][a-z]?|\d+|.", formula)
+                for element in match:
+                    if not element.isnumeric():
+                        elements.add(element)
+            dataset.metadata.elements = elements
+        # now add the specs
+        for spec in ds.data.specs.values():
+            dataset.add_qc_spec(
+                method=spec.qc_spec.method,
+                basis=spec.qc_spec.basis,
+                program=spec.qc_spec.program,
+                spec_name=spec.name,
+                spec_description=spec.description,
+                store_wavefunction=spec.qc_spec.protocols.wavefunction.value,
+            )
+
+    return dataset
