@@ -11,6 +11,7 @@ from qcfractal.testing import fractal_compute_server
 from qcportal import FractalClient
 
 from qcsubmit.common_structures import Metadata
+from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
 from qcsubmit.exceptions import DatasetInputError
 from qcsubmit.factories import (
     BasicDatasetFactory,
@@ -173,6 +174,122 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
             assert result.status.value.upper() == "COMPLETE"
             assert result.error is None
             assert result.return_result is not None
+
+
+@pytest.mark.parametrize("dataset_data", [
+    pytest.param((BasicDatasetFactory, BasicDataset), id="Dataset"),
+    pytest.param((OptimizationDatasetFactory, OptimizationDataset), id="OptimizationDataset"),
+    pytest.param((TorsiondriveDatasetFactory, TorsiondriveDataset), id="TorsiondriveDataset")
+])
+def test_adding_compute(fractal_compute_server, dataset_data):
+    """
+    Test adding new compute to each of the dataset types using none psi4 programs.
+    """
+    client = FractalClient(fractal_compute_server)
+    mol = Molecule.from_smiles("CO")
+    factory_type, dataset_type = dataset_data
+    # make and clear out the qc specs
+    factory = factory_type()
+    factory.clear_qcspecs()
+    factory.add_qc_spec(method="openff-1.0.0",
+                        basis="smirnoff",
+                        program="openmm",
+                        spec_name="default",
+                        spec_description="default spec for openff")
+    dataset = factory.create_dataset(dataset_name=f"Test adding compute to {factory_type}",
+                                     molecules=mol,
+                                     description=f"Testing adding compute to a {dataset_type} dataset",
+                                     tagline="tests for adding compute.")
+
+    # now add a mock url so we can submit the data
+    dataset.metadata.long_description_url = "https://test.org"
+
+    # now submit again
+    dataset.submit(client=client, await_result=False)
+    # make sure that the compute has finished
+    fractal_compute_server.await_results()
+    fractal_compute_server.await_services(max_iter=50)
+
+    # now lets make a dataset with new compute and submit it
+    # transfer the metadata to compare the elements
+    compute_dataset = dataset_type(dataset_name=dataset.dataset_name, metadata=dataset.metadata)
+    compute_dataset.clear_qcspecs()
+    # now add the new compute spec
+    compute_dataset.add_qc_spec(method="uff",
+                                basis=None,
+                                program="rdkit",
+                                spec_name="rdkit",
+                                spec_description="rdkit basic spec")
+
+    # make sure the dataset has no molecules and submit it
+    assert compute_dataset.dataset == {}
+    compute_dataset.submit(client=client)
+    # make sure that the compute has finished
+    fractal_compute_server.await_results()
+    fractal_compute_server.await_services(max_iter=50)
+
+    # make sure of the results are complete
+    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+
+    # check the metadata
+    meta = Metadata(**ds.data.metadata)
+    assert meta == dataset.metadata
+
+    assert ds.data.description == dataset.description
+    assert ds.data.tagline == dataset.dataset_tagline
+    assert ds.data.tags == dataset.dataset_tags
+
+    # check the provenance
+    assert dataset.provenance == ds.data.provenance
+
+    # update all specs into one dataset
+    dataset.add_qc_spec(**compute_dataset.qc_specifications["rdkit"].dict())
+    # get the last ran spec
+    if dataset.dataset_type == "DataSet":
+            for specification in ds.data.history:
+                driver, program, method, basis, spec_name = specification
+                spec = dataset.qc_specifications[spec_name]
+                assert driver == dataset.driver
+                assert program == spec.program
+                assert method == spec.method
+                assert basis == spec.basis
+
+            for spec in dataset.qc_specifications.values():
+                query = ds.get_records(
+                    method=spec.method,
+                    basis=spec.basis,
+                    program=spec.program,
+                )
+                for index in query.index:
+                    result = query.loc[index].record
+                    assert result.status.value.upper() == "COMPLETE"
+                    assert result.error is None
+                    assert result.return_result is not None
+    else:
+        # check the qc spec
+        for qc_spec in dataset.qc_specifications.values():
+            spec = ds.data.specs[qc_spec.spec_name]
+
+            assert spec.description == qc_spec.spec_description
+            assert spec.qc_spec.driver == dataset.driver
+            assert spec.qc_spec.method == qc_spec.method
+            assert spec.qc_spec.basis == qc_spec.basis
+            assert spec.qc_spec.program == qc_spec.program
+
+            # check the keywords
+            keywords = client.query_keywords(spec.qc_spec.keywords)[0]
+
+            assert keywords.values["maxiter"] == dataset.maxiter
+            assert keywords.values["scf_properties"] == dataset.scf_properties
+
+            # query the dataset
+            ds.query(qc_spec.spec_name)
+
+            for index in ds.df.index:
+                record = ds.df.loc[index].default
+                # this will take some time so make sure it is running with no error
+                assert record.status.value == "COMPLETE", print(record.dict())
+                assert record.error is None
 
 
 def test_basic_submissions_wavefunction(fractal_compute_server):

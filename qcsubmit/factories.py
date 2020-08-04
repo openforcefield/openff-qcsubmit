@@ -140,6 +140,14 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
             "qcsubmit": qcsubmit.__version__,
             "openforcefield": openforcefield.__version__,
         }
+        try:
+            import openeye
+
+            provenance["openeye"] = openeye.__version__
+        except ImportError:
+            import rdkit
+
+            provenance["rdkit"] = rdkit.__version__
 
         return provenance
 
