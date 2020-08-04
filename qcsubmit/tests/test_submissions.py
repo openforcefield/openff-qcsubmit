@@ -155,7 +155,6 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
 
     # get the last ran spec
     for specification in ds.data.history:
-        print(specification)
         driver, program, method, basis, spec_name = specification
         spec = dataset.qc_specifications[spec_name]
         assert driver == dataset.driver
@@ -174,6 +173,84 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
             assert result.status.value.upper() == "COMPLETE"
             assert result.error is None
             assert result.return_result is not None
+
+
+def test_basic_submissions_wavefunction(fractal_compute_server):
+    """
+    Test submitting a basic dataset with a wavefunction protocol and make sure it is executed.
+    """
+    # only a psi4 test
+    if not has_program("psi4"):
+        pytest.skip(f"Program psi4 not found.")
+
+    client = FractalClient(fractal_compute_server)
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
+
+    factory = BasicDatasetFactory(driver="energy")
+    factory.clear_qcspecs()
+    factory.add_qc_spec(method="hf",
+                        basis="sto-3g",
+                        program="psi4",
+                        spec_name="default",
+                        spec_description="wavefunction spec",
+                        store_wavefunction="orbitals_and_eigenvalues")
+
+    dataset = factory.create_dataset(dataset_name=f"Test single points with wavefunction",
+                                     molecules=molecules,
+                                     description="Test basics dataset",
+                                     tagline="Testing single point datasets with wavefunction",
+                                     )
+    # now add a mock url so we can submit the data
+    dataset.metadata.long_description_url = "https://test.org"
+
+    # submit the dataset
+    # now submit again
+    dataset.submit(client=client, await_result=False)
+
+    fractal_compute_server.await_results()
+
+    # make sure of the results are complete
+    ds = client.get_collection("Dataset", dataset.dataset_name)
+
+    # check the metadata
+    meta = Metadata(**ds.data.metadata)
+    assert meta == dataset.metadata
+
+    assert ds.data.description == dataset.description
+    assert ds.data.tagline == dataset.dataset_tagline
+    assert ds.data.tags == dataset.dataset_tags
+
+    # check the provenance
+    assert dataset.provenance == ds.data.provenance
+
+    # check the qc spec
+    assert ds.data.default_driver == dataset.driver
+
+    # get the last ran spec
+    for specification in ds.data.history:
+        driver, program, method, basis, spec_name = specification
+        spec = dataset.qc_specifications[spec_name]
+        assert driver == dataset.driver
+        assert program == spec.program
+        assert method == spec.method
+        assert basis == spec.basis
+
+    for spec in dataset.qc_specifications.values():
+        query = ds.get_records(
+            method=spec.method,
+            basis=spec.basis,
+            program=spec.program,
+        )
+        for index in query.index:
+            result = query.loc[index].record
+            assert result.status.value.upper() == "COMPLETE"
+            assert result.error is None
+            assert result.return_result is not None
+            basis = result.get_wavefunction("basis")
+            assert basis.name.lower() == "sto-3g"
+            orbitals = result.get_wavefunction("orbitals_a")
+            assert orbitals.shape is not None
+            print(orbitals)
 
 
 @pytest.mark.parametrize("specification", [

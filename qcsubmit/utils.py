@@ -97,7 +97,7 @@ def update_specification_and_metadata(
                 program=program,
                 spec_name=spec,
                 spec_description="basic dataset spec",
-                )
+            )
     else:
         # we have the opt or torsiondrive
         if not dataset.metadata.elements:
