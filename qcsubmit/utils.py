@@ -2,7 +2,7 @@ from typing import Dict, List, Union
 
 from openforcefield import topology as off
 
-from qcsubmit.datasets import BasicDataset, TorsiondriveDataset, OptimizationDataset
+from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
 
 
 def get_data(relative_path):

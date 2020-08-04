@@ -250,7 +250,6 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
             assert basis.name.lower() == "sto-3g"
             orbitals = result.get_wavefunction("orbitals_a")
             assert orbitals.shape is not None
-            print(orbitals)
 
 
 @pytest.mark.parametrize("specification", [

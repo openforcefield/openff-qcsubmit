@@ -31,7 +31,11 @@ from qcsubmit.exceptions import (
 )
 from qcsubmit.factories import BasicDatasetFactory
 from qcsubmit.testing import temp_directory
-from qcsubmit.utils import condense_molecules, get_data, update_specification_and_metadata
+from qcsubmit.utils import (
+    condense_molecules,
+    get_data,
+    update_specification_and_metadata,
+)
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
