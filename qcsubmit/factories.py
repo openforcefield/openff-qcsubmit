@@ -2,12 +2,12 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from openforcefield import topology as off
-from pydantic import BaseModel, PositiveInt, constr, validator
+from pydantic import BaseModel, PositiveInt, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
 
 from . import workflow_components
-from .common_structures import ClientHandler, Metadata
+from .common_structures import ClientHandler, Metadata, QCSpecificationHandler
 from .datasets import (
     BasicDataset,
     ComponentResult,
@@ -28,7 +28,7 @@ from .serializers import deserialize, serialize
 from .validators import scf_property_validator
 
 
-class BasicDatasetFactory(ClientHandler, BaseModel):
+class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
     """
     Basic dataset generator factory used to build work flows using workflow components before executing them to generate
     a dataset.
@@ -52,9 +52,6 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         workflow: A dictionary which holds the workflow components to be executed in the set order.
     """
 
-    method: constr(strip_whitespace=True) = "B3LYP-D3BJ"
-    basis: Optional[constr(strip_whitespace=True)] = "DZVP"
-    program: str = "psi4"
     maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
     scf_properties: List[str] = [
@@ -63,8 +60,6 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
         "wiberg_lowdin_indices",
         "mayer_indices",
     ]
-    spec_name: str = "default"
-    spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
     priority: str = "normal"
     dataset_tags: List[str] = ["openff"]
     compute_tag: str = "openff"
@@ -145,6 +140,14 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             "qcsubmit": qcsubmit.__version__,
             "openforcefield": openforcefield.__version__,
         }
+        try:
+            import openeye
+
+            provenance["openeye"] = openeye.__version__
+        except ImportError:
+            import rdkit
+
+            provenance["rdkit"] = rdkit.__version__
 
         return provenance
 
@@ -551,12 +554,8 @@ class BasicDatasetFactory(ClientHandler, BaseModel):
             attributes = self.create_cmiles_metadata(molecule=order_mol)
             attributes["provenance"] = self.provenance()
 
-            # if we are using MM we should put the cmiles in the extras
+            # always put the cmiles in the extras from what we have just calculated to ensure correct order
             extras = molecule.properties.get("extras", {})
-            if self.program in self._mm_programs:
-                extras[
-                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                ] = attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
 
             keywords = molecule.properties.get("keywords", None)
 
@@ -847,10 +846,6 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
             # make the general attributes
             attributes = self.create_cmiles_metadata(molecule=molecule)
-            if self.program in self._mm_programs:
-                extras[
-                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                ] = attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
 
             # now check for the dihedrals
             if "dihedrals" in molecule.properties:

@@ -2,7 +2,7 @@
   "method": "loaded method",
   "basis": "loaded basis",
   "program": "loaded program",
-  "maxiter": 200,
+  "maxiter": 400,
   "driver": "gradient",
   "scf_properties": [
     "dipole",
@@ -12,7 +12,7 @@
   "spec_name": "default",
   "spec_description": "Standard OpenFF optimization quantum chemistry specification.",
   "client": "public",
-  "priority": "normal",
+  "priority": "super_high",
   "compute_tag": "loaded tag",
   "workflow": {}
 }

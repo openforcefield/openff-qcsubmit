@@ -133,3 +133,12 @@ class DatasetCombinationError(QCSubmitException):
 
     error_type = "dataset combination error"
     header = "Dataset Combination Error"
+
+
+class QCSpecificationError(QCSubmitException):
+    """
+    The QCSpecification combination of method basis and program is not valid.
+    """
+
+    error_type = "qcspecification error"
+    header = "QCSpecification Error"

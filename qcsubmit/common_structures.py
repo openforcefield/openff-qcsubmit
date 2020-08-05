@@ -9,9 +9,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 import qcportal as ptl
 from pydantic import BaseModel, HttpUrl, constr, validator
+from qcelemental.models.results import WavefunctionProtocolEnum
 from qcfractal.interface import FractalClient
 
-from qcsubmit.exceptions import DatasetInputError
+from qcsubmit.exceptions import DatasetInputError, QCSpecificationError
 
 
 class DatasetConfig(BaseModel):
@@ -35,6 +36,191 @@ class ResultsConfig(BaseModel):
         arbitrary_types_allowed: bool = True
         allow_mutation: bool = False
         json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
+
+
+class QCSpec(ResultsConfig):
+
+    method: constr(strip_whitespace=True) = "B3LYP-D3BJ"
+    basis: Optional[constr(strip_whitespace=True)] = "DZVP"
+    program: str = "psi4"
+    spec_name: str = "default"
+    spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
+    store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none
+
+    def __init__(
+        self,
+        method: constr(strip_whitespace=True) = "B3LYP-D3BJ",
+        basis: Optional[constr(strip_whitespace=True)] = "DZVP",
+        program: str = "psi4",
+        spec_name: str = "default",
+        spec_description: str = "Standard OpenFF optimization quantum chemistry specification.",
+        store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none,
+    ):
+        """
+        Validate the combination of method, basis and program.
+        """
+        from openforcefield.typing.engines.smirnoff import get_available_force_fields
+        from openmmforcefields.generators.template_generators import (
+            GAFFTemplateGenerator,
+        )
+
+        # set up the valid method basis and program combinations
+        ani_methods = {"ani1x", "ani1ccx", "ani2x"}
+        openff_forcefields = list(
+            ff.split(".offxml")[0] for ff in get_available_force_fields()
+        )
+        gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
+        xtb_methods = {
+            "gfn0-xtb",
+            "gfn0xtb",
+            "gfn1-xtb",
+            "gfn1xtb",
+            "gfn2-xtb",
+            "gfn2xtb",
+            "gfn-ff",
+            "gfnff",
+        }
+        rdkit_methods = {"uff", "mmff94", "mmff94s"}
+        settings = {
+            "openmm": {"antechamber": gaff_forcefields, "smirnoff": openff_forcefields},
+            "torchani": {None: ani_methods},
+            "xtb": {None: xtb_methods},
+            "rdkit": {None: rdkit_methods},
+            "psi4": {},
+        }
+
+        if program.lower() != "psi4":
+            # we need to make sure it is valid in the above list
+            program_settings = settings.get(program.lower(), None)
+            if program_settings is None:
+                raise QCSpecificationError(
+                    f"The program {program.lower()} is not supported please use one of the following {settings.keys()}"
+                )
+            allowed_methods = program_settings.get(basis, None)
+            if allowed_methods is None:
+                raise QCSpecificationError(
+                    f"The Basis {basis} is not supported for the program {program}, chose from {program_settings.keys()}"
+                )
+            # now we need to check the methods
+            # strip the offxml if present
+            method = method.split(".offxml")[0].lower()
+            if method not in allowed_methods:
+                raise QCSpecificationError(
+                    f"The method {method} is not supported for the program {program} with basis {basis}, please chose from {allowed_methods}"
+                )
+        super().__init__(
+            method=method,
+            basis=basis,
+            program=program.lower(),
+            spec_name=spec_name,
+            spec_description=spec_description,
+            store_wavefunction=store_wavefunction,
+        )
+
+    def dict(
+        self,
+        *,
+        include: Union["AbstractSetIntStr", "MappingIntStrAny"] = None,
+        exclude: Union["AbstractSetIntStr", "MappingIntStrAny"] = None,
+        by_alias: bool = False,
+        skip_defaults: bool = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+    ) -> "DictStrAny":
+
+        data = super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_defaults=exclude_defaults,
+            exclude_unset=exclude_unset,
+            exclude_none=exclude_none,
+        )
+        if "store_wavefunction" in data:
+            data["store_wavefunction"] = self.store_wavefunction.value
+        return data
+
+
+class QCSpecificationHandler(BaseModel):
+    """
+    A mixin class for handling the QCSpecification
+    """
+
+    qc_specifications: Dict[str, QCSpec] = {"default": QCSpec()}
+
+    def clear_qcspecs(self) -> None:
+        """
+        Clear out any current QCSpecs.
+        """
+        self.qc_specifications = {}
+
+    def remove_qcspec(self, spec_name: str) -> None:
+        """
+        Remove a QCSpec from the dataset.
+
+        Parameters:
+            spec_name: The name of the spec that should be removed.
+
+        Note:
+            The QCSpec settings are not mutable and so they must be removed and a new one added to ensure they are fully validated.
+        """
+        if spec_name in self.qc_specifications.keys():
+            del self.qc_specifications[spec_name]
+
+    @property
+    def n_qc_specs(self) -> int:
+        """
+        Return the number of QCSpecs on this dataset.
+        """
+        return len(self.qc_specifications)
+
+    def _check_qc_specs(self) -> None:
+        if self.n_qc_specs == 0:
+            raise QCSpecificationError(
+                f"There are no QCSpecifications for this dataset please add some using `add_qc_spec`"
+            )
+
+    def add_qc_spec(
+        self,
+        method: str,
+        basis: Optional[str],
+        program: str,
+        spec_name: str,
+        spec_description: str,
+        store_wavefunction: str = "none",
+        overwrite: bool = False,
+    ) -> None:
+        """
+        Add a new qcspecification to the factory which will be applied to the dataset.
+
+        Parameters:
+            method: The name of the method to use eg B3LYP-D3BJ
+            basis: The name of the basis to use can also be `None`
+            program: The name of the program to execute the computation
+            spec_name: The name the spec should be stored under
+            spec_description: The description of the spec
+            store_wavefunction: what parts of the wavefunction that should be saved
+            overwrite: If there is a spec under this name already overwrite it
+        """
+        spec = QCSpec(
+            method=method,
+            basis=basis,
+            program=program,
+            spec_name=spec_name,
+            spec_description=spec_description,
+            store_wavefunction=store_wavefunction,
+        )
+
+        if spec_name not in self.qc_specifications:
+            self.qc_specifications[spec.spec_name] = spec
+        elif overwrite:
+            self.qc_specifications[spec.spec_name] = spec
+        else:
+            raise QCSpecificationError(
+                f"A specification is already stored under {spec_name} to replace it set `overwrite=True`."
+            )
 
 
 def order_torsion(torsion: Tuple[int, int, int, int]) -> Tuple[int, int, int, int]:
