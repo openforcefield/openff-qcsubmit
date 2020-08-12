@@ -8,6 +8,14 @@ qcsubmit
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 Automated tools for submitting molecules to QCFractal
 
+A devlopment version of QCSubmit can be install through conda using the commmands.
+
+`conda install -c conda-forge -c omnia/label/rc -c omnia -c openeye qcsubmit`
+
+`pip install basis_set_exchange`
+
+Note that openeye is required to use fragmenter and protomer enumeration all other features can be used with RDKit.
+
 ### Copyright
 
 Copyright (c) 2019, Open Force Field Initiative
