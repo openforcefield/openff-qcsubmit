@@ -44,7 +44,9 @@ class QCSpec(ResultsConfig):
     basis: Optional[constr(strip_whitespace=True)] = "DZVP"
     program: str = "psi4"
     spec_name: str = "default"
-    spec_description: str = "Standard OpenFF optimization quantum chemistry specification."
+    spec_description: str = (
+        "Standard OpenFF optimization quantum chemistry specification."
+    )
     store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none
 
     def __init__(
@@ -304,7 +306,10 @@ class DoubleTorsion(SingleTorsion):
 
         central_bond = tuple(
             sorted(
-                [tuple(sorted(self.torsion1[1:3])), tuple(sorted(self.torsion2[1:3])),]
+                [
+                    tuple(sorted(self.torsion1[1:3])),
+                    tuple(sorted(self.torsion2[1:3])),
+                ]
             )
         )
         return central_bond

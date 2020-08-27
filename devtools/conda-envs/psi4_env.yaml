@@ -18,7 +18,6 @@ dependencies:
   - openforcefields
   - openmmforcefields
   - smirnoff99Frosst
-  - py-cpuinfo <= 5 # remove pin when qcengine is fixed
   - pyyaml
   - codecov
   - qcportal >=0.13.0

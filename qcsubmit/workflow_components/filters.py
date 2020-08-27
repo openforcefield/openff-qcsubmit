@@ -36,7 +36,9 @@ class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
     )
     component_fail_message = "Molecule weight was not in the specified region."
 
-    minimum_weight: int = 130  # values taken from the base settings of the openeye blockbuster filter
+    minimum_weight: int = (
+        130  # values taken from the base settings of the openeye blockbuster filter
+    )
     maximum_weight: int = 781
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:

@@ -706,7 +706,13 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         """
         Work out if the selected basis set covers all of the elements in the dataset for each specification if not return the missing
         element symbols.
+
+        Parameters:
+            raise_errors: bool, default=True
+                if True the function will raise an error for missing basis coverage, else we return the missing data and just print warnings.
         """
+        import warnings
+
         import basis_set_exchange as bse
         from simtk.openmm.app import Element
 
@@ -756,20 +762,25 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
             basis_report[spec.spec_name] = difference
 
-        if raise_errors:
-            for spec_name, report in basis_report.items():
-                if report:
+        for spec_name, report in basis_report.items():
+            if report:
+                if raise_errors:
                     raise MissingBasisCoverageError(
                         f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis} and method : {self.qc_specifications[spec_name].method}"
                     )
-
-        else:
+                else:
+                    warnings.warn(
+                        f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis} and method : {self.qc_specifications[spec_name].method}",
+                        UserWarning,
+                    )
+        if not raise_errors:
             return basis_report
 
     def submit(
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
         await_result: Optional[bool] = False,
+        ignore_errors: bool = False,
     ) -> SingleResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
@@ -780,6 +791,8 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             The name of the file containing the client information or an actual client instance.
         await_result : bool, optional, default=False
             If the user wants to wait for the calculation to finish before returning.
+        ignore_errors : bool, default=False
+            If the user wants to submit the compute regardless of errors set this to True. Mainly to override basis coverage.
 
 
         Returns:
@@ -793,7 +806,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         # make sure we have some QCSpec to submit
         self._check_qc_specs()
         # basis set coverage check
-        self._get_missing_basis_coverage(raise_errors=True)
+        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
 
         target_client = self._activate_client(client)
         # work out if we are extending a collection
@@ -1381,6 +1394,7 @@ class OptimizationDataset(BasicDataset):
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
         await_result: bool = False,
+        ignore_errors: bool = False,
     ) -> SingleResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
@@ -1389,6 +1403,7 @@ class OptimizationDataset(BasicDataset):
         Parameters:
             await_result: If the user wants to wait for the calculation to finish before returning.
             client: The name of the file containing the client information or the client instance.
+            ignore_errors: If the user wants to ignore basis coverage errors and submit the dataset.
 
         Returns:
             Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
@@ -1402,7 +1417,7 @@ class OptimizationDataset(BasicDataset):
         # check for qcspecs
         self._check_qc_specs()
         # basis set coverage check
-        self._get_missing_basis_coverage(raise_errors=True)
+        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
 
         target_client = self._activate_client(client)
         # work out if we are extending a collection
@@ -1586,6 +1601,7 @@ class TorsiondriveDataset(OptimizationDataset):
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
         await_result: bool = False,
+        ignore_errors: bool = False,
     ) -> SingleResult:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
@@ -1594,6 +1610,7 @@ class TorsiondriveDataset(OptimizationDataset):
         Parameters:
             await_result: If the user wants to wait for the calculation to finish before returning.
             client: The name of the file containing the client information or the client instance.
+            ignore_errors: If the user wants to ignore basis coverage issues and submit the dataset.
 
 
         Returns:
@@ -1608,7 +1625,7 @@ class TorsiondriveDataset(OptimizationDataset):
         # check for qcspecs
         self._check_qc_specs()
         # basis set coverage check
-        self._get_missing_basis_coverage(raise_errors=True)
+        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
 
         target_client = self._activate_client(client)
         # work out if we are extending a collection
