@@ -706,7 +706,13 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         """
         Work out if the selected basis set covers all of the elements in the dataset for each specification if not return the missing
         element symbols.
+
+        Parameters:
+            raise_errors: bool, default=True
+                if True the function will raise an error for missing basis coverage, else we return the missing data and just print warnings.
         """
+        import warnings
+
         import basis_set_exchange as bse
         from simtk.openmm.app import Element
 
@@ -756,14 +762,18 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
             basis_report[spec.spec_name] = difference
 
-        if raise_errors:
-            for spec_name, report in basis_report.items():
-                if report:
+        for spec_name, report in basis_report.items():
+            if report:
+                if raise_errors:
                     raise MissingBasisCoverageError(
                         f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis} and method : {self.qc_specifications[spec_name].method}"
                     )
-
-        else:
+                else:
+                    warnings.warn(
+                        f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis} and method : {self.qc_specifications[spec_name].method}",
+                        UserWarning,
+                    )
+        if not raise_errors:
             return basis_report
 
     def submit(
@@ -791,19 +801,12 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         Raises:
             MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
-        import warnings
 
         # pre submission checks
         # make sure we have some QCSpec to submit
         self._check_qc_specs()
         # basis set coverage check
-        missing = self._get_missing_basis_coverage(raise_errors=not ignore_errors)
-        for spec_name, report in missing.items():
-            if report:
-                warnings.warn(
-                    f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis} and method : {self.qc_specifications[spec_name].method}",
-                    UserWarning,
-                )
+        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
 
         target_client = self._activate_client(client)
         # work out if we are extending a collection
@@ -1409,19 +1412,12 @@ class OptimizationDataset(BasicDataset):
         Raises:
             MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
-        import warnings
 
         # pre submission checks
         # check for qcspecs
         self._check_qc_specs()
         # basis set coverage check
-        missing = self._get_missing_basis_coverage(raise_errors=not ignore_errors)
-        for spec_name, report in missing.items():
-            if report:
-                warnings.warn(
-                    f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis} and method : {self.qc_specifications[spec_name].method}",
-                    UserWarning,
-                )
+        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
 
         target_client = self._activate_client(client)
         # work out if we are extending a collection
@@ -1624,19 +1620,12 @@ class TorsiondriveDataset(OptimizationDataset):
         Raises:
             MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
-        import warnings
 
         # pre submission checks
         # check for qcspecs
         self._check_qc_specs()
         # basis set coverage check
-        missing = self._get_missing_basis_coverage(raise_errors=not ignore_errors)
-        for spec_name, report in missing.items():
-            if report:
-                warnings.warn(
-                    f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis} and method : {self.qc_specifications[spec_name].method}",
-                    UserWarning,
-                )
+        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
 
         target_client = self._activate_client(client)
         # work out if we are extending a collection
