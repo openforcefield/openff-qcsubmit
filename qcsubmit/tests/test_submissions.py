@@ -12,7 +12,7 @@ from qcportal import FractalClient
 
 from qcsubmit.common_structures import Metadata
 from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
-from qcsubmit.exceptions import DatasetInputError
+from qcsubmit.exceptions import DatasetInputError, MissingBasisCoverageError
 from qcsubmit.factories import (
     BasicDatasetFactory,
     OptimizationDatasetFactory,
@@ -520,3 +520,37 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
             assert record.status.value == "COMPLETE", print(record.dict())
             assert record.error is None
             assert len(record.final_energy_dict) == 24
+
+
+@pytest.mark.parametrize("factory_type", [
+    pytest.param(BasicDatasetFactory, id="BasicDataset ignore_errors"),
+    pytest.param(OptimizationDatasetFactory, id="OptimizationDataset ignore_errors"),
+    pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset ignore_errors"),
+])
+def test_ignore_errors_all_datasets(fractal_compute_server, factory_type):
+    """
+    For each dataset make sure that when the basis is not fully covered the dataset raises warning errors.
+    """
+    import warnings
+    client = FractalClient(fractal_compute_server)
+    # molecule containing boron
+    molecule = Molecule.from_smiles("OB(O)C1=CC=CC=C1")
+    factory = factory_type()
+    factory.clear_qcspecs()
+    # add only mm specs
+    factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
+    dataset = factory.create_dataset(dataset_name=f"Test ignore_error for {factory.Config.title}",
+                                     molecules=molecule,
+                                     description="Test ignore errors dataset",
+                                     tagline="Testing ignore errors datasets",
+                                     )
+
+    dataset.metadata.long_description_url = "https://test.org"
+
+    # make sure the dataset rasies an error here
+    with pytest.raises(MissingBasisCoverageError):
+        dataset.submit(client=client, ignore_errors=False)
+
+    # now we want to try again and make sure warnings are rasied
+    with pytest.warns(UserWarning):
+        dataset.submit(client=client, ignore_errors=True)

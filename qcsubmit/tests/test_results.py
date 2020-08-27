@@ -188,6 +188,17 @@ def test_basicdataset_result(public_client):
     assert result.n_molecules == 150
     assert result.n_results == 298
 
+    # now make sure the number of geometries and entries are the same
+    for basic_result in result.collection.values():
+        # test the lowest energy entry
+        entry = basic_result.get_lowest_energy_entry()
+        # now search for the lowest
+        low_energy = 0
+        for mol_entry in basic_result.entries:
+            if mol_entry.energy < low_energy:
+                low_energy = mol_entry.energy
+        assert low_energy == entry.energy
+
 
 def test_basicdataset_export_round_trip(public_client):
     """
