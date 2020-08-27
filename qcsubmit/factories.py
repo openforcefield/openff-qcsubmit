@@ -453,7 +453,9 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
                 component_name=self.Config.title,
                 component_description={"component_name": self.Config.title},
                 component_provenance=self.provenance(),
-                molecules=[molecules,],
+                molecules=[
+                    molecules,
+                ],
             )
 
         else:

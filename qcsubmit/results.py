@@ -117,7 +117,9 @@ class SingleResult(ResultsConfig):
 
         return bonds
 
-    def find_hydrogen_bonds_heuristic(self,) -> List[Tuple[int, int]]:
+    def find_hydrogen_bonds_heuristic(
+        self,
+    ) -> List[Tuple[int, int]]:
         """
         Find hydrogen bonds in the final molecule using the Baker-Hubbard method.
 
@@ -788,7 +790,9 @@ class OptimizationEntryResult(ResultsConfig):
             hbond_threshold=hbond_threshold, bond_threshold=bond_threshold
         )
 
-    def find_hydrogen_bonds_heuristic(self,) -> List[Tuple[int, int]]:
+    def find_hydrogen_bonds_heuristic(
+        self,
+    ) -> List[Tuple[int, int]]:
         """
         Find hydrogen bonds in the final molecule using the Baker-Hubbard method.
 
@@ -1092,7 +1096,9 @@ class OptimizationCollectionResult(BasicCollectionResult):
 
     @staticmethod
     def _gather_metadata(
-        collection: ptl.collections.Dataset, spec_name: str, client: ptl.FractalClient,
+        collection: ptl.collections.Dataset,
+        spec_name: str,
+        client: ptl.FractalClient,
     ) -> Dict[str, str]:
         """
         Gather metadata needed for Optimization and Torsiondrive results classes.
