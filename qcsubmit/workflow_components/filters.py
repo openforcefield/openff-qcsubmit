@@ -2,6 +2,7 @@
 File containing the filters workflow components.
 """
 import re
+import numpy as np
 from typing import Dict, List, Optional, Set, Union
 
 from openforcefield.topology import Molecule
@@ -446,5 +447,98 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
 
             for molecule in molecules_to_remove:
                 self.fail_molecule(molecule=molecule, component_result=result)
+
+        return result
+
+
+class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
+    """
+    Prunes conformers from a molecule that are less than a specified RMSD from
+    all other conformers
+    """
+
+    # standard components which must be defined
+    component_name = __class__
+    component_description = "Generate conformations for the given molecules using a RMSD cutoff"
+    component_fail_message = "Conformers could not be generated"
+
+    # custom components for this class
+    rmsd_cutoff: float = -1.0
+
+    def _prune_conformers(self, molecule: Molecule) -> Molecule:
+
+        L: int = len(molecule.conformers)
+
+        # This will be used to determined whether it should be pruned
+        # from the RMSD calculations. If we find it should be pruned
+        # just once, it is sufficient to avoid it later in the pairwise
+        # processing.
+        uniq: List = list([True] * L)
+
+        # This begins the pairwise RMSD pruner
+        if L > 1 and self.rmsd_cutoff > 0.0:
+
+            # The reference conformer for RMSD calculation
+            for j in range(L - 1):
+
+                # A previous loop has determine this specific conformer
+                # is too close to another, so we can entirely skip it
+                if not uniq[j]:
+                    continue
+
+                # since k starts from j+1, we are only looking at the
+                # upper triangle of the comparisons (j < k)
+                for k in range(j + 1, L):
+
+                    r = np.linalg.norm(
+                            molecule.conformers[k] - molecule.conformers[j], axis=1
+                            )
+                    rmsd_i = r.mean()
+
+                    # Flag this conformer for pruning, and also
+                    # prevent it from being used as a reference in the
+                    # future comparisons
+                    if rmsd_i < self.rmsd_cutoff:
+                        uniq[k] = False
+
+            # hack? how to set conformers explicity if different number than
+            # currently stored?
+            confs = [
+                    molecule.conformers[j] for j, add_bool in enumerate(uniq) if add_bool
+                    ]
+            molecule._conformers = confs.copy()
+
+        return molecule
+
+
+    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+        """
+        Prunes conformers from a molecule that are less than a specified RMSD from
+        all other conformers
+
+        Parameters:
+            molecules: The list of molecules the component should be applied on.
+
+        Returns:
+            A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
+            that passed and were filtered by the component and details about the component which generated the result.
+        """
+
+        result = self._create_result()
+
+        for molecule in molecules:
+            try:
+                molecule = self._prune_conformers(self, molecule)
+
+            # need to catch more specific exceptions here.
+            except Exception:
+                self.fail_molecule(molecule=molecule, component_result=result)
+
+            finally:
+                # if we could not produce a conformer then fail the molecule
+                if molecule.n_conformers == 0:
+                    self.fail_molecule(molecule=molecule, component_result=result)
+                else:
+                    result.add_molecule(molecule)
 
         return result
