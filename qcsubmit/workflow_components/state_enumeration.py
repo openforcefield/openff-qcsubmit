@@ -96,7 +96,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     undefined_only: bool = False
     max_isomers: int = 20
     rationalise: bool = True
-    include_input: bool = True
+    include_input: bool = False
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -123,7 +123,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
                     rationalise=self.rationalise,
                     toolkit_registry=toolkit,
                 )
-                if self.include_input and len(isomers) == 0:
+                if self.include_input or len(isomers) == 0:
                     result.add_molecule(molecule)
 
                 for isomer in isomers:
