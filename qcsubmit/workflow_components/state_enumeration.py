@@ -5,7 +5,6 @@ from typing import List
 
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
-
 from qcsubmit.datasets import ComponentResult
 
 from .base_component import CustomWorkflowComponent, ToolkitValidator
@@ -129,7 +128,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
 
                 for isomer in isomers:
                     result.add_molecule(isomer)
-                
+
                 # TODO: add logger
                 # print("Stereoisomers found {} for {}".format(len(isomers), molecule.to_smiles()))
 
