@@ -2,8 +2,10 @@
 File containing the filters workflow components.
 """
 import re
-import numpy as np
 from typing import Dict, List, Optional, Set, Union
+
+import numpy as np
+from pydantic import validator
 
 from openforcefield.topology import Molecule
 from openforcefield.typing.chemistry.environment import (
@@ -11,8 +13,6 @@ from openforcefield.typing.chemistry.environment import (
     SMIRKSParsingError,
 )
 from openforcefield.typing.engines.smirnoff import ForceField
-from pydantic import validator
-
 from qcsubmit.common_structures import TorsionIndexer
 from qcsubmit.datasets import ComponentResult
 
@@ -459,7 +459,9 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
 
     # standard components which must be defined
     component_name = __class__
-    component_description = "Generate conformations for the given molecules using a RMSD cutoff"
+    component_description = (
+        "Generate conformations for the given molecules using a RMSD cutoff"
+    )
     component_fail_message = "Conformers could not be generated"
 
     # custom components for this class
@@ -491,8 +493,8 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
                 for k in range(j + 1, L):
 
                     r = np.linalg.norm(
-                            molecule.conformers[k] - molecule.conformers[j], axis=1
-                            )
+                        molecule.conformers[k] - molecule.conformers[j], axis=1
+                    )
                     rmsd_i = r.mean()
 
                     # Flag this conformer for pruning, and also
@@ -504,12 +506,11 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
             # hack? how to set conformers explicity if different number than
             # currently stored?
             confs = [
-                    molecule.conformers[j] for j, add_bool in enumerate(uniq) if add_bool
-                    ]
+                molecule.conformers[j] for j, add_bool in enumerate(uniq) if add_bool
+            ]
             molecule._conformers = confs.copy()
 
         return molecule
-
 
     def apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
