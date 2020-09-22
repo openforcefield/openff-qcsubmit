@@ -458,7 +458,7 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
     """
 
     # standard components which must be defined
-    component_name = __class__
+    component_name = "RMSDCutoffConformerFilter"
     component_description = (
         "Generate conformations for the given molecules using a RMSD cutoff"
     )
@@ -477,8 +477,9 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
         # processing.
         uniq: List = list([True] * L)
 
+        rmsd = []
         # This begins the pairwise RMSD pruner
-        if L > 1 and self.rmsd_cutoff > 0.0:
+        if L > 1 and self.rmsd_cutoff >= 0.0:
 
             # The reference conformer for RMSD calculation
             for j in range(L - 1):
@@ -496,6 +497,7 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
                         molecule.conformers[k] - molecule.conformers[j], axis=1
                     )
                     rmsd_i = r.mean()
+                    rmsd.append(rmsd_i)
 
                     # Flag this conformer for pruning, and also
                     # prevent it from being used as a reference in the
@@ -508,6 +510,14 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
             confs = [
                 molecule.conformers[j] for j, add_bool in enumerate(uniq) if add_bool
             ]
+
+            # TODO: use a logger
+            # rmsd = np.array(rmsd)
+            # print(
+            #     "Pruned conformers {}/{} min={} mean={} max={}".format(
+            #         len(confs), L, rmsd.min(), rmsd.mean(), rmsd.max()
+            #     )
+            # )
             molecule._conformers = confs.copy()
 
         return molecule
@@ -529,7 +539,7 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
 
         for molecule in molecules:
             try:
-                molecule = self._prune_conformers(self, molecule)
+                molecule = self._prune_conformers(molecule)
 
             # need to catch more specific exceptions here.
             except Exception:
