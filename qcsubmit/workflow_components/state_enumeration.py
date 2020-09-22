@@ -124,11 +124,14 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
                     rationalise=self.rationalise,
                     toolkit_registry=toolkit,
                 )
-                if self.include_input:
+                if self.include_input and len(isomers) == 0:
                     result.add_molecule(molecule)
 
                 for isomer in isomers:
                     result.add_molecule(isomer)
+                
+                # TODO: add logger
+                # print("Stereoisomers found {} for {}".format(len(isomers), molecule.to_smiles()))
 
             except Exception:
                 self.fail_molecule(molecule=molecule, component_result=result)
