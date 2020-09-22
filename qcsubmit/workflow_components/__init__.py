@@ -4,6 +4,7 @@ from .filters import (
     CoverageFilter,
     ElementFilter,
     MolecularWeightFilter,
+    RMSDCutoffConformerFilter,
     RotorFilter,
     SmartsFilter,
 )
