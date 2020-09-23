@@ -26,6 +26,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     max_conformers: int = 10
     clear_existing: bool = True
     skip_unique_check: bool = True  # This component does not create new molecules
+    _processes = None
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """

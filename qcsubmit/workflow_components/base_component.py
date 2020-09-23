@@ -20,12 +20,16 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
     component_name: str
     component_description: str
     component_fail_message: str
-    processes: Union[None, int] = None
+    _processes: Union[None, int] = 1  # By default everything is done in serial
     skip_unique_check: bool = False
 
     class Config:
         validate_assignment = True
         arbitrary_types_allowed = True
+
+    @property
+    def processes(self):
+        return self._processes
 
     @classmethod
     @abc.abstractmethod

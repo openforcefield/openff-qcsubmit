@@ -262,6 +262,8 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     tag_dihedrals: bool = False
     cache: Union[ForceField, None] = None
 
+    _processes = None  # TODO: does this benefit from multiprocessing?
+
     def _apply_init(self):
 
         self.cache = ForceField(self.forcefield)
@@ -495,6 +497,8 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
     # custom components for this class
     rmsd_cutoff: float = -1.0
     skip_unique_check: bool = True  # This filter does not create new molecules
+
+    _processes = None
 
     def _prune_conformers(self, molecule: Molecule) -> None:
 

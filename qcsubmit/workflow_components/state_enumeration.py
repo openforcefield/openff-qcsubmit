@@ -33,6 +33,8 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
     max_tautomers: int = 20
     skip_unique_check: bool = False  # This component makes new molecules
 
+    _processes = None
+
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Enumerate tautomers of the input molecule if no tautomers are found only the input molecule is returned.
@@ -101,6 +103,8 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     rationalise: bool = True
     include_input: bool = True
     skip_unique_check: bool = True
+
+    _processes = None
 
     cache: Union[OpenEyeToolkitWrapper, RDKitToolkitWrapper, None] = None
 
@@ -172,6 +176,8 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
     cache: bool = False
     skip_unique_check: bool = True  # This component makes new molecules
+
+    _processes = None
 
     def _apply_init(self, result: ComponentResult) -> None:
 
