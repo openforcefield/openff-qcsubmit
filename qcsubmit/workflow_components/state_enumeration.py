@@ -9,7 +9,6 @@ from qcsubmit.datasets import ComponentResult
 
 from .base_component import CustomWorkflowComponent, ToolkitValidator
 
-import tqdm
 
 class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
     """
@@ -32,7 +31,7 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
     # custom settings for the class
     max_tautomers: int = 20
-    skip_unique_check: bool = False #  This component makes new molecules
+    skip_unique_check: bool = False  # This component makes new molecules
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -97,10 +96,10 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
         "The molecules stereo centers or bonds could not be enumerated"
     )
 
-    undefined_only: bool = True
+    undefined_only: bool = False
     max_isomers: int = 20
     rationalise: bool = True
-    include_input: bool = False
+    include_input: bool = True
     skip_unique_check: bool = True
 
     cache: Union[OpenEyeToolkitWrapper, RDKitToolkitWrapper, None] = None
@@ -113,7 +112,9 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
 
         self.cache = None
 
-    def _apply(self, molecules: List[Molecule]) -> Tuple[ComponentResult, List[Molecule]]:
+    def _apply(
+        self, molecules: List[Molecule]
+    ) -> Tuple[ComponentResult, List[Molecule]]:
         """
         Enumerate stereo centers and bonds of the input molecule if no isomers are found only the input molecule is
         returned.
@@ -175,6 +176,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     def _apply_init(self, result: ComponentResult) -> None:
 
         from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
+
         self.has_oe = OpenEyeToolkitWrapper.is_available()
 
     def _apply_finalize(self, result: ComponentResult) -> None:
@@ -216,5 +218,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
                 except Exception:
                     result.filter_molecule(molecule)
+        else:
+            result.filtered = molecules
 
         return result

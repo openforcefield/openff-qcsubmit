@@ -5,15 +5,15 @@ import re
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
-import tqdm
-from pydantic import validator
 
+import tqdm
 from openforcefield.topology import Molecule
 from openforcefield.typing.chemistry.environment import (
     ChemicalEnvironment,
     SMIRKSParsingError,
 )
 from openforcefield.typing.engines.smirnoff import ForceField
+from pydantic import validator
 from qcsubmit.common_structures import TorsionIndexer
 from qcsubmit.datasets import ComponentResult
 
@@ -285,7 +285,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
 
         result = self._create_result(skip_unique_check=self.skip_unique_check)
 
-        forcefield = self.cache
+        forcefield: ForceField = self.cache
 
         # type the molecules
         for molecule in molecules:
@@ -329,7 +329,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
 
                     molecule.properties["dihedrals"] = torsion_indexer
 
-                result.add_result(molecule)
+                result.add_molecule(molecule)
 
             else:
                 result.filter_molecule(molecule)
@@ -346,7 +346,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
         import openforcefields
 
         provenance = super().provenance()
-        provenance["oopenforcefields"] = openforcefields.__version__
+        provenance["openforcefields"] = openforcefields.__version__
 
         return provenance
 
@@ -458,9 +458,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
             for molecule in molecules:
                 for substructure in self.allowed_substructures:
                     if molecule.chemical_environment_matches(query=substructure):
-                        result.add_molecule(
-                            molecule, skip_unique_check=self.skip_unique_check
-                        )
+                        result.add_molecule(molecule)
                         break
                 else:
                     result.filter_molecule(molecule)
@@ -490,9 +488,9 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
     # standard components which must be defined
     component_name = "RMSDCutoffConformerFilter"
     component_description = (
-        "Generate conformations for the given molecules using a RMSD cutoff"
+        "Filter conformations for the given molecules using a RMSD cutoff"
     )
-    component_fail_message = "Conformers could not be generated"
+    component_fail_message = "Could not filter the conformers using RMSD"
 
     # custom components for this class
     rmsd_cutoff: float = -1.0
@@ -551,9 +549,7 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
             # )
             molecule._conformers = confs.copy()
 
-    def _apply(
-        self, molecules: List[Molecule]
-    ) -> Tuple[List[Molecule], List[Molecule]]:
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Prunes conformers from a molecule that are less than a specified RMSD from
         all other conformers

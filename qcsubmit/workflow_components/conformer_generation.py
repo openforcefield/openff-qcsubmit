@@ -1,11 +1,10 @@
 from typing import List, Tuple, Union
 
+import simtk.unit as unit
 from openforcefield.topology import Molecule
 from qcsubmit.datasets import ComponentResult
 
 from .base_component import CustomWorkflowComponent, ToolkitValidator
-
-import simtk.unit as unit
 
 
 class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
@@ -48,6 +47,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
 
         for molecule in molecules:
             try:
+                # assume input is angstrom until Quantity can be serialized
                 molecule.generate_conformers(
                     n_conformers=self.max_conformers,
                     clear_existing=self.clear_existing,
