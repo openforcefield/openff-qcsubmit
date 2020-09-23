@@ -1,7 +1,6 @@
-from typing import List
+from typing import List, Tuple
 
 from openforcefield.topology import Molecule
-
 from qcsubmit.datasets import ComponentResult
 
 from .base_component import CustomWorkflowComponent, ToolkitValidator
@@ -24,8 +23,9 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     # custom components for this class
     max_conformers: int = 10
     clear_existing: bool = True
+    skip_unique_check: bool = True  # This component does not create new molecules
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Generate conformers for the molecules using the selected toolkit backend.
 
@@ -33,14 +33,15 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
             molecules: The list of molecules the component should be applied on.
 
         Returns:
-            A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
-            that passed and were filtered by the component and details about the component which generated the result.
+            An instance of the [ComponentResult][qcsubmit.datasets.ComponentResult]
+            class which handles collecting together molecules that pass and fail
+            the component
         """
-
-        result = self._create_result()
 
         # create the toolkit
         toolkit = self._toolkits[self.toolkit]()
+
+        result = self._create_result(skip_unique_check=self.skip_unique_check)
 
         for molecule in molecules:
             try:
@@ -52,12 +53,12 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
 
             # need to catch more specific exceptions here.
             except Exception:
-                self.fail_molecule(molecule=molecule, component_result=result)
+                result.filter_molecule(molecule)
 
             finally:
                 # if we could not produce a conformer then fail the molecule
                 if molecule.n_conformers == 0:
-                    self.fail_molecule(molecule=molecule, component_result=result)
+                    result.filter_molecule(molecule)
                 else:
                     result.add_molecule(molecule)
 

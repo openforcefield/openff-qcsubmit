@@ -12,6 +12,8 @@ from qcfractal.interface.collections.collection_utils import composition_planner
 from qcfractal.interface.models import ComputeResponse
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from simtk import unit
+import tqdm
+
 
 from .common_structures import (
     ClientHandler,
@@ -60,6 +62,7 @@ class ComponentResult:
         molecules: Optional[Union[List[off.Molecule], off.Molecule]] = None,
         input_file: Optional[str] = None,
         input_directory: Optional[str] = None,
+        skip_unique_check: Optional[bool] = False
     ):
         """Register the list of molecules to process.
 
@@ -71,6 +74,7 @@ class ComponentResult:
             molecules: The list of molecules that have been possessed by a component and returned as a result.
             input_file: The name of the input file used to produce the result if not from a component.
             input_directory: The name of the input directory which contains input molecule files.
+            skip_unique_check: Set to True if it is sure that all molecules will be unique in this result
         """
 
         self.molecules: List[off.Molecule] = []
@@ -78,6 +82,7 @@ class ComponentResult:
         self.component_name: str = component_name
         self.component_description: Dict = component_description
         self.component_provenance: Dict = component_provenance
+        self.skip_unique_check: bool = skip_unique_check
 
         assert (
             molecules is None or input_file is None
@@ -108,7 +113,7 @@ class ComponentResult:
 
         # now lets process the molecules and add them to the class
         if molecules is not None:
-            for molecule in molecules:
+            for molecule in tqdm.tqdm(molecules, total=len(molecules), ncols=80, desc="{:30s}".format("Deduplication")):
                 self.add_molecule(molecule)
 
     @property
@@ -144,10 +149,7 @@ class ComponentResult:
         record and condense the conformers and metadata.
         """
 
-        import numpy as np
-        from simtk import unit
-
-        if molecule in self.molecules:
+        if not self.skip_unique_check and molecule in self.molecules:
             # we need to align the molecules and transfer the coords and properties
             mol_id = self.molecules.index(molecule)
             # get the mapping
@@ -194,10 +196,11 @@ class ComponentResult:
                         )
             else:
                 # molecule already in list and coords not present so just return
-                return
+                return True
 
         else:
             self.molecules.append(molecule)
+            return False
 
     def filter_molecule(self, molecule: off.Molecule):
         """

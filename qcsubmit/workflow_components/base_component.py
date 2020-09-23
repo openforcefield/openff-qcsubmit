@@ -1,9 +1,11 @@
 import abc
-from typing import Dict, List
+from typing import Dict, List, Tuple, Union
+
+import tqdm
+from pydantic import BaseModel, validator
 
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
-from pydantic import BaseModel, validator
 
 from ..datasets import ComponentResult
 
@@ -18,6 +20,8 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
     component_name: str
     component_description: str
     component_fail_message: str
+    processes: Union[None, int] = None
+    skip_unique_check: bool = False
 
     class Config:
         validate_assignment = True
@@ -35,7 +39,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         This is the main feature of the workflow component which should accept a molecule, perform the component action
         and then return the
@@ -50,6 +54,71 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         """
         ...
 
+    def _apply_init(self, result: ComponentResult) -> None:
+        """"""
+        ...
+
+    def _apply_finalize(self, result: ComponentResult) -> None:
+        """"""
+        ...
+
+    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+        """
+        This is the main feature of the workflow component which should accept a molecule, perform the component action
+        and then return the
+
+        Parameters:
+            molecules: The list of molecules to be processed by this component.
+
+        Returns:
+            An instance of the [ComponentResult][qcsubmit.datasets.ComponentResult]
+            class which handles collecting together molecules that pass and fail
+            the component
+        """
+        result: ComponentResult = self._create_result(
+            skip_unique_check=self.skip_unique_check
+        )
+
+        self._apply_init(result)
+
+        # Use a Pool to get around the GIL. As long as self does not contain
+        # too much data, this should be efficient.
+
+        if self.processes is None or self.processes > 1:
+
+            from multiprocessing.pool import Pool
+
+            with Pool(processes=self.processes) as pool:
+
+                # Assumes to process in batches of 1 for now
+                work_list = [
+                    pool.apply_async(self._apply, ([molecule],))
+                    for molecule in molecules
+                ]
+
+                for work in tqdm.tqdm(
+                    work_list, total=len(work_list), ncols=80, desc="{:30s}".format(self.component_name)
+                ):
+                    work = work.get()
+                    for success in work.molecules:
+                        result.add_molecule(success)
+                    for molecule in work.filtered:
+                        self.fail_molecule(molecule, component_result=result)
+
+        else:
+            for molecule in tqdm.tqdm(
+                    molecules, total=len(molecules), ncols=80, desc="{:30s}".format(self.component_name)
+            ):
+                work = self._apply([molecule])
+                for success in work.molecules:
+                    result.add_molecule(success)
+                for fail in work.filtered:
+                    self.fail_molecule(fail, component_result=result)
+
+        self._apply_finalize(result)
+
+        return result
+
     @abc.abstractmethod
     def provenance(self) -> Dict:
         """
@@ -61,7 +130,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         """
         ...
 
-    def _create_result(self) -> ComponentResult:
+    def _create_result(self, **kwargs) -> ComponentResult:
         """
         A helpful method to build to create the component result with the required information.
 
@@ -73,6 +142,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
             component_name=self.component_name,
             component_description=self.dict(),
             component_provenance=self.provenance(),
+            **kwargs,
         )
 
         return result

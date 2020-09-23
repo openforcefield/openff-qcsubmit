@@ -1,10 +1,12 @@
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from openforcefield import topology as off
+import tqdm
 from pydantic import BaseModel, PositiveInt, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
+
+from openforcefield import topology as off
 
 from . import workflow_components
 from .common_structures import ClientHandler, Metadata, QCSpecificationHandler
@@ -73,6 +75,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
     _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(
         scf_property_validator
     )
+    processes: Union[None, int] = None
 
     class Config:
         validate_assignment: bool = True
@@ -517,6 +520,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
         # TODO set up a logging system to report the components
 
         #  create an initial component result
+
         workflow_molecules = self._create_initial_component_result(molecules=molecules)
 
         # create the dataset
@@ -848,6 +852,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
 
             # make the general attributes
             attributes = self.create_cmiles_metadata(molecule=molecule)
+            # attributes = cmiles.get_molecule_ids(molecule)
 
             # now check for the dihedrals
             if "dihedrals" in molecule.properties:

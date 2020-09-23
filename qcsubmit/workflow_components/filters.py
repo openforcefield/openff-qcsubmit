@@ -2,9 +2,10 @@
 File containing the filters workflow components.
 """
 import re
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
+import tqdm
 from pydantic import validator
 
 from openforcefield.topology import Molecule
@@ -42,7 +43,9 @@ class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
     )
     maximum_weight: int = 781
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    skip_unique_check: bool = True  # This filter does not create new molecules
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         The common entry point of all workflow components which applies the workflow component to the given list of
         molecules.
@@ -57,15 +60,15 @@ class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
 
         from rdkit.Chem import Descriptors
 
-        result = self._create_result()
-        for molecule in molecules:
+        result = self._create_result
 
+        for molecule in molecules:
             total_weight = Descriptors.ExactMolWt(molecule.to_rdkit())
 
             if self.minimum_weight < total_weight < self.maximum_weight:
-                result.add_molecule(molecule)
+                result.add_molecule(molecule, skip_unique_check=self.skip_unique_check)
             else:
-                self.fail_molecule(molecule=molecule, component_result=result)
+                result.filter_molecule(molecule)
 
         return result
 
@@ -135,6 +138,10 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
         "I",
     ]
 
+    cache: Union[List[int], None] = None
+
+    skip_unique_check: bool = True  # This filter does not create new molecules
+
     @validator("allowed_elements", each_item=True)
     def check_allowed_elements(cls, element: Union[str, int]) -> Union[str, int]:
         """
@@ -159,7 +166,20 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
                     f"An element could not be determined from symbol {element}, please enter symbols only."
                 )
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply_init(self) -> None:
+
+        from simtk.openmm.app import Element
+
+        self.cache = [
+            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
+            for ele in self.allowed_elements
+        ]
+
+    def _apply_finalize(self) -> None:
+
+        self.cache = None
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         The common entry point of all workflow components which applies the workflow component to the given list of
         molecules.
@@ -171,21 +191,17 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
             that passed and were filtered by the component and details about the component which generated the result.
         """
-        from simtk.openmm.app import Element
 
         result = self._create_result()
 
         # First lets convert the allowed_elements list to ints as this is what is stored in the atom object
-        _allowed_elements = [
-            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
-            for ele in self.allowed_elements
-        ]
+        _allowed_elements = self.cache
 
         # now apply the filter
         for molecule in molecules:
             for atom in molecule.atoms:
                 if atom.atomic_number not in _allowed_elements:
-                    self.fail_molecule(molecule=molecule, component_result=result)
+                    result.filter_molecule(molecule)
                     break
             else:
                 result.add_molecule(molecule)
@@ -244,8 +260,17 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     filtered_ids: Optional[Set[str]] = None
     forcefield: str = "openff_unconstrained-1.0.0.offxml"
     tag_dihedrals: bool = False
+    cache: Union[ForceField, None] = None
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply_init(self):
+
+        self.cache = ForceField(self.forcefield)
+
+    def _apply_finalize(self):
+
+        self.cache = None
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Apply the filter to the list of molecules to remove any molecules typed by an id that is not allowed, i.e. not
         included in the allowed list.
@@ -258,9 +283,9 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        result = self._create_result()
+        result = self._create_result(skip_unique_check=self.skip_unique_check)
 
-        forcefield = ForceField(self.forcefield)
+        forcefield = self.cache
 
         # type the molecules
         for molecule in molecules:
@@ -274,7 +299,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
             unwanted_types = covered_types.intersection(self.filtered_ids or set())
             if unwanted_types:
                 # fail the molecule for any unwanted matches
-                self.fail_molecule(molecule, result)
+                result.filter_molecule(molecule)
                 continue
 
             # now check for wanted common types
@@ -304,10 +329,10 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
 
                     molecule.properties["dihedrals"] = torsion_indexer
 
-                result.add_molecule(molecule)
+                result.add_result(molecule)
 
             else:
-                self.fail_molecule(molecule, result)
+                result.filter_molecule(molecule)
 
         return result
 
@@ -342,8 +367,9 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
     component_fail_message = "The molecule has too many rotatable bonds."
 
     maximum_rotors: int = 4
+    skip_unique_check: bool = True  # This filter does not create new molecules
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Apply the filter to the list of molecules to remove any molecules with more rotors then the maximum allowed
         number.
@@ -357,12 +383,12 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
         """
 
         # create the return
-        result = self._create_result()
+        result = self._create_result(skip_unique_check=self.skip_unique_check)
 
         # run the the molecules and calculate the number of rotatable bonds
         for molecule in molecules:
             if len(molecule.find_rotatable_bonds()) > self.maximum_rotors:
-                self.fail_molecule(molecule=molecule, component_result=result)
+                result.filter_molecule(molecule)
 
             else:
                 result.add_molecule(molecule)
@@ -388,6 +414,8 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
     allowed_substructures: Optional[List[str]] = None
     filtered_substructures: Optional[List[str]] = None
 
+    skip_unique_check: bool = False  # This filter does not create new molecules
+
     @validator("allowed_substructures", "filtered_substructures", each_item=True)
     def _check_environments(cls, environment):
         """
@@ -407,7 +435,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
                 "substructure you wish to include/exclude."
             )
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Apply the filter to the input list of molecules removing those that match the filtered set or do not contain an
         allowed substructure.
@@ -420,8 +448,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        # create the return
-        result = self._create_result()
+        result = self._create_result(skip_unique_check=self.skip_unique_check)
 
         if self.allowed_substructures is None:
             # pass all of the molecules
@@ -431,10 +458,12 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
             for molecule in molecules:
                 for substructure in self.allowed_substructures:
                     if molecule.chemical_environment_matches(query=substructure):
-                        result.add_molecule(molecule=molecule)
+                        result.add_molecule(
+                            molecule, skip_unique_check=self.skip_unique_check
+                        )
                         break
                 else:
-                    self.fail_molecule(molecule=molecule, component_result=result)
+                    result.filter_molecule(molecule)
 
         if self.filtered_substructures is not None:
             # now we only want to check the molecules in the pass list
@@ -445,8 +474,9 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
                         molecules_to_remove.append(molecule)
                         break
 
+            # Failing a molecule automatically removes it from the successes
             for molecule in molecules_to_remove:
-                self.fail_molecule(molecule=molecule, component_result=result)
+                result.filter_molecule(molecule)
 
         return result
 
@@ -466,8 +496,9 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
 
     # custom components for this class
     rmsd_cutoff: float = -1.0
+    skip_unique_check: bool = True  # This filter does not create new molecules
 
-    def _prune_conformers(self, molecule: Molecule) -> Molecule:
+    def _prune_conformers(self, molecule: Molecule) -> None:
 
         L: int = len(molecule.conformers)
 
@@ -520,9 +551,9 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
             # )
             molecule._conformers = confs.copy()
 
-        return molecule
-
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(
+        self, molecules: List[Molecule]
+    ) -> Tuple[List[Molecule], List[Molecule]]:
         """
         Prunes conformers from a molecule that are less than a specified RMSD from
         all other conformers
@@ -535,21 +566,14 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        result = self._create_result()
+        result = self._create_result(skip_unique_check=self.skip_unique_check)
 
         for molecule in molecules:
-            try:
-                molecule = self._prune_conformers(molecule)
 
-            # need to catch more specific exceptions here.
-            except Exception:
-                self.fail_molecule(molecule=molecule, component_result=result)
-
-            finally:
-                # if we could not produce a conformer then fail the molecule
-                if molecule.n_conformers == 0:
-                    self.fail_molecule(molecule=molecule, component_result=result)
-                else:
-                    result.add_molecule(molecule)
+            if molecule.n_conformers == 0:
+                result.filter_molecule(molecule)
+            else:
+                self._prune_conformers(molecule)
+                result.add_molecule(molecule)
 
         return result
