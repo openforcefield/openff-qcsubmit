@@ -26,13 +26,19 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
     component_description = (
         "Fragment a molecule across all rotatble bonds using the WBO fragmenter."
     )
-    component_fail_message = "The molecule could not fragmented correctly."
+    component_fail_message = "The molecule could not be fragmented correctly."
 
     threshold: float = 0.03
     keep_non_rotor_ring_substituents: bool = False
     functional_groups: Optional[Union[bool, str]] = None
     heuristic: str = "path_length"
     include_parent: bool = False
+
+    skip_unique_check: bool = False  # This component creates new molecules
+
+    _processes: Union[None, int] = None
+
+    cache: bool = False
 
     @validator("heuristic")
     def check_heuristic(cls, heuristic):
@@ -85,7 +91,11 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         except ImportError:
             return False
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply_init(self) -> None:
+
+        self.cache = self.is_available()
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Fragment the molecules using the WBOFragmenter.
 
@@ -99,13 +109,20 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
             dataset.
             *
         """
-        from fragmenter import fragment
+        available = self.cache
 
-        result = self._create_result()
+        result = self._create_result(skip_unique_check=self.skip_unique_check)
+
+        if not available:
+            result.filtered = molecules
+            return result
+
+        from fragmenter import fragment
 
         for molecule in molecules:
             # not having a conformer can cause issues
-            molecule.generate_conformers(n_conformers=1)
+            if len(molecule.conformers) == 0:
+                molecule.generate_conformers(n_conformers=1)
 
             if self.include_parent:
                 result.add_molecule(molecule)
@@ -145,7 +162,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
                 # if we have no fragments and we dont want the parent then we failed to fragment
                 elif not fragmets_dict and not self.include_parent:
-                    self.fail_molecule(molecule=molecule, component_result=result)
+                    result.filter_molecule(molecule)
 
             except (RuntimeError, ValueError):
                 # this will catch cmiles errors for molecules with undefined stero
