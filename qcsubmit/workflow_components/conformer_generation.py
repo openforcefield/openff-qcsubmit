@@ -1,9 +1,11 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from openforcefield.topology import Molecule
 from qcsubmit.datasets import ComponentResult
 
 from .base_component import CustomWorkflowComponent, ToolkitValidator
+
+import simtk.unit as unit
 
 
 class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
@@ -21,6 +23,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = "Conformers could not be generated"
 
     # custom components for this class
+    rms_cutoff: Union[None, float] = None
     max_conformers: int = 10
     clear_existing: bool = True
     skip_unique_check: bool = True  # This component does not create new molecules
@@ -48,6 +51,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
                 molecule.generate_conformers(
                     n_conformers=self.max_conformers,
                     clear_existing=self.clear_existing,
+                    rms_cutoff=self.rms_cutoff * unit.angstrom,
                     toolkit_registry=toolkit,
                 )
 
