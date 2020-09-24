@@ -212,6 +212,18 @@ def test_componentresult_deduplication_diff_coords(duplicates):
                     assert molecule.conformers[i].tolist() != molecule.conformers[j].tolist()
 
 
+def test_componentresult_remove_molecule():
+    """
+    Test removing a molecule not in a dataset.
+    """
+    result = ComponentResult(component_name="Test deduplication", component_description={},
+                             component_provenance={})
+    methanol = Molecule.from_file(get_data("methanol.sdf"), "sdf")
+    result.filter_molecule(molecule=methanol)
+
+    assert methanol in result.filtered
+    
+
 def test_componentresult_deduplication_torsions_same_bond_same_coords():
     """
     Make sure that the same rotatable bond is not highlighted more than once when deduplicating molecules.
