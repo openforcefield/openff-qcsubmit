@@ -658,4 +658,4 @@ def test_environment_filter_apply_none():
 
     result2 = filter.apply(molecules=result.molecules)
 
-    assert len(result2.molecules) != result.molecules
+    assert len(result2.molecules) != len(result.molecules)

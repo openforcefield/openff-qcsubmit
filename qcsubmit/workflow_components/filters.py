@@ -454,7 +454,8 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
 
         if self.allowed_substructures is None:
             # pass all of the molecules
-            result.molecules = molecules
+            for molecule in molecules:
+                result.add_molecule(molecule=molecule)
 
         else:
             for molecule in molecules:

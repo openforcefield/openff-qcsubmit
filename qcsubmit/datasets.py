@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 import qcelemental as qcel
 import qcportal as ptl
+import tqdm
 from openforcefield import topology as off
 from pydantic import PositiveInt, constr, validator
 from qcfractal.interface import FractalClient
@@ -63,22 +64,29 @@ class ComponentResult:
         input_file: Optional[str] = None,
         input_directory: Optional[str] = None,
         skip_unique_check: Optional[bool] = False
-    ):
+        verbose: bool = False,
         """Register the list of molecules to process.
 
-        Parameters:
-            component_name: The name of the component that produced this result.
-            component_description: The dictionary representation of the component which details the function and running parameters.
-            component_provenance: The dictionary of the modules used and there version number when running the component.
-            component_provenance: The dictionary of the provenance information about the component that was used to generate the data.
-            molecules: The list of molecules that have been possessed by a component and returned as a result.
-            input_file: The name of the input file used to produce the result if not from a component.
-            input_directory: The name of the input directory which contains input molecule files.
+        Parameters
+        ----------
+        component_name: str
+            The name of the component that produced this result.
+        component_description: Dict[str, str]
+            The dictionary representation of the component which details the function and running parameters.
+        component_provenance: Dict[str, str]
+            The dictionary of the modules used and there version number when running the component.
+        molecules:  Optional[Union[List[off.Molecule], off.Molecule]], default=None,
+            The list of molecules that have been possessed by a component and returned as a result.
+        input_file: Optional[str], default=None
+            The name of the input file used to produce the result if not from a component.
+        input_directory: Optional[str], default=None
+            The name of the input directory which contains input molecule files.
+        verbose: bool, default=False
+            If the timing information and progress bar should be shown while doing deduplication.
             skip_unique_check: Set to True if it is sure that all molecules will be unique in this result
         """
-
-        self.molecules: List[off.Molecule] = []
-        self.filtered: List[off.Molecule] = []
+        self._molecules: Dict[str, off.Molecule] = {}
+        self._filtered: Dict[str, off.Molecule] = {}
         self.component_name: str = component_name
         self.component_description: Dict = component_description
         self.component_provenance: Dict = component_provenance
@@ -113,8 +121,28 @@ class ComponentResult:
 
         # now lets process the molecules and add them to the class
         if molecules is not None:
-            for molecule in tqdm.tqdm(molecules, total=len(molecules), ncols=80, desc="{:30s}".format("Deduplication")):
+            for molecule in tqdm.tqdm(
+                molecules,
+                total=len(molecules),
+                ncols=80,
+                desc="Deduplication",
+                disable=not verbose,
+            ):
                 self.add_molecule(molecule)
+
+    @property
+    def molecules(self) -> List[off.Molecule]:
+        """
+        Get the list of molecules which can be iterated over.
+        """
+        return list(self._molecules.values())
+
+    @property
+    def filtered(self) -> List[off.Molecule]:
+        """
+        Get the list of molecule that have been filtered to iterate over.
+        """
+        return list(self._filtered.values())
 
     @property
     def n_molecules(self) -> int:
@@ -123,7 +151,7 @@ class ComponentResult:
              The number of molecules saved in the result.
         """
 
-        return len(self.molecules)
+        return len(self._molecules)
 
     @property
     def n_conformers(self) -> int:
@@ -132,7 +160,9 @@ class ComponentResult:
              The number of conformers stored in the molecules.
         """
 
-        conformers = sum([molecule.n_conformers for molecule in self.molecules])
+        conformers = sum(
+            [molecule.n_conformers for molecule in self._molecules.values()]
+        )
         return conformers
 
     @property
@@ -141,7 +171,7 @@ class ComponentResult:
         Returns:
              The number of filtered molecules.
         """
-        return len(self.filtered)
+        return len(self._filtered)
 
     def add_molecule(self, molecule: off.Molecule):
         """
@@ -149,19 +179,24 @@ class ComponentResult:
         record and condense the conformers and metadata.
         """
 
-        if not self.skip_unique_check and molecule in self.molecules:
+        import numpy as np
+        from simtk import unit
+
+        # make a unique molecule hash independent of atom order or conformers
+        molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
+
+        if not self.skip_unique_check and molecule_has in self.molecules:
             # we need to align the molecules and transfer the coords and properties
-            mol_id = self.molecules.index(molecule)
             # get the mapping
             isomorphic, mapping = off.Molecule.are_isomorphic(
-                molecule, self.molecules[mol_id], return_atom_map=True
+                molecule, self._molecules[molecule_hash], return_atom_map=True
             )
             assert isomorphic is True
             # transfer any torsion indexes for similar fragments
             if "dihedrals" in molecule.properties:
                 # we need to transfer the properties; get the current molecule dihedrals indexer
                 # if one is missing create a new one
-                current_indexer = self.molecules[mol_id].properties.get(
+                current_indexer = self._molecules[molecule_hash].properties.get(
                     "dihedrals", TorsionIndexer()
                 )
 
@@ -172,7 +207,7 @@ class ComponentResult:
                 )
 
                 # store it back
-                self.molecules[mol_id].properties["dihedrals"] = current_indexer
+                self._molecules[molecule_hash].properties["dihedrals"] = current_indexer
 
             if molecule.n_conformers != 0:
 
@@ -187,11 +222,11 @@ class ComponentResult:
                     new_conf = unit.Quantity(value=new_conformer, unit=unit.angstrom)
 
                     # check if the conformer is already on the molecule
-                    for old_conformer in self.molecules[mol_id].conformers:
+                    for old_conformer in self._molecules[molecule_hash].conformers:
                         if old_conformer.tolist() == new_conf.tolist():
                             break
                     else:
-                        self.molecules[mol_id].add_conformer(
+                        self._molecules[molecule_hash].add_conformer(
                             new_conformer * unit.angstrom
                         )
             else:
@@ -199,7 +234,7 @@ class ComponentResult:
                 return True
 
         else:
-            self.molecules.append(molecule)
+            self._molecules[molecule_hash] = molecule
             return False
 
     def filter_molecule(self, molecule: off.Molecule):
@@ -208,15 +243,16 @@ class ComponentResult:
         remove it and ensure it is only in the filtered list.
         """
 
+        molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
         try:
-            self.molecules.remove(molecule)
+            del self._molecules[molecule_hash]
 
-        except ValueError:
+        except KeyError:
             pass
 
         finally:
-            if molecule not in self.filtered:
-                self.filtered.append(molecule)
+            if molecule not in self._filtered:
+                self._filtered[molecule_hash] = molecule
 
     def __repr__(self):
         return f"ComponentResult(name={self.component_name}, molecules={self.n_molecules}, filtered={self.n_filtered})"
