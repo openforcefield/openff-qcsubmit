@@ -1,11 +1,11 @@
 import json
 import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
-import tqdm
 
 import numpy as np
 import qcelemental as qcel
 import qcportal as ptl
+import tqdm
 from openforcefield import topology as off
 from pydantic import PositiveInt, constr, validator
 from qcfractal.interface import FractalClient
@@ -118,7 +118,13 @@ class ComponentResult:
 
         # now lets process the molecules and add them to the class
         if molecules is not None:
-            for molecule in tqdm.tqdm(molecules, total=len(molecules), ncols=80, desc="Deduplication", disable=not verbose):
+            for molecule in tqdm.tqdm(
+                molecules,
+                total=len(molecules),
+                ncols=80,
+                desc="Deduplication",
+                disable=not verbose,
+            ):
                 self.add_molecule(molecule)
 
     @property
@@ -151,7 +157,9 @@ class ComponentResult:
              The number of conformers stored in the molecules.
         """
 
-        conformers = sum([molecule.n_conformers for molecule in self._molecules.values()])
+        conformers = sum(
+            [molecule.n_conformers for molecule in self._molecules.values()]
+        )
         return conformers
 
     @property

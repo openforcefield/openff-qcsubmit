@@ -222,7 +222,7 @@ def test_componentresult_remove_molecule():
     result.filter_molecule(molecule=methanol)
 
     assert methanol in result.filtered
-    
+
 
 def test_componentresult_deduplication_torsions_same_bond_same_coords():
     """
