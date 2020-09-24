@@ -3,6 +3,7 @@ import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
+
 import qcelemental as qcel
 import qcportal as ptl
 import tqdm
@@ -13,8 +14,6 @@ from qcfractal.interface.collections.collection_utils import composition_planner
 from qcfractal.interface.models import ComputeResponse
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from simtk import unit
-import tqdm
-
 
 from .common_structures import (
     ClientHandler,
@@ -63,8 +62,9 @@ class ComponentResult:
         molecules: Optional[Union[List[off.Molecule], off.Molecule]] = None,
         input_file: Optional[str] = None,
         input_directory: Optional[str] = None,
-        skip_unique_check: Optional[bool] = False
-        verbose: bool = False,
+        skip_unique_check: Optional[bool] = False,
+        verbose: bool = True,
+    ):
         """Register the list of molecules to process.
 
         Parameters
@@ -83,8 +83,10 @@ class ComponentResult:
             The name of the input directory which contains input molecule files.
         verbose: bool, default=False
             If the timing information and progress bar should be shown while doing deduplication.
-            skip_unique_check: Set to True if it is sure that all molecules will be unique in this result
+        skip_unique_check: bool. default=False
+            Set to True if it is sure that all molecules will be unique in this result
         """
+
         self._molecules: Dict[str, off.Molecule] = {}
         self._filtered: Dict[str, off.Molecule] = {}
         self.component_name: str = component_name
@@ -185,7 +187,7 @@ class ComponentResult:
         # make a unique molecule hash independent of atom order or conformers
         molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
 
-        if not self.skip_unique_check and molecule_has in self.molecules:
+        if not self.skip_unique_check and molecule_hash in self._molecules:
             # we need to align the molecules and transfer the coords and properties
             # get the mapping
             isomorphic, mapping = off.Molecule.are_isomorphic(

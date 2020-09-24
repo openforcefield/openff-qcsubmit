@@ -2,10 +2,9 @@ import abc
 from typing import Dict, List, Tuple, Union
 
 import tqdm
-from pydantic import BaseModel, validator
-
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
+from pydantic import BaseModel, validator
 
 from ..datasets import ComponentResult
 
@@ -101,7 +100,10 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
                 ]
 
                 for work in tqdm.tqdm(
-                    work_list, total=len(work_list), ncols=80, desc="{:30s}".format(self.component_name)
+                    work_list,
+                    total=len(work_list),
+                    ncols=80,
+                    desc="{:30s}".format(self.component_name),
                 ):
                     work = work.get()
                     for success in work.molecules:
@@ -111,7 +113,10 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
 
         else:
             for molecule in tqdm.tqdm(
-                    molecules, total=len(molecules), ncols=80, desc="{:30s}".format(self.component_name)
+                molecules,
+                total=len(molecules),
+                ncols=80,
+                desc="{:30s}".format(self.component_name),
             ):
                 work = self._apply([molecule])
                 for success in work.molecules:
