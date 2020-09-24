@@ -8,7 +8,6 @@ coverage:
       default:
         threshold: 50%
 comment:
-  after_n_builds: 6
   layout: "header"
   require_changes: false
   branches: null
