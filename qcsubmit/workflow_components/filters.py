@@ -60,7 +60,7 @@ class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
 
         from rdkit.Chem import Descriptors
 
-        result = self._create_result
+        result = self._create_result()
 
         for molecule in molecules:
             total_weight = Descriptors.ExactMolWt(molecule.to_rdkit())
@@ -138,7 +138,7 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
         "I",
     ]
 
-    cache: Union[List[int], None] = None
+    _cache: Union[List[int], None] = None
 
     skip_unique_check: bool = True  # This filter does not create new molecules
 
@@ -170,14 +170,14 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
 
         from simtk.openmm.app import Element
 
-        self.cache = [
+        self._cache = [
             Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
             for ele in self.allowed_elements
         ]
 
     def _apply_finalize(self) -> None:
 
-        self.cache = None
+        self._cache = None
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -195,7 +195,7 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
         result = self._create_result()
 
         # First lets convert the allowed_elements list to ints as this is what is stored in the atom object
-        _allowed_elements = self.cache
+        _allowed_elements = self._cache
 
         # now apply the filter
         for molecule in molecules:
@@ -260,17 +260,17 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     filtered_ids: Optional[Set[str]] = None
     forcefield: str = "openff_unconstrained-1.0.0.offxml"
     tag_dihedrals: bool = False
-    cache: Union[ForceField, None] = None
+    _cache: Union[ForceField, None] = None
 
     _processes = None  # TODO: does this benefit from multiprocessing?
 
     def _apply_init(self):
 
-        self.cache = ForceField(self.forcefield)
+        self._cache = ForceField(self.forcefield)
 
     def _apply_finalize(self):
 
-        self.cache = None
+        self._cache = None
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -287,7 +287,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
 
         result = self._create_result(skip_unique_check=self.skip_unique_check)
 
-        forcefield: ForceField = self.cache
+        forcefield: ForceField = self._cache
 
         # type the molecules
         for molecule in molecules:
