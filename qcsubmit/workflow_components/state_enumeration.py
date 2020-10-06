@@ -174,7 +174,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
     max_states: int = 10
 
-    cache: bool = False
+    _cache: bool = False
     skip_unique_check: bool = True  # This component makes new molecules
 
     _processes = None
@@ -183,7 +183,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
         from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
 
-        self.has_oe = OpenEyeToolkitWrapper.is_available()
+        self._cache = OpenEyeToolkitWrapper.is_available()
 
     def _apply_finalize(self, result: ComponentResult) -> None:
 
@@ -206,7 +206,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
         result = self._create_result(skip_unique_check=self.skip_unique_check)
 
-        has_oe = self.cache
+        has_oe = self._cache
 
         # must have openeye to use this feature
         if has_oe:
