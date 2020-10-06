@@ -101,8 +101,8 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     undefined_only: bool = False
     max_isomers: int = 20
     rationalise: bool = True
-    include_input: bool = True
-    skip_unique_check: bool = True
+    include_input: bool = False
+    skip_unique_check: bool = False
 
     _processes = None
 
