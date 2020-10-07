@@ -1,6 +1,10 @@
 from typing import Dict, List, Union
 
 from openforcefield import topology as off
+from openforcefield.utils.toolkits import (
+    RDKitToolkitWrapper,
+    UndefinedStereochemistryError,
+)
 
 from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
 
@@ -25,6 +29,32 @@ def get_data(relative_path):
         )
 
     return fn
+
+
+def check_missing_stereo(molecule: off.Molecule) -> bool:
+    """
+    Get if the given molecule has missing stereo by round trip and catching stereo errors.
+
+    Parameters
+    ----------
+    molecule: off.Molecule
+        The molecule which should be checked for stereo issues.
+
+    Returns
+    -------
+    bool
+        `True` if some stereochemistry is missing else `False`.
+    """
+    try:
+        _ = off.Molecule.from_smiles(
+            smiles=molecule.to_smiles(isomeric=True, explicit_hydrogens=True),
+            hydrogens_are_explicit=True,
+            allow_undefined_stereo=False,
+            toolkit_registry=RDKitToolkitWrapper(),
+        )
+        return False
+    except UndefinedStereochemistryError:
+        return True
 
 
 def clean_strings(string_list: List[str]) -> List[str]:

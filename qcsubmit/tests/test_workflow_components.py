@@ -10,7 +10,7 @@ from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWra
 
 from qcsubmit import workflow_components
 from qcsubmit.datasets import ComponentResult
-from qcsubmit.utils import get_data
+from qcsubmit.utils import check_missing_stereo, get_data
 
 
 def get_container(molecules: [Molecule]) -> ComponentResult:
@@ -340,7 +340,6 @@ def test_enumerating_stereoisomers_apply(toolkit):
         enumerate_stereo = workflow_components.EnumerateStereoisomers()
         # set the options
         enumerate_stereo.toolkit = toolkit_name
-        enumerate_stereo.include_input = False
         enumerate_stereo.undefined_only = True
         enumerate_stereo.rationalise = True
 
@@ -348,17 +347,69 @@ def test_enumerating_stereoisomers_apply(toolkit):
 
         result = enumerate_stereo.apply(mols)
 
-        # make sure the input molecules are not present
-        for mol in mols:
-            result.filter_molecule(mol)
-
         # make sure no molecules have undefined stereo
         for molecule in result.molecules:
-            assert Molecule.from_smiles(molecule.to_smiles()) == molecule
+            assert Molecule.from_smiles(molecule.to_smiles(), toolkit_registry=RDKitToolkitWrapper()) == molecule
             assert molecule.n_conformers >= 1
 
     else:
         pytest.skip(f"Toolkit {toolkit_name} is not available.")
+
+@pytest.mark.parametrize(
+    "toolkit",
+    [
+        pytest.param(("openeye", OpenEyeToolkitWrapper), id="openeye"),
+        pytest.param(("rdkit", RDKitToolkitWrapper), id="rdkit"),
+    ],
+)
+def test_enumerating_stereoisomers_poor_input(toolkit):
+    """
+    Test stereoisomer enumeration with an impossible stereochemistry.
+    """
+
+    toolkit_name, toolkit_class = toolkit
+    if toolkit_class.is_available():
+        molecule = Molecule.from_smiles("C=CCn1c([C@@H]2C[C@@H]3CC[C@@H]2O3)nnc1N1CCN(c2ccccc2)CC1")
+        enumerate_stereo = workflow_components.EnumerateStereoisomers()
+        # the molecule should fail conformer generation
+        enumerate_stereo.toolkit = toolkit_name
+        enumerate_stereo.undefined_only = True
+        enumerate_stereo.rationalise = True
+
+        result = enumerate_stereo.apply(molecules=[molecule, ])
+        assert result.n_molecules == 0
+        assert result.n_filtered == 1
+
+        # now turn of rationalise
+        enumerate_stereo.rationalise = False
+        result = enumerate_stereo.apply([molecule, ])
+        assert molecule in result.molecules
+        assert result.n_molecules == 1
+
+        # now enumerate all stereo and rationalise
+        enumerate_stereo.rationalise = True
+        enumerate_stereo.undefined_only = False
+        # make sure the input is missing and new isomers are found
+
+        result = enumerate_stereo.apply([molecule, ])
+        assert molecule not in result.molecules
+        assert molecule in result.filtered
+
+    else:
+        pytest.skip(f"Toolkit {toolkit_name} is not available.")
+
+
+@pytest.mark.parametrize("data", [
+    pytest.param(("[H]C(=C([H])Cl)Cl", True), id="Molecule with missing stereo"),
+    pytest.param(("[H]c1c(c(c(c(c1N([C@@]([H])(O[H])SC([H])([H])[C@]([H])(C(=O)N([H])C([H])([H])C(=O)O[H])N([H])C(=O)C([H])([H])C([H])([H])[C@@]([H])(C(=O)O[H])N([H])[H])O[H])[H])[H])I)[H]", False), id="Molecule with good stereo")
+])
+def test_check_missing_stereo(data):
+    """
+    Make sure that molecules with missing stereo chem are correctly identified.
+    """
+    smiles, result = data
+    molecule = Molecule.from_smiles(smiles=smiles, allow_undefined_stereo=True)
+    assert result is check_missing_stereo(molecule=molecule)
 
 
 @pytest.mark.parametrize(
