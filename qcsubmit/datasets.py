@@ -3,7 +3,6 @@ import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
-
 import qcelemental as qcel
 import qcportal as ptl
 import tqdm
@@ -34,7 +33,7 @@ from .exceptions import (
 )
 from .procedures import GeometricProcedure
 from .results import SingleResult
-from .serializers import serialize
+from .serializers import deserialize, serialize
 from .validators import (
     check_improper_connection,
     check_linear_torsions,
@@ -515,6 +514,14 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
                         current_entry.initial_molecules.append(mapped_schema)
 
         return new_dataset
+
+    @classmethod
+    def parse_file(cls, file_name: str):
+        """
+        Add decompression to the parse file method.
+        """
+        data = deserialize(file_name=file_name)
+        return cls(**data)
 
     def get_molecule_entry(self, molecule: Union[off.Molecule, str]) -> List[str]:
         """
@@ -1001,12 +1008,13 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             collection.save()
             return responses
 
-    def export_dataset(self, file_name: str) -> None:
+    def export_dataset(self, file_name: str, compression: Optional[str] = None) -> None:
         """
         Export the dataset to file so that it can be used to make another dataset quickly.
 
         Parameters:
             file_name: The name of the file the dataset should be wrote to.
+            compression: The type of compression that should be added to the export.
 
         Note:
             The supported file types are:
@@ -1014,7 +1022,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             - `json`
 
             Additionally, the file will automatically compressed depending on the
-            final extension:
+            final extension if compression is not explicitly supplied:
 
             - `json.xz`
             - `json.gz`
@@ -1037,7 +1045,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
                 "please end the file name with json."
             )
 
-        serialize(self, file_name)
+        serialize(serializable=self, file_name=file_name, compression=compression)
 
     def coverage_report(self, forcefields: List[str]) -> Dict:
         """

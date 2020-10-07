@@ -2,11 +2,10 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import tqdm
+from openforcefield import topology as off
 from pydantic import BaseModel, PositiveInt, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
-
-from openforcefield import topology as off
 
 from . import workflow_components
 from .common_structures import ClientHandler, Metadata, QCSpecificationHandler

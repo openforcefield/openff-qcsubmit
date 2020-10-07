@@ -5,7 +5,6 @@ import re
 from typing import Dict, List, Optional, Set, Union
 
 import numpy as np
-
 from openforcefield.topology import Molecule
 from openforcefield.typing.chemistry.environment import (
     ChemicalEnvironment,
@@ -13,6 +12,7 @@ from openforcefield.typing.chemistry.environment import (
 )
 from openforcefield.typing.engines.smirnoff import ForceField
 from pydantic import validator
+
 from qcsubmit.common_structures import TorsionIndexer
 from qcsubmit.datasets import ComponentResult
 

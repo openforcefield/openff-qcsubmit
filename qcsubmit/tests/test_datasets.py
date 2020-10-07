@@ -1406,7 +1406,7 @@ def test_Dataset_export_dict(dataset_type):
     pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
-def test_Basicdataset_export_json(dataset_type):
+def test_dataset_export_json(dataset_type):
     """
     Test that the json serialisation works.
     """
@@ -1434,6 +1434,47 @@ def test_Basicdataset_export_json(dataset_type):
     assert dataset.n_records == dataset2.n_records
     for record in dataset.dataset.keys():
         assert record in dataset2.dataset
+
+
+@pytest.mark.parametrize("dataset_type", [
+    pytest.param(BasicDataset, id="BasicDataset"),
+    pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
+])
+@pytest.mark.parametrize("compression", [
+    pytest.param("xz", id="lzma"),
+    pytest.param("bz2", id="bz2"),
+    pytest.param("gz", id="gz"),
+    pytest.param("", id="No compression")
+])
+def test_dataset_roundtrip_compression(dataset_type, compression):
+    """
+    Test that the json serialisation works.
+    """
+
+    dataset = dataset_type()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    # add them to the dataset
+    for molecule in molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        dihedrals = [get_dhiedral(molecule), ]
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
+
+    # add one failure
+    fail = Molecule.from_smiles("C")
+    dataset.filter_molecules(molecules=[fail, ],
+                             component_name="TestFailure",
+                             component_description={"name": "TestFailure"},
+                             component_provenance={"test": "v1.0"})
+
+    with temp_directory():
+        # export the dataset with compression
+        dataset2 = dataset_type.parse_raw(dataset.json())
+        assert dataset.n_molecules == dataset2.n_molecules
+        assert dataset.n_records == dataset2.n_records
+        for record in dataset.dataset.keys():
+            assert record in dataset2.dataset
 
 
 @pytest.mark.parametrize("basis_data", [
