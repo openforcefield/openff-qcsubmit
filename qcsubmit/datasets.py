@@ -34,6 +34,7 @@ from .exceptions import (
 )
 from .procedures import GeometricProcedure
 from .results import SingleResult
+from .serializers import serialize
 from .validators import (
     check_improper_connection,
     check_linear_torsions,
@@ -127,7 +128,7 @@ class ComponentResult:
                 molecules,
                 total=len(molecules),
                 ncols=80,
-                desc="Deduplication",
+                desc="{:30s}".format("Deduplication"),
                 disable=not verbose,
             ):
                 self.add_molecule(molecule)
@@ -175,7 +176,7 @@ class ComponentResult:
         """
         return len(self._filtered)
 
-    def add_molecule(self, molecule: off.Molecule):
+    def add_molecule(self, molecule: off.Molecule) -> bool:
         """
         Add a molecule to the molecule list after checking that it is not present already. If it is de-duplicate the
         record and condense the conformers and metadata.
@@ -1012,20 +1013,31 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
             - `json`
 
+            Additionally, the file will automatically compressed depending on the
+            final extension:
+
+            - `json.xz`
+            - `json.gz`
+            - `json.bz2`
+
+            Check serializers.py for more details. Right now bz2 seems to
+            produce the smallest files.
+
         Raises:
             UnsupportedFiletypeError: If the requested file type is not supported.
         """
 
-        file_type = file_name.split(".")[-1]
-
-        if file_type == "json":
-            with open(file_name, "w") as output:
-                output.write(self.json(indent=2))
-        else:
+        # Check here early, just to filter anything non-json for now
+        # Ideally the serializers should be checking this
+        split = file_name.split(".")
+        split = split[-1:] if len(split) == 1 else split[-2:]
+        if "json" not in split:
             raise UnsupportedFiletypeError(
-                f"The requested file type {file_type} is not supported please use "
-                f"json."
+                f"The dataset export file name with leading extension {split[-1]} is not supported, "
+                 "please end the file name with json."
             )
+
+        serialize(self, file_name)
 
     def coverage_report(self, forcefields: List[str]) -> Dict:
         """

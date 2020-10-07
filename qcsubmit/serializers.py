@@ -3,12 +3,14 @@ Serialization methods.
 """
 
 import abc
+import functools
 import json
 import os
 from enum import Enum
-from typing import Dict, Union
+from typing import IO, Dict, Union
 
 import yaml
+
 from pydantic import BaseModel
 
 from .exceptions import UnsupportedFiletypeError
@@ -25,13 +27,16 @@ __all__ = [
 serializers = {}
 deserializers = {}
 
+# We know how to compress/decompress these automatically
+compression_algorithms = ["bz2", "xz", "gz"]
+
 
 class DataType(str, Enum):
     """
     The type of data the de/serializers deal with, which helps with file loading.
     """
 
-    TEXT = ""
+    TEXT = "t"
     BYTES = "b"
 
 
@@ -66,7 +71,10 @@ class JsonSerializer(Serializer):
     data_type = DataType.TEXT
 
     def serialize(self, serializable) -> str:
-        return json.dumps(serializable, indent=2)
+        if hasattr(serializable, "json"):
+            return serializable.json(indent=2)
+        else:
+            return json.dumps(serializable, indent=2)
 
 
 class YamlSerializer(Serializer):
@@ -94,19 +102,38 @@ def register_serializer(format_name: str, serializer: "Serializer") -> None:
     """
     Register a new serializer method with qcsubmit.
     """
-    if format_name.lower() in serializers.keys():
-        raise ValueError(f"{format_name} already has a serializer registered.")
+    format_name = format_name.lower()
 
-    serializers[format_name.lower()] = serializer
+    for compression in compression_algorithms:
+
+        compressed_format = ".".join([format_name, compression])
+
+        if compressed_format in serializers:
+            raise ValueError(f"{format_name} already has a serializer registered.")
+
+        serializers[compressed_format] = serializer
+
+    if format_name in serializers:
+        raise ValueError(f"{format_name} already has a serializer registered.")
+    serializers[format_name] = serializer
 
 
 def register_deserializer(format_name: str, deserializer: DeSerializer) -> None:
     """
     Register a new deserializer method with qcsubmit.
     """
-    if format_name.lower() in deserializers.keys():
-        raise ValueError(f"{format_name} already has a deserializer registered.")
+    format_name = format_name.lower()
 
+    for compression in compression_algorithms:
+        compressed_format = ".".join([format_name, compression])
+
+        if compressed_format in deserializers:
+            raise ValueError(f"{format_name} already has a deserializer registered.")
+
+        deserializers[compressed_format] = deserializer
+
+    if format_name in deserializers:
+        raise ValueError(f"{format_name} already has a deserializer registered.")
     deserializers[format_name] = deserializer
 
 
@@ -161,7 +188,74 @@ def get_format_name(file_name: str) -> str:
     Parameters:
         file_name: The name of the file from which we should work out the format.
     """
-    return file_name.split(".")[-1].lower()
+
+    def is_compression_extension(ext):
+        return ext in compression_algorithms
+
+    if is_compression_extension(file_name.split(".")[-1].lower()):
+        return ".".join(file_name.split(".")[-2:]).lower()
+    else:
+        return file_name.split(".")[-1].lower()
+
+
+def _compress_using_suffix(file_name: str, mode) -> IO:
+
+    file_type = file_name.split(".")[-1]
+
+    opener = open
+    open_kwargs = dict()
+
+    if file_type == "xz":
+        import lzma
+
+        opener = lzma.open
+        open_kwargs = dict(preset=9)
+
+    elif file_type == "gz":
+
+        import gzip
+
+        opener = gzip.open
+        open_kwargs = dict(compresslevel=9)
+
+    elif file_type == "bz2":
+        import bz2
+
+        opener = bz2.open
+        open_kwargs = dict(compresslevel=9)
+
+    elif file_type == "zip":
+        raise UnsupportedFiletypeError("Compression using zip not supported")
+
+    return opener(file_name, mode, **open_kwargs)
+
+
+def _decompress_using_suffix(file_name: str, mode) -> IO:
+
+    file_type = file_name.split(".")[-1]
+
+    opener = open
+
+    if file_type == "xz":
+        import lzma
+
+        opener = lzma.open
+
+    elif file_type == "gz":
+
+        import gzip
+
+        opener = gzip.open
+
+    elif file_type == "bz2":
+        import bz2
+
+        opener = bz2.open
+
+    elif file_type == "zip":
+        raise UnsupportedFiletypeError("Compression using zip not supported")
+
+    return opener(file_name, mode)
 
 
 def serialize(serializable: Dict, file_name: str) -> None:
@@ -174,8 +268,13 @@ def serialize(serializable: Dict, file_name: str) -> None:
     """
     format_name = get_format_name(file_name)
     serializer = get_serializer(format_name)
-    with open(file_name, "w" + serializer.data_type.value) as output:
+
+    with _compress_using_suffix(file_name, "w" + serializer.data_type.value) as output:
+        pass
         output.write(serializer.serialize(serializable))
+
+    # with open(file_name, "w" + serializer.data_type.value) as output:
+    #     output.write(serializer.serialize(serializable))
 
 
 def deserialize(file_name: str) -> Dict:
@@ -187,9 +286,14 @@ def deserialize(file_name: str) -> Dict:
     """
     format_name = get_format_name(file_name)
     deserializer = get_deserializer(format_name)
+
     if os.path.exists(file_name):
-        with open(file_name, "r" + deserializer.data_type.value) as input_data:
+        with _decompress_using_suffix(
+            file_name, "r" + deserializer.data_type.value
+        ) as input_data:
             return deserializer.deserialize(input_data)
+        # with open(file_name, "r" + deserializer.data_type.value) as input_data:
+        #     return deserializer.deserialize(input_data)
     else:
         raise RuntimeError(f"The file {file_name} could not be found.")
 
