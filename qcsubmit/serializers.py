@@ -12,6 +12,7 @@ import yaml
 from pydantic import BaseModel
 
 from .exceptions import UnsupportedFiletypeError
+from .compression import anyopen
 
 __all__ = [
     "Serializer",
@@ -161,7 +162,7 @@ def get_format_name(file_name: str) -> str:
     Parameters:
         file_name: The name of the file from which we should work out the format.
     """
-    return file_name.split(".")[-1].lower()
+    return file_name.split(".")[1].lower()
 
 
 def serialize(serializable: Dict, file_name: str) -> None:
@@ -174,7 +175,7 @@ def serialize(serializable: Dict, file_name: str) -> None:
     """
     format_name = get_format_name(file_name)
     serializer = get_serializer(format_name)
-    with open(file_name, "w" + serializer.data_type.value) as output:
+    with anyopen(file_name, "w" + serializer.data_type.value) as output:
         output.write(serializer.serialize(serializable))
 
 
@@ -188,7 +189,7 @@ def deserialize(file_name: str) -> Dict:
     format_name = get_format_name(file_name)
     deserializer = get_deserializer(format_name)
     if os.path.exists(file_name):
-        with open(file_name, "r" + deserializer.data_type.value) as input_data:
+        with anyopen(file_name, "r" + deserializer.data_type.value) as input_data:
             return deserializer.deserialize(input_data)
     else:
         raise RuntimeError(f"The file {file_name} could not be found.")
