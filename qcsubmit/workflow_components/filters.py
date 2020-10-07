@@ -15,6 +15,7 @@ from openforcefield.typing.engines.smirnoff import ForceField
 from pydantic import validator
 from qcsubmit.common_structures import TorsionIndexer
 from qcsubmit.datasets import ComponentResult
+from rdkit.Chem.rdMolAlign import AlignMol
 
 from .base_component import BasicSettings, CustomWorkflowComponent
 
@@ -495,9 +496,6 @@ class RMSDCutoffConformerFilter(BasicSettings, FilterComponent):
     """
     Prunes conformers from a molecule that are less than a specified RMSD from
     all other conformers
-
-    NOTE: TODO: This implementation currently does not perform a best-fit alignment
-    before computing this RMSD.
     """
 
     # standard components which must be defined
@@ -524,9 +522,12 @@ class RMSDCutoffConformerFilter(BasicSettings, FilterComponent):
         # processing.
         uniq: List = list([True] * L)
 
+        # Needed to get the aligned best-fit RMSD
+        rdmol = molecule.to_rdkit()
+
         rmsd = []
         # This begins the pairwise RMSD pruner
-        if L > 1 and self.rmsd_cutoff >= 0.0:
+        if L > 1 and self.rms_cutoff >= 0.0:
 
             # The reference conformer for RMSD calculation
             for j in range(L - 1):
@@ -540,20 +541,19 @@ class RMSDCutoffConformerFilter(BasicSettings, FilterComponent):
                 # upper triangle of the comparisons (j < k)
                 for k in range(j + 1, L):
 
-                    r = np.linalg.norm(
-                        molecule.conformers[k] - molecule.conformers[j], axis=1
-                    )
-                    rmsd_i = r.mean()
+                    # r = np.linalg.norm(
+                    #     molecule.conformers[k] - molecule.conformers[j], axis=1
+                    # )
+                    # rmsd_i = r.mean()
+                    rmsd_i = AlignMol(rdmol, rdmol, k, j)
                     rmsd.append(rmsd_i)
 
                     # Flag this conformer for pruning, and also
                     # prevent it from being used as a reference in the
                     # future comparisons
-                    if rmsd_i < self.rmsd_cutoff:
+                    if rmsd_i < self.rms_cutoff:
                         uniq[k] = False
 
-            # hack? how to set conformers explicity if different number than
-            # currently stored?
             confs = [
                 molecule.conformers[j] for j, add_bool in enumerate(uniq) if add_bool
             ]
