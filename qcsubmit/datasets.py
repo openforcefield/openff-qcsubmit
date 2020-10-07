@@ -1052,7 +1052,6 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         """
 
         from openforcefield.typing.engines.smirnoff import ForceField
-        from openforcefield.utils.structure import get_molecule_parameterIDs
 
         coverage = {}
         param_types = {
@@ -1072,13 +1071,16 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
             result = {}
             ff = ForceField(forcefield)
-            parameters_by_molecule, parameters_by_id = get_molecule_parameterIDs(
-                list(self.molecules), ff
-            )
-
-            # now create the the dict to store the ids used
-            for param_id in parameters_by_id.keys():
-                result.setdefault(param_types[param_id[0]], []).append(param_id)
+            for molecule in self.molecules:
+                labels = ff.label_molecules(molecule.to_topology())[0]
+                # format the labels into a set
+                covered_types = set(
+                    [label.id for types in labels.values() for label in types.values()]
+                )
+                # now insert into the forcefield dict
+                for parameter in covered_types:
+                    p_id = parameter[0]
+                    result.setdefault(param_types[p_id], set()).add(parameter)
 
             # now store the force field dict into the main result
             coverage[forcefield] = result

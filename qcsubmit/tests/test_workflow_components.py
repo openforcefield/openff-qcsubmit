@@ -499,7 +499,6 @@ def test_coverage_filter():
     Make sure the coverage filter removes the correct molecules.
     """
     from openforcefield.typing.engines.smirnoff import ForceField
-    from openforcefield.utils.structure import get_molecule_parameterIDs
 
     coverage_filter = workflow_components.CoverageFilter()
     coverage_filter.allowed_ids = ["b83"]
@@ -514,11 +513,17 @@ def test_coverage_filter():
 
     forcefield = ForceField("openff_unconstrained-1.0.0.offxml")
     # now see if any molecules do not have b83
-    parameters_by_molecule, parameters_by_ID = get_molecule_parameterIDs(
-        result.molecules, forcefield
-    )
+    parameters_by_id = {}
+    for molecule in result.molecules:
+        labels = forcefield.label_molecules(molecule.to_topology())[0]
+        covered_types = set(
+            [label.id for types in labels.values() for label in types.values()]
+        )
+        # now store the smiles under the ids
+        for parameter in covered_types:
+            parameters_by_id.setdefault(parameter, []).append(molecule.to_smiles())
 
-    expected = parameters_by_ID["b83"]
+    expected = parameters_by_id["b83"]
     for molecule in result.molecules:
         assert molecule.to_smiles() in expected
         assert "dihedrals" not in molecule.properties
