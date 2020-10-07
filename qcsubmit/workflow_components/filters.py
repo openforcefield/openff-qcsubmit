@@ -4,8 +4,6 @@ File containing the filters workflow components.
 import re
 from typing import Dict, List, Optional, Set, Union
 
-import numpy as np
-
 from openforcefield.topology import Molecule
 from openforcefield.typing.chemistry.environment import (
     ChemicalEnvironment,
@@ -506,7 +504,7 @@ class RMSDCutoffConformerFilter(BasicSettings, FilterComponent):
     component_fail_message = "Could not filter the conformers using RMSD"
 
     # custom components for this class
-    rms_cutoff: float = -1.0
+    cutoff: float = -1.0  # Assumes angstroms
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -527,7 +525,7 @@ class RMSDCutoffConformerFilter(BasicSettings, FilterComponent):
 
         rmsd = []
         # This begins the pairwise RMSD pruner
-        if L > 1 and self.rms_cutoff >= 0.0:
+        if L > 1 and self.cutoff >= 0.0:
 
             # The reference conformer for RMSD calculation
             for j in range(L - 1):
@@ -541,17 +539,13 @@ class RMSDCutoffConformerFilter(BasicSettings, FilterComponent):
                 # upper triangle of the comparisons (j < k)
                 for k in range(j + 1, L):
 
-                    # r = np.linalg.norm(
-                    #     molecule.conformers[k] - molecule.conformers[j], axis=1
-                    # )
-                    # rmsd_i = r.mean()
                     rmsd_i = AlignMol(rdmol, rdmol, k, j)
                     rmsd.append(rmsd_i)
 
                     # Flag this conformer for pruning, and also
                     # prevent it from being used as a reference in the
                     # future comparisons
-                    if rmsd_i < self.rms_cutoff:
+                    if rmsd_i < self.cutoff:
                         uniq[k] = False
 
             confs = [
