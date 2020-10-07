@@ -17,6 +17,7 @@ class StateEnumeratorComponent(CustomWorkflowComponent, abc.ABC):
     A base class for state enumerator components, which define common settings
     and configuration
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._skip_unique_check: bool = False  # Enumerators do create molecules
@@ -239,6 +240,7 @@ class EnumerateProtomers(ToolkitValidator, StateEnumeratorComponent):
                 except Exception:
                     result.filter_molecule(molecule)
         else:
-            result.filtered = molecules
+            for molecule in molecules:
+                result.filter_molecule(molecule)
 
         return result

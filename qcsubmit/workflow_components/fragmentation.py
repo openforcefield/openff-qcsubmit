@@ -116,7 +116,8 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         result = self._create_result()
 
         if not available:
-            result.filtered = molecules
+            for molecule in molecules:
+                result.filter_molecule(molecule)
             return result
 
         from fragmenter import fragment
