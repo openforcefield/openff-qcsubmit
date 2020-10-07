@@ -93,7 +93,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         except ImportError:
             return False
 
-    def _apply_init(self) -> None:
+    def _apply_init(self, result: ComponentResult) -> None:
 
         self._cache = self.is_available()
 

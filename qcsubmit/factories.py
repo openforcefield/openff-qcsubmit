@@ -1,7 +1,6 @@
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import tqdm
 from openforcefield import topology as off
 from pydantic import BaseModel, PositiveInt, validator
 from qcportal import FractalClient

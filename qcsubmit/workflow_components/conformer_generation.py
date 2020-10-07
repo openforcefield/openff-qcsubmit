@@ -1,8 +1,7 @@
-from typing import List, Tuple, Union
+from typing import List, Union
 
 import simtk.unit as unit
 from openforcefield.topology import Molecule
-
 from qcsubmit.datasets import ComponentResult
 
 from .base_component import CustomWorkflowComponent, ToolkitValidator

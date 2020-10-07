@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Union
 
 import tqdm
 from openforcefield.topology import Molecule
