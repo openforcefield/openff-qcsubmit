@@ -270,11 +270,7 @@ def serialize(serializable: Dict, file_name: str) -> None:
     serializer = get_serializer(format_name)
 
     with _compress_using_suffix(file_name, "w" + serializer.data_type.value) as output:
-        pass
         output.write(serializer.serialize(serializable))
-
-    # with open(file_name, "w" + serializer.data_type.value) as output:
-    #     output.write(serializer.serialize(serializable))
 
 
 def deserialize(file_name: str) -> Dict:
@@ -292,8 +288,6 @@ def deserialize(file_name: str) -> Dict:
             file_name, "r" + deserializer.data_type.value
         ) as input_data:
             return deserializer.deserialize(input_data)
-        # with open(file_name, "r" + deserializer.data_type.value) as input_data:
-        #     return deserializer.deserialize(input_data)
     else:
         raise RuntimeError(f"The file {file_name} could not be found.")
 
