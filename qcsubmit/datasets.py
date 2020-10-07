@@ -1034,7 +1034,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         if "json" not in split:
             raise UnsupportedFiletypeError(
                 f"The dataset export file name with leading extension {split[-1]} is not supported, "
-                 "please end the file name with json."
+                "please end the file name with json."
             )
 
         serialize(self, file_name)

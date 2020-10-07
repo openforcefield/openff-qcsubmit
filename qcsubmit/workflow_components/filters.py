@@ -26,6 +26,7 @@ class FilterComponent(CustomWorkflowComponent):
     All filters are expected to take a list of molecules, and pass on a subset
     of them.
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._skip_unique_check: bool = True  # Filters do not create molecules

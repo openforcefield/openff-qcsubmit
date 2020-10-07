@@ -97,7 +97,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=_InheritSlots):
     def __getstate__(self):
         return (
             super().__getstate__(),
-            {slot: getattr(self, slot) for slot in self.__slots__}
+            {slot: getattr(self, slot) for slot in self.__slots__},
         )
 
     def __setstate__(self, state):
@@ -209,7 +209,6 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=_InheritSlots):
         Returns:
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instantiated with the required information.
         """
-
 
         result = ComponentResult(
             component_name=self.component_name,
