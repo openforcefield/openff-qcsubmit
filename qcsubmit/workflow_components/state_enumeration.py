@@ -2,6 +2,7 @@
 Components to expand stereochemistry and tautomeric states of molecules.
 """
 from typing import List, Tuple, Union
+import abc
 
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
@@ -10,7 +11,18 @@ from qcsubmit.datasets import ComponentResult
 from .base_component import CustomWorkflowComponent, ToolkitValidator
 
 
-class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
+class StateEnumeratorComponent(CustomWorkflowComponent, abc.ABC):
+    """
+    A base class for state enumerator components, which define common settings
+    and configuration
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._skip_unique_check: bool = False  # Enumerators do create molecules
+        self._processes = None  # Most enumerators are expensive
+
+
+class EnumerateTautomers(ToolkitValidator, StateEnumeratorComponent):
     """
     Enumerate the tautomers of a molecule using the backend toolkits through the OFFTK.
 
@@ -31,9 +43,6 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
     # custom settings for the class
     max_tautomers: int = 20
-    skip_unique_check: bool = False  # This component makes new molecules
-
-    _processes = None
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -49,7 +58,7 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
         toolkit = self._toolkits[self.toolkit]()
 
-        result = self._create_result(skip_unique_check=self.skip_unique_check)
+        result = self._create_result()
 
         for molecule in molecules:
             try:
@@ -69,7 +78,7 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
         return result
 
 
-class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
+class EnumerateStereoisomers(ToolkitValidator, StateEnumeratorComponent):
     """
     Enumerate the stereo centers and bonds of a molecule using the backend toolkits through the OFFTK.
 
@@ -102,19 +111,18 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     max_isomers: int = 20
     rationalise: bool = True
     include_input: bool = False
-    skip_unique_check: bool = False
 
-    _processes = None
-
-    cache: Union[OpenEyeToolkitWrapper, RDKitToolkitWrapper, None] = None
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._cache: Union[OpenEyeToolkitWrapper, RDKitToolkitWrapper, None] = None
 
     def _apply_init(self, result: ComponentResult) -> None:
 
-        self.cache = self._toolkits[self.toolkit]()
+        self._cache = self._toolkits[self.toolkit]()
 
     def _apply_finalize(self, result: ComponentResult) -> None:
 
-        self.cache = None
+        self._cache = None
 
     def _apply(
         self, molecules: List[Molecule]
@@ -131,9 +139,9 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        toolkit = self.cache
+        toolkit = self._cache
 
-        result = self._create_result(skip_unique_check=self.skip_unique_check)
+        result = self._create_result()
 
         for molecule in molecules:
             try:
@@ -156,7 +164,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
         return result
 
 
-class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
+class EnumerateProtomers(ToolkitValidator, StateEnumeratorComponent):
     """
     Enumerate the formal charges of the input molecule using the backend toolkits through the OFFTK.
 
@@ -174,10 +182,9 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
     max_states: int = 10
 
-    _cache: bool = False
-    skip_unique_check: bool = True  # This component makes new molecules
-
-    _processes = None
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._cache: bool = False
 
     def _apply_init(self, result: ComponentResult) -> None:
 
@@ -187,7 +194,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
     def _apply_finalize(self, result: ComponentResult) -> None:
 
-        pass
+        self._cache = None
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -204,7 +211,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
             This is only possible using Openeye so far, if openeye is not available this step will fail.
         """
 
-        result = self._create_result(skip_unique_check=self.skip_unique_check)
+        result = self._create_result()
 
         has_oe = self._cache
 

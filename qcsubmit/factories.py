@@ -184,7 +184,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
             components = [components]
 
         for component in components:
-            if isinstance(component, workflow_components.CustomWorkflowComponent):
+            if issubclass(type(component), workflow_components.CustomWorkflowComponent):
                 if not component.is_available():
                     raise CompoenentRequirementError(
                         f"The component {component.component_name} could not be added to "

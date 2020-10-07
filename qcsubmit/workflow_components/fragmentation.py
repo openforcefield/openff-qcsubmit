@@ -34,11 +34,13 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
     heuristic: str = "path_length"
     include_parent: bool = False
 
-    skip_unique_check: bool = False  # This component creates new molecules
-
-    _processes: Union[None, int] = None
-
-    cache: bool = False
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._skip_unique_check: bool = False  # This component creates new molecules
+        self._processes: Union[
+            int, None
+        ] = None  # This component uses an expensive calculation
+        self._cache: bool = False
 
     @validator("heuristic")
     def check_heuristic(cls, heuristic):
@@ -93,7 +95,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
     def _apply_init(self) -> None:
 
-        self.cache = self.is_available()
+        self._cache = self.is_available()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -109,9 +111,9 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
             dataset.
             *
         """
-        available = self.cache
+        available = self._cache
 
-        result = self._create_result(skip_unique_check=self.skip_unique_check)
+        result = self._create_result()
 
         if not available:
             result.filtered = molecules

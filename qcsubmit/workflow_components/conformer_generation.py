@@ -22,11 +22,30 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = "Conformers could not be generated"
 
     # custom components for this class
-    rms_cutoff: Union[None, float] = None
+    rms_cutoff: Union[float, None] = None
     max_conformers: int = 10
     clear_existing: bool = True
-    skip_unique_check: bool = True  # This component does not create new molecules
-    _processes = None
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._skip_unique_check: bool = (
+            True  # This component does not create new molecules
+        )
+        self._processes: Union[
+            int, None
+        ] = None  # This component uses an expensive calculation
+        self._cache: Union[unit.Quantity, None] = None
+
+    def _apply_init(self, result: ComponentResult):
+
+        self._cache = None
+
+        if self.rms_cutoff is not None:
+            self._cache = self.rms_cutoff * unit.angstrom
+
+    def _apply_finalize(self, result: ComponentResult):
+
+        self._cache = None
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -44,7 +63,9 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         # create the toolkit
         toolkit = self._toolkits[self.toolkit]()
 
-        result = self._create_result(skip_unique_check=self.skip_unique_check)
+        result = self._create_result()
+
+        rms_cutoff = self._cache
 
         for molecule in molecules:
             try:
@@ -52,7 +73,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
                 molecule.generate_conformers(
                     n_conformers=self.max_conformers,
                     clear_existing=self.clear_existing,
-                    rms_cutoff=self.rms_cutoff * unit.angstrom,
+                    rms_cutoff=rms_cutoff,
                     toolkit_registry=toolkit,
                 )
 

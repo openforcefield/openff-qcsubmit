@@ -1,15 +1,35 @@
 import abc
-from typing import Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import tqdm
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
 from pydantic import BaseModel, validator
+from pydantic.main import ModelMetaclass
 
 from ..datasets import ComponentResult
 
 
-class CustomWorkflowComponent(BaseModel, abc.ABC):
+class _InheritSlots(ModelMetaclass):
+
+    # This allows subclasses of CustomWorkFlowComponentto inherit __slots__
+    def __new__(cls, name, bases, namespace):
+
+        slots = set(namespace.pop("__slots__", tuple()))
+
+        for base in bases:
+            if hasattr(base, "__slots__"):
+                slots.update(base.__slots__)
+
+        if "__dict__" in slots:
+            slots.remove("__dict__")
+
+        namespace["__slots__"] = tuple(slots)
+
+        return ModelMetaclass.__new__(cls, name, bases, namespace)
+
+
+class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=_InheritSlots):
     """
     This is an abstract base class which should be used to create all workflow components, following the design of this
     class should allow users to easily create new work flow components with out needing to change much of the dataset
@@ -19,16 +39,46 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
     component_name: str
     component_description: str
     component_fail_message: str
-    _processes: Union[None, int] = 1  # By default everything is done in serial
-    skip_unique_check: bool = False
 
     class Config:
         validate_assignment = True
         arbitrary_types_allowed = True
 
+    # Per-instance private members
+    # These will not be included in the Pydantic serialization
+    _cache: Any
+    _processes: Union[int, None]
+    _skip_unique_check: bool
+    __slots__ = ["_cache", "_processes", "_skip_unique_check"]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        # These are defaults for all components. Subclasses are free
+        # to modify these as necessary.
+        self._processes = 1
+        self._skip_unique_check = False
+        self._cache = None
+
     @property
-    def processes(self):
+    def processes(self) -> int:
         return self._processes
+
+    def runtime_set_processes(self, val: int) -> None:
+        self._processes = val
+
+    def runtime_set_skip_unique_check(self, val: bool) -> None:
+        self._skip_unique_check = val
+
+    def __setattr__(self, attr: str, value: Any) -> None:
+
+        # Override the Pydantic setattr to configure the handling of our __slots__
+
+        if attr in self.__slots__:
+            object.__setattr__(self, attr, value)
+
+        else:
+            super().__setattr__(attr, value)
 
     @classmethod
     @abc.abstractmethod
@@ -40,6 +90,21 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
             `True` if the component can be used else `False`
         """
         ...
+
+    # getstate and setstate are needed since private instance members (_*)
+    # are not included in pickles by Pydantic at the current moment. Force them
+    # to be added here. This is needed for multiprocessing support.
+    def __getstate__(self):
+        return (
+            super().__getstate__(),
+            {slot: getattr(self, slot) for slot in self.__slots__}
+        )
+
+    def __setstate__(self, state):
+        super().__setstate__(state[0])
+        d = state[1]
+        for slot in d:
+            setattr(self, slot, d[slot])
 
     @abc.abstractmethod
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
@@ -78,9 +143,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
             class which handles collecting together molecules that pass and fail
             the component
         """
-        result: ComponentResult = self._create_result(
-            skip_unique_check=self.skip_unique_check
-        )
+        result: ComponentResult = self._create_result()
 
         self._apply_init(result)
 
@@ -147,10 +210,12 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instantiated with the required information.
         """
 
+
         result = ComponentResult(
             component_name=self.component_name,
             component_description=self.dict(),
             component_provenance=self.provenance(),
+            skip_unique_check=self._skip_unique_check,
             **kwargs,
         )
 
