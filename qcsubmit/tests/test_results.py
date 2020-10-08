@@ -150,7 +150,13 @@ def test_optimization_final_only_result(public_client):
             assert len(entry.trajectory) == 1
 
 
-def test_optimization_export_round_trip(public_client):
+@pytest.mark.parametrize("compression", [
+    pytest.param("xz", id="lzma"),
+    pytest.param("gz", id="gz"),
+    pytest.param("bz2", id="bz2"),
+    pytest.param(None, id="no compression")
+])
+def test_optimization_export_round_trip_compression(public_client, compression):
     """Test exporting the results to file and back."""
 
     with temp_directory():
@@ -160,11 +166,15 @@ def test_optimization_export_round_trip(public_client):
             dataset_name="OpenFF Gen 2 Opt Set 1 Roche",
             include_trajectory=False,
             final_molecule_only=True)
-
-        result.export_results("dataset.json")
+        file_name = "dataset.json"
+        result.export_results(filename=file_name, compression=compression)
 
         # now load the dataset back in
-        result2 = OptimizationCollectionResult.parse_file("dataset.json")
+        if compression is not None:
+            name = "".join([file_name, ".", compression])
+        else:
+            name = file_name
+        result2 = OptimizationCollectionResult.parse_file(name)
 
         assert result.dict(exclude={"collection"}) == result2.dict(exclude={"collection"})
 

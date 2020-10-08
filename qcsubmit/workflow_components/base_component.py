@@ -1,35 +1,16 @@
 import abc
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional
 
 import tqdm
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
 from pydantic import BaseModel, validator
-from pydantic.main import ModelMetaclass
 
+from ..common_structures import ComponentProperties
 from ..datasets import ComponentResult
 
 
-class _InheritSlots(ModelMetaclass):
-
-    # This allows subclasses of CustomWorkFlowComponentto inherit __slots__
-    def __new__(cls, name, bases, namespace):
-
-        slots = set(namespace.pop("__slots__", tuple()))
-
-        for base in bases:
-            if hasattr(base, "__slots__"):
-                slots.update(base.__slots__)
-
-        if "__dict__" in slots:
-            slots.remove("__dict__")
-
-        namespace["__slots__"] = tuple(slots)
-
-        return ModelMetaclass.__new__(cls, name, bases, namespace)
-
-
-class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=_InheritSlots):
+class CustomWorkflowComponent(BaseModel, abc.ABC):
     """
     This is an abstract base class which should be used to create all workflow components, following the design of this
     class should allow users to easily create new work flow components with out needing to change much of the dataset
@@ -39,46 +20,12 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=_InheritSlots):
     component_name: str
     component_description: str
     component_fail_message: str
+    _cache: Any = {}
+    _properties: ComponentProperties
 
     class Config:
         validate_assignment = True
         arbitrary_types_allowed = True
-
-    # Per-instance private members
-    # These will not be included in the Pydantic serialization
-    _cache: Any
-    _processes: Union[int, None]
-    _skip_unique_check: bool
-    __slots__ = ["_cache", "_processes", "_skip_unique_check"]
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        # These are defaults for all components. Subclasses are free
-        # to modify these as necessary.
-        self._processes = 1
-        self._skip_unique_check = False
-        self._cache = None
-
-    @property
-    def processes(self) -> int:
-        return self._processes
-
-    def runtime_set_processes(self, val: int) -> None:
-        self._processes = val
-
-    def runtime_set_skip_unique_check(self, val: bool) -> None:
-        self._skip_unique_check = val
-
-    def __setattr__(self, attr: str, value: Any) -> None:
-
-        # Override the Pydantic setattr to configure the handling of our __slots__
-
-        if attr in self.__slots__:
-            object.__setattr__(self, attr, value)
-
-        else:
-            super().__setattr__(attr, value)
 
     @classmethod
     @abc.abstractmethod
@@ -91,26 +38,11 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=_InheritSlots):
         """
         ...
 
-    # getstate and setstate are needed since private instance members (_*)
-    # are not included in pickles by Pydantic at the current moment. Force them
-    # to be added here. This is needed for multiprocessing support.
-    def __getstate__(self):
-        return (
-            super().__getstate__(),
-            {slot: getattr(self, slot) for slot in self.__slots__},
-        )
-
-    def __setstate__(self, state):
-        super().__setstate__(state[0])
-        d = state[1]
-        for slot in d:
-            setattr(self, slot, d[slot])
-
     @abc.abstractmethod
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         This is the main feature of the workflow component which should accept a molecule, perform the component action
-        and then return the
+        and then return the result.
 
         Parameters:
             molecules: The list of molecules to be processed by this component.
@@ -123,20 +55,31 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=_InheritSlots):
         ...
 
     def _apply_init(self, result: ComponentResult) -> None:
-        """"""
+        """
+        Any actions that should be performed before running the main apply method should set up such as setting up the cache for multiprocessing.
+        """
         ...
 
     def _apply_finalize(self, result: ComponentResult) -> None:
-        """"""
-        ...
+        """
+        Any clean up actions should be added here, by default the cache is cleaned.
+        """
+        self._cache.clear()
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def apply(
+        self,
+        molecules: List[Molecule],
+        processors: Optional[int] = None,
+        verbose: bool = True,
+    ) -> ComponentResult:
         """
         This is the main feature of the workflow component which should accept a molecule, perform the component action
         and then return the
 
         Parameters:
             molecules: The list of molecules to be processed by this component.
+            processors: The number of processor the component can use to run the job in parallel across molecules, None will default to all cores.
+            verbose: If true a progress bar will be shown on screen.
 
         Returns:
             An instance of the [ComponentResult][qcsubmit.datasets.ComponentResult]
@@ -150,29 +93,29 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=_InheritSlots):
         # Use a Pool to get around the GIL. As long as self does not contain
         # too much data, this should be efficient.
 
-        if self.processes is None or self.processes > 1:
+        if (processors is None or processors > 1) and self._properties.process_parallel:
 
             from multiprocessing.pool import Pool
 
-            with Pool(processes=self.processes) as pool:
+            with Pool(processes=processors) as pool:
 
                 # Assumes to process in batches of 1 for now
                 work_list = [
                     pool.apply_async(self._apply, ([molecule],))
                     for molecule in molecules
                 ]
-
                 for work in tqdm.tqdm(
                     work_list,
                     total=len(work_list),
                     ncols=80,
                     desc="{:30s}".format(self.component_name),
+                    disable=not verbose,
                 ):
                     work = work.get()
                     for success in work.molecules:
                         result.add_molecule(success)
-                    for molecule in work.filtered:
-                        self.fail_molecule(molecule, component_result=result)
+                    for fail in work.filtered:
+                        result.filter_molecule(fail)
 
         else:
             for molecule in tqdm.tqdm(
@@ -180,12 +123,13 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=_InheritSlots):
                 total=len(molecules),
                 ncols=80,
                 desc="{:30s}".format(self.component_name),
+                disable=not verbose,
             ):
                 work = self._apply([molecule])
                 for success in work.molecules:
                     result.add_molecule(success)
                 for fail in work.filtered:
-                    self.fail_molecule(fail, component_result=result)
+                    result.filter_molecule(fail)
 
         self._apply_finalize(result)
 
@@ -214,25 +158,11 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=_InheritSlots):
             component_name=self.component_name,
             component_description=self.dict(),
             component_provenance=self.provenance(),
-            skip_unique_check=self._skip_unique_check,
+            skip_unique_check=not self._properties.produces_duplicates,
             **kwargs,
         )
 
         return result
-
-    def fail_molecule(
-        self, molecule: Molecule, component_result: ComponentResult
-    ) -> None:
-        """
-        A method to fail a molecule.
-
-        Parameters:
-            molecule: The instance of the molecule to be failed.
-            component_result: The [ComponentResult][qcsubmit.datasets.ComponentResult] instance that the molecule should
-                be added to.
-        """
-
-        component_result.filter_molecule(molecule)
 
 
 class ToolkitValidator(BaseModel):

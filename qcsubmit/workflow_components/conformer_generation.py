@@ -1,9 +1,11 @@
-from typing import List, Union
+from typing import List, Optional
 
 import simtk.unit as unit
 from openforcefield.topology import Molecule
+
 from qcsubmit.datasets import ComponentResult
 
+from ..common_structures import ComponentProperties
 from .base_component import CustomWorkflowComponent, ToolkitValidator
 
 
@@ -22,30 +24,21 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = "Conformers could not be generated"
 
     # custom components for this class
-    rms_cutoff: Union[float, None] = None
+    _cache = {}
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
+
+    rms_cutoff: Optional[float] = None
     max_conformers: int = 10
     clear_existing: bool = True
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._skip_unique_check: bool = (
-            True  # This component does not create new molecules
-        )
-        self._processes: Union[
-            int, None
-        ] = None  # This component uses an expensive calculation
-        self._cache: Union[unit.Quantity, None] = None
-
-    def _apply_init(self, result: ComponentResult):
-
-        self._cache = None
-
+    def _apply_init(self, result: ComponentResult) -> None:
+        """
+        Set up the standard conformer filter
+        """
         if self.rms_cutoff is not None:
-            self._cache = self.rms_cutoff * unit.angstrom
-
-    def _apply_finalize(self, result: ComponentResult):
-
-        self._cache = None
+            self._cache["cutoff"] = self.rms_cutoff * unit.angstrom
+        else:
+            self._cache["cutoff"] = None
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -65,7 +58,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
 
         result = self._create_result()
 
-        rms_cutoff = self._cache
+        rms_cutoff = self._cache["cutoff"]
 
         for molecule in molecules:
             try:

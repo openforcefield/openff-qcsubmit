@@ -11,27 +11,16 @@ from openforcefield.typing.chemistry.environment import (
 )
 from openforcefield.typing.engines.smirnoff import ForceField
 from pydantic import validator
-from qcsubmit.common_structures import TorsionIndexer
-from qcsubmit.datasets import ComponentResult
 from rdkit.Chem.rdMolAlign import AlignMol
 
+from qcsubmit.common_structures import TorsionIndexer
+from qcsubmit.datasets import ComponentResult
+
+from ..common_structures import ComponentProperties
 from .base_component import BasicSettings, CustomWorkflowComponent
 
 
-class FilterComponent(CustomWorkflowComponent):
-    """
-    A base class for molecule filtering components, which define common settings
-    and configuration.
-    All filters are expected to take a list of molecules, and pass on a subset
-    of them.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._skip_unique_check: bool = True  # Filters do not create molecules
-
-
-class MolecularWeightFilter(BasicSettings, FilterComponent):
+class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
     """
     Filters molecules based on the minimum and maximum allowed molecular weights.
 
@@ -53,6 +42,10 @@ class MolecularWeightFilter(BasicSettings, FilterComponent):
         130  # values taken from the base settings of the openeye blockbuster filter
     )
     maximum_weight: int = 781
+    _cache = {}
+    _properties: ComponentProperties = ComponentProperties(
+        process_parallel=True, produces_duplicates=False
+    )
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -100,7 +93,7 @@ class MolecularWeightFilter(BasicSettings, FilterComponent):
         return provenance
 
 
-class ElementFilter(BasicSettings, FilterComponent):
+class ElementFilter(BasicSettings, CustomWorkflowComponent):
     """
     Filter the molecules based on a list of allowed elements.
 
@@ -146,10 +139,8 @@ class ElementFilter(BasicSettings, FilterComponent):
         "Br",
         "I",
     ]
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._cache: Union[List[int], None] = None
+    _cache = {}
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     @validator("allowed_elements", each_item=True)
     def check_allowed_elements(cls, element: Union[str, int]) -> Union[str, int]:
@@ -179,14 +170,10 @@ class ElementFilter(BasicSettings, FilterComponent):
 
         from simtk.openmm.app import Element
 
-        self._cache = [
+        self._cache["elements"] = [
             Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
             for ele in self.allowed_elements
         ]
-
-    def _apply_finalize(self, result: ComponentResult) -> None:
-
-        self._cache = None
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -204,7 +191,7 @@ class ElementFilter(BasicSettings, FilterComponent):
         result = self._create_result()
 
         # First lets convert the allowed_elements list to ints as this is what is stored in the atom object
-        _allowed_elements = self._cache
+        _allowed_elements = self._cache["elements"]
 
         # now apply the filter
         for molecule in molecules:
@@ -236,7 +223,7 @@ class ElementFilter(BasicSettings, FilterComponent):
         return provenance
 
 
-class CoverageFilter(BasicSettings, FilterComponent):
+class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     """
     Filters molecules based on the requested forcefield coverage.
 
@@ -269,19 +256,12 @@ class CoverageFilter(BasicSettings, FilterComponent):
     filtered_ids: Optional[Set[str]] = None
     forcefield: str = "openff_unconstrained-1.0.0.offxml"
     tag_dihedrals: bool = False
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._processes = None  # This component uses an expensive calculation
-        self._cache: Union[ForceField, None] = None
+    _cache = {}
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply_init(self, result: ComponentResult) -> None:
 
-        self._cache = ForceField(self.forcefield)
-
-    def _apply_finalize(self, result: ComponentResult) -> None:
-
-        self._cache = None
+        self._cache["forcefield"] = ForceField(self.forcefield)
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -298,7 +278,7 @@ class CoverageFilter(BasicSettings, FilterComponent):
 
         result = self._create_result()
 
-        forcefield: ForceField = self._cache
+        forcefield: ForceField = self._cache["forcefield"]
 
         # type the molecules
         for molecule in molecules:
@@ -364,7 +344,7 @@ class CoverageFilter(BasicSettings, FilterComponent):
         return provenance
 
 
-class RotorFilter(BasicSettings, FilterComponent):
+class RotorFilter(BasicSettings, CustomWorkflowComponent):
     """
     Filters molecules based on the maximum allowed number of rotatable bonds.
 
@@ -380,6 +360,8 @@ class RotorFilter(BasicSettings, FilterComponent):
     component_fail_message = "The molecule has too many rotatable bonds."
 
     maximum_rotors: int = 4
+    _cache = {}
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -408,7 +390,7 @@ class RotorFilter(BasicSettings, FilterComponent):
         return result
 
 
-class SmartsFilter(BasicSettings, FilterComponent):
+class SmartsFilter(BasicSettings, CustomWorkflowComponent):
     """
     Filters molecules based on if they contain certain smarts substructures.
 
@@ -422,6 +404,8 @@ class SmartsFilter(BasicSettings, FilterComponent):
     component_fail_message = (
         "The molecule did/didn't contain the given smarts patterns."
     )
+    _cache = {}
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     allowed_substructures: Optional[List[str]] = None
     filtered_substructures: Optional[List[str]] = None
@@ -490,7 +474,7 @@ class SmartsFilter(BasicSettings, FilterComponent):
         return result
 
 
-class RMSDCutoffConformerFilter(BasicSettings, FilterComponent):
+class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
     """
     Prunes conformers from a molecule that are less than a specified RMSD from
     all other conformers
@@ -505,30 +489,28 @@ class RMSDCutoffConformerFilter(BasicSettings, FilterComponent):
 
     # custom components for this class
     cutoff: float = -1.0  # Assumes angstroms
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._processes = None  # This component uses an expensive calculation
+    _cache = {}
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _prune_conformers(self, molecule: Molecule) -> None:
 
-        L: int = len(molecule.conformers)
+        no_conformers: int = molecule.n_conformers
 
         # This will be used to determined whether it should be pruned
         # from the RMSD calculations. If we find it should be pruned
         # just once, it is sufficient to avoid it later in the pairwise
         # processing.
-        uniq: List = list([True] * L)
+        uniq: List = list([True] * no_conformers)
 
         # Needed to get the aligned best-fit RMSD
         rdmol = molecule.to_rdkit()
 
         rmsd = []
         # This begins the pairwise RMSD pruner
-        if L > 1 and self.cutoff >= 0.0:
+        if no_conformers > 1 and self.cutoff >= 0.0:
 
             # The reference conformer for RMSD calculation
-            for j in range(L - 1):
+            for j in range(no_conformers - 1):
 
                 # A previous loop has determine this specific conformer
                 # is too close to another, so we can entirely skip it
@@ -537,7 +519,7 @@ class RMSDCutoffConformerFilter(BasicSettings, FilterComponent):
 
                 # since k starts from j+1, we are only looking at the
                 # upper triangle of the comparisons (j < k)
-                for k in range(j + 1, L):
+                for k in range(j + 1, no_conformers):
 
                     rmsd_i = AlignMol(rdmol, rdmol, k, j)
                     rmsd.append(rmsd_i)
@@ -552,13 +534,6 @@ class RMSDCutoffConformerFilter(BasicSettings, FilterComponent):
                 molecule.conformers[j] for j, add_bool in enumerate(uniq) if add_bool
             ]
 
-            # TODO: use a logger
-            # rmsd = np.array(rmsd)
-            # print(
-            #     "Pruned conformers {}/{} min={} mean={} max={}".format(
-            #         len(confs), L, rmsd.min(), rmsd.mean(), rmsd.max()
-            #     )
-            # )
             molecule._conformers = confs.copy()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
