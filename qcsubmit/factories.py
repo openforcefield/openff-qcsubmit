@@ -476,6 +476,8 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
         description: str,
         tagline: str,
         metadata: Optional[Metadata] = None,
+        processors: Optional[int] = None,
+        verbose: bool = True,
     ) -> BasicDataset:
         """
         Process the input molecules through the given workflow then create and populate the dataset class which acts as
@@ -490,6 +492,8 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
             tagline: A tagline displayed with collection name in the QCArchive.
             metadata: Any metadata which should be associated with this dataset this can be changed from the default
                 after making the dataset.
+            processors: The number of processors avilable to the workflow, note None will use all avilable processors.
+            verbose: If True a progress bar for each workflow component will be shown.
 
         Example:
             How to make a dataset from a list of molecules
@@ -538,7 +542,9 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
         if self.workflow:
             for component in self.workflow.values():
                 workflow_molecules = component.apply(
-                    molecules=workflow_molecules.molecules
+                    molecules=workflow_molecules.molecules,
+                    processors=processors,
+                    verbose=verbose,
                 )
 
                 dataset.filter_molecules(
@@ -762,6 +768,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         description: str,
         tagline: str,
         metadata: Optional[Metadata] = None,
+        processors: Optional[int] = None,
+        verbose: bool = True,
     ) -> TorsiondriveDataset:
         """
         Process the input molecules through the given workflow then create and populate the torsiondrive
@@ -785,6 +793,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             tagline: A short string overview of the collection displayed on the QCArchive.
             metadata: Any metadata which should be associated with this dataset this can be changed from the default
                 after making the dataset.
+            processors: The number of processors avilable to the workflow, note None will use all avilable processors.
+            verbose: If True a progress bar for each workflow component will be shown.
 
         Returns:
             A [DataSet][qcsubmit.datasets.TorsiondriveDataset] instance populated with the molecules that have passed
@@ -831,7 +841,9 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         if self.workflow:
             for component_name, component in self.workflow.items():
                 workflow_molecules = component.apply(
-                    molecules=workflow_molecules.molecules
+                    molecules=workflow_molecules.molecules,
+                    processors=processors,
+                    verbose=verbose,
                 )
 
                 dataset.filter_molecules(

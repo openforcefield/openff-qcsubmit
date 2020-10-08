@@ -38,6 +38,20 @@ class ResultsConfig(BaseModel):
         json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
 
 
+class ComponentProperties(BaseModel):
+    """
+    The workflow properties class which controls if the component can be used in multiprocessing or if the component
+    produces duplicates.
+    """
+
+    process_parallel: bool = True
+    produces_duplicates: bool = True
+
+    class Config:
+        allow_mutation: bool = False
+        extra: "forbid"
+
+
 class QCSpec(ResultsConfig):
 
     method: constr(strip_whitespace=True) = "B3LYP-D3BJ"

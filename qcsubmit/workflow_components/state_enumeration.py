@@ -1,30 +1,18 @@
 """
 Components to expand stereochemistry and tautomeric states of molecules.
 """
-import abc
-from typing import List, Tuple, Union
+from typing import List
 
 from openforcefield.topology import Molecule
-from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
+from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
 
+from ..common_structures import ComponentProperties
 from ..datasets import ComponentResult
 from ..utils import check_missing_stereo
 from .base_component import CustomWorkflowComponent, ToolkitValidator
 
 
-class StateEnumeratorComponent(CustomWorkflowComponent, abc.ABC):
-    """
-    A base class for state enumerator components, which define common settings
-    and configuration
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._skip_unique_check: bool = False  # Enumerators do create molecules
-        self._processes = None  # Most enumerators are expensive
-
-
-class EnumerateTautomers(ToolkitValidator, StateEnumeratorComponent):
+class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
     """
     Enumerate the tautomers of a molecule using the backend toolkits through the OFFTK.
 
@@ -45,6 +33,14 @@ class EnumerateTautomers(ToolkitValidator, StateEnumeratorComponent):
 
     # custom settings for the class
     max_tautomers: int = 20
+    _cache = {}
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
+
+    def _apply_init(self, result: ComponentResult) -> None:
+        """
+        Here we load up the toolkit backend into the cache.
+        """
+        self._cache["toolkit"] = self._toolkits[self.toolkit]()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -58,7 +54,7 @@ class EnumerateTautomers(ToolkitValidator, StateEnumeratorComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        toolkit = self._toolkits[self.toolkit]()
+        toolkit = self._cache["toolkit"]
 
         result = self._create_result()
 
@@ -80,7 +76,7 @@ class EnumerateTautomers(ToolkitValidator, StateEnumeratorComponent):
         return result
 
 
-class EnumerateStereoisomers(ToolkitValidator, StateEnumeratorComponent):
+class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     """
     Enumerate the stereo centers and bonds of a molecule using the backend toolkits through the OFFTK, only well defined
     molecules are returned by this component, this is check via a OFFTK round trip.
@@ -109,26 +105,17 @@ class EnumerateStereoisomers(ToolkitValidator, StateEnumeratorComponent):
     component_fail_message = (
         "The molecules stereo centers or bonds could not be enumerated"
     )
-
+    _cache = {}
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
     undefined_only: bool = False
     max_isomers: int = 20
     rationalise: bool = True
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._cache: Union[OpenEyeToolkitWrapper, RDKitToolkitWrapper, None] = None
-
     def _apply_init(self, result: ComponentResult) -> None:
 
-        self._cache = self._toolkits[self.toolkit]()
+        self._cache["toolkit"] = self._toolkits[self.toolkit]()
 
-    def _apply_finalize(self, result: ComponentResult) -> None:
-
-        self._cache = None
-
-    def _apply(
-        self, molecules: List[Molecule]
-    ) -> Tuple[ComponentResult, List[Molecule]]:
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Enumerate stereo centers and bonds of the input molecule if no isomers are found only the input molecule is
         returned.
@@ -141,7 +128,7 @@ class EnumerateStereoisomers(ToolkitValidator, StateEnumeratorComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        toolkit = self._cache
+        toolkit = self._cache["toolkit"]
 
         result = self._create_result()
 
@@ -172,7 +159,7 @@ class EnumerateStereoisomers(ToolkitValidator, StateEnumeratorComponent):
         return result
 
 
-class EnumerateProtomers(ToolkitValidator, StateEnumeratorComponent):
+class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     """
     Enumerate the formal charges of the input molecule using the backend toolkits through the OFFTK.
 
@@ -187,22 +174,14 @@ class EnumerateProtomers(ToolkitValidator, StateEnumeratorComponent):
     # restrict the allowed toolkits for this module
     toolkit = "openeye"
     _toolkits = {"openeye": OpenEyeToolkitWrapper}
+    _cache = {}
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     max_states: int = 10
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._cache: bool = False
-
     def _apply_init(self, result: ComponentResult) -> None:
 
-        from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
-
-        self._cache = OpenEyeToolkitWrapper.is_available()
-
-    def _apply_finalize(self, result: ComponentResult) -> None:
-
-        self._cache = None
+        self._cache["toolkit"] = self._toolkits[self.toolkit]()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -221,7 +200,7 @@ class EnumerateProtomers(ToolkitValidator, StateEnumeratorComponent):
 
         result = self._create_result()
 
-        has_oe = self._cache
+        has_oe = self._cache["toolkit"]
 
         # must have openeye to use this feature
         if has_oe:
@@ -230,17 +209,17 @@ class EnumerateProtomers(ToolkitValidator, StateEnumeratorComponent):
                 try:
                     protomers = molecule.enumerate_protomers(max_states=self.max_states)
 
-                    if len(protomers) == 0:
-                        result.add_molecule(molecule)
-
-                    else:
-                        for protomer in protomers:
-                            result.add_molecule(protomer)
+                    for protomer in protomers:
+                        result.add_molecule(protomer)
+                    result.add_molecule(molecule)
 
                 except Exception:
                     result.filter_molecule(molecule)
+
+            return result
+
         else:
             for molecule in molecules:
                 result.filter_molecule(molecule)
 
-        return result
+            return result
