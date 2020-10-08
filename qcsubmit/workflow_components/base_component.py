@@ -63,8 +63,9 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
     def _apply_init(self, result: ComponentResult) -> None:
         """
         Any actions that should be performed before running the main apply method should set up such as setting up the cache for multiprocessing.
+        Here we clear out the cache in case something has been set.
         """
-        ...
+        self.cache.clear()
 
     def _apply_finalize(self, result: ComponentResult) -> None:
         """
