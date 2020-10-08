@@ -564,7 +564,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
             total=len(workflow_molecules.molecules),
             ncols=80,
             desc="{:30s}".format("Preparation"),
-            disable=not verbose
+            disable=not verbose,
         ):
             # order the molecule
             order_mol = molecule.canonical_order_atoms()
@@ -861,8 +861,13 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 )
 
         # now add the molecules to the correct attributes
-        for molecule in workflow_molecules.molecules:
-
+        for molecule in tqdm.tqdm(
+            workflow_molecules.molecules,
+            total=len(workflow_molecules.molecules),
+            ncols=80,
+            desc="{:30s}".format("Preparation"),
+            disable=not verbose,
+        ):
             # check for extras and keywords
             extras = molecule.properties.get("extras", {})
             keywords = molecule.properties.get("keywords", {})
