@@ -42,7 +42,6 @@ class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
         130  # values taken from the base settings of the openeye blockbuster filter
     )
     maximum_weight: int = 781
-    _cache = {}
     _properties: ComponentProperties = ComponentProperties(
         process_parallel=True, produces_duplicates=False
     )
@@ -139,7 +138,6 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
         "Br",
         "I",
     ]
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     @validator("allowed_elements", each_item=True)
@@ -170,7 +168,7 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
 
         from simtk.openmm.app import Element
 
-        self._cache["elements"] = [
+        self.cache["elements"] = [
             Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
             for ele in self.allowed_elements
         ]
@@ -191,7 +189,7 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
         result = self._create_result()
 
         # First lets convert the allowed_elements list to ints as this is what is stored in the atom object
-        _allowed_elements = self._cache["elements"]
+        _allowed_elements = self.cache["elements"]
 
         # now apply the filter
         for molecule in molecules:
@@ -256,12 +254,11 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     filtered_ids: Optional[Set[str]] = None
     forcefield: str = "openff_unconstrained-1.0.0.offxml"
     tag_dihedrals: bool = False
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply_init(self, result: ComponentResult) -> None:
 
-        self._cache["forcefield"] = ForceField(self.forcefield)
+        self.cache["forcefield"] = ForceField(self.forcefield)
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -278,7 +275,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
 
         result = self._create_result()
 
-        forcefield: ForceField = self._cache["forcefield"]
+        forcefield: ForceField = self.cache["forcefield"]
 
         # type the molecules
         for molecule in molecules:
@@ -360,7 +357,6 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
     component_fail_message = "The molecule has too many rotatable bonds."
 
     maximum_rotors: int = 4
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
@@ -404,7 +400,6 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
     component_fail_message = (
         "The molecule did/didn't contain the given smarts patterns."
     )
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     allowed_substructures: Optional[List[str]] = None
@@ -489,7 +484,6 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
 
     # custom components for this class
     cutoff: float = -1.0  # Assumes angstroms
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _prune_conformers(self, molecule: Molecule) -> None:

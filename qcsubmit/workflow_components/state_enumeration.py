@@ -33,14 +33,13 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
     # custom settings for the class
     max_tautomers: int = 20
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     def _apply_init(self, result: ComponentResult) -> None:
         """
         Here we load up the toolkit backend into the cache.
         """
-        self._cache["toolkit"] = self._toolkits[self.toolkit]()
+        self.cache["toolkit"] = self._toolkits[self.toolkit]()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -54,7 +53,7 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        toolkit = self._cache["toolkit"]
+        toolkit = self.cache["toolkit"]
 
         result = self._create_result()
 
@@ -105,7 +104,6 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = (
         "The molecules stereo centers or bonds could not be enumerated"
     )
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
     undefined_only: bool = False
     max_isomers: int = 20
@@ -113,7 +111,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
 
     def _apply_init(self, result: ComponentResult) -> None:
 
-        self._cache["toolkit"] = self._toolkits[self.toolkit]()
+        self.cache["toolkit"] = self._toolkits[self.toolkit]()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -128,7 +126,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        toolkit = self._cache["toolkit"]
+        toolkit = self.cache["toolkit"]
 
         result = self._create_result()
 
@@ -174,14 +172,13 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     # restrict the allowed toolkits for this module
     toolkit = "openeye"
     _toolkits = {"openeye": OpenEyeToolkitWrapper}
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     max_states: int = 10
 
     def _apply_init(self, result: ComponentResult) -> None:
 
-        self._cache["toolkit"] = self._toolkits[self.toolkit]()
+        self.cache["toolkit"] = self._toolkits[self.toolkit]()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -200,7 +197,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
         result = self._create_result()
 
-        has_oe = self._cache["toolkit"]
+        has_oe = self.cache["toolkit"]
 
         # must have openeye to use this feature
         if has_oe:

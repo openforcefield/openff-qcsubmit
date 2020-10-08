@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import tqdm
 from openforcefield.topology import Molecule
@@ -20,12 +20,18 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
     component_name: str
     component_description: str
     component_fail_message: str
-    _cache: Any = {}
+    cache: Dict = {}
     _properties: ComponentProperties
 
     class Config:
         validate_assignment = True
         arbitrary_types_allowed = True
+
+    def dict(self, *args, **kwargs):
+        exclude = kwargs.get("exclude", set())
+        exclude.add("cache")
+        kwargs["exclude"] = exclude
+        return super().dict(*args, **kwargs)
 
     @classmethod
     @abc.abstractmethod
@@ -64,7 +70,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         """
         Any clean up actions should be added here, by default the cache is cleaned.
         """
-        self._cache.clear()
+        self.cache.clear()
 
     def apply(
         self,

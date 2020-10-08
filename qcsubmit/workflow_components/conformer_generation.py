@@ -24,7 +24,6 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = "Conformers could not be generated"
 
     # custom components for this class
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     rms_cutoff: Optional[float] = None
@@ -36,9 +35,9 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         Set up the standard conformer filter
         """
         if self.rms_cutoff is not None:
-            self._cache["cutoff"] = self.rms_cutoff * unit.angstrom
+            self.cache["cutoff"] = self.rms_cutoff * unit.angstrom
         else:
-            self._cache["cutoff"] = None
+            self.cache["cutoff"] = None
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -58,7 +57,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
 
         result = self._create_result()
 
-        rms_cutoff = self._cache["cutoff"]
+        rms_cutoff = self.cache["cutoff"]
 
         for molecule in molecules:
             try:
