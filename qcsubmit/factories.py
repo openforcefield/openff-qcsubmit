@@ -1,6 +1,7 @@
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import tqdm
 from openforcefield import topology as off
 from pydantic import BaseModel, PositiveInt, validator
 from qcportal import FractalClient
@@ -476,6 +477,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
         description: str,
         tagline: str,
         metadata: Optional[Metadata] = None,
+        verbose: bool = True,
     ) -> BasicDataset:
         """
         Process the input molecules through the given workflow then create and populate the dataset class which acts as
@@ -552,7 +554,13 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
         molecular_complex = self._get_molecular_complex_info()
 
         # now add the molecules to the correct attributes
-        for molecule in workflow_molecules.molecules:
+        for molecule in tqdm.tqdm(
+            workflow_molecules.molecules,
+            total=len(workflow_molecules.molecules),
+            ncols=80,
+            desc="{:30s}".format("Preparation"),
+            disable=not verbose
+        ):
             # order the molecule
             order_mol = molecule.canonical_order_atoms()
             attributes = self.create_cmiles_metadata(molecule=order_mol)
