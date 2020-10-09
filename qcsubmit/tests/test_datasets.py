@@ -60,7 +60,7 @@ def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
     return molecules
 
 
-def get_dhiedral(molecule: Molecule) -> Tuple[int, int, int, int]:
+def get_dihedral(molecule: Molecule) -> Tuple[int, int, int, int]:
     """
     Get a valid dihedral for the molecule.
     """
@@ -422,22 +422,73 @@ def test_position_set_constraint_validation(constraint_settings):
     pytest.param(("set", "dihedral", [0, 1, 2, 3], 50, None), id="set dihedral valid"),
     pytest.param(("scan", "dihedral", [0, 1, 2, 3], 50, ConstraintError), id="invalid scan constraint"),
 ])
-def test_add_constraints_to_entry(constraint_settings):
+def test_add_constraints_to_entry_warnings(constraint_settings):
     """
-    Test adding new constraints to a valid dataset entry.
+    Test adding new constraints to a valid dataset entry, make sure warning are raised as some constraints are not bonded.
     """
+    import warnings
     mol = Molecule.from_smiles("CC")
     entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
     # get the constraint info
     constraint, constraint_type, indices, value, error = constraint_settings
     if error is None:
-        entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+        with pytest.warns(UserWarning) as all_warnings:
+            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+            assert len(all_warnings) == 1
         assert entry.constraints.has_constraints is True
         assert "constraints" in entry.formatted_keywords
 
     else:
         with pytest.raises(error):
             entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+
+
+@pytest.mark.parametrize("constraint_settings", [
+    pytest.param(("freeze", "dihedral", [3, 0, 1, 5], None, None), id="freeze dihedral no warning"),
+    pytest.param(("set", "angle", [3, 0, 1], 50, None), id="set angle no warning."),
+    pytest.param(("freeze", "distance", [0, 1], None, None), id="freeze distance no warning."),
+    pytest.param(("scan", "dihedral", [0, 1, 2, 3], 50, ConstraintError), id="invalid scan constraint"),
+])
+def test_add_constraints_to_entry(constraint_settings):
+    """
+    Test adding new constraints to a valid dataset entry make sure no warnings are raised as the constraints are bonded.
+    """
+    import warnings
+    mol = Molecule.from_smiles("CC")
+    entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
+    # get the constraint info
+    constraint, constraint_type, indices, value, error = constraint_settings
+    if error is None:
+        with pytest.warns(None) as all_warnings:
+            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+        # make sure no warnings were raised
+        assert len(all_warnings) == 0
+        assert entry.constraints.has_constraints is True
+        assert "constraints" in entry.formatted_keywords
+
+    else:
+        with pytest.raises(error):
+            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+
+
+def test_constraints_multiple_warnings():
+    """
+    Test adding multiple non-bonded constraints to an entry and make sure many warnings are raised.
+    """
+    import warnings
+    mol = Molecule.from_smiles("CC")
+    # build the constraints
+    constraints = Constraints()
+    constraints.add_freeze_constraint("dihedral", [0, 1, 2, 3])
+    constraints.add_set_constraint("angle", [0, 1, 2], 70)
+    constraints.add_freeze_constraint("distance", [1, 2])
+    constraints.add_set_constraint("xyz", [0], [1, 1, 1])
+    with pytest.warns(UserWarning) as all_warnings:
+        entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={},
+                             extras={}, constraints=constraints)
+        # only 3 of the constraints involve bonds
+        # make sure they all provided a warning
+        assert len(all_warnings) == 3
 
 
 @pytest.mark.parametrize("constraint_setting", [
@@ -449,18 +500,21 @@ def test_add_entry_with_constraints(constraint_setting):
     """
     Add an entry to a dataset with constraints in the keywords and make sure they converted to the constraints field.
     """
+    import warnings
     dataset = BasicDataset()
     # now add a molecule with constraints in the keywords
     mol = Molecule.from_smiles("CC")
     constraints = {"set": [{"type": "dihedral", "indices": [0, 1, 2, 3], "value": 50},
                            {"type": "angle", "indices": [0, 1, 2], "value": 50},
-                           {"type": "distance", "indices": [0, 1], "value": 1}]}
+                           {"type": "distance", "indices": [1, 2], "value": 1}]}
     index = mol.to_smiles()
 
     if constraint_setting == "constraints":
-        dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol), constraints=constraints)
+        with pytest.warns(UserWarning):
+            dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol), constraints=constraints)
     elif constraint_setting == "keywords":
-        dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol), keywords={"constraints": constraints})
+        with pytest.warns(UserWarning):
+            dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol), keywords={"constraints": constraints})
     elif constraint_setting is None:
         dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol))
 
@@ -494,6 +548,15 @@ def test_constraints_are_equall():
 
     const1.add_freeze_constraint(constraint_type="distance", indices=[0, 1])
     assert const1 == const2
+
+
+def test_scf_prop_validation():
+    """
+    Make sure unsupported scf properties are not allowed into a dataset.
+    """
+    dataset = BasicDataset()
+    with pytest.raises(DatasetInputError):
+        dataset.scf_properties = ["ddec_charges"]
 
 
 def test_add_molecule_no_extras():
@@ -1327,7 +1390,7 @@ def test_Dataset_export_full_dataset_json(dataset_type):
         try:
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
         except TypeError:
-            dihedrals = [get_dhiedral(molecule), ]
+            dihedrals = [get_dihedral(molecule), ]
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
     with temp_directory():
         dataset.export_dataset("dataset.json")
@@ -1358,7 +1421,7 @@ def test_Dataset_export_full_dataset_json_mixing(dataset_type):
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
-        dihedrals = [get_dhiedral(molecule), ]
+        dihedrals = [get_dihedral(molecule), ]
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
     with temp_directory():
         dataset.export_dataset("dataset.json")
@@ -1382,7 +1445,7 @@ def test_Dataset_export_dict(dataset_type):
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
-        dihedrals = [get_dhiedral(molecule), ]
+        dihedrals = [get_dihedral(molecule), ]
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
 
     # add one failure
@@ -1417,7 +1480,7 @@ def test_Basicdataset_export_json(dataset_type):
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
-        dihedrals = [get_dhiedral(molecule), ]
+        dihedrals = [get_dihedral(molecule), ]
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
 
     # add one failure

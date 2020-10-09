@@ -34,6 +34,7 @@ from .exceptions import (
 from .procedures import GeometricProcedure
 from .results import SingleResult
 from .validators import (
+    check_constraints,
     check_improper_connection,
     check_linear_torsions,
     check_torsion_connection,
@@ -303,6 +304,8 @@ class DatasetEntry(DatasetConfig):
             kwargs["initial_molecules"] = schema_mols
 
         super().__init__(**kwargs)
+        # validate any constraints being added
+        check_constraints(constraints=self.constraints, molecule=self.off_molecule)
         # now validate the torsions check proper first
         if self.dihedrals is not None:
             if off_molecule is None:
@@ -368,6 +371,8 @@ class DatasetEntry(DatasetConfig):
             raise ConstraintError(
                 f"The constraint {constraint} is not available please chose from freeze or set."
             )
+        # run the constraint check
+        check_constraints(constraints=self.constraints, molecule=self.off_molecule)
 
     @property
     def formatted_keywords(self) -> Dict[str, Any]:
