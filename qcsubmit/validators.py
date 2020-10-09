@@ -2,12 +2,16 @@
 Centralise the validators for easy reuse between factories and datasets.
 """
 
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import qcelemental as qcel
 from openforcefield import topology as off
 
+from .constraints import Constraints
 from .exceptions import (
+    AngleConnectionError,
+    AtomConnectionError,
+    BondConnectionError,
     DatasetInputError,
     DihedralConnectionError,
     LinearTorsionError,
@@ -125,19 +129,131 @@ def check_torsion_connection(
     Raises:
         DihedralConnectionError: If the proper dihedral is not valid for this molecule.
     """
+    try:
+        _ = check_general_connection(connected_atoms=torsion, molecule=molecule)
+    except AtomConnectionError as e:
+        raise DihedralConnectionError(
+            f"The dihedral {torsion} was not valid for the molecule {molecule}, as there is no bond between atoms {e.atoms}."
+        )
 
-    for i in range(3):
+    return torsion
+
+
+def check_bond_connection(
+    bond: Tuple[int, int], molecule: off.Molecule
+) -> Tuple[int, int]:
+    """
+    Check that the given bond indices create a connected bond in the molecule.
+
+    Parameters:
+        bond: The bond indices that should be checked.
+        molecule: The molecule which we want to check the bond in.
+
+    Returns:
+        The validated bond tuple
+
+    Raises:
+        BondConnectionError: If the given tuple is not connected in the molecule.
+    """
+    try:
+        _ = check_general_connection(connected_atoms=bond, molecule=molecule)
+    except AtomConnectionError:
+        raise BondConnectionError(
+            f"The bond {bond} was not valid for the molecule {molecule}, as there is no bond between these atoms."
+        )
+
+    return bond
+
+
+def check_angle_connection(
+    angle: Tuple[int, int, int], molecule: off.Molecule
+) -> Tuple[int, int, int]:
+    """
+    Check that the given angle indices create a connected angle in the molecule.
+
+    Parameters:
+        angle: The angle indices that should be checked.
+        molecule: The molecule which we want to check the angle in.
+
+    Returns:
+        The validated angle tuple.
+
+    Raises:
+        AngleConnectionError: If the given angle is not connected in the molecule.
+    """
+    try:
+        _ = check_general_connection(connected_atoms=angle, molecule=molecule)
+    except AtomConnectionError as e:
+        raise AngleConnectionError(
+            f"The angle {angle} was not valid for the molecule {molecule}, as there is no bond between atoms {e.atoms}"
+        )
+    return angle
+
+
+def check_general_connection(
+    connected_atoms: List[int], molecule: off.Molecule
+) -> List[int]:
+    """
+    Check that the list of atoms are all connected in order by explicit bonds in the given molecule.
+
+    Parameters:
+        connected_atoms: A list of the atom indices that should be connected in order.
+        molecule: The molecule that should be checked for connected atoms.
+
+    Raises:
+        AtomConnectionError: If any two of the given list of atoms are not connected.
+
+    Returns:
+        The list of validated connected atom indices.
+    """
+    for i in range(len(connected_atoms) - 1):
         # get the atoms to be checked
-        atoms = [torsion[i], torsion[i + 1]]
+        atoms = [connected_atoms[i], connected_atoms[i + 1]]
         try:
             _ = molecule.get_bond_between(*atoms)
         except (off.topology.NotBondedError, IndexError):
             # catch both notbonded errors and tags on atoms not in the molecule
-            raise DihedralConnectionError(
-                f"The dihedral {torsion} was not valid for the molecule {molecule}, as there is no bond between atoms {atoms}."
+            raise AtomConnectionError(
+                f"The set of atoms {connected_atoms} was not valid for the molecule {molecule}, as there is no bond between atoms {atoms}.",
+                atoms=atoms,
             )
 
-    return torsion
+    return connected_atoms
+
+
+def check_constraints(constraints: Constraints, molecule: off.Molecule) -> Constraints:
+    """
+    Warn the user if any of the constraints are between atoms which are not bonded.
+    """
+    import warnings
+
+    _constraint_to_check = {
+        "distance": check_bond_connection,
+        "angle": check_angle_connection,
+        "dihedral": check_torsion_connection,
+    }
+
+    if constraints.has_constraints:
+        # check each constraint and warn if it is incorrect
+        all_constraints = [
+            constraint
+            for constraint_set in [constraints.freeze, constraints.set]
+            for constraint in constraint_set
+        ]
+        for constraint in all_constraints:
+            if constraint.type != "xyz":
+                try:
+                    _constraint_to_check[constraint.type](constraint.indices, molecule)
+                except (
+                    BondConnectionError,
+                    AngleConnectionError,
+                    DihedralConnectionError,
+                ) as e:
+                    warnings.warn(
+                        f"The molecule {molecule} has non bonded constraints is this intentional see error for more information; {e.error_message}"
+                    )
+
+    return constraints
 
 
 def check_linear_torsions(
@@ -170,7 +286,7 @@ def check_linear_torsions(
 
 def check_valence_connectivity(molecule: qcel.models.Molecule) -> qcel.models.Molecule:
     """
-    Check if the given molecule is one single molecule, also warn about imcomplete valence.
+    Check if the given molecule is one single molecule, also warn about incomplete valence.
     """
 
     import warnings

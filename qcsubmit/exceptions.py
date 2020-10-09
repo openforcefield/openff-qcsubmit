@@ -131,7 +131,7 @@ class DatasetCombinationError(QCSubmitException):
     The types of dataset are not the same and can not be combined.
     """
 
-    error_type = "dataset combination error"
+    error_type = "dataset_combination_error"
     header = "Dataset Combination Error"
 
 
@@ -140,5 +140,36 @@ class QCSpecificationError(QCSubmitException):
     The QCSpecification combination of method basis and program is not valid.
     """
 
-    error_type = "qcspecification error"
+    error_type = "qcspecification_error"
     header = "QCSpecification Error"
+
+
+class AngleConnectionError(QCSubmitException):
+    """
+    The tagged angle is not connected in this molecule and the constraint or grid opt could be incorrect.
+    """
+
+    error_type = "angle_connection_error"
+    header = "Angle Connection Error"
+
+
+class BondConnectionError(QCSubmitException):
+    """
+    The tagged bond is not connected in this molecule and the constraint or grid opt could be incorrect.
+    """
+
+    error_type = "bond_connection_error"
+    header = "Bond Connection Error"
+
+
+class AtomConnectionError(QCSubmitException):
+    """
+    A general connection error raised when a general connection check fails.
+    """
+
+    error_type = "atom_connection_error"
+    header = "Atom Connection Error"
+
+    def __init__(self, message: str, atoms):
+        super(AtomConnectionError, self).__init__(message=message)
+        self.atoms = atoms
