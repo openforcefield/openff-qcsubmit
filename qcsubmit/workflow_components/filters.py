@@ -168,7 +168,7 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
 
         from simtk.openmm.app import Element
 
-        self.cache["elements"] = [
+        self._cache["elements"] = [
             Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
             for ele in self.allowed_elements
         ]
@@ -189,7 +189,7 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
         result = self._create_result()
 
         # First lets convert the allowed_elements list to ints as this is what is stored in the atom object
-        _allowed_elements = self.cache["elements"]
+        _allowed_elements = self._cache["elements"]
 
         # now apply the filter
         for molecule in molecules:
@@ -258,7 +258,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
 
     def _apply_init(self, result: ComponentResult) -> None:
 
-        self.cache["forcefield"] = ForceField(self.forcefield)
+        self._cache["forcefield"] = ForceField(self.forcefield)
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -275,7 +275,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
 
         result = self._create_result()
 
-        forcefield: ForceField = self.cache["forcefield"]
+        forcefield: ForceField = self._cache["forcefield"]
 
         # type the molecules
         for molecule in molecules:

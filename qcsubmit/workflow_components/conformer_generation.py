@@ -35,9 +35,9 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         Set up the standard conformer filter
         """
         if self.rms_cutoff is not None:
-            self.cache["cutoff"] = self.rms_cutoff * unit.angstrom
+            self._cache["cutoff"] = self.rms_cutoff * unit.angstrom
         else:
-            self.cache["cutoff"] = None
+            self._cache["cutoff"] = None
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -57,7 +57,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
 
         result = self._create_result()
 
-        rms_cutoff = self.cache["cutoff"]
+        rms_cutoff = self._cache["cutoff"]
 
         for molecule in molecules:
             try:

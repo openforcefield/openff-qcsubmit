@@ -1,16 +1,36 @@
 import abc
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import tqdm
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
 from pydantic import BaseModel, validator
+from pydantic.main import ModelMetaclass
 
 from ..common_structures import ComponentProperties
 from ..datasets import ComponentResult
 
 
-class CustomWorkflowComponent(BaseModel, abc.ABC):
+class InheritSlots(ModelMetaclass):
+
+    # This allows subclasses of CustomWorkFlowComponentto inherit __slots__
+    def __new__(mcs, name, bases, namespace):
+
+        slots = set(namespace.pop("__slots__", tuple()))
+
+        for base in bases:
+            if hasattr(base, "__slots__"):
+                slots.update(base.__slots__)
+
+        if "__dict__" in slots:
+            slots.remove("__dict__")
+
+        namespace["__slots__"] = tuple(slots)
+
+        return ModelMetaclass.__new__(mcs, name, bases, namespace)
+
+
+class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=InheritSlots):
     """
     This is an abstract base class which should be used to create all workflow components, following the design of this
     class should allow users to easily create new work flow components with out needing to change much of the dataset
@@ -20,18 +40,46 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
     component_name: str
     component_description: str
     component_fail_message: str
-    cache: Dict = {}
     _properties: ComponentProperties
+    _cache: Dict
 
     class Config:
         validate_assignment = True
         arbitrary_types_allowed = True
 
-    def dict(self, *args, **kwargs):
-        exclude = kwargs.get("exclude", set())
-        exclude.add("cache")
-        kwargs["exclude"] = exclude
-        return super().dict(*args, **kwargs)
+    # this is a pydantic workaround to add private variables taken from
+    # https://github.com/samuelcolvin/pydantic/issues/655
+    __slots__ = [
+        "_cache",
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super(CustomWorkflowComponent, self).__init__(*args, **kwargs)
+        self._cache = {}
+
+    def __setattr__(self, attr: str, value: Any) -> None:
+        """
+        Overwrite the Pydantic setattr to configure the handling of our __slots___
+        """
+        if attr in self.__slots__:
+            object.__setattr__(self, attr, value)
+        else:
+            super(CustomWorkflowComponent, self).__setattr__(attr, value)
+
+    # getstate and setstate are needed since private instance members (_*)
+    # are not included in pickles by Pydantic at the current moment. Force them
+    # to be added here. This is needed for multiprocessing support.
+    def __getstate__(self):
+        return (
+            super().__getstate__(),
+            {slot: getattr(self, slot) for slot in self.__slots__},
+        )
+
+    def __setstate__(self, state):
+        super().__setstate__(state[0])
+        d = state[1]
+        for slot in d:
+            setattr(self, slot, d[slot])
 
     @classmethod
     @abc.abstractmethod
@@ -62,16 +110,16 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
 
     def _apply_init(self, result: ComponentResult) -> None:
         """
-        Any actions that should be performed before running the main apply method should set up such as setting up the cache for multiprocessing.
-        Here we clear out the cache in case something has been set.
+        Any actions that should be performed before running the main apply method should set up such as setting up the _cache for multiprocessing.
+        Here we clear out the _cache in case something has been set.
         """
-        self.cache.clear()
+        self._cache.clear()
 
     def _apply_finalize(self, result: ComponentResult) -> None:
         """
-        Any clean up actions should be added here, by default the cache is cleaned.
+        Any clean up actions should be added here, by default the _cache is cleaned.
         """
-        self.cache.clear()
+        self._cache.clear()
 
     def apply(
         self,

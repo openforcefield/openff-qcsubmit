@@ -37,9 +37,9 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
     def _apply_init(self, result: ComponentResult) -> None:
         """
-        Here we load up the toolkit backend into the cache.
+        Here we load up the toolkit backend into the _cache.
         """
-        self.cache["toolkit"] = self._toolkits[self.toolkit]()
+        self._cache["toolkit"] = self._toolkits[self.toolkit]()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -53,7 +53,7 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        toolkit = self.cache["toolkit"]
+        toolkit = self._cache["toolkit"]
 
         result = self._create_result()
 
@@ -111,7 +111,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
 
     def _apply_init(self, result: ComponentResult) -> None:
 
-        self.cache["toolkit"] = self._toolkits[self.toolkit]()
+        self._cache["toolkit"] = self._toolkits[self.toolkit]()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -126,7 +126,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        toolkit = self.cache["toolkit"]
+        toolkit = self._cache["toolkit"]
 
         result = self._create_result()
 
@@ -178,7 +178,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
     def _apply_init(self, result: ComponentResult) -> None:
 
-        self.cache["toolkit"] = self._toolkits[self.toolkit]()
+        self._cache["toolkit"] = self._toolkits[self.toolkit]()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -197,7 +197,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
         result = self._create_result()
 
-        has_oe = self.cache["toolkit"]
+        has_oe = self._cache["toolkit"]
 
         # must have openeye to use this feature
         if has_oe:
