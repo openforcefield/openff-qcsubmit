@@ -11,6 +11,7 @@ from qcfractal.testing import fractal_compute_server
 from qcportal import FractalClient
 
 from qcsubmit.common_structures import Metadata
+from qcsubmit.constraints import Constraints
 from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
 from qcsubmit.exceptions import DatasetInputError, MissingBasisCoverageError
 from qcsubmit.factories import (
@@ -367,6 +368,46 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
             assert basis.name.lower() == "sto-3g"
             orbitals = result.get_wavefunction("orbitals_a")
             assert orbitals.shape is not None
+
+
+def test_optimization_submissions_with_constraints(fractal_compute_server):
+    """
+    Make sure that the constraints are added to the optimization and enforced.
+    """
+    client = FractalClient(fractal_compute_server)
+    ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
+    factory = OptimizationDatasetFactory()
+    dataset = OptimizationDataset(dataset_name="Test optimizations with constraint", description="Test optimization dataset with constraints", tagline="Testing optimization datasets")
+    # add just mm spec
+    dataset.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default", spec_description="mm default spec", overwrite=True)
+    # build some constraints
+    constraints = Constraints()
+    constraints.add_set_constraint(constraint_type="dihedral", indices=[2, 0, 1, 5], value=60, bonded=True)
+    constraints.add_freeze_constraint(constraint_type="distance", indices=[0, 1], bonded=True)
+    # add the molecule
+    attributes = factory.create_cmiles_metadata(ethane)
+    index = ethane.to_smiles()
+    dataset.add_molecule(index=index, molecule=ethane, attributes=attributes, constraints=constraints)
+    # now add a mock url so we can submit the data
+    dataset.metadata.long_description_url = "https://test.org"
+
+    # now submit again
+    dataset.submit(client=client, await_result=False)
+
+    fractal_compute_server.await_results()
+
+    # make sure of the results are complete
+    ds = client.get_collection("OptimizationDataset", dataset.dataset_name)
+    record = ds.get_record(ds.df.index[0], "default")
+    assert "constraints" in record.keywords
+    assert record.status.value == "COMPLETE"
+    assert record.error is None
+    assert len(record.trajectory) > 1
+
+    # now make sure the constraints worked
+    final_molecule = record.get_final_molecule()
+    assert pytest.approx(60, final_molecule.measure((2, 0, 1, 5)))
+    assert pytest.approx(record.get_initial_molecule().measure((0, 1)), final_molecule.measure((0, 1)))
 
 
 @pytest.mark.parametrize("specification", [
