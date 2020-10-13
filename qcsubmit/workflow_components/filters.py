@@ -376,6 +376,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
     Note:
         * The smarts tags used for filtering should be numerically tagged in order to work with the toolkit.
         * If None is passed to the allowed list all molecules that dont match a filter pattern will be passed.
+        * If tag_dihedrals is set to true any smarts pattern tagging 4 atoms in a torsion will be prepared for a torsiondrive.
     """
 
     component_name = "SmartsFilter"
@@ -386,6 +387,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
 
     allowed_substructures: Optional[List[str]] = None
     filtered_substructures: Optional[List[str]] = None
+    tag_dihedrals: bool = False
 
     @validator("allowed_substructures", "filtered_substructures", each_item=True)
     def _check_environments(cls, environment):
@@ -429,12 +431,27 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
 
         else:
             for molecule in molecules:
+                # keep all dihedral matches here
+                dihedrals = TorsionIndexer()
                 for substructure in self.allowed_substructures:
-                    if molecule.chemical_environment_matches(query=substructure):
+                    matches = molecule.chemical_environment_matches(query=substructure)
+                    if matches and not self.tag_dihedrals:
                         result.add_molecule(molecule=molecule)
                         break
+                    elif matches and self.tag_dihedrals:
+                        # add the dihedral for tagging if valid
+                        for match in matches:
+                            # this will handle deduplication
+                            dihedrals.add_torsion(torsion=match, scan_range=None)
+                    else:
+                        continue
                 else:
-                    self.fail_molecule(molecule=molecule, component_result=result)
+                    # if we have dihedrals then add the molecule else fail it as we didn't break
+                    if dihedrals.n_torsions >= 1:
+                        molecule.properties["dihedrals"] = dihedrals
+                        result.add_molecule(molecule)
+                    else:
+                        self.fail_molecule(molecule=molecule, component_result=result)
 
         if self.filtered_substructures is not None:
             # now we only want to check the molecules in the pass list
