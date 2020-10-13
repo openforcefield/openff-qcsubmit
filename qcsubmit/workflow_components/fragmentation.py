@@ -27,7 +27,6 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         "Fragment a molecule across all rotatble bonds using the WBO fragmenter."
     )
     component_fail_message = "The molecule could not be fragmented correctly."
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
     threshold: float = 0.03
     keep_non_rotor_ring_substituents: bool = False

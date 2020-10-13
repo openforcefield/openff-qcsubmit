@@ -24,7 +24,6 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = "Conformers could not be generated"
 
     # custom components for this class
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     rms_cutoff: Optional[float] = None

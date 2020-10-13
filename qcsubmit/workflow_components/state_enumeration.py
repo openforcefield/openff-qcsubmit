@@ -33,12 +33,11 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
     # custom settings for the class
     max_tautomers: int = 20
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     def _apply_init(self, result: ComponentResult) -> None:
         """
-        Here we load up the toolkit backend into the cache.
+        Here we load up the toolkit backend into the _cache.
         """
         self._cache["toolkit"] = self._toolkits[self.toolkit]()
 
@@ -105,7 +104,6 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = (
         "The molecules stereo centers or bonds could not be enumerated"
     )
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
     undefined_only: bool = False
     max_isomers: int = 20
@@ -174,7 +172,6 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     # restrict the allowed toolkits for this module
     toolkit = "openeye"
     _toolkits = {"openeye": OpenEyeToolkitWrapper}
-    _cache = {}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     max_states: int = 10
