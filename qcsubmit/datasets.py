@@ -3,10 +3,9 @@ import os
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
-import tqdm
-
 import qcelemental as qcel
 import qcportal as ptl
+import tqdm
 from openforcefield import topology as off
 from pydantic import PositiveInt, constr, validator
 from qcfractal.interface import FractalClient
@@ -1096,15 +1095,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
         return coverage
 
-    def visualize(
-        self,
-        file_name: str,
-        columns: int = 4,
-        toolkit: str = None,
-        annotate: bool = False,
-        hires: bool = False,
-        verbose=True,
-    ) -> None:
+    def visualize(self, file_name: str, columns: int = 4, toolkit: str = None) -> None:
         """
         Create a pdf file of the molecules with any torsions highlighted using either openeye or rdkit.
 
@@ -1112,8 +1103,6 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             file_name: The name of the pdf file which will be produced.
             columns: The number of molecules per row.
             toolkit: The option to specify the backend toolkit used to produce the pdf file.
-            annotate: Whether the PDF should be annotated with searchable text
-            hires: Save the PDF using high resolution images
         """
         from openforcefield.utils.toolkits import OPENEYE_AVAILABLE, RDKIT_AVAILABLE
 
@@ -1122,11 +1111,10 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             "rdkit": (RDKIT_AVAILABLE, self._create_rdkit_pdf),
         }
 
-        kwargs = dict(hires=hires, annotate=annotate, verbose=verbose)
         if toolkit:
             try:
                 _, pdf_func = toolkits[toolkit.lower()]
-                return pdf_func(file_name, columns, **kwargs)
+                return pdf_func(file_name, columns)
             except KeyError:
                 raise ValueError(
                     f"The requested toolkit backend: {toolkit} is not supported, chose from {toolkits.keys()}"
@@ -1136,18 +1124,14 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             for toolkit in toolkits:
                 available, pdf_func = toolkits[toolkit]
                 if available:
-                    return pdf_func(file_name, columns, **kwargs)
+                    return pdf_func(file_name, columns)
             raise ImportError(
                 f"No backend toolkit was found to generate the pdf please install openeye and/or rdkit."
             )
 
-    def _create_openeye_pdf(
-        self, file_name: str, columns: int, annotate=False, hires=False, verbose=True
-    ) -> None:
+    def _create_openeye_pdf(self, file_name: str, columns: int) -> None:
         """
         Make the pdf of the molecules use openeye.
-        TODO: Annotated version using OE
-        TODO: Hires/lores functionality
         """
 
         from openeye import oechem, oedepict
@@ -1233,168 +1217,17 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
         oedepict.OEWriteReport(file_name, report)
 
-    def _create_rdkit_pdf_annotated(
-        self, file_name: str, columns: int = 1, hires=False, verbose=True
-    ) -> None:
-        """
-        Make searchable pdf of the molecules using rdkit and wkhtmltopdf.
-        """
-        from rdkit.Chem import AllChem, Draw
-        from rdkit import Chem
-        from io import BytesIO
-        import base64
-
-        try:
-            import pdfkit
-        except ImportError as e:
-            print(e, end="\n\n")
-            print(
-                "To create annotated PDFs, install wkhtmltopdf from conda or "
-                "your system package manager, and pdfkit (a light python "
-                "wrapper to wkhtmltopdf) from pip"
-            )
-            raise ImportError
-
-        image_text = []
-
-        mols_per_page = 2
-
-        width = 500
-        height = 500
-
-        if hires:
-            width *= 2
-            height *= 2
-
-        # Force 1 column per page since copy/pasting a SMILES code becomes
-        # frustrating across a table, and sometimes # selects into the other columns
-
-        # If the entry is the same as the canonical smiles, don't write both
-        row_with_smi = (
-            "<tr><td>#{4:s}:</td></tr>\n"
-            + '<tr><td><img width="40%" src="data:image/png;base64,{0:s}"/></td></tr>\n'
-            + "<tr><td>Entry: {1:s}</td></tr>\n"
-            + "<tr><td>SMILES: {2:s}</td></tr>\n"
-            + "<tr><td>Conformers: {3:s}</td></tr>\n"
-        )
-        row_no_smi = (
-            "<tr><td>#{3:s}:</td></tr>\n"
-            + '<tr><td><img width="40%" src="data:image/png;base64,{0:s}"/></td></tr>\n'
-            + "<tr><td>Entry: {1:s}</td></tr>\n"
-            + "<tr><td>Conformers: {2:s}</td></tr>\n"
-        )
-
-        # adding InChi near doubles the PDF size
-        # + "<tr><td>InChI: {3:s}</td></tr>\n"
-
-        table_header = (
-            '<table style="page-break-before:always; font-family:arial; width:8in;">\n'
-        )
-        doc = ""
-        table_footer = "</table></br>\n"
-
-        for idx, data in tqdm.tqdm(
-            enumerate(self.dataset.values()),
-            total=len(self.dataset.values()),
-            ncols=80,
-            desc=file_name,
-            disable=not verbose,
-        ):
-
-            rdkit_mol = Chem.RemoveHs(data.off_molecule.to_rdkit())
-            AllChem.Compute2DCoords(rdkit_mol)
-
-            # Generate the image to embed
-            pil = Draw.MolToImage(
-                rdkit_mol,
-                size=(width, height),
-                highlightAtomLists=data.dihedrals,
-            )
-            with BytesIO() as sio:
-                pil.save(sio, format="PNG")
-                pil_dat = sio.getvalue()
-
-            include_smi = data.attributes["canonical_isomeric_smiles"] != data.index
-
-            # Create the table and add the row
-            if idx % mols_per_page == 0:
-                doc += table_header
-
-            if include_smi:
-
-                image_text = [
-                    data.index,
-                    data.attributes["canonical_isomeric_smiles"],
-                    str(len(data.off_molecule.conformers)),
-                ]
-                row = row_with_smi
-
-            else:
-
-                image_text = [
-                    data.index,
-                    str(len(data.off_molecule.conformers)),
-                ]
-                row = row_no_smi
-
-            # The data of the row
-            # Note that the image here is directly embedded as to prevent
-            # loading/saving to a file on disk
-            row_elems = [
-                base64.encodebytes(pil_dat).decode(),
-                *image_text,
-                str(idx + 1),
-            ]
-            doc += row.format(*row_elems)
-
-            # End the table if we hit our limit. A new table causes a page break
-            if idx % mols_per_page == mols_per_page - 1:
-                doc += table_footer
-
-        pdfkit_opts = {
-            "page-size": "Letter",
-            "margin-top": "0.5in",
-            "margin-right": "0.5in",
-            "margin-bottom": "0.5in",
-            "margin-left": "0.5in",
-            "image-dpi": "90",
-            "image-quality": "80",
-        }
-        if hires:
-            pdfkit_opts["image-dpi"] = "300"
-            pdfkit_opts["image-quality"] = "95"
-
-        # A light wrapper to wkhtmltopdf; saves us writing to an intermediate file on disk
-        # and a hacky process call that reads it in
-        # The alternative to this is pandoc, which has heavier dependencies (latex),
-        # and uses wkhtmltopdf if using html->pdf format anyways
-        if idx > 10000 and verbose:
-            print(
-                "Processing {:s}; this could take several minutes for a large dataset".format(
-                    file_name
-                )
-            )
-        pdfkit.from_string(doc, file_name, options=pdfkit_opts)
-
-    def _create_rdkit_pdf(
-        self, file_name: str, columns: int, annotate=False, hires=False, verbose=True
-    ) -> None:
+    def _create_rdkit_pdf(self, file_name: str, columns: int) -> None:
         """
         Make the pdf of the molecules using rdkit.
         """
         from rdkit.Chem import AllChem, Draw
 
-        if annotate:
-            return self._create_rdkit_pdf_annotated(
-                file_name, columns, hires=hires, verbose=verbose
-            )
-
         molecules = []
         tagged_atoms = []
-        for data in list(self.dataset.values()):
-            rdkit_mol = AllChem.RemoveHs(data.off_molecule.to_rdkit())
+        for data in self.dataset.values():
+            rdkit_mol = data.off_molecule.to_rdkit()
             AllChem.Compute2DCoords(rdkit_mol)
-
             molecules.append(rdkit_mol)
             if data.dihedrals is not None:
                 tagged_atoms.extend(data.dihedrals)
@@ -1402,27 +1235,14 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         if not tagged_atoms:
             tagged_atoms = None
 
-        width = 500
-        height = 500
-        kwargs = dict(dpi=(90, 90), quality=85)
-
-        if hires:
-            width *= 2
-            height *= 2
-            kwargs = dict(dpi=(300, 300), quality=95)
         # now make the image
-
-        # If the number of molecules is large, this will fail
-        # likely since it tries to save a single (!) pdf page
-        # Instead, use the annotated version instead for now, which supplies
-        # page breaks
         imagie = Draw.MolsToGridImage(
             molecules,
             molsPerRow=columns,
-            subImgSize=(width, height),
+            subImgSize=(500, 500),
             highlightAtomLists=tagged_atoms,
         )
-        imagie.save(file_name, **kwargs)
+        imagie.save(file_name)
 
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
         """
