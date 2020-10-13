@@ -20,6 +20,8 @@ from qcsubmit.datasets import (
     TorsiondriveDataset,
 )
 from qcsubmit.exceptions import (
+    AngleConnectionError,
+    BondConnectionError,
     ConstraintError,
     DatasetCombinationError,
     DatasetInputError,
@@ -35,6 +37,11 @@ from qcsubmit.utils import (
     condense_molecules,
     get_data,
     update_specification_and_metadata,
+)
+from qcsubmit.validators import (
+    check_angle_connection,
+    check_bond_connection,
+    check_torsion_connection,
 )
 
 
@@ -472,7 +479,7 @@ def test_add_entry_with_constraints(constraint_setting):
     """
     dataset = BasicDataset()
     # now add a molecule with constraints in the keywords
-    mol = Molecule.from_smiles("CC")
+    mol = Molecule.from_file(get_data("ethane.sdf"), "sdf")
     constraints = {"set": [{"type": "dihedral", "indices": [0, 1, 2, 3], "value": 50, "bonded": False},
                            {"type": "angle", "indices": [0, 1, 2], "value": 50, "bonded": False},
                            {"type": "distance", "indices": [1, 2], "value": 1, "bonded": False}]}
@@ -492,6 +499,21 @@ def test_add_entry_with_constraints(constraint_setting):
     else:
         assert entry.keywords == entry.formatted_keywords
         assert entry.constraints.has_constraints is False
+
+
+@pytest.mark.parametrize("atom_data", [
+    pytest.param(([1, 2], check_bond_connection, BondConnectionError), id="Bond connection error"),
+    pytest.param(([0, 1, 2], check_angle_connection, AngleConnectionError), id="Angle connection error"),
+    pytest.param(([5, 0, 1, 2], check_torsion_connection, DihedralConnectionError), id="Dihedral connection error")
+])
+def test_check_connection_types_error(atom_data):
+    """
+    Make sure the connection checks raise the correct errors.
+    """
+    ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
+    atoms, check, error = atom_data
+    with pytest.raises(error):
+        check(atoms, ethane)
 
 
 def test_constraints_are_equall():
