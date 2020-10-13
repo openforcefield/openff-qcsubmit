@@ -1218,7 +1218,12 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         """
         Make the pdf of the molecules using rdkit.
         """
+        import os
+
+        from PyPDF2 import PdfFileMerger
         from rdkit.Chem import AllChem, Draw
+
+        from qcsubmit.testing import temp_directory
 
         molecules = []
         tagged_atoms = []
@@ -1232,14 +1237,31 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         if not tagged_atoms:
             tagged_atoms = None
 
-        # now make the image
-        imagie = Draw.MolsToGridImage(
-            molecules,
-            molsPerRow=columns,
-            subImgSize=(500, 500),
-            highlightAtomLists=tagged_atoms,
-        )
-        imagie.save(file_name)
+        # here we get around the pdf spliting
+        with temp_directory():
+            pdfs = []
+            # evey 24 molecules split the page
+            for i in range(0, len(molecules), 24):
+                mol_chunk = molecules[i : i + 24]
+                if tagged_atoms is not None:
+                    tag_chunk = tagged_atoms[i : i + 24]
+                # now make the image
+                imagie = Draw.MolsToGridImage(
+                    mol_chunk,
+                    molsPerRow=columns,
+                    subImgSize=(500, 500),
+                    highlightAtomLists=tag_chunk,
+                )
+                imagie.save(f"file_{i}.pdf")
+                pdfs.append(f"file_{i}.pdf")
+
+            # now merge the pdfs
+            merger = PdfFileMerger()
+            for pdf in pdfs:
+                merger.append(pdf)
+
+        merger.write(file_name)
+        merger.close()
 
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
         """

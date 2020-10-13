@@ -27,6 +27,7 @@ dependencies:
   - qcfractal >=0.13.0
   - torsiondrive
   - fragmenter
+  - pypdf2
 
     # Pip-only installs
   - pip:
