@@ -9,9 +9,9 @@ from .common_structures import ResultsConfig
 from .exceptions import ConstraintError
 
 
-class DistanceConstraint(ResultsConfig):
-    type: constr(regex="distance") = "distance"
-    indices: Tuple[int, int]
+class Constraint(ResultsConfig):
+    type: constr(regex="basic_constraint") = "basic_constraint"
+    indices: Tuple[int, ...]
 
     @validator("indices")
     def _order_and_check_indices(cls, indices: Tuple[int, ...]) -> Tuple[int, ...]:
@@ -30,6 +30,21 @@ class DistanceConstraint(ResultsConfig):
             return tuple(sorted(indices))
         else:
             return indices
+
+    def dict(self, *args, **kwargs):
+        """
+        Overwrite the dict method to make sure the bonded flag is removed and not passed to qcsubmit.
+        """
+        exclude = kwargs.get("exclude", set()) or set()
+        exclude.add("bonded")
+        kwargs["exclude"] = exclude
+        return super(Constraint, self).dict(*args, **kwargs)
+
+
+class DistanceConstraint(Constraint):
+    type: constr(regex="distance") = "distance"
+    indices: Tuple[int, int]
+    bonded: bool = True
 
 
 class DistanceConstraintSet(DistanceConstraint):
@@ -54,7 +69,7 @@ class DihedralConstraintSet(DihedralConstraint):
     value: float
 
 
-class PositionConstraint(DistanceConstraint):
+class PositionConstraint(Constraint):
     type: constr(regex="xyz") = "xyz"
     indices: Tuple[int, ...]
 
@@ -128,13 +143,21 @@ class Constraints(ResultsConfig):
         "xyz": PositionConstraintSet,
     }
 
-    def add_freeze_constraint(self, constraint_type: str, indices: List[int]) -> None:
+    def add_freeze_constraint(
+        self, constraint_type: str, indices: List[int], bonded: bool = True
+    ) -> None:
         """
         Add a new freeze constraint to the constraint holder after validating it and making sure it is not already present.
+
+        Parameters:
+            constraint_type: The type of frozen constraint to be generated
+            indices: The indices of the atoms which will be constrained
+            bonded: If the atoms in the constraint are bonded, this will trigger a connection check when added to a dataset.
         """
+        kwargs = {"bonded": bonded, "indices": indices}
         try:
             constraint = self._constraint_types_freeze[constraint_type.lower()](
-                indices=indices
+                **kwargs
             )
             if constraint not in self.freeze:
                 self.freeze.append(constraint)
@@ -152,14 +175,20 @@ class Constraints(ResultsConfig):
         constraint_type: str,
         indices: List[int],
         value: Union[float, List[float], str],
+        bonded: bool = True,
     ) -> None:
         """
         Add a new set constraint to the constraint holder after validating it and making sure it is not already present.
+
+        Parameters:
+            constraint_type: The type of constraint to be generated
+            indices: The indices of the atoms which will be constrained
+            value: The value the constraint should be set to
+            bonded: If the atoms in the constraint are bonded, this will trigger a connection check when added to a dataset.
         """
+        kwargs = {"bonded": bonded, "indices": indices, "value": value}
         try:
-            constraint = self._constraint_types_set[constraint_type.lower()](
-                indices=indices, value=value
-            )
+            constraint = self._constraint_types_set[constraint_type.lower()](**kwargs)
             if constraint not in self.set:
                 self.set.append(constraint)
         except KeyError:

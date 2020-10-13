@@ -290,7 +290,7 @@ class DatasetEntry(DatasetConfig):
         if "constraints" in kwargs["keywords"]:
             constraint_dict = kwargs["keywords"].pop("constraints")
             constraints = Constraints(**constraint_dict)
-            kwargs["constraints"] = constraints.dict()
+            kwargs["constraints"] = constraints
 
         extras = kwargs["extras"]
         # if we get an off_molecule we need to convert it
@@ -358,15 +358,34 @@ class DatasetEntry(DatasetConfig):
         return molecule
 
     def add_constraint(
-        self, constraint: str, constraint_type: str, indices: List[int], **kwargs
+        self,
+        constraint: str,
+        constraint_type: str,
+        indices: List[int],
+        bonded: bool = True,
+        **kwargs,
     ) -> None:
         """
         Add new constraint of the given type.
+
+        Parameters:
+            constraint: The major type of constraint, freeze or set
+            constraint_type: the constraint sub type, angle, distance etc
+            indices: The atom indices the constraint should be placed on
+            bonded: If the constraint is intended to be put a bonded set of atoms
+            kwargs: Any extra information needed by the constraint, for the set class they need a value `value=float`
         """
         if constraint.lower() == "freeze":
-            self.constraints.add_freeze_constraint(constraint_type, indices)
+            self.constraints.add_freeze_constraint(
+                constraint_type=constraint_type, indices=indices, bonded=bonded
+            )
         elif constraint.lower() == "set":
-            self.constraints.add_set_constraint(constraint_type, indices, **kwargs)
+            self.constraints.add_set_constraint(
+                constraint_type=constraint_type,
+                indices=indices,
+                bonded=bonded,
+                **kwargs,
+            )
         else:
             raise ConstraintError(
                 f"The constraint {constraint} is not available please chose from freeze or set."

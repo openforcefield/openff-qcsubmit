@@ -20,6 +20,8 @@ from qcsubmit.datasets import (
     TorsiondriveDataset,
 )
 from qcsubmit.exceptions import (
+    AngleConnectionError,
+    BondConnectionError,
     ConstraintError,
     DatasetCombinationError,
     DatasetInputError,
@@ -35,6 +37,11 @@ from qcsubmit.utils import (
     condense_molecules,
     get_data,
     update_specification_and_metadata,
+)
+from qcsubmit.validators import (
+    check_angle_connection,
+    check_bond_connection,
+    check_torsion_connection,
 )
 
 
@@ -418,49 +425,39 @@ def test_position_set_constraint_validation(constraint_settings):
 
 
 @pytest.mark.parametrize("constraint_settings", [
-    pytest.param(("freeze", "dihedral", [0, 1, 2, 3], None, None), id="freeze dihedral valid"),
-    pytest.param(("set", "dihedral", [0, 1, 2, 3], 50, None), id="set dihedral valid"),
+    pytest.param(("freeze", "dihedral", [0, 1, 2, 3], None, ConstraintError), id="freeze dihedral valid"),
+    pytest.param(("set", "dihedral", [0, 1, 2, 3], 50, ConstraintError), id="set dihedral valid"),
     pytest.param(("scan", "dihedral", [0, 1, 2, 3], 50, ConstraintError), id="invalid scan constraint"),
 ])
-def test_add_constraints_to_entry_warnings(constraint_settings):
+def test_add_constraints_to_entry_errors(constraint_settings):
     """
-    Test adding new constraints to a valid dataset entry, make sure warning are raised as some constraints are not bonded.
+    Test adding new constraints to a valid dataset entry, make sure errors are raised if we say the constraint is bonded but it is not.
     """
-    import warnings
     mol = Molecule.from_smiles("CC")
     entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
     # get the constraint info
     constraint, constraint_type, indices, value, error = constraint_settings
-    if error is None:
-        with pytest.warns(UserWarning) as all_warnings:
-            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
-            assert len(all_warnings) == 1
-        assert entry.constraints.has_constraints is True
-        assert "constraints" in entry.formatted_keywords
-
-    else:
-        with pytest.raises(error):
+    with pytest.raises(error):
             entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
 
 
 @pytest.mark.parametrize("constraint_settings", [
-    pytest.param(("freeze", "dihedral", [3, 0, 1, 5], None, None), id="freeze dihedral no warning"),
-    pytest.param(("set", "angle", [3, 0, 1], 50, None), id="set angle no warning."),
-    pytest.param(("freeze", "distance", [0, 1], None, None), id="freeze distance no warning."),
-    pytest.param(("scan", "dihedral", [0, 1, 2, 3], 50, ConstraintError), id="invalid scan constraint"),
+    pytest.param(("freeze", "dihedral", [3, 0, 1, 5], None, True, None), id="freeze dihedral"),
+    pytest.param(("set", "angle", [3, 0, 1], 50, True, None), id="set angle"),
+    pytest.param(("freeze", "distance", [0, 1], None, True, None), id="freeze distance"),
+    pytest.param(("scan", "dihedral", [0, 1, 2, 3], 50, True, ConstraintError), id="invalid scan constraint"),
 ])
 def test_add_constraints_to_entry(constraint_settings):
     """
     Test adding new constraints to a valid dataset entry make sure no warnings are raised as the constraints are bonded.
     """
-    import warnings
     mol = Molecule.from_smiles("CC")
     entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
     # get the constraint info
-    constraint, constraint_type, indices, value, error = constraint_settings
+    constraint, constraint_type, indices, value, bonded, error = constraint_settings
     if error is None:
         with pytest.warns(None) as all_warnings:
-            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, bonded=bonded, value=value)
         # make sure no warnings were raised
         assert len(all_warnings) == 0
         assert entry.constraints.has_constraints is True
@@ -468,27 +465,7 @@ def test_add_constraints_to_entry(constraint_settings):
 
     else:
         with pytest.raises(error):
-            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
-
-
-def test_constraints_multiple_warnings():
-    """
-    Test adding multiple non-bonded constraints to an entry and make sure many warnings are raised.
-    """
-    import warnings
-    mol = Molecule.from_smiles("CC")
-    # build the constraints
-    constraints = Constraints()
-    constraints.add_freeze_constraint("dihedral", [0, 1, 2, 3])
-    constraints.add_set_constraint("angle", [0, 1, 2], 70)
-    constraints.add_freeze_constraint("distance", [1, 2])
-    constraints.add_set_constraint("xyz", [0], [1, 1, 1])
-    with pytest.warns(UserWarning) as all_warnings:
-        entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={},
-                             extras={}, constraints=constraints)
-        # only 3 of the constraints involve bonds
-        # make sure they all provided a warning
-        assert len(all_warnings) == 3
+            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, bonded=bonded, value=value)
 
 
 @pytest.mark.parametrize("constraint_setting", [
@@ -500,21 +477,18 @@ def test_add_entry_with_constraints(constraint_setting):
     """
     Add an entry to a dataset with constraints in the keywords and make sure they converted to the constraints field.
     """
-    import warnings
     dataset = BasicDataset()
     # now add a molecule with constraints in the keywords
-    mol = Molecule.from_smiles("CC")
-    constraints = {"set": [{"type": "dihedral", "indices": [0, 1, 2, 3], "value": 50},
-                           {"type": "angle", "indices": [0, 1, 2], "value": 50},
-                           {"type": "distance", "indices": [1, 2], "value": 1}]}
+    mol = Molecule.from_file(get_data("ethane.sdf"), "sdf")
+    constraints = {"set": [{"type": "dihedral", "indices": [0, 1, 2, 3], "value": 50, "bonded": False},
+                           {"type": "angle", "indices": [0, 1, 2], "value": 50, "bonded": False},
+                           {"type": "distance", "indices": [1, 2], "value": 1, "bonded": False}]}
     index = mol.to_smiles()
 
     if constraint_setting == "constraints":
-        with pytest.warns(UserWarning):
-            dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol), constraints=constraints)
+        dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol), constraints=constraints)
     elif constraint_setting == "keywords":
-        with pytest.warns(UserWarning):
-            dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol), keywords={"constraints": constraints})
+        dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol), keywords={"constraints": constraints})
     elif constraint_setting is None:
         dataset.add_molecule(index=index, molecule=mol, attributes=get_cmiles(mol))
 
@@ -525,6 +499,21 @@ def test_add_entry_with_constraints(constraint_setting):
     else:
         assert entry.keywords == entry.formatted_keywords
         assert entry.constraints.has_constraints is False
+
+
+@pytest.mark.parametrize("atom_data", [
+    pytest.param(([1, 2], check_bond_connection, BondConnectionError), id="Bond connection error"),
+    pytest.param(([0, 1, 2], check_angle_connection, AngleConnectionError), id="Angle connection error"),
+    pytest.param(([5, 0, 1, 2], check_torsion_connection, DihedralConnectionError), id="Dihedral connection error")
+])
+def test_check_connection_types_error(atom_data):
+    """
+    Make sure the connection checks raise the correct errors.
+    """
+    ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
+    atoms, check, error = atom_data
+    with pytest.raises(error):
+        check(atoms, ethane)
 
 
 def test_constraints_are_equall():

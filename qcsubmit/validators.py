@@ -12,6 +12,7 @@ from .exceptions import (
     AngleConnectionError,
     AtomConnectionError,
     BondConnectionError,
+    ConstraintError,
     DatasetInputError,
     DihedralConnectionError,
     LinearTorsionError,
@@ -225,7 +226,6 @@ def check_constraints(constraints: Constraints, molecule: off.Molecule) -> Const
     """
     Warn the user if any of the constraints are between atoms which are not bonded.
     """
-    import warnings
 
     _constraint_to_check = {
         "distance": check_bond_connection,
@@ -242,16 +242,19 @@ def check_constraints(constraints: Constraints, molecule: off.Molecule) -> Const
         ]
         for constraint in all_constraints:
             if constraint.type != "xyz":
-                try:
-                    _constraint_to_check[constraint.type](constraint.indices, molecule)
-                except (
-                    BondConnectionError,
-                    AngleConnectionError,
-                    DihedralConnectionError,
-                ) as e:
-                    warnings.warn(
-                        f"The molecule {molecule} has non bonded constraints is this intentional see error for more information; {e.error_message}"
-                    )
+                if constraint.bonded:
+                    try:
+                        _constraint_to_check[constraint.type](
+                            constraint.indices, molecule
+                        )
+                    except (
+                        BondConnectionError,
+                        AngleConnectionError,
+                        DihedralConnectionError,
+                    ) as e:
+                        raise ConstraintError(
+                            f"The molecule {molecule} has non bonded constraints, if this is intentional add the constraint with the flag `bonded=False`. See error for more details {e.error_message}"
+                        )
 
     return constraints
 
