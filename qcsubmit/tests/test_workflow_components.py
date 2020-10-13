@@ -1,7 +1,6 @@
 """
 Tests for each of the workflow components try to avoid specific openeye functions.
 """
-from functools import lru_cache
 from typing import Dict, List
 
 import pytest
@@ -11,6 +10,7 @@ from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWra
 from qcsubmit import workflow_components
 from qcsubmit.datasets import ComponentResult
 from qcsubmit.utils import check_missing_stereo, get_data
+from qcsubmit.validators import check_torsion_connection
 
 
 def get_container(molecules: [Molecule]) -> ComponentResult:
@@ -23,7 +23,6 @@ def get_container(molecules: [Molecule]) -> ComponentResult:
         component_provenance={"test": "test component"})
 
 
-@lru_cache()
 def get_stereoisomers():
     """
     Get a set of molecules that all have some undefined stereochemistry.
@@ -33,7 +32,6 @@ def get_stereoisomers():
     return mols
 
 
-@lru_cache()
 def get_tautomers():
     """
     Get a set of molecules that all have tauomers
@@ -636,7 +634,7 @@ def test_rotor_filter_fail():
         assert len(molecule.find_rotatable_bonds()) > rotor_filter.maximum_rotors
 
 
-def test_environment_filter_validator():
+def test_smarts_filter_validator():
     """
     Make sure the validator is checking the allowed and filtered fields have valid smirks strings.
     """
@@ -665,7 +663,7 @@ def test_environment_filter_validator():
     assert len(filter.allowed_substructures) == 1
 
 
-def test_environment_filter_apply_parameters():
+def test_smarts_filter_apply_parameters():
     """
     Make sure the environment filter is correctly identifying substructures.
     """
@@ -693,7 +691,7 @@ def test_environment_filter_apply_parameters():
         assert sorted(elements) != sorted(allowed_elements)
 
 
-def test_environment_filter_apply_none():
+def test_smarts_filter_apply_none():
     """
     Make sure we get the expected behaviour when we supply None as the filter list.
     """
@@ -715,3 +713,30 @@ def test_environment_filter_apply_none():
     result2 = filter.apply(molecules=result.molecules)
 
     assert len(result2.molecules) != len(result.molecules)
+
+
+@pytest.mark.parametrize("tag_dihedrals", [
+    pytest.param(True, id="Tag dihedrals"),
+    pytest.param(False, id="Do not tag Dihedrals")
+])
+def test_smarts_filter_apply_tag_torsions(tag_dihedrals):
+    """
+    Make sure that torsions in molecules are tagged if we supply a torsion smarts a pattern.
+    """
+    filter = workflow_components.SmartsFilter(tag_dihedrals=tag_dihedrals)
+
+    # look for methyl torsions here
+    filter.allowed_substructures = ["[*:1]-[*:2]-[#6H3:3]-[#1:4]"]
+
+    molecules = get_tautomers()
+    # this should filter and tag the dihedrals
+    result = filter.apply(molecules)
+    for molecule in result.molecules:
+        if tag_dihedrals:
+            assert "dihedrals" in molecule.properties
+            # make sure the torsion is connected
+            torsions = molecule.properties["dihedrals"]
+            for torsion in torsions.get_dihedrals:
+                _ = check_torsion_connection(torsion=torsion.torsion1, molecule=molecule)
+        else:
+            assert "dihedrals" not in molecule.properties
