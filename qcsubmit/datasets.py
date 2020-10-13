@@ -1218,15 +1218,14 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         """
         Make the pdf of the molecules using rdkit.
         """
-        import os
+        from io import BytesIO
 
-        from PyPDF2 import PdfFileMerger
+        from PyPDF2 import PdfFileMerger, PdfFileReader
         from rdkit.Chem import AllChem, Draw
-
-        from qcsubmit.testing import temp_directory
 
         molecules = []
         tagged_atoms = []
+        merger = PdfFileMerger()
         for data in self.dataset.values():
             rdkit_mol = data.off_molecule.to_rdkit()
             AllChem.Compute2DCoords(rdkit_mol)
@@ -1237,28 +1236,26 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         if not tagged_atoms:
             tagged_atoms = None
 
-        # here we get around the pdf spliting
-        with temp_directory():
-            pdfs = []
-            # evey 24 molecules split the page
-            for i in range(0, len(molecules), 24):
-                mol_chunk = molecules[i : i + 24]
-                if tagged_atoms is not None:
-                    tag_chunk = tagged_atoms[i : i + 24]
-                # now make the image
-                imagie = Draw.MolsToGridImage(
-                    mol_chunk,
-                    molsPerRow=columns,
-                    subImgSize=(500, 500),
-                    highlightAtomLists=tag_chunk,
-                )
-                imagie.save(f"file_{i}.pdf")
-                pdfs.append(f"file_{i}.pdf")
+        # evey 24 molecules split the page
+        for i in range(0, len(molecules), 24):
+            mol_chunk = molecules[i : i + 24]
+            if tagged_atoms is not None:
+                tag_chunk = tagged_atoms[i : i + 24]
+            else:
+                tag_chunk = None
 
-            # now merge the pdfs
-            merger = PdfFileMerger()
-            for pdf in pdfs:
-                merger.append(pdf)
+            # now make the image
+            image = Draw.MolsToGridImage(
+                mol_chunk,
+                molsPerRow=columns,
+                subImgSize=(500, 500),
+                highlightAtomLists=tag_chunk,
+            )
+            # write the pdf to bytes and pass straight to the pdf merger
+            buf = BytesIO()
+            image.save(buf, format="pdf")
+            buf.seek(0)
+            merger.append(PdfFileReader(buf))
 
         merger.write(file_name)
         merger.close()
