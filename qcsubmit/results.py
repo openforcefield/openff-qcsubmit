@@ -17,7 +17,9 @@ from qcportal.models.common_models import DriverEnum
 from simtk import unit
 
 from .common_structures import IndexCleaner, Metadata, ResultsConfig
+from .exceptions import UnsupportedFiletypeError
 from .procedures import GeometricProcedure
+from .serializers import deserialize, serialize
 
 
 class SingleResult(ResultsConfig):
@@ -338,16 +340,30 @@ class BasicCollectionResult(IndexCleaner, ResultsConfig):
 
         return metadata
 
-    def export_results(self, filename: str) -> None:
+    def export_results(self, filename: str, compression: Optional[str] = None) -> None:
         """
         Export the results to json file.
 
         Parameters:
             filename: The name of the json file which the results should be wrote to.
+            compression: The type of compression that should be used.
+
+        Note:
+            The compression can also be supplied in the file_name.
         """
 
-        with open(filename, "w") as output:
-            output.write(self.json(indent=2))
+        if "json" in filename:
+            serialize(serializable=self, file_name=filename, compression=compression)
+        else:
+            raise UnsupportedFiletypeError("Results can only be exported to json.")
+
+    @classmethod
+    def parse_file(cls, file_name: str):
+        """
+        Overwrite the parse file function to use decompression when needed.
+        """
+        data = deserialize(file_name=file_name)
+        return cls(**data)
 
     @property
     def n_molecules(self) -> int:

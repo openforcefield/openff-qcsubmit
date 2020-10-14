@@ -33,6 +33,7 @@ from .exceptions import (
 )
 from .procedures import GeometricProcedure
 from .results import SingleResult
+from .serializers import deserialize, serialize
 from .validators import (
     check_constraints,
     check_improper_connection,
@@ -62,7 +63,8 @@ class ComponentResult:
         molecules: Optional[Union[List[off.Molecule], off.Molecule]] = None,
         input_file: Optional[str] = None,
         input_directory: Optional[str] = None,
-        verbose: bool = False,
+        skip_unique_check: Optional[bool] = False,
+        verbose: bool = True,
     ):
         """Register the list of molecules to process.
 
@@ -82,6 +84,8 @@ class ComponentResult:
             The name of the input directory which contains input molecule files.
         verbose: bool, default=False
             If the timing information and progress bar should be shown while doing deduplication.
+        skip_unique_check: bool. default=False
+            Set to True if it is sure that all molecules will be unique in this result
         """
 
         self._molecules: Dict[str, off.Molecule] = {}
@@ -89,6 +93,7 @@ class ComponentResult:
         self.component_name: str = component_name
         self.component_description: Dict = component_description
         self.component_provenance: Dict = component_provenance
+        self.skip_unique_check: bool = skip_unique_check
 
         assert (
             molecules is None or input_file is None
@@ -123,7 +128,7 @@ class ComponentResult:
                 molecules,
                 total=len(molecules),
                 ncols=80,
-                desc="Deduplication",
+                desc="{:30s}".format("Deduplication"),
                 disable=not verbose,
             ):
                 self.add_molecule(molecule)
@@ -171,7 +176,7 @@ class ComponentResult:
         """
         return len(self._filtered)
 
-    def add_molecule(self, molecule: off.Molecule):
+    def add_molecule(self, molecule: off.Molecule) -> bool:
         """
         Add a molecule to the molecule list after checking that it is not present already. If it is de-duplicate the
         record and condense the conformers and metadata.
@@ -182,7 +187,8 @@ class ComponentResult:
 
         # make a unique molecule hash independent of atom order or conformers
         molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
-        if molecule_hash in self._molecules:
+
+        if not self.skip_unique_check and molecule_hash in self._molecules:
             # we need to align the molecules and transfer the coords and properties
             # get the mapping
             isomorphic, mapping = off.Molecule.are_isomorphic(
@@ -228,10 +234,11 @@ class ComponentResult:
                         )
             else:
                 # molecule already in list and coords not present so just return
-                return
+                return True
 
         else:
             self._molecules[molecule_hash] = molecule
+            return False
 
     def filter_molecule(self, molecule: off.Molecule):
         """
@@ -545,6 +552,14 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
                         current_entry.initial_molecules.append(mapped_schema)
 
         return new_dataset
+
+    @classmethod
+    def parse_file(cls, file_name: str):
+        """
+        Add decompression to the parse file method.
+        """
+        data = deserialize(file_name=file_name)
+        return cls(**data)
 
     def get_molecule_entry(self, molecule: Union[off.Molecule, str]) -> List[str]:
         """
@@ -1050,32 +1065,44 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             collection.save()
             return responses
 
-    def export_dataset(self, file_name: str) -> None:
+    def export_dataset(self, file_name: str, compression: Optional[str] = None) -> None:
         """
         Export the dataset to file so that it can be used to make another dataset quickly.
 
         Parameters:
             file_name: The name of the file the dataset should be wrote to.
+            compression: The type of compression that should be added to the export.
 
         Note:
             The supported file types are:
 
             - `json`
 
+            Additionally, the file will automatically compressed depending on the
+            final extension if compression is not explicitly supplied:
+
+            - `json.xz`
+            - `json.gz`
+            - `json.bz2`
+
+            Check serializers.py for more details. Right now bz2 seems to
+            produce the smallest files.
+
         Raises:
             UnsupportedFiletypeError: If the requested file type is not supported.
         """
 
-        file_type = file_name.split(".")[-1]
-
-        if file_type == "json":
-            with open(file_name, "w") as output:
-                output.write(self.json(indent=2))
-        else:
+        # Check here early, just to filter anything non-json for now
+        # Ideally the serializers should be checking this
+        split = file_name.split(".")
+        split = split[-1:] if len(split) == 1 else split[-2:]
+        if "json" not in split:
             raise UnsupportedFiletypeError(
-                f"The requested file type {file_type} is not supported please use "
-                f"json."
+                f"The dataset export file name with leading extension {split[-1]} is not supported, "
+                "please end the file name with json."
             )
+
+        serialize(serializable=self, file_name=file_name, compression=compression)
 
     def coverage_report(self, forcefields: List[str]) -> Dict:
         """

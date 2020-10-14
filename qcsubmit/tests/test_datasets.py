@@ -1313,7 +1313,6 @@ def test_basicdataset_add_molecule_missing_attributes():
     """
     Test adding a molecule to the dataset with a missing cmiles attribute this should raise an error.
     """
-
     dataset = BasicDataset()
     ethane = Molecule.from_smiles('CC')
     # generate a conformer to make sure this is not rasing an error
@@ -1335,7 +1334,6 @@ def test_basicdataset_molecules_to_file(file_data):
     """
     Test exporting only the molecules in a dataset to file for each of the supported types.
     """
-
     dataset = BasicDataset()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -1373,7 +1371,6 @@ def test_dataset_to_pdf_no_torsions(toolkit_data):
     """
     Test exporting molecules to pdf with no torsions.
     """
-
     dataset = BasicDataset()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -1406,7 +1403,6 @@ def test_dataset_export_full_dataset_json(dataset_type):
     """
     Test round tripping a full dataset via json.
     """
-
     dataset = dataset_type()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -1440,7 +1436,6 @@ def test_dataset_export_full_dataset_json_mixing(dataset_type):
     Test round tripping a full dataset via json from one type to another this should fail as the dataset_types do not
     match.
     """
-
     dataset = dataset_type[0]()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -1464,7 +1459,6 @@ def test_dataset_export_dict(dataset_type):
     """
     Test making a new dataset from the dict of another of the same type.
     """
-
     dataset = dataset_type()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -1495,11 +1489,10 @@ def test_dataset_export_dict(dataset_type):
     pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
-def test_basicdataset_export_json(dataset_type):
+def test_dataset_export_json(dataset_type):
     """
     Test that the json serialisation works.
     """
-
     dataset = dataset_type()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -1516,13 +1509,52 @@ def test_basicdataset_export_json(dataset_type):
                              component_description={"name": "TestFailure"},
                              component_provenance={"test": "v1.0"})
 
-
     # try parse the json string to build the dataset
     dataset2 = dataset_type.parse_raw(dataset.json())
     assert dataset.n_molecules == dataset2.n_molecules
     assert dataset.n_records == dataset2.n_records
     for record in dataset.dataset.keys():
         assert record in dataset2.dataset
+
+
+@pytest.mark.parametrize("dataset_type", [
+    pytest.param(BasicDataset, id="BasicDataset"),
+    pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
+])
+@pytest.mark.parametrize("compression", [
+    pytest.param("xz", id="lzma"),
+    pytest.param("bz2", id="bz2"),
+    pytest.param("gz", id="gz"),
+    pytest.param("", id="No compression")
+])
+def test_dataset_roundtrip_compression(dataset_type, compression):
+    """
+    Test that the json serialisation works.
+    """
+    dataset = dataset_type()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    # add them to the dataset
+    for molecule in molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        dihedrals = [get_dihedral(molecule), ]
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
+
+    # add one failure
+    fail = Molecule.from_smiles("C")
+    dataset.filter_molecules(molecules=[fail, ],
+                             component_name="TestFailure",
+                             component_description={"name": "TestFailure"},
+                             component_provenance={"test": "v1.0"})
+
+    with temp_directory():
+        # export the dataset with compression
+        dataset2 = dataset_type.parse_raw(dataset.json())
+        assert dataset.n_molecules == dataset2.n_molecules
+        assert dataset.n_records == dataset2.n_records
+        for record in dataset.dataset.keys():
+            assert record in dataset2.dataset
 
 
 @pytest.mark.parametrize("basis_data", [

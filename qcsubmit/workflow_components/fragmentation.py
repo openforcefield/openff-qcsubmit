@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Union
 from openforcefield.topology import Molecule
 from pydantic import validator
 
-from ..common_structures import TorsionIndexer
+from ..common_structures import ComponentProperties, TorsionIndexer
 from ..datasets import ComponentResult
 from ..serializers import deserialize
 from .base_component import CustomWorkflowComponent, ToolkitValidator
@@ -26,8 +26,8 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
     component_description = (
         "Fragment a molecule across all rotatble bonds using the WBO fragmenter."
     )
-    component_fail_message = "The molecule could not fragmented correctly."
-
+    component_fail_message = "The molecule could not be fragmented correctly."
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
     threshold: float = 0.03
     keep_non_rotor_ring_substituents: bool = False
     functional_groups: Optional[Union[bool, str]] = None
@@ -85,7 +85,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         except ImportError:
             return False
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Fragment the molecules using the WBOFragmenter.
 
@@ -105,7 +105,8 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
         for molecule in molecules:
             # not having a conformer can cause issues
-            molecule.generate_conformers(n_conformers=1)
+            if molecule.n_conformers == 0:
+                molecule.generate_conformers(n_conformers=1)
 
             if self.include_parent:
                 result.add_molecule(molecule)
@@ -145,11 +146,11 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
                 # if we have no fragments and we dont want the parent then we failed to fragment
                 elif not fragmets_dict and not self.include_parent:
-                    self.fail_molecule(molecule=molecule, component_result=result)
+                    result.filter_molecule(molecule)
 
             except (RuntimeError, ValueError):
                 # this will catch cmiles errors for molecules with undefined stero
-                self.fail_molecule(molecule=molecule, component_result=result)
+                result.filter_molecule(molecule)
 
         return result
 
