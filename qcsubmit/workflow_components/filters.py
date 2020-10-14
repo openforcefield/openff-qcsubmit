@@ -468,7 +468,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
                         molecule.properties["dihedrals"] = dihedrals
                         result.add_molecule(molecule)
                     else:
-                        self.fail_molecule(molecule=molecule, component_result=result)
+                        result.filter_molecule(molecule=molecule)
 
         if self.filtered_substructures is not None:
             # now we only want to check the molecules in the pass list
