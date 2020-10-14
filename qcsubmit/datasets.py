@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import qcelemental as qcel
@@ -33,6 +33,7 @@ from .exceptions import (
 )
 from .procedures import GeometricProcedure
 from .results import SingleResult
+from .serializers import deserialize, serialize
 from .validators import (
     check_constraints,
     check_improper_connection,
@@ -62,7 +63,8 @@ class ComponentResult:
         molecules: Optional[Union[List[off.Molecule], off.Molecule]] = None,
         input_file: Optional[str] = None,
         input_directory: Optional[str] = None,
-        verbose: bool = False,
+        skip_unique_check: Optional[bool] = False,
+        verbose: bool = True,
     ):
         """Register the list of molecules to process.
 
@@ -82,6 +84,8 @@ class ComponentResult:
             The name of the input directory which contains input molecule files.
         verbose: bool, default=False
             If the timing information and progress bar should be shown while doing deduplication.
+        skip_unique_check: bool. default=False
+            Set to True if it is sure that all molecules will be unique in this result
         """
 
         self._molecules: Dict[str, off.Molecule] = {}
@@ -89,6 +93,7 @@ class ComponentResult:
         self.component_name: str = component_name
         self.component_description: Dict = component_description
         self.component_provenance: Dict = component_provenance
+        self.skip_unique_check: bool = skip_unique_check
 
         assert (
             molecules is None or input_file is None
@@ -123,7 +128,7 @@ class ComponentResult:
                 molecules,
                 total=len(molecules),
                 ncols=80,
-                desc="Deduplication",
+                desc="{:30s}".format("Deduplication"),
                 disable=not verbose,
             ):
                 self.add_molecule(molecule)
@@ -171,7 +176,7 @@ class ComponentResult:
         """
         return len(self._filtered)
 
-    def add_molecule(self, molecule: off.Molecule):
+    def add_molecule(self, molecule: off.Molecule) -> bool:
         """
         Add a molecule to the molecule list after checking that it is not present already. If it is de-duplicate the
         record and condense the conformers and metadata.
@@ -182,7 +187,8 @@ class ComponentResult:
 
         # make a unique molecule hash independent of atom order or conformers
         molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
-        if molecule_hash in self._molecules:
+
+        if not self.skip_unique_check and molecule_hash in self._molecules:
             # we need to align the molecules and transfer the coords and properties
             # get the mapping
             isomorphic, mapping = off.Molecule.are_isomorphic(
@@ -228,10 +234,11 @@ class ComponentResult:
                         )
             else:
                 # molecule already in list and coords not present so just return
-                return
+                return True
 
         else:
             self._molecules[molecule_hash] = molecule
+            return False
 
     def filter_molecule(self, molecule: off.Molecule):
         """
@@ -305,11 +312,14 @@ class DatasetEntry(DatasetConfig):
 
         super().__init__(**kwargs)
         # validate any constraints being added
-        check_constraints(constraints=self.constraints, molecule=self.off_molecule)
+        check_constraints(
+            constraints=self.constraints,
+            molecule=self.get_off_molecule(include_conformers=False),
+        )
         # now validate the torsions check proper first
         if self.dihedrals is not None:
             if off_molecule is None:
-                off_molecule = self.off_molecule
+                off_molecule = self.get_off_molecule(include_conformers=False)
 
             # now validate the dihedrals
             for torsion in self.dihedrals:
@@ -341,9 +351,12 @@ class DatasetEntry(DatasetConfig):
         # now assign the new molecules
         self.initial_molecules = initial_molecules
 
-    @property
-    def off_molecule(self) -> off.Molecule:
-        """Build and openforcefield.topology.Molecule representation of the input molecule."""
+    def get_off_molecule(self, include_conformers: bool = True) -> off.Molecule:
+        """Build and openforcefield.topology.Molecule representation of the input molecule.
+
+        Parameters:
+            include_conformers: If `True` all of the input conformers are included else they are dropped.
+        """
 
         molecule = off.Molecule.from_mapped_smiles(
             mapped_smiles=self.attributes[
@@ -352,9 +365,10 @@ class DatasetEntry(DatasetConfig):
             allow_undefined_stereo=True,
         )
         molecule.name = self.index
-        for conformer in self.initial_molecules:
-            geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
-            molecule.add_conformer(geometry.in_units_of(unit.angstrom))
+        if include_conformers:
+            for conformer in self.initial_molecules:
+                geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
+                molecule.add_conformer(geometry.in_units_of(unit.angstrom))
         return molecule
 
     def add_constraint(
@@ -391,7 +405,10 @@ class DatasetEntry(DatasetConfig):
                 f"The constraint {constraint} is not available please chose from freeze or set."
             )
         # run the constraint check
-        check_constraints(constraints=self.constraints, molecule=self.off_molecule)
+        check_constraints(
+            constraints=self.constraints,
+            molecule=self.get_off_molecule(include_conformers=False),
+        )
 
     @property
     def formatted_keywords(self) -> Dict[str, Any]:
@@ -511,17 +528,21 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         new_dataset.metadata.elements.update(other.metadata.elements)
         for index, entry in other.dataset.items():
             # search for the molecule
-            entry_ids = new_dataset.get_molecule_entry(entry.off_molecule)
+            entry_ids = new_dataset.get_molecule_entry(
+                entry.get_off_molecule(include_conformers=False)
+            )
             if not entry_ids:
                 new_dataset.dataset[index] = entry
             else:
                 mol_id = entry_ids[0]
                 current_entry = new_dataset.dataset[mol_id]
                 _, atom_map = off.Molecule.are_isomorphic(
-                    entry.off_molecule, current_entry.off_molecule, return_atom_map=True
+                    entry.get_off_molecule(include_conformers=False),
+                    current_entry.get_off_molecule(include_conformers=False),
+                    return_atom_map=True,
                 )
                 # remap the molecule and all conformers
-                entry_mol = entry.off_molecule
+                entry_mol = entry.get_off_molecule(include_conformers=True)
                 mapped_mol = entry_mol.remap(mapping_dict=atom_map, current_to_new=True)
                 for i in range(mapped_mol.n_conformers):
                     mapped_schema = mapped_mol.to_qcschema(
@@ -531,6 +552,14 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
                         current_entry.initial_molecules.append(mapped_schema)
 
         return new_dataset
+
+    @classmethod
+    def parse_file(cls, file_name: str):
+        """
+        Add decompression to the parse file method.
+        """
+        data = deserialize(file_name=file_name)
+        return cls(**data)
 
     def get_molecule_entry(self, molecule: Union[off.Molecule, str]) -> List[str]:
         """
@@ -546,11 +575,14 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         if isinstance(molecule, str):
             molecule = off.Molecule.from_smiles(molecule, allow_undefined_stereo=True)
 
-        hits = [
-            entry.index
-            for entry in self.dataset.values()
-            if molecule == entry.off_molecule
-        ]
+        # make a unique inchi key
+        inchi_key = molecule.to_inchikey(fixed_hydrogens=False)
+        hits = []
+        for entry in self.dataset.values():
+            if inchi_key == entry.attributes["inchi_key"]:
+                # they have same basic inchi now match the molecule
+                if molecule == entry.get_off_molecule(include_conformers=False):
+                    hits.append(entry.index)
 
         return hits
 
@@ -604,22 +636,38 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
     @property
     def n_molecules(self) -> int:
         """
-        Calculate the total number of unique molecules which will be submitted as part of this dataset.
+        Calculate the number of unique molecules to be submitted.
 
         Returns:
-            The number of molecules in the dataset.
+            The number of unique molecules in dataset
 
-        Note:
-            The number of molecule records submitted is not always the same as the amount of records created, this can
-            also be checked using `n_records`. Here we give the number of unique molecules not excluding conformers.
-            * see also [n_conformers][qcsubmit.datasets.BasicDataset.n_conformers]
+        Notes:
+            * This method has been improved for better performance on large datasets and has been tested on an optimization dataset of over 10500 molecules.
+            * This function does not calculate the total number of entries of the dataset see `n_records`
         """
-
-        n_molecules = len(self.dataset)
-        return n_molecules
+        molecules = {}
+        for entry in self.dataset.values():
+            inchikey = entry.attributes["inchi_key"]
+            try:
+                like_mols = molecules[inchikey]
+                mol_to_add = entry.get_off_molecule(False).to_inchikey(
+                    fixed_hydrogens=True
+                )
+                for index in like_mols:
+                    if mol_to_add == self.dataset[index].get_off_molecule(
+                        False
+                    ).to_inchikey(fixed_hydrogens=True):
+                        break
+                else:
+                    molecules[inchikey].append(entry.index)
+            except KeyError:
+                molecules[inchikey] = [
+                    entry.index,
+                ]
+        return sum([len(value) for value in molecules.values()])
 
     @property
-    def molecules(self) -> off.Molecule:
+    def molecules(self) -> Generator[off.Molecule, None, None]:
         """
         A generator that creates an openforcefield.topology.Molecule one by one from the dataset.
 
@@ -632,7 +680,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
         for molecule_data in self.dataset.values():
             # create the molecule from the cmiles data
-            yield molecule_data.off_molecule
+            yield molecule_data.get_off_molecule(include_conformers=True)
 
     @property
     def n_components(self) -> int:
@@ -1017,32 +1065,44 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             collection.save()
             return responses
 
-    def export_dataset(self, file_name: str) -> None:
+    def export_dataset(self, file_name: str, compression: Optional[str] = None) -> None:
         """
         Export the dataset to file so that it can be used to make another dataset quickly.
 
         Parameters:
             file_name: The name of the file the dataset should be wrote to.
+            compression: The type of compression that should be added to the export.
 
         Note:
             The supported file types are:
 
             - `json`
 
+            Additionally, the file will automatically compressed depending on the
+            final extension if compression is not explicitly supplied:
+
+            - `json.xz`
+            - `json.gz`
+            - `json.bz2`
+
+            Check serializers.py for more details. Right now bz2 seems to
+            produce the smallest files.
+
         Raises:
             UnsupportedFiletypeError: If the requested file type is not supported.
         """
 
-        file_type = file_name.split(".")[-1]
-
-        if file_type == "json":
-            with open(file_name, "w") as output:
-                output.write(self.json(indent=2))
-        else:
+        # Check here early, just to filter anything non-json for now
+        # Ideally the serializers should be checking this
+        split = file_name.split(".")
+        split = split[-1:] if len(split) == 1 else split[-2:]
+        if "json" not in split:
             raise UnsupportedFiletypeError(
-                f"The requested file type {file_type} is not supported please use "
-                f"json."
+                f"The dataset export file name with leading extension {split[-1]} is not supported, "
+                "please end the file name with json."
             )
+
+        serialize(serializable=self, file_name=file_name, compression=compression)
 
     def coverage_report(self, forcefields: List[str]) -> Dict:
         """
@@ -1154,7 +1214,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
         # now we load the molecules
         for data in self.dataset.values():
-            off_mol = data.off_molecule
+            off_mol = data.get_off_molecule(include_conformers=False)
             off_mol.name = None
             cell = report.NewCell()
             mol = off_mol.to_openeye()
@@ -1227,7 +1287,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         tagged_atoms = []
         images = []
         for data in self.dataset.values():
-            rdkit_mol = data.off_molecule.to_rdkit()
+            rdkit_mol = data.get_off_molecule(include_conformers=False).to_rdkit()
             AllChem.Compute2DCoords(rdkit_mol)
             molecules.append(rdkit_mol)
             if data.dihedrals is not None:
@@ -1360,7 +1420,9 @@ class OptimizationDataset(BasicDataset):
         new_dataset.metadata.elements.update(other.metadata.elements)
         for entry in other.dataset.values():
             # search for the molecule
-            entry_ids = new_dataset.get_molecule_entry(entry.off_molecule)
+            entry_ids = new_dataset.get_molecule_entry(
+                entry.get_off_molecule(include_conformers=False)
+            )
             if entry_ids:
                 records = 0
                 for mol_id in entry_ids:
@@ -1368,8 +1430,8 @@ class OptimizationDataset(BasicDataset):
                     # for each entry count the number of inputs incase we need a new entry
                     records += len(current_entry.initial_molecules)
                     _, atom_map = off.Molecule.are_isomorphic(
-                        entry.off_molecule,
-                        current_entry.off_molecule,
+                        entry.get_off_molecule(include_conformers=False),
+                        current_entry.get_off_molecule(include_conformers=False),
                         return_atom_map=True,
                     )
 
@@ -1391,7 +1453,7 @@ class OptimizationDataset(BasicDataset):
                     if current_constraints == entry_constraints:
                         # transfer the entries
                         # remap and transfer
-                        off_mol = entry.off_molecule
+                        off_mol = entry.get_off_molecule(include_conformers=True)
                         mapped_mol = off_mol.remap(
                             mapping_dict=atom_map, current_to_new=True
                         )
@@ -1416,17 +1478,6 @@ class OptimizationDataset(BasicDataset):
                 new_dataset.dataset[entry.index] = entry
 
         return new_dataset
-
-    @property
-    def n_molecules(self) -> int:
-        """
-        Calculate the number of unique molecules to be submitted.
-        """
-
-        molecules = set()
-        for molecule in self.molecules:
-            molecules.add(molecule)
-        return len(molecules)
 
     def _add_keywords(self, client: ptl.FractalClient) -> str:
         """
@@ -1623,11 +1674,15 @@ class TorsiondriveDataset(OptimizationDataset):
         new_dataset.metadata.elements.update(other.metadata.elements)
         for index, entry in other.dataset.items():
             # search for the molecule
-            entry_ids = new_dataset.get_molecule_entry(entry.off_molecule)
+            entry_ids = new_dataset.get_molecule_entry(
+                entry.get_off_molecule(include_conformers=False)
+            )
             for mol_id in entry_ids:
                 current_entry = new_dataset.dataset[mol_id]
                 _, atom_map = off.Molecule.are_isomorphic(
-                    entry.off_molecule, current_entry.off_molecule, return_atom_map=True
+                    entry.get_off_molecule(include_conformers=False),
+                    current_entry.get_off_molecule(include_conformers=False),
+                    return_atom_map=True,
                 )
 
                 # gather the current dihedrals forward and backwards
@@ -1647,7 +1702,7 @@ class TorsiondriveDataset(OptimizationDataset):
                 difference = current_dihedrals - other_dihedrals
                 if not difference:
                     # the entry is already there so add new conformers and skip
-                    off_mol = entry.off_molecule
+                    off_mol = entry.get_off_molecule(include_conformers=True)
                     mapped_mol = off_mol.remap(
                         mapping_dict=atom_map, current_to_new=True
                     )

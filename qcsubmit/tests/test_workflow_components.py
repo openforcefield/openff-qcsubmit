@@ -1,7 +1,6 @@
 """
 Tests for each of the workflow components try to avoid specific openeye functions.
 """
-from functools import lru_cache
 from typing import Dict, List
 
 import pytest
@@ -11,6 +10,7 @@ from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWra
 from qcsubmit import workflow_components
 from qcsubmit.datasets import ComponentResult
 from qcsubmit.utils import check_missing_stereo, get_data
+from qcsubmit.validators import check_torsion_connection
 
 
 def get_container(molecules: [Molecule]) -> ComponentResult:
@@ -23,7 +23,6 @@ def get_container(molecules: [Molecule]) -> ComponentResult:
         component_provenance={"test": "test component"})
 
 
-@lru_cache()
 def get_stereoisomers():
     """
     Get a set of molecules that all have some undefined stereochemistry.
@@ -33,7 +32,6 @@ def get_stereoisomers():
     return mols
 
 
-@lru_cache()
 def get_tautomers():
     """
     Get a set of molecules that all have tauomers
@@ -58,7 +56,7 @@ def test_custom_component():
         component_description = "Test component"
         component_fail_message = "Test fail"
 
-        def apply(self, molecules: List[Molecule]) -> ComponentResult:
+        def _apply(self, molecules: List[Molecule]) -> ComponentResult:
             pass
 
         def provenance(self) -> Dict:
@@ -98,7 +96,7 @@ def test_toolkit_mixin(toolkit):
             component_description = "ToolkitValidator test class."
             component_fail_message = "Test fail"
 
-            def apply(self, molecules: List[Molecule]) -> ComponentResult:
+            def _apply(self, molecules: List[Molecule]) -> ComponentResult:
                 pass
 
         test = TestClass()
@@ -191,7 +189,7 @@ def test_weight_filter_apply():
 
     molecules = get_tautomers()
 
-    result = weight.apply(molecules)
+    result = weight.apply(molecules, processors=1)
     assert result.n_molecules == 14
     assert result.n_filtered == 36
 
@@ -207,7 +205,8 @@ def test_weight_filter_apply():
         pytest.param((workflow_components.RotorFilter, "maximum_rotors", 3), id="RotorFilter"),
         pytest.param((workflow_components.SmartsFilter, "allowed_substructures", ["[C:1]-[C:2]"]), id="SmartsFilter"),
         pytest.param((workflow_components.WBOFragmenter, "heuristic", "wbo"), id="WBOFragmenter"),
-        pytest.param((workflow_components.EnumerateProtomers, "max_states", 5), id="EnumerateProtomers")
+        pytest.param((workflow_components.EnumerateProtomers, "max_states", 5), id="EnumerateProtomers"),
+        pytest.param((workflow_components.RMSDCutoffConformerFilter, "cutoff", 1.2), id="RMSDCutoffConformerFilter")
     ],
 )
 def test_to_from_object(data):
@@ -225,6 +224,36 @@ def test_to_from_object(data):
     copy_comp = component.parse_obj(active_comp)
 
     assert copy_comp == active_comp
+
+
+def test_rmsd_filter():
+    """
+    Test the RMSD conformer filter method.
+    """
+    import copy
+
+    from simtk import unit
+
+    rmsd_filter = workflow_components.RMSDCutoffConformerFilter(cutoff=1)
+    mol = Molecule.from_smiles("CCCC")
+    # make a lot of conformers for the molecule
+    mol.generate_conformers(n_conformers=1000, rms_cutoff=0.5 * unit.angstrom, toolkit_registry=RDKitToolkitWrapper())
+    ref_mol = copy.deepcopy(mol)
+    result = rmsd_filter.apply([mol, ], processors=1)
+    # now make sure the number of conformers is different
+    assert result.molecules[0].n_conformers != ref_mol.n_conformers
+
+
+def test_rmsd_filter_no_conformers():
+    """
+    Make sure the molecule is failed when no conformers are present.
+    """
+    rmsd_filter = workflow_components.RMSDCutoffConformerFilter(cutoff=1)
+    mol = Molecule.from_smiles("CCCC")
+    result = rmsd_filter.apply([mol, ], processors=1)
+    # now make sure the number of conformers is different
+    assert result.n_molecules == 0
+    assert result.n_filtered == 1
 
 
 @pytest.mark.parametrize(
@@ -251,7 +280,7 @@ def test_conformer_apply(toolkit):
         # remove duplicates from the set
         molecule_container = get_container(mols)
 
-        result = conf_gen.apply(molecule_container.molecules)
+        result = conf_gen.apply(molecule_container.molecules, processors=1)
 
         assert result.component_name == conf_gen.component_name
         assert result.component_description == conf_gen.dict()
@@ -276,7 +305,7 @@ def test_elementfilter_apply():
 
     mols = get_tautomers()
 
-    result = elem_filter.apply(mols)
+    result = elem_filter.apply(mols, processors=1)
 
     assert result.component_name == elem_filter.component_name
     assert result.component_description == elem_filter.dict()
@@ -345,7 +374,7 @@ def test_enumerating_stereoisomers_apply(toolkit):
 
         mols = get_stereoisomers()
 
-        result = enumerate_stereo.apply(mols)
+        result = enumerate_stereo.apply(mols, processors=1)
 
         # make sure no molecules have undefined stereo
         for molecule in result.molecules:
@@ -376,13 +405,13 @@ def test_enumerating_stereoisomers_poor_input(toolkit):
         enumerate_stereo.undefined_only = True
         enumerate_stereo.rationalise = True
 
-        result = enumerate_stereo.apply(molecules=[molecule, ])
+        result = enumerate_stereo.apply(molecules=[molecule, ], processors=1)
         assert result.n_molecules == 0
         assert result.n_filtered == 1
 
         # now turn of rationalise
         enumerate_stereo.rationalise = False
-        result = enumerate_stereo.apply([molecule, ])
+        result = enumerate_stereo.apply([molecule, ], processors=1)
         assert molecule in result.molecules
         assert result.n_molecules == 1
 
@@ -391,7 +420,7 @@ def test_enumerating_stereoisomers_poor_input(toolkit):
         enumerate_stereo.undefined_only = False
         # make sure the input is missing and new isomers are found
 
-        result = enumerate_stereo.apply([molecule, ])
+        result = enumerate_stereo.apply([molecule, ], processors=1)
         assert molecule not in result.molecules
         assert molecule in result.filtered
 
@@ -433,7 +462,7 @@ def test_enumerating_tautomers_apply(toolkit):
 
         mols = get_tautomers()
 
-        result = enumerate_tauts.apply(mols)
+        result = enumerate_tauts.apply(mols, processors=1)
 
         # remove the input molecules by filtering
         for mol in mols:
@@ -481,14 +510,14 @@ def test_enumerating_protomers_apply():
     Test enumerating protomers which is only availabe in openeye.
     """
 
-    enumerate_protomers = workflow_components.EnumerateProtomers(max_states=2)
+    enumerate_protomers = workflow_components.EnumerateProtomers(max_states=2,)
 
     with pytest.raises(ValueError):
         # make sure rdkit is not allowed here
         enumerate_protomers.toolkit = "rdkit"
 
     mol = Molecule.from_smiles('Oc2ccc(c1ccncc1)cc2')
-    result = enumerate_protomers.apply([mol, ])
+    result = enumerate_protomers.apply([mol, ], processors=1)
 
     # this means that the parent molecule was included
     assert result.n_molecules == 3
@@ -509,7 +538,7 @@ def test_coverage_filter():
     # we have to remove duplicated records
     # remove duplicates from the set
     molecule_container = get_container(mols)
-    result = coverage_filter.apply(molecule_container.molecules)
+    result = coverage_filter.apply(molecule_container.molecules, processors=1)
 
     forcefield = ForceField("openff_unconstrained-1.0.0.offxml")
     # now see if any molecules do not have b83
@@ -530,7 +559,7 @@ def test_coverage_filter():
 
     # we now need to check that the molecules passed contain only the allowed atoms
     # do this by running the component again
-    result2 = coverage_filter.apply(result.molecules)
+    result2 = coverage_filter.apply(result.molecules, processors=1)
     assert result2.n_filtered == 0
     assert result.n_molecules == result.n_molecules
 
@@ -550,7 +579,7 @@ def test_coverage_filter_tag_dihedrals():
     # remove duplicates from the set
     molecule_container = get_container(mols)
 
-    result = coverage_filter.apply(molecule_container.molecules)
+    result = coverage_filter.apply(molecule_container.molecules, processors=1)
 
     for molecule in result.molecules:
         assert "dihedrals" in molecule.properties
@@ -583,19 +612,19 @@ def test_fragmentation_apply():
 
     # check that a molecule with no rotatable bonds fails if we dont want the parent back
     benzene = Molecule.from_file(get_data("benzene.sdf"), "sdf")
-    result = fragmenter.apply([benzene, ])
+    result = fragmenter.apply([benzene, ], processors=1)
     assert result.n_molecules == 0
 
     # now try ethanol
     ethanol = Molecule.from_file(get_data("methanol.sdf"), "sdf")
     fragmenter.include_parent = True
-    result = fragmenter.apply([ethanol, ])
+    result = fragmenter.apply([ethanol, ], processors=1)
     assert result.n_molecules == 1
 
     # now try a molecule which should give fragments
     diphenhydramine = Molecule.from_smiles("O(CCN(C)C)C(c1ccccc1)c2ccccc2")
     fragmenter.include_parent = False
-    result = fragmenter.apply([diphenhydramine, ])
+    result = fragmenter.apply([diphenhydramine, ], processors=1)
     assert result.n_molecules == 4
     for molecule in result.molecules:
         assert "dihedrals" in molecule.properties
@@ -613,7 +642,7 @@ def test_rotor_filter_pass():
 
     # we have to remove duplicated records
     molecule_container = get_container(mols)
-    result = rotor_filter.apply(molecule_container.molecules)
+    result = rotor_filter.apply(molecule_container.molecules, processors=1)
     for molecule in result.molecules:
         assert len(molecule.find_rotatable_bonds()) <= rotor_filter.maximum_rotors
 
@@ -629,14 +658,14 @@ def test_rotor_filter_fail():
     mols = get_tautomers()
 
     molecule_container = get_container(mols)
-    result = rotor_filter.apply(molecule_container.molecules)
+    result = rotor_filter.apply(molecule_container.molecules, processors=1)
     for molecule in result.molecules:
         assert len(molecule.find_rotatable_bonds()) <= rotor_filter.maximum_rotors
     for molecule in result.filtered:
         assert len(molecule.find_rotatable_bonds()) > rotor_filter.maximum_rotors
 
 
-def test_environment_filter_validator():
+def test_smarts_filter_validator():
     """
     Make sure the validator is checking the allowed and filtered fields have valid smirks strings.
     """
@@ -665,7 +694,7 @@ def test_environment_filter_validator():
     assert len(filter.allowed_substructures) == 1
 
 
-def test_environment_filter_apply_parameters():
+def test_smarts_filter_apply_parameters():
     """
     Make sure the environment filter is correctly identifying substructures.
     """
@@ -679,7 +708,7 @@ def test_environment_filter_apply_parameters():
 
     molecules = get_tautomers()
 
-    result = filter.apply(molecules)
+    result = filter.apply(molecules, processors=1)
 
     assert result.component_name == filter.component_name
     assert result.component_description == filter.dict()
@@ -693,7 +722,7 @@ def test_environment_filter_apply_parameters():
         assert sorted(elements) != sorted(allowed_elements)
 
 
-def test_environment_filter_apply_none():
+def test_smarts_filter_apply_none():
     """
     Make sure we get the expected behaviour when we supply None as the filter list.
     """
@@ -705,13 +734,40 @@ def test_environment_filter_apply_none():
     molecules = get_tautomers()
 
     # this should allow all molecules through
-    result = filter.apply(molecules=molecules)
+    result = filter.apply(molecules=molecules, processors=1)
 
     assert len(result.molecules) == len(molecules)
 
     # now filter the molecule set again removing aromatic carbons
     filter.filtered_substructures = ["[c:1]"]
 
-    result2 = filter.apply(molecules=result.molecules)
+    result2 = filter.apply(molecules=result.molecules, processors=1)
 
     assert len(result2.molecules) != len(result.molecules)
+
+
+@pytest.mark.parametrize("tag_dihedrals", [
+    pytest.param(True, id="Tag dihedrals"),
+    pytest.param(False, id="Do not tag Dihedrals")
+])
+def test_smarts_filter_apply_tag_torsions(tag_dihedrals):
+    """
+    Make sure that torsions in molecules are tagged if we supply a torsion smarts a pattern.
+    """
+    filter = workflow_components.SmartsFilter(tag_dihedrals=tag_dihedrals)
+
+    # look for methyl torsions here
+    filter.allowed_substructures = ["[*:1]-[*:2]-[#6H3:3]-[#1:4]"]
+
+    molecules = get_tautomers()
+    # this should filter and tag the dihedrals
+    result = filter.apply(molecules)
+    for molecule in result.molecules:
+        if tag_dihedrals:
+            assert "dihedrals" in molecule.properties
+            # make sure the torsion is connected
+            torsions = molecule.properties["dihedrals"]
+            for torsion in torsions.get_dihedrals:
+                _ = check_torsion_connection(torsion=torsion.torsion1, molecule=molecule)
+        else:
+            assert "dihedrals" not in molecule.properties

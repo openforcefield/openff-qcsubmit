@@ -6,7 +6,7 @@ import abc
 import json
 import os
 from enum import Enum
-from typing import Dict, Union
+from typing import IO, Dict, Optional, Tuple, Union
 
 import yaml
 from pydantic import BaseModel
@@ -20,10 +20,14 @@ __all__ = [
     "register_deserializer",
     "serialize",
     "deserialize",
+    "Compressor",
+    "register_compressor",
 ]
 
 serializers = {}
 deserializers = {}
+# We know how to compress/decompress these automatically
+compression_algorithms = {}
 
 
 class DataType(str, Enum):
@@ -31,17 +35,89 @@ class DataType(str, Enum):
     The type of data the de/serializers deal with, which helps with file loading.
     """
 
-    TEXT = ""
+    TEXT = "t"
     BYTES = "b"
 
 
-class GeneralSerializer(BaseModel):
-
-    data_type: DataType
-
+class BaseSerializer(BaseModel):
     class Config:
         allow_mutation = False
         extra = "forbid"
+
+
+class GeneralSerializer(BaseSerializer):
+    data_type: DataType
+
+
+class Compressor(BaseSerializer, abc.ABC):
+    @abc.abstractmethod
+    def compress(self, file_name: str, mode: str) -> IO:
+        """
+        Return the compression IO object.
+
+        Parameters:
+            file_name: The name of the file that will be created.
+            mode: The writing mode used to make file ie text or bytes
+
+        Notes:
+            This will modify the file name to include the extension if not already provided.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def decompress(self, file_name: str, mode: str) -> IO:
+        """
+        Return the decompression IO object.
+
+        Parameters:
+            file_name: The name of the file that should be opened.
+            mode: The IO mode that should be used to read the file.
+        """
+        raise NotImplementedError()
+
+
+class NoneCompressor(Compressor):
+    def compress(self, file_name: str, mode: str) -> IO:
+        return open(file_name, mode)
+
+    def decompress(self, file_name: str, mode: str) -> IO:
+        return open(file_name, mode)
+
+
+class LZMACompressor(Compressor):
+    def compress(self, file_name: str, mode: str) -> IO:
+        import lzma
+
+        return lzma.open(file_name, mode, **dict(preset=9))
+
+    def decompress(self, file_name: str, mode: str) -> IO:
+        import lzma
+
+        return lzma.open(file_name, mode)
+
+
+class GzipCompressor(Compressor):
+    def compress(self, file_name: str, mode: str) -> IO:
+        import gzip
+
+        return gzip.open(file_name, mode, **dict(compresslevel=9))
+
+    def decompress(self, file_name: str, mode: str) -> IO:
+        import gzip
+
+        return gzip.open(file_name, mode)
+
+
+class BZ2Compressor(Compressor):
+    def compress(self, file_name: str, mode: str) -> IO:
+        import bz2
+
+        return bz2.open(file_name, mode, **dict(compresslevel=9))
+
+    def decompress(self, file_name: str, mode: str) -> IO:
+        import bz2
+
+        return bz2.open(file_name, mode)
 
 
 class Serializer(GeneralSerializer, abc.ABC):
@@ -66,7 +142,10 @@ class JsonSerializer(Serializer):
     data_type = DataType.TEXT
 
     def serialize(self, serializable) -> str:
-        return json.dumps(serializable, indent=2)
+        if hasattr(serializable, "json"):
+            return serializable.json(indent=2)
+        else:
+            return json.dumps(serializable, indent=2)
 
 
 class YamlSerializer(Serializer):
@@ -90,23 +169,59 @@ class YamlDeSerializer(DeSerializer):
         return yaml.full_load(file_object)
 
 
+def register_compressor(format_name: str, compressor: "Compressor") -> None:
+    """
+    Register a new compression method with qcsubmit.
+    """
+    format_name = format_name.lower()
+    if format_name in compression_algorithms:
+        raise ValueError(f"{format_name} already has a compressor registered.")
+
+    compression_algorithms[format_name] = compressor
+
+
+def unregister_compressor(format_name: str) -> None:
+    """
+    Remove one of the registered compression methods with qcsubmit.
+    """
+    compressor = compression_algorithms.pop(format_name.lower(), None)
+    if compressor is None:
+        raise KeyError(
+            f"The compression method {format_name} is not registered with qcsubmit."
+        )
+
+
+def get_compressor(format_name: str) -> "Compressor":
+    """
+    Return the requested compressor class.
+    """
+    compressor = compression_algorithms.get(format_name.lower(), None)
+    if compressor is None:
+        raise UnsupportedFiletypeError(
+            f"The specified compression format {format_name} is not supported; supported formats are {compression_algorithms.keys()}"
+        )
+    return compressor()
+
+
 def register_serializer(format_name: str, serializer: "Serializer") -> None:
     """
     Register a new serializer method with qcsubmit.
     """
-    if format_name.lower() in serializers.keys():
+    format_name = format_name.lower()
+    if format_name in serializers:
         raise ValueError(f"{format_name} already has a serializer registered.")
 
-    serializers[format_name.lower()] = serializer
+    serializers[format_name] = serializer
 
 
 def register_deserializer(format_name: str, deserializer: DeSerializer) -> None:
     """
     Register a new deserializer method with qcsubmit.
     """
-    if format_name.lower() in deserializers.keys():
-        raise ValueError(f"{format_name} already has a deserializer registered.")
+    format_name = format_name.lower()
 
+    if format_name in deserializers:
+        raise ValueError(f"{format_name} already has a deserializer registered.")
     deserializers[format_name] = deserializer
 
 
@@ -154,27 +269,51 @@ def get_deserializer(format_name: str) -> "DeSerializer":
     return deserailizer()
 
 
-def get_format_name(file_name: str) -> str:
+def get_format_name(file_name: str) -> Tuple[str, str]:
     """
-    Get the format name by splitting on the .
+    Get the format name by splitting on the . also looks for compression.
 
     Parameters:
         file_name: The name of the file from which we should work out the format.
+
+
+    Returns:
+        Tuple[str, str]
+        The format name and compression type if also supplied.
     """
-    return file_name.split(".")[-1].lower()
+    split_name = [l.lower() for l in file_name.split(".")]
+
+    def is_compression_extension(ext):
+        return ext in compression_algorithms
+
+    if is_compression_extension(split_name[-1]):
+        return split_name[-2], split_name[-1]
+    else:
+        return split_name[-1], ""
 
 
-def serialize(serializable: Dict, file_name: str) -> None:
+def serialize(
+    serializable: Dict, file_name: str, compression: Optional[str] = None
+) -> None:
     """
     The main serialization method used to serialize objects.
 
     Parameters:
         serializable: The object to be serialized
         file_name: The name of the file the object will be serialized to.
+        compression: The form of compression to be used, where None will not add any compression.
     """
-    format_name = get_format_name(file_name)
+    format_name, compression_name = get_format_name(file_name)
+    compression = compression or compression_name
     serializer = get_serializer(format_name)
-    with open(file_name, "w" + serializer.data_type.value) as output:
+    compressor = get_compressor(compression)
+    if compression not in file_name and compression != "":
+        new_name = "".join([file_name, ".", compression])
+
+    else:
+        new_name = file_name
+
+    with compressor.compress(new_name, "w" + serializer.data_type.value) as output:
         output.write(serializer.serialize(serializable))
 
 
@@ -185,10 +324,14 @@ def deserialize(file_name: str) -> Dict:
     Parameters:
         file_name: The file from which the object should be extracted.
     """
-    format_name = get_format_name(file_name)
+    format_name, compression_name = get_format_name(file_name)
     deserializer = get_deserializer(format_name)
+    decompressor = get_compressor(compression_name)
+
     if os.path.exists(file_name):
-        with open(file_name, "r" + deserializer.data_type.value) as input_data:
+        with decompressor.decompress(
+            file_name, "r" + deserializer.data_type.value
+        ) as input_data:
             return deserializer.deserialize(input_data)
     else:
         raise RuntimeError(f"The file {file_name} could not be found.")
@@ -201,3 +344,8 @@ register_serializer(format_name="yml", serializer=YamlSerializer)
 register_deserializer(format_name="json", deserializer=JsonDeSerializer)
 register_deserializer(format_name="yaml", deserializer=YamlDeSerializer)
 register_deserializer(format_name="yml", deserializer=YamlDeSerializer)
+# register the compression methods
+register_compressor(format_name="xz", compressor=LZMACompressor)
+register_compressor(format_name="bz2", compressor=BZ2Compressor)
+register_compressor(format_name="gz", compressor=GzipCompressor)
+register_compressor(format_name="", compressor=NoneCompressor)
