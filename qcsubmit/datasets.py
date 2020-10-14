@@ -1225,7 +1225,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
         molecules = []
         tagged_atoms = []
-        merger = PdfFileMerger()
+        images = []
         for data in self.dataset.values():
             rdkit_mol = data.off_molecule.to_rdkit()
             AllChem.Compute2DCoords(rdkit_mol)
@@ -1252,13 +1252,9 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
                 highlightAtomLists=tag_chunk,
             )
             # write the pdf to bytes and pass straight to the pdf merger
-            buf = BytesIO()
-            image.save(buf, format="pdf")
-            buf.seek(0)
-            merger.append(PdfFileReader(buf))
+            images.append(image)
 
-        merger.write(file_name)
-        merger.close()
+        images[0].save(file_name, append_images=images[1:], save_all=True)
 
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
         """
