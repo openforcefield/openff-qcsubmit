@@ -1134,7 +1134,7 @@ def test_wrong_metadata_collection_type(dataset_type):
     pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
-def test_Dataset_exporting_same_type(dataset_type):
+def test_dataset_exporting_same_type(dataset_type):
     """
     Test making the given dataset from the json of another instance of the same dataset type.
     """
@@ -1180,7 +1180,27 @@ def test_get_molecule_entry(molecule_data):
     assert len(entries) == entries_no
 
 
-def test_BasicDataset_add_molecules_single_conformer():
+def test_get_entry_molecule():
+    """
+    Test getting a molecule with and without conformers from a dataset.
+    """
+    dataset = BasicDataset()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    for molecule in molecules:
+        index =molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
+
+    # check the conformers are attached when requested
+    for entry in dataset.dataset.values():
+        mol_no_con = entry.get_off_molecule(include_conformers=False)
+        mol_con = entry.get_off_molecule(include_conformers=True)
+        assert mol_no_con.n_conformers == 0
+        assert mol_con.n_conformers == 1
+        assert mol_no_con == mol_con
+
+
+def test_basicdataset_add_molecules_single_conformer():
     """
     Test creating a basic dataset.
     """
@@ -1203,7 +1223,7 @@ def test_BasicDataset_add_molecules_single_conformer():
         assert mols[0].is_isomorphic_with(mols[1])
 
 
-def test_BasicDataset_add_molecules_conformers():
+def test_basicdataset_add_molecules_conformers():
     """
     Test adding a molecule with conformers which should each be expanded into their own qcportal.models.Molecule.
     """
@@ -1231,7 +1251,7 @@ def test_BasicDataset_add_molecules_conformers():
             assert mol.conformers[i].flatten().tolist() == pytest.approx(butane.conformers[i].flatten().tolist())
 
 
-def test_BasicDataset_coverage_reporter():
+def test_basicdataset_coverage_reporter():
     """
     Test generating coverage reports for openforcefield force fields.
     """
@@ -1255,7 +1275,7 @@ def test_BasicDataset_coverage_reporter():
         assert tag in coverage[ff]
 
 
-def test_Basicdataset_add_molecule_no_conformer():
+def test_basicdataset_add_molecule_no_conformer():
     """
     Test adding molecules with no conformers which should cause the validtor to generate one.
     """
@@ -1272,7 +1292,7 @@ def test_Basicdataset_add_molecule_no_conformer():
         assert molecule.n_conformers != 0
 
 
-def test_Basicdataset_add_molecule_missing_attributes():
+def test_basicdataset_add_molecule_missing_attributes():
     """
     Test adding a molecule to the dataset with a missing cmiles attribute this should raise an error.
     """
@@ -1294,7 +1314,7 @@ def test_Basicdataset_add_molecule_missing_attributes():
     pytest.param(("molecules.inchikey", "inchikey", "to_inchikey", {}, False), id="inchikey"),
     pytest.param(("molecules.hash", "hash", "to_hash", {}, True), id="hash error")
 ])
-def test_Basicdataset_molecules_to_file(file_data):
+def test_basicdataset_molecules_to_file(file_data):
     """
     Test exporting only the molecules in a dataset to file for each of the supported types.
     """
@@ -1365,7 +1385,7 @@ def test_dataset_to_pdf_no_torsions(toolkit_data):
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
-def test_Dataset_export_full_dataset_json(dataset_type):
+def test_dataset_export_full_dataset_json(dataset_type):
     """
     Test round tripping a full dataset via json.
     """
@@ -1398,7 +1418,7 @@ def test_Dataset_export_full_dataset_json(dataset_type):
     pytest.param((BasicDataset, TorsiondriveDataset), id="BasicDataSet to TorsiondriveDataset"),
     pytest.param((OptimizationDataset, TorsiondriveDataset), id="OptimizationDataset to TorsiondriveDataset"),
 ])
-def test_Dataset_export_full_dataset_json_mixing(dataset_type):
+def test_dataset_export_full_dataset_json_mixing(dataset_type):
     """
     Test round tripping a full dataset via json from one type to another this should fail as the dataset_types do not
     match.
@@ -1423,7 +1443,7 @@ def test_Dataset_export_full_dataset_json_mixing(dataset_type):
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
-def test_Dataset_export_dict(dataset_type):
+def test_dataset_export_dict(dataset_type):
     """
     Test making a new dataset from the dict of another of the same type.
     """
@@ -1458,7 +1478,7 @@ def test_Dataset_export_dict(dataset_type):
     pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
-def test_Basicdataset_export_json(dataset_type):
+def test_basicdataset_export_json(dataset_type):
     """
     Test that the json serialisation works.
     """
@@ -1632,7 +1652,7 @@ def test_qc_spec_overwrite():
     assert spec.program == "torchani"
 
 
-def test_Basicdataset_schema():
+def test_basicdataset_schema():
     """
     Test that producing the schema still works.
     """
@@ -1647,7 +1667,7 @@ def test_Basicdataset_schema():
 @pytest.mark.parametrize("input_data", [
     pytest.param(("CCC", 0), id="basic core and tag=0"), pytest.param(("CC@@/_-1CC", 10), id="complex core and tag=10")
 ])
-def test_Basicdataset_clean_index(input_data):
+def test_basicdataset_clean_index(input_data):
     """
     Test that index cleaning is working, this checks if an index already has a numeric counter and strips it, this
     allows us to submit molecule indexs that start from a counter other than 0.
@@ -1663,7 +1683,7 @@ def test_Basicdataset_clean_index(input_data):
     assert counter == input_data[1]
 
 
-def test_Basicdataset_clean_index_normal():
+def test_basicdataset_clean_index_normal():
     """
     Test that index cleaning works when no numeric counter is on the index this should give back the core and 0 as the
     tag.
@@ -1675,7 +1695,7 @@ def test_Basicdataset_clean_index_normal():
     assert counter == 0
 
 
-def test_Basicdataset_filtering():
+def test_basicdataset_filtering():
     """
     Test adding filtered molecules to the dataset.
     """
@@ -1705,7 +1725,7 @@ def test_Basicdataset_filtering():
         assert mols[0].is_isomorphic_with(mols[1]) is True
 
 
-def test_Optimizationdataset_qc_spec():
+def test_optimizationdataset_qc_spec():
     """
     Test generating the qc spec for optimization datasets.
     """
@@ -1720,7 +1740,7 @@ def test_Optimizationdataset_qc_spec():
     assert qc_spec.driver == "gradient"
 
 
-def test_TorsionDriveDataset_torsion_indices():
+def test_torsiondrivedataset_torsion_indices():
     """
     Test adding molecules to a torsiondrive dataset with incorrect torsion indices.
     """
