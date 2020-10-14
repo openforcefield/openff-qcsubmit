@@ -1282,6 +1282,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
         molecules = []
         tagged_atoms = []
+        images = []
         for data in self.dataset.values():
             rdkit_mol = data.get_off_molecule(include_conformers=False).to_rdkit()
             AllChem.Compute2DCoords(rdkit_mol)
@@ -1292,14 +1293,25 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         if not tagged_atoms:
             tagged_atoms = None
 
-        # now make the image
-        imagie = Draw.MolsToGridImage(
-            molecules,
-            molsPerRow=columns,
-            subImgSize=(500, 500),
-            highlightAtomLists=tagged_atoms,
-        )
-        imagie.save(file_name)
+        # evey 24 molecules split the page
+        for i in range(0, len(molecules), 24):
+            mol_chunk = molecules[i : i + 24]
+            if tagged_atoms is not None:
+                tag_chunk = tagged_atoms[i : i + 24]
+            else:
+                tag_chunk = None
+
+            # now make the image
+            image = Draw.MolsToGridImage(
+                mol_chunk,
+                molsPerRow=columns,
+                subImgSize=(500, 500),
+                highlightAtomLists=tag_chunk,
+            )
+            # write the pdf to bytes and pass straight to the pdf merger
+            images.append(image)
+
+        images[0].save(file_name, append_images=images[1:], save_all=True)
 
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
         """
