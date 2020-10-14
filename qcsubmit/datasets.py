@@ -1278,9 +1278,6 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         """
         Make the pdf of the molecules using rdkit.
         """
-        from io import BytesIO
-
-        from PyPDF2 import PdfFileMerger, PdfFileReader
         from rdkit.Chem import AllChem, Draw
 
         molecules = []
