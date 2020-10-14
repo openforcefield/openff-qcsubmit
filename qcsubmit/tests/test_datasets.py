@@ -1200,6 +1200,23 @@ def test_get_entry_molecule():
         assert mol_no_con == mol_con
 
 
+def test_dataset_nmolecules_tautomers():
+    """
+    We use inchikey to find the unique molecules however some tautomers can have the same inchikey so make sure we can still find the unique molecules by forceing the inchi_key to be the same.
+    """
+
+    dataset = BasicDataset()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    same_inchi  = molecules[0].to_inchikey(fixed_hydrogens=False)
+    for molecule in molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        attributes["inchi_key"] = same_inchi
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
+
+    assert dataset.n_molecules == len(molecules)
+
+
 def test_basicdataset_add_molecules_single_conformer():
     """
     Test creating a basic dataset.
