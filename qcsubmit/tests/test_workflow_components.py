@@ -510,7 +510,8 @@ def test_enumerating_protomers_apply():
     Test enumerating protomers which is only availabe in openeye.
     """
 
-    enumerate_protomers = workflow_components.EnumerateProtomers(max_states=2,)
+    enumerate_protomers = workflow_components.EnumerateProtomers(max_states=2)
+    assert enumerate_protomers.is_available()
 
     with pytest.raises(ValueError):
         # make sure rdkit is not allowed here
@@ -607,9 +608,8 @@ def test_fragmentation_apply():
     """
     Make sure that fragmentation is working.
     """
-
     fragmenter = workflow_components.WBOFragmenter()
-
+    assert fragmenter.is_available()
     # check that a molecule with no rotatable bonds fails if we dont want the parent back
     benzene = Molecule.from_file(get_data("benzene.sdf"), "sdf")
     result = fragmenter.apply([benzene, ], processors=1)
@@ -761,7 +761,7 @@ def test_smarts_filter_apply_tag_torsions(tag_dihedrals):
 
     molecules = get_tautomers()
     # this should filter and tag the dihedrals
-    result = filter.apply(molecules)
+    result = filter.apply(molecules, processors=1)
     for molecule in result.molecules:
         if tag_dihedrals:
             assert "dihedrals" in molecule.properties

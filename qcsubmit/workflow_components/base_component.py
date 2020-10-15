@@ -6,6 +6,7 @@ from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
 from pydantic import BaseModel, validator
 from pydantic.main import ModelMetaclass
+from qcelemental.util import which_import
 
 from ..common_structures import ComponentProperties
 from ..datasets import ComponentResult
@@ -279,12 +280,36 @@ class ToolkitValidator(BaseModel):
         """
         Check if any of the requested backend toolkits can be used.
         """
+        if len(cls._toolkits) == 1:
+            # the package needs a specific toolkit so raise the error
+            raise_error = True
+        else:
+            raise_error = False
 
-        for toolkit in cls._toolkits.values():
-            if toolkit.is_available():
-                return True
-
-        return False
+        for toolkit in cls._toolkits:
+            if toolkit == "openeye":
+                oe = which_import(
+                    ".oechem",
+                    package="openeye",
+                    return_bool=True,
+                    raise_error=raise_error,
+                    raise_msg="Please install via `conda install openeye-toolkits -c openeye`.",
+                )
+                if oe:
+                    return True
+            elif toolkit == "rdkit":
+                rdkit = which_import(
+                    "rdkit",
+                    return_bool=True,
+                    raise_error=raise_error,
+                    raise_msg="Please install via `conda install rdkit -c conda-forge`.",
+                )
+                if rdkit:
+                    return True
+        # if we are here both toolkits are missing
+        raise ModuleNotFoundError(
+            f"Openeye or RDKit is required to use this component please install via `conda install openeye-toolkits -c openeye` or `conda install rdkit -c conda-forge`."
+        )
 
 
 class BasicSettings(BaseModel):

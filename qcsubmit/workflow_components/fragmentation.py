@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Union
 
 from openforcefield.topology import Molecule
 from pydantic import validator
+from qcelemental.util import which_import
 
 from ..common_structures import ComponentProperties, TorsionIndexer
 from ..datasets import ComponentResult
@@ -75,15 +76,21 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         """
         Check if fragmenter can be imported.
         """
+        openeye = which_import(
+            ".oechem",
+            raise_error=True,
+            return_bool=True,
+            package="openeye",
+            raise_msg="Please install via `conda install openeye-toolkits -c openeye`.",
+        )
+        fragmenter = which_import(
+            "fragmenter",
+            raise_error=True,
+            return_bool=True,
+            raise_msg="Please install via `conda install fragmenter -c omnia`.",
+        )
 
-        try:
-            import fragmenter
-            import openeye
-
-            return True
-
-        except ImportError:
-            return False
+        return openeye and fragmenter
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
