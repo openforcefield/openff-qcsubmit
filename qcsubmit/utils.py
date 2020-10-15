@@ -34,6 +34,7 @@ def get_data(relative_path):
 def check_missing_stereo(molecule: off.Molecule) -> bool:
     """
     Get if the given molecule has missing stereo by round trip and catching stereo errors.
+    Here we use the RDKit backend explicitly for this check as this avoids nitrogen stereochemistry issues with the toolkit.
 
     Parameters
     ----------

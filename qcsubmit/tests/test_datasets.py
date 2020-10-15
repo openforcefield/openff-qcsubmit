@@ -20,6 +20,8 @@ from qcsubmit.datasets import (
     TorsiondriveDataset,
 )
 from qcsubmit.exceptions import (
+    AngleConnectionError,
+    BondConnectionError,
     ConstraintError,
     DatasetCombinationError,
     DatasetInputError,
@@ -35,6 +37,11 @@ from qcsubmit.utils import (
     condense_molecules,
     get_data,
     update_specification_and_metadata,
+)
+from qcsubmit.validators import (
+    check_angle_connection,
+    check_bond_connection,
+    check_torsion_connection,
 )
 
 
@@ -60,7 +67,7 @@ def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
     return molecules
 
 
-def get_dhiedral(molecule: Molecule) -> Tuple[int, int, int, int]:
+def get_dihedral(molecule: Molecule) -> Tuple[int, int, int, int]:
     """
     Get a valid dihedral for the molecule.
     """
@@ -418,26 +425,47 @@ def test_position_set_constraint_validation(constraint_settings):
 
 
 @pytest.mark.parametrize("constraint_settings", [
-    pytest.param(("freeze", "dihedral", [0, 1, 2, 3], None, None), id="freeze dihedral valid"),
-    pytest.param(("set", "dihedral", [0, 1, 2, 3], 50, None), id="set dihedral valid"),
+    pytest.param(("freeze", "dihedral", [0, 1, 2, 3], None, ConstraintError), id="freeze dihedral valid"),
+    pytest.param(("set", "dihedral", [0, 1, 2, 3], 50, ConstraintError), id="set dihedral valid"),
     pytest.param(("scan", "dihedral", [0, 1, 2, 3], 50, ConstraintError), id="invalid scan constraint"),
 ])
-def test_add_constraints_to_entry(constraint_settings):
+def test_add_constraints_to_entry_errors(constraint_settings):
     """
-    Test adding new constraints to a valid dataset entry.
+    Test adding new constraints to a valid dataset entry, make sure errors are raised if we say the constraint is bonded but it is not.
     """
     mol = Molecule.from_smiles("CC")
     entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
     # get the constraint info
     constraint, constraint_type, indices, value, error = constraint_settings
+    with pytest.raises(error):
+            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+
+
+@pytest.mark.parametrize("constraint_settings", [
+    pytest.param(("freeze", "dihedral", [3, 0, 1, 5], None, True, None), id="freeze dihedral"),
+    pytest.param(("set", "angle", [3, 0, 1], 50, True, None), id="set angle"),
+    pytest.param(("freeze", "distance", [0, 1], None, True, None), id="freeze distance"),
+    pytest.param(("scan", "dihedral", [0, 1, 2, 3], 50, True, ConstraintError), id="invalid scan constraint"),
+])
+def test_add_constraints_to_entry(constraint_settings):
+    """
+    Test adding new constraints to a valid dataset entry make sure no warnings are raised as the constraints are bonded.
+    """
+    mol = Molecule.from_smiles("CC")
+    entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
+    # get the constraint info
+    constraint, constraint_type, indices, value, bonded, error = constraint_settings
     if error is None:
-        entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+        with pytest.warns(None) as all_warnings:
+            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, bonded=bonded, value=value)
+        # make sure no warnings were raised
+        assert len(all_warnings) == 0
         assert entry.constraints.has_constraints is True
         assert "constraints" in entry.formatted_keywords
 
     else:
         with pytest.raises(error):
-            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, bonded=bonded, value=value)
 
 
 @pytest.mark.parametrize("constraint_setting", [
@@ -451,10 +479,10 @@ def test_add_entry_with_constraints(constraint_setting):
     """
     dataset = BasicDataset()
     # now add a molecule with constraints in the keywords
-    mol = Molecule.from_smiles("CC")
-    constraints = {"set": [{"type": "dihedral", "indices": [0, 1, 2, 3], "value": 50},
-                           {"type": "angle", "indices": [0, 1, 2], "value": 50},
-                           {"type": "distance", "indices": [0, 1], "value": 1}]}
+    mol = Molecule.from_file(get_data("ethane.sdf"), "sdf")
+    constraints = {"set": [{"type": "dihedral", "indices": [0, 1, 2, 3], "value": 50, "bonded": False},
+                           {"type": "angle", "indices": [0, 1, 2], "value": 50, "bonded": False},
+                           {"type": "distance", "indices": [1, 2], "value": 1, "bonded": False}]}
     index = mol.to_smiles()
 
     if constraint_setting == "constraints":
@@ -471,6 +499,21 @@ def test_add_entry_with_constraints(constraint_setting):
     else:
         assert entry.keywords == entry.formatted_keywords
         assert entry.constraints.has_constraints is False
+
+
+@pytest.mark.parametrize("atom_data", [
+    pytest.param(([1, 2], check_bond_connection, BondConnectionError), id="Bond connection error"),
+    pytest.param(([0, 1, 2], check_angle_connection, AngleConnectionError), id="Angle connection error"),
+    pytest.param(([5, 0, 1, 2], check_torsion_connection, DihedralConnectionError), id="Dihedral connection error")
+])
+def test_check_connection_types_error(atom_data):
+    """
+    Make sure the connection checks raise the correct errors.
+    """
+    ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
+    atoms, check, error = atom_data
+    with pytest.raises(error):
+        check(atoms, ethane)
 
 
 def test_constraints_are_equall():
@@ -494,6 +537,15 @@ def test_constraints_are_equall():
 
     const1.add_freeze_constraint(constraint_type="distance", indices=[0, 1])
     assert const1 == const2
+
+
+def test_scf_prop_validation():
+    """
+    Make sure unsupported scf properties are not allowed into a dataset.
+    """
+    dataset = BasicDataset()
+    with pytest.raises(DatasetInputError):
+        dataset.scf_properties = ["ddec_charges"]
 
 
 def test_add_molecule_no_extras():
@@ -1082,7 +1134,7 @@ def test_wrong_metadata_collection_type(dataset_type):
     pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
-def test_Dataset_exporting_same_type(dataset_type):
+def test_dataset_exporting_same_type(dataset_type):
     """
     Test making the given dataset from the json of another instance of the same dataset type.
     """
@@ -1128,7 +1180,44 @@ def test_get_molecule_entry(molecule_data):
     assert len(entries) == entries_no
 
 
-def test_BasicDataset_add_molecules_single_conformer():
+def test_get_entry_molecule():
+    """
+    Test getting a molecule with and without conformers from a dataset.
+    """
+    dataset = BasicDataset()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    for molecule in molecules:
+        index =molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
+
+    # check the conformers are attached when requested
+    for entry in dataset.dataset.values():
+        mol_no_con = entry.get_off_molecule(include_conformers=False)
+        mol_con = entry.get_off_molecule(include_conformers=True)
+        assert mol_no_con.n_conformers == 0
+        assert mol_con.n_conformers == 1
+        assert mol_no_con == mol_con
+
+
+def test_dataset_nmolecules_tautomers():
+    """
+    We use inchikey to find the unique molecules however some tautomers can have the same inchikey so make sure we can still find the unique molecules by forceing the inchi_key to be the same.
+    """
+
+    dataset = BasicDataset()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    same_inchi  = molecules[0].to_inchikey(fixed_hydrogens=False)
+    for molecule in molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        attributes["inchi_key"] = same_inchi
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
+
+    assert dataset.n_molecules == len(molecules)
+
+
+def test_basicdataset_add_molecules_single_conformer():
     """
     Test creating a basic dataset.
     """
@@ -1151,7 +1240,7 @@ def test_BasicDataset_add_molecules_single_conformer():
         assert mols[0].is_isomorphic_with(mols[1])
 
 
-def test_BasicDataset_add_molecules_conformers():
+def test_basicdataset_add_molecules_conformers():
     """
     Test adding a molecule with conformers which should each be expanded into their own qcportal.models.Molecule.
     """
@@ -1179,7 +1268,7 @@ def test_BasicDataset_add_molecules_conformers():
             assert mol.conformers[i].flatten().tolist() == pytest.approx(butane.conformers[i].flatten().tolist())
 
 
-def test_BasicDataset_coverage_reporter():
+def test_basicdataset_coverage_reporter():
     """
     Test generating coverage reports for openforcefield force fields.
     """
@@ -1203,7 +1292,7 @@ def test_BasicDataset_coverage_reporter():
         assert tag in coverage[ff]
 
 
-def test_Basicdataset_add_molecule_no_conformer():
+def test_basicdataset_add_molecule_no_conformer():
     """
     Test adding molecules with no conformers which should cause the validtor to generate one.
     """
@@ -1220,11 +1309,10 @@ def test_Basicdataset_add_molecule_no_conformer():
         assert molecule.n_conformers != 0
 
 
-def test_Basicdataset_add_molecule_missing_attributes():
+def test_basicdataset_add_molecule_missing_attributes():
     """
     Test adding a molecule to the dataset with a missing cmiles attribute this should raise an error.
     """
-
     dataset = BasicDataset()
     ethane = Molecule.from_smiles('CC')
     # generate a conformer to make sure this is not rasing an error
@@ -1242,11 +1330,10 @@ def test_Basicdataset_add_molecule_missing_attributes():
     pytest.param(("molecules.inchikey", "inchikey", "to_inchikey", {}, False), id="inchikey"),
     pytest.param(("molecules.hash", "hash", "to_hash", {}, True), id="hash error")
 ])
-def test_Basicdataset_molecules_to_file(file_data):
+def test_basicdataset_molecules_to_file(file_data):
     """
     Test exporting only the molecules in a dataset to file for each of the supported types.
     """
-
     dataset = BasicDataset()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -1284,7 +1371,6 @@ def test_dataset_to_pdf_no_torsions(toolkit_data):
     """
     Test exporting molecules to pdf with no torsions.
     """
-
     dataset = BasicDataset()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -1313,11 +1399,10 @@ def test_dataset_to_pdf_no_torsions(toolkit_data):
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
-def test_Dataset_export_full_dataset_json(dataset_type):
+def test_dataset_export_full_dataset_json(dataset_type):
     """
     Test round tripping a full dataset via json.
     """
-
     dataset = dataset_type()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -1327,7 +1412,7 @@ def test_Dataset_export_full_dataset_json(dataset_type):
         try:
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
         except TypeError:
-            dihedrals = [get_dhiedral(molecule), ]
+            dihedrals = [get_dihedral(molecule), ]
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
     with temp_directory():
         dataset.export_dataset("dataset.json")
@@ -1346,19 +1431,18 @@ def test_Dataset_export_full_dataset_json(dataset_type):
     pytest.param((BasicDataset, TorsiondriveDataset), id="BasicDataSet to TorsiondriveDataset"),
     pytest.param((OptimizationDataset, TorsiondriveDataset), id="OptimizationDataset to TorsiondriveDataset"),
 ])
-def test_Dataset_export_full_dataset_json_mixing(dataset_type):
+def test_dataset_export_full_dataset_json_mixing(dataset_type):
     """
     Test round tripping a full dataset via json from one type to another this should fail as the dataset_types do not
     match.
     """
-
     dataset = dataset_type[0]()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
-        dihedrals = [get_dhiedral(molecule), ]
+        dihedrals = [get_dihedral(molecule), ]
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
     with temp_directory():
         dataset.export_dataset("dataset.json")
@@ -1371,18 +1455,17 @@ def test_Dataset_export_full_dataset_json_mixing(dataset_type):
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
-def test_Dataset_export_dict(dataset_type):
+def test_dataset_export_dict(dataset_type):
     """
     Test making a new dataset from the dict of another of the same type.
     """
-
     dataset = dataset_type()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
-        dihedrals = [get_dhiedral(molecule), ]
+        dihedrals = [get_dihedral(molecule), ]
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
 
     # add one failure
@@ -1406,18 +1489,17 @@ def test_Dataset_export_dict(dataset_type):
     pytest.param(OptimizationDataset, id="OptimizationDataset"),
     pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
 ])
-def test_Basicdataset_export_json(dataset_type):
+def test_dataset_export_json(dataset_type):
     """
     Test that the json serialisation works.
     """
-
     dataset = dataset_type()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
-        dihedrals = [get_dhiedral(molecule), ]
+        dihedrals = [get_dihedral(molecule), ]
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
 
     # add one failure
@@ -1427,13 +1509,52 @@ def test_Basicdataset_export_json(dataset_type):
                              component_description={"name": "TestFailure"},
                              component_provenance={"test": "v1.0"})
 
-
     # try parse the json string to build the dataset
     dataset2 = dataset_type.parse_raw(dataset.json())
     assert dataset.n_molecules == dataset2.n_molecules
     assert dataset.n_records == dataset2.n_records
     for record in dataset.dataset.keys():
         assert record in dataset2.dataset
+
+
+@pytest.mark.parametrize("dataset_type", [
+    pytest.param(BasicDataset, id="BasicDataset"),
+    pytest.param(OptimizationDataset, id="OptimizationDataset"),
+    pytest.param(TorsiondriveDataset, id="TorsiondriveDataset")
+])
+@pytest.mark.parametrize("compression", [
+    pytest.param("xz", id="lzma"),
+    pytest.param("bz2", id="bz2"),
+    pytest.param("gz", id="gz"),
+    pytest.param("", id="No compression")
+])
+def test_dataset_roundtrip_compression(dataset_type, compression):
+    """
+    Test that the json serialisation works.
+    """
+    dataset = dataset_type()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    # add them to the dataset
+    for molecule in molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        dihedrals = [get_dihedral(molecule), ]
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
+
+    # add one failure
+    fail = Molecule.from_smiles("C")
+    dataset.filter_molecules(molecules=[fail, ],
+                             component_name="TestFailure",
+                             component_description={"name": "TestFailure"},
+                             component_provenance={"test": "v1.0"})
+
+    with temp_directory():
+        # export the dataset with compression
+        dataset2 = dataset_type.parse_raw(dataset.json())
+        assert dataset.n_molecules == dataset2.n_molecules
+        assert dataset.n_records == dataset2.n_records
+        for record in dataset.dataset.keys():
+            assert record in dataset2.dataset
 
 
 @pytest.mark.parametrize("basis_data", [
@@ -1580,7 +1701,7 @@ def test_qc_spec_overwrite():
     assert spec.program == "torchani"
 
 
-def test_Basicdataset_schema():
+def test_basicdataset_schema():
     """
     Test that producing the schema still works.
     """
@@ -1595,7 +1716,7 @@ def test_Basicdataset_schema():
 @pytest.mark.parametrize("input_data", [
     pytest.param(("CCC", 0), id="basic core and tag=0"), pytest.param(("CC@@/_-1CC", 10), id="complex core and tag=10")
 ])
-def test_Basicdataset_clean_index(input_data):
+def test_basicdataset_clean_index(input_data):
     """
     Test that index cleaning is working, this checks if an index already has a numeric counter and strips it, this
     allows us to submit molecule indexs that start from a counter other than 0.
@@ -1611,7 +1732,7 @@ def test_Basicdataset_clean_index(input_data):
     assert counter == input_data[1]
 
 
-def test_Basicdataset_clean_index_normal():
+def test_basicdataset_clean_index_normal():
     """
     Test that index cleaning works when no numeric counter is on the index this should give back the core and 0 as the
     tag.
@@ -1623,7 +1744,7 @@ def test_Basicdataset_clean_index_normal():
     assert counter == 0
 
 
-def test_Basicdataset_filtering():
+def test_basicdataset_filtering():
     """
     Test adding filtered molecules to the dataset.
     """
@@ -1653,7 +1774,7 @@ def test_Basicdataset_filtering():
         assert mols[0].is_isomorphic_with(mols[1]) is True
 
 
-def test_Optimizationdataset_qc_spec():
+def test_optimizationdataset_qc_spec():
     """
     Test generating the qc spec for optimization datasets.
     """
@@ -1668,7 +1789,7 @@ def test_Optimizationdataset_qc_spec():
     assert qc_spec.driver == "gradient"
 
 
-def test_TorsionDriveDataset_torsion_indices():
+def test_torsiondrivedataset_torsion_indices():
     """
     Test adding molecules to a torsiondrive dataset with incorrect torsion indices.
     """

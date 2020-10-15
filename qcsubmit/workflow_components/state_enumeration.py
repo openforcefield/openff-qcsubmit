@@ -6,6 +6,7 @@ from typing import List
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
 
+from ..common_structures import ComponentProperties
 from ..datasets import ComponentResult
 from ..utils import check_missing_stereo
 from .base_component import CustomWorkflowComponent, ToolkitValidator
@@ -32,8 +33,15 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
     # custom settings for the class
     max_tautomers: int = 20
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply_init(self, result: ComponentResult) -> None:
+        """
+        Here we load up the toolkit backend into the _cache.
+        """
+        self._cache["toolkit"] = self._toolkits[self.toolkit]()
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Enumerate tautomers of the input molecule if no tautomers are found only the input molecule is returned.
 
@@ -45,9 +53,9 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        result = self._create_result()
+        toolkit = self._cache["toolkit"]
 
-        toolkit = self._toolkits[self.toolkit]()
+        result = self._create_result()
 
         for molecule in molecules:
             try:
@@ -55,12 +63,14 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
                     max_states=self.max_tautomers, toolkit_registry=toolkit
                 )
 
-                result.add_molecule(molecule)
-                for taut in tautomers:
-                    result.add_molecule(taut)
+                if len(tautomers) == 0:
+                    result.add_molecule(molecule)
+                else:
+                    for tautomer in tautomers:
+                        result.add_molecule(tautomer)
 
             except Exception:
-                self.fail_molecule(molecule, component_result=result)
+                result.filter_molecule(molecule)
 
         return result
 
@@ -94,12 +104,16 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = (
         "The molecules stereo centers or bonds could not be enumerated"
     )
-
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
     undefined_only: bool = False
     max_isomers: int = 20
     rationalise: bool = True
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply_init(self, result: ComponentResult) -> None:
+
+        self._cache["toolkit"] = self._toolkits[self.toolkit]()
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Enumerate stereo centers and bonds of the input molecule if no isomers are found only the input molecule is
         returned.
@@ -112,9 +126,9 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        result = self._create_result()
+        toolkit = self._cache["toolkit"]
 
-        toolkit = self._toolkits[self.toolkit]()
+        result = self._create_result()
 
         for molecule in molecules:
             try:
@@ -138,7 +152,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
                     result.add_molecule(molecule)
 
             except Exception:
-                self.fail_molecule(molecule=molecule, component_result=result)
+                result.filter_molecule(molecule)
 
         return result
 
@@ -158,10 +172,15 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     # restrict the allowed toolkits for this module
     toolkit = "openeye"
     _toolkits = {"openeye": OpenEyeToolkitWrapper}
+    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     max_states: int = 10
 
-    def apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply_init(self, result: ComponentResult) -> None:
+
+        self._cache["toolkit"] = self._toolkits[self.toolkit]()
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Enumerate the formal charges of the molecule if possible if not only the input molecule is returned.
 
@@ -176,15 +195,14 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
             This is only possible using Openeye so far, if openeye is not available this step will fail.
         """
 
-        from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
-
         result = self._create_result()
 
+        has_oe = self._cache["toolkit"]
+
         # must have openeye to use this feature
-        if OpenEyeToolkitWrapper.is_available():
+        if has_oe:
 
             for molecule in molecules:
-
                 try:
                     protomers = molecule.enumerate_protomers(max_states=self.max_states)
 
@@ -193,13 +211,12 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
                     result.add_molecule(molecule)
 
                 except Exception:
-                    self.fail_molecule(molecule=molecule, component_result=result)
+                    result.filter_molecule(molecule)
 
             return result
 
         else:
-
             for molecule in molecules:
-                self.fail_molecule(molecule=molecule, component_result=result)
+                result.filter_molecule(molecule)
 
             return result
