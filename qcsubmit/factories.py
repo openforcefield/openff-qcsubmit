@@ -184,11 +184,13 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
 
         for component in components:
             if issubclass(type(component), workflow_components.CustomWorkflowComponent):
-                if not component.is_available():
+                try:
+                    component.is_available()
+                except ModuleNotFoundError as e:
                     raise CompoenentRequirementError(
                         f"The component {component.component_name} could not be added to "
                         f"the workflow due to missing requirements"
-                    )
+                    ) from e
                 if component.component_name not in self.workflow.keys():
                     self.workflow[component.component_name] = component
                 else:
