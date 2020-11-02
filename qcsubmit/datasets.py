@@ -19,6 +19,7 @@ from .common_structures import (
     DatasetConfig,
     IndexCleaner,
     Metadata,
+    QCSpec,
     QCSpecificationHandler,
     TorsionIndexer,
 )
@@ -339,6 +340,7 @@ class DatasetEntry(DatasetConfig):
                             f" proper/improper torsion."
                         )
         # now we need to process all of the initial molecules to make sure the cmiles is present
+        # and force c1 symmetry
         initial_molecules = []
         for mol in self.initial_molecules:
             extras = mol.extras or {}
@@ -347,6 +349,8 @@ class DatasetEntry(DatasetConfig):
             ] = self.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
             mol_data = mol.dict()
             mol_data["extras"] = extras
+            # put into strict c1 symmetry
+            mol_data["fix_symmetry"] = "c1"
             initial_molecules.append(qcel.models.Molecule.parse_obj(mol_data))
         # now assign the new molecules
         self.initial_molecules = initial_molecules
@@ -934,12 +938,10 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
                 metadata=self.metadata.dict(),
             )
 
-        # store the keyword set into the collection
-        kw = ptl.models.KeywordSet(
-            values=self.dict(include={"maxiter", "scf_properties"})
-        )
         # here we need to add a spec for each program and set the default
         for spec in self.qc_specifications.values():
+            # generate the keyword set
+            kw = self._get_spec_keywords(spec=spec)
             try:
                 # try and add the keywords if present then continue
                 collection.add_keywords(
@@ -974,31 +976,37 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         # save the final dataset
         collection.save()
 
-        # submit the calculations for each spec using the workaround
-        # TODO replace this call when qcfractal is updated.
-        responses = self._dataset_add_compute(collection=collection)
-        collection.save()
-        # for spec in self.qc_specifications.values():
-        #     response = collection.compute(
-        #         method=spec.method,
-        #         basis=spec.basis,
-        #         keywords=spec.spec_name,
-        #         program=spec.program,
-        #         tag=self.compute_tag,
-        #         priority=self.priority,
-        #     )
-        #
-        #     collection.save()
-        #     # save the response per submission
-        #     responses[spec.spec_name] = response
+        # submit the calculations for each spec
+        responses = {}
+        for spec in self.qc_specifications.values():
+            response = collection.compute(
+                method=spec.method,
+                basis=spec.basis,
+                keywords=spec.spec_name,
+                program=spec.program,
+                tag=self.compute_tag,
+                priority=self.priority,
+                protocols={"wavefunction": spec.store_wavefunction.value},
+            )
+
+            collection.save()
+            # save the response per submission
+            responses[spec.spec_name] = response
 
         return responses
-        # result = BasicResult()
-        # while await_result:
-        #
-        #     pass
-        #
-        # return result
+
+    def _get_spec_keywords(self, spec: QCSpec) -> ptl.models.KeywordSet:
+        """
+        Build a keyword set which is specific to this QC specification and accounts for implicit solvent when requested.
+        """
+        # use the basic keywords we allow
+        data = self.dict(include={"maxiter", "scf_properties"})
+        # account for implicit solvent
+        if spec.implicit_solvent is not None:
+            data["pcm"] = True
+            data["pcm__input"] = spec.implicit_solvent.to_string()
+
+        return ptl.models.KeywordSet(values=data)
 
     def _dataset_add_compute(
         self, collection: ptl.collections.Dataset
@@ -1476,7 +1484,7 @@ class OptimizationDataset(BasicDataset):
 
         return new_dataset
 
-    def _add_keywords(self, client: ptl.FractalClient) -> str:
+    def _add_keywords(self, client: ptl.FractalClient, spec: QCSpec) -> str:
         """
         Add the keywords to the client and return the index number of the keyword set.
 
@@ -1484,9 +1492,7 @@ class OptimizationDataset(BasicDataset):
             kw_id: The keyword index number in the client.
         """
 
-        kw = ptl.models.KeywordSet(
-            values=self.dict(include={"maxiter", "scf_properties"})
-        )
+        kw = self._get_spec_keywords(spec=spec)
         kw_id = client.add_keywords([kw])[0]
         return kw_id
 
@@ -1565,12 +1571,12 @@ class OptimizationDataset(BasicDataset):
                 metadata=self.metadata.dict(),
             )
 
-        # store the keyword set into the collection
-        kw_id = self._add_keywords(target_client)
         # create the optimization specification
         opt_spec = self.optimization_procedure.get_optimzation_spec()
         # create the qc specification and add them all
         for spec in self.qc_specifications.values():
+            # get a keyword id for this specification
+            kw_id = self._add_keywords(client=target_client, spec=spec)
             qc_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
             collection.add_specification(
                 name=spec.spec_name,
@@ -1773,12 +1779,12 @@ class TorsiondriveDataset(OptimizationDataset):
                 provenance=self.provenance,
                 metadata=self.metadata.dict(),
             )
-        # store the keyword set into the collection
-        kw_id = self._add_keywords(target_client)
         # create the optimization specification
         opt_spec = self.optimization_procedure.get_optimzation_spec()
         # create the qc specification for each spec
         for spec in self.qc_specifications.values():
+            # get the kd id from the client for this spec
+            kw_id = self._add_keywords(client=target_client, spec=spec)
             qc_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
             collection.add_specification(
                 name=spec.spec_name,
@@ -1788,7 +1794,7 @@ class TorsiondriveDataset(OptimizationDataset):
                 overwrite=False,
             )
 
-        # start add the molecule to the dataset, multipule conformers/molecules can be used as the starting geometry
+        # start add the molecule to the dataset, multiple conformers/molecules can be used as the starting geometry
         for i, (index, data) in enumerate(self.dataset.items()):
             try:
                 collection.add_entry(
