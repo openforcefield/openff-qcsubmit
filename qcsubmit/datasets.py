@@ -9,8 +9,6 @@ import tqdm
 from openforcefield import topology as off
 from pydantic import PositiveInt, constr, validator
 from qcfractal.interface import FractalClient
-from qcfractal.interface.collections.collection_utils import composition_planner
-from qcfractal.interface.models import ComputeResponse
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from simtk import unit
 
