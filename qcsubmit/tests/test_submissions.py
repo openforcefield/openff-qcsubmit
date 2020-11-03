@@ -189,7 +189,7 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
-    factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="default",
+    factory.add_qc_spec(method="hf", basis="sto-2g", program=program, spec_name="default",
                         spec_description="testing the single points with pcm",
                         implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
                         overwrite=True)
@@ -580,7 +580,7 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
     molecules = Molecule.from_smiles("C")
 
     factory = OptimizationDatasetFactory(driver="gradient")
-    factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="pcm_water", spec_description="test",
+    factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="default", spec_description="test",
                         implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
                         overwrite=True)
 
