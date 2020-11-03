@@ -550,7 +550,7 @@ def test_scf_prop_validation():
 
 def test_add_molecule_no_extras():
     """
-    Test that adding a molecule with no extras automatically updates the extras to include the cmiles.
+    Test that adding a molecule with no extras automatically updates the extras to include the cmiles and c1 symmetry.
     """
     dataset = BasicDataset()
     mols = duplicated_molecules(include_conformers=True, duplicates=1)
@@ -562,6 +562,7 @@ def test_add_molecule_no_extras():
     for entry in dataset.dataset.values():
         for mol in entry.initial_molecules:
             assert "canonical_isomeric_explicit_hydrogen_mapped_smiles" in mol.extras
+            assert mol.fix_symmetry == "c1"
 
 
 @pytest.mark.parametrize("dataset_data", [

@@ -10,7 +10,7 @@ from qcengine.testing import has_program
 from qcfractal.testing import fractal_compute_server
 from qcportal import FractalClient
 
-from qcsubmit.common_structures import Metadata
+from qcsubmit.common_structures import Metadata, PCMSettings
 from qcsubmit.constraints import Constraints
 from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
 from qcsubmit.exceptions import DatasetInputError, MissingBasisCoverageError
@@ -175,6 +175,84 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
             assert result.status.value.upper() == "COMPLETE"
             assert result.error is None
             assert result.return_result is not None
+
+
+def test_basic_submissions_single_pcm_spec(fractal_compute_server):
+    """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
+
+    client = FractalClient(fractal_compute_server)
+
+    program = "psi4"
+    if not has_program(program):
+        pytest.skip(f"Program '{program}' not found.")
+
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
+
+    factory = BasicDatasetFactory(driver="energy")
+    factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="default",
+                        spec_description="testing the single points with pcm",
+                        implicit_solvent=PCMSettings(units="au", solvent="water"),
+                        overwrite=True)
+
+    dataset = factory.create_dataset(dataset_name=f"Test single points with pcm water",
+                                     molecules=molecules,
+                                     description="Test basics dataset with pcm water",
+                                     tagline="Testing single point datasets with pcm water",
+                                     )
+
+    with pytest.raises(DatasetInputError):
+        dataset.submit(client=client, await_result=False)
+
+    # now add a mock url so we can submit the data
+    dataset.metadata.long_description_url = "https://test.org"
+
+    # now submit again
+    dataset.submit(client=client, await_result=False)
+
+    fractal_compute_server.await_results()
+
+    # make sure of the results are complete
+    ds = client.get_collection("Dataset", dataset.dataset_name)
+
+    # check the metadata
+    meta = Metadata(**ds.data.metadata)
+    assert meta == dataset.metadata
+
+    assert ds.data.description == dataset.description
+    assert ds.data.tagline == dataset.dataset_tagline
+    assert ds.data.tags == dataset.dataset_tags
+
+    # check the provenance
+    assert dataset.provenance == ds.data.provenance
+
+    # check the qc spec
+    assert ds.data.default_driver == dataset.driver
+
+    # get the last ran spec
+    for specification in ds.data.history:
+        driver, program, method, basis, spec_name = specification
+        spec = dataset.qc_specifications[spec_name]
+        assert driver == dataset.driver
+        assert program == spec.program
+        assert method == spec.method
+        assert basis == spec.basis
+        break
+    else:
+        raise RuntimeError(f"The requested compute was not found in the history {ds.data.history}")
+
+    for spec in dataset.qc_specifications.values():
+        query = ds.get_records(
+            method=spec.method,
+            basis=spec.basis,
+            program=spec.program,
+        )
+        for index in query.index:
+            result = query.loc[index].record
+            assert result.status.value.upper() == "COMPLETE"
+            assert result.error is None
+            assert result.return_result is not None
+            # make sure the PCM result was captured
+            assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
 
 
 @pytest.mark.parametrize("dataset_data", [
@@ -486,6 +564,80 @@ def test_optimization_submissions(fractal_compute_server, specification):
                 result = record.get_trajectory()[0]
                 assert "CURRENT DIPOLE X" in result.extras["qcvars"].keys()
                 assert "SCF QUADRUPOLE XX" in result.extras["qcvars"].keys()
+
+
+def test_optimization_submissions_with_pcm(fractal_compute_server):
+    """Test submitting an Optimization dataset to a snowflake server with PCM."""
+
+    client = FractalClient(fractal_compute_server)
+
+    program = "psi4"
+    if not has_program(program):
+        pytest.skip(f"Program '{program}' not found.")
+
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
+
+    factory = OptimizationDatasetFactory(driver="gradient")
+    factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="pcm_water", spec_description="test",
+                        implicit_solvent=PCMSettings(units="au", solvent="water"),
+                        overwrite=True)
+
+    dataset = factory.create_dataset(dataset_name=f"Test optimizations info with pcm water",
+                                     molecules=molecules[:2],
+                                     description="Test optimization dataset",
+                                     tagline="Testing optimization datasets",
+                                     )
+
+    with pytest.raises(DatasetInputError):
+        dataset.submit(client=client, await_result=False)
+
+    # now add a mock url so we can submit the data
+    dataset.metadata.long_description_url = "https://test.org"
+
+    # now submit again
+    dataset.submit(client=client, await_result=False)
+
+    fractal_compute_server.await_results()
+
+    # make sure of the results are complete
+    ds = client.get_collection("OptimizationDataset", dataset.dataset_name)
+
+    # check the metadata
+    meta = Metadata(**ds.data.metadata)
+    assert meta == dataset.metadata
+
+    # check the provenance
+    assert dataset.provenance == ds.data.provenance
+
+    # check the qc spec
+    for qc_spec in dataset.qc_specifications.values():
+        spec = ds.data.specs[qc_spec.spec_name]
+
+        assert spec.description == qc_spec.spec_description
+        assert spec.qc_spec.driver == dataset.driver
+        assert spec.qc_spec.method == qc_spec.method
+        assert spec.qc_spec.basis == qc_spec.basis
+        assert spec.qc_spec.program == qc_spec.program
+
+        # check the keywords
+        keywords = client.query_keywords(spec.qc_spec.keywords)[0]
+
+        assert keywords.values["maxiter"] == dataset.maxiter
+        assert keywords.values["scf_properties"] == dataset.scf_properties
+
+        # query the dataset
+        ds.query(qc_spec.spec_name)
+
+        for index in ds.df.index:
+            record = ds.df.loc[index].default
+            assert record.status.value == "COMPLETE"
+            assert record.error is None
+            assert len(record.trajectory) > 1
+            result = record.get_trajectory()[0]
+            assert "CURRENT DIPOLE X" in result.extras["qcvars"].keys()
+            assert "SCF QUADRUPOLE XX" in result.extras["qcvars"].keys()
+            # make sure the PCM result was captured
+            assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
 
 
 @pytest.mark.parametrize("specification", [

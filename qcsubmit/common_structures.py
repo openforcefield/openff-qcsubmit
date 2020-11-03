@@ -194,7 +194,7 @@ class PCMSettings(ResultsConfig):
             raise PCMSettingError(
                 f"{cavity} is not supported via QCSubmit only implicit can be used for collection based calculations."
             )
-        return cavity
+        return "Implicit"
 
     @validator("medium_SolverType")
     def _check_solver(cls, solver: str) -> str:
@@ -219,12 +219,11 @@ class PCMSettings(ResultsConfig):
             )
         return solvent_formula
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, units: str, solvent: str, **kwargs):
         """
         Fully validate the model making sure options are compatible and convert any defaults to the give unit system.
         """
         # convert all inputs to the correct units
-        units = kwargs.get("units", None)
         if units.lower() == "angstrom":
             # we need to convert the default values only which have length scales
             if "medium_ProbeRadius" not in kwargs:
@@ -245,13 +244,16 @@ class PCMSettings(ResultsConfig):
                     * constants.bohr2angstroms ** 2
                 )
                 kwargs["cavity_Area"] = cavity_Area
-        super(PCMSettings, self).__init__(*args, **kwargs)
+        # add the units and solvent to the dict
+        kwargs["units"] = units
+        kwargs["medium_Solvent"] = solvent
+        super(PCMSettings, self).__init__(**kwargs)
 
     def to_string(self) -> str:
         """
         Generate the formated PCM settings string which can be ingested by psi4 via the qcschema interface.
         """
-        # format the medium wkeywords
+        # format the medium keywords
         medium_str, cavity_str = "", ""
         for prop in self.__fields__.keys():
             if "medium" in prop:
