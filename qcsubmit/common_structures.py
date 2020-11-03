@@ -109,12 +109,12 @@ class PCMSettings(ResultsConfig):
     medium_Correction: float = Field(
         0.0,
         description="Correction, k for the apparent surface charge scaling factor in the CPCM solver.",
-        gt=0,
+        ge=0,
     )
     medium_DiagonalScaling: float = Field(
         1.07,
         description="Scaling factor for diagonal of collocation matrices, values commonly used in the literature are 1.07 and 1.0694.",
-        gt=0,
+        ge=0,
     )
     medium_ProbeRadius: float = Field(
         1.0,
