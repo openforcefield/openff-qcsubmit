@@ -189,7 +189,7 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
-    factory.add_qc_spec(method="hf", basis="sto-4g", program=program, spec_name="default",
+    factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="default",
                         spec_description="testing the single points with pcm",
                         implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
                         overwrite=True)
@@ -386,7 +386,7 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
     factory = BasicDatasetFactory(driver="energy")
     factory.clear_qcspecs()
     factory.add_qc_spec(method="hf",
-                        basis="sto-3g",
+                        basis="sto-6g",
                         program="psi4",
                         spec_name="default",
                         spec_description="wavefunction spec",
