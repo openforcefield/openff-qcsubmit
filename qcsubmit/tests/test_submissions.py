@@ -444,7 +444,7 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
             assert result.error is None
             assert result.return_result is not None
             basis = result.get_wavefunction("basis")
-            assert basis.name.lower() == "sto-3g"
+            assert basis.name.lower() == "sto-6g"
             orbitals = result.get_wavefunction("orbitals_a")
             assert orbitals.shape is not None
 
