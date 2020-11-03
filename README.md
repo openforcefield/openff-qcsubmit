@@ -16,12 +16,10 @@ Automated tools for submitting molecules to QCArchive instances.
 A development version of QCSubmit can be installed via conda:
 
     conda install -c conda-forge -c omnia/label/rc -c omnia -c qcsubmit
-    pip install basis_set_exchange
 
 If you want the OpenEye Toolkit and Fragmenter, do instead:
 
     conda install -c conda-forge -c omnia/label/rc -c omnia -c openeye qcsubmit fragmenter
-    pip install basis_set_exchange
 
 Note that the OpenEye Toolkit is required to use fragmenter and protomer enumeration.
 All other features can be used with RDKit.

@@ -40,9 +40,6 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
     The main metadata features here are concerned with the QM settings to be used which includes the driver.
 
     Attributes:
-        method:  The QM theory to use during dataset calculations.
-        basis:   The basis set to use during dataset calculations.
-        program: The program which will be used during the calculations.
         maxiter: The maximum amount of SCF cycles allowed.
         driver:  The driver that should be used in the calculation ie energy/gradient/hessian.
         scf_properties: A list of QM properties which should be calculated and collected during the driver calculation.

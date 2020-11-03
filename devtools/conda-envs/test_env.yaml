@@ -25,7 +25,8 @@ dependencies:
   - qcfractal
   - torsiondrive
   - fragmenter
+  - basis_set_exchange
 
     # Pip-only installs
-  - pip:
-    - basis_set_exchange
+#  - pip:
+#    - basis_set_exchange

@@ -173,3 +173,12 @@ class AtomConnectionError(QCSubmitException):
     def __init__(self, message: str, atoms):
         super(AtomConnectionError, self).__init__(message=message)
         self.atoms = atoms
+
+
+class PCMSettingError(QCSubmitException):
+    """
+    A general error raised when an invalid PCM setting is entered.
+    """
+
+    error_type = "pcm_setting_error"
+    header = "PCM Setting Error"

@@ -4,15 +4,16 @@ This file contains common starting structures which can be mixed into datasets, 
 import getpass
 import re
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import qcportal as ptl
-from pydantic import BaseModel, HttpUrl, constr, validator
+from pydantic import BaseModel, Field, HttpUrl, constr, validator
+from qcelemental import constants
 from qcelemental.models.results import WavefunctionProtocolEnum
 from qcfractal.interface import FractalClient
 
-from qcsubmit.exceptions import DatasetInputError, QCSpecificationError
+from qcsubmit.exceptions import DatasetInputError, PCMSettingError, QCSpecificationError
 
 
 class DatasetConfig(BaseModel):
@@ -52,16 +53,251 @@ class ComponentProperties(BaseModel):
         extra: "forbid"
 
 
+class PCMSettings(ResultsConfig):
+    """
+    A class to handle PCM settings which can be used with PSi4.
+    """
+
+    units: str = Field(
+        ...,
+        description="The units used in the input options atomic units are used by default.",
+    )
+    codata: int = Field(
+        2010,
+        description="The set of fundamental physical constants to be used in the module.",
+    )
+    cavity_Type: str = Field(
+        "GePol",
+        description="Completely specifies type of molecular surface and its discretization.",
+    )
+    cavity_Area: float = Field(
+        0.3,
+        description="Average area (weight) of the surface partition for the GePol cavity in the specified units. By default this is in AU.",
+    )
+    cavity_Scaling: bool = Field(
+        True,
+        description="If true, the radii for the spheres will be scaled by 1.2. For finer control on the scaling factor for each sphere, select explicit creation mode.",
+    )
+    cavity_RadiiSet: str = Field(
+        "Bondi",
+        description="Select set of atomic radii to be used. Currently Bondi-Mantina Bondi, UFF  and Allinger’s MM3 sets available. Radii in Allinger’s MM3 set are obtained by dividing the value in the original paper by 1.2, as done in the ADF COSMO implementation We advise to turn off scaling of the radii by 1.2 when using this set.",
+    )
+    cavity_MinRadius: float = Field(
+        100,
+        description="Minimal radius for additional spheres not centered on atoms. An arbitrarily big value is equivalent to switching off the use of added spheres, which is the default in AU.",
+    )
+    cavity_Mode: str = Field(
+        "Implicit",
+        description="How to create the list of spheres for the generation of the molecular surface.",
+    )
+    medium_SolverType: str = Field(
+        "IEFPCM",
+        description="Type of solver to be used. All solvers are based on the Integral Equation Formulation of the Polarizable Continuum Model.",
+    )
+    medium_Nonequilibrium: bool = Field(
+        False,
+        description="Initializes an additional solver using the dynamic permittivity. To be used in response calculations.",
+    )
+    medium_Solvent: str = Field(
+        ...,
+        description="Specification of the dielectric medium outside the cavity. Note this will always be converted to the molecular formula to aid parsing via PCM.",
+    )
+    medium_MatrixSymm: bool = Field(
+        True,
+        description="If True, the PCM matrix obtained by the IEFPCM collocation solver is symmetrized.",
+    )
+    medium_Correction: float = Field(
+        0.0,
+        description="Correction, k for the apparent surface charge scaling factor in the CPCM solver.",
+        ge=0,
+    )
+    medium_DiagonalScaling: float = Field(
+        1.07,
+        description="Scaling factor for diagonal of collocation matrices, values commonly used in the literature are 1.07 and 1.0694.",
+        ge=0,
+    )
+    medium_ProbeRadius: float = Field(
+        1.0,
+        description="Radius of the spherical probe approximating a solvent molecule. Used for generating the solvent-excluded surface (SES) or an approximation of it. Overridden by the built-in value for the chosen solvent. Default in AU.",
+    )
+    _solvents: ClassVar[Dict[str, str]] = {
+        "water": "H2O",
+        "dimethylsulfoxide": "DMSO",
+        "nitromethane": "CH3NO2",
+        "acetonitrile": "CH3CN",
+        "methanol": "CH3OH",
+        "ethanol": "CH3CH2OH",
+        "1,2-dichloroethane": "C2H4CL2",
+        "methylenechloride": "CH2CL2",
+        "tetrahydrofurane": "THF",
+        "aniline": "C6H5NH2",
+        "chlorobenzene": "C6H5CL",
+        "chloroform": "CHCL3",
+        "toluene": "C6H5CH3",
+        "1,4-dioxane": "C4H8O2",
+        "carbon tetrachloride": "CCL4",
+        "cyclohexane": "C6H12",
+        "n-heptane": "C7H16",
+    }
+
+    @validator("units")
+    def _check_units(cls, unit: str) -> str:
+        """
+        Make sure the units are a valid option.
+        """
+        units = ["au", "angstrom"]
+        if unit.lower() not in units:
+            raise PCMSettingError(f"{unit} is not valid only {units} are supported.")
+        return unit
+
+    @validator("codata")
+    def _check_codata(cls, codata: int) -> int:
+        """
+        Make sure the codata is a valid option in PCM.
+        """
+        datasets = [2010, 2006, 2002, 1998]
+        if codata not in datasets:
+            raise PCMSettingError(
+                f"{codata} is not valid only {datasets} are supported."
+            )
+        return codata
+
+    @validator("cavity_Type")
+    def _check_cavity_type(cls, cavity: str) -> str:
+        """
+        Make sure the cavity type is GePol as this is the only kind supported.
+        """
+        if cavity.lower() != "gepol":
+            raise PCMSettingError(
+                f"{cavity} is not a supported type only GePol is available."
+            )
+        return "GePol"
+
+    @validator("cavity_RadiiSet")
+    def _check_radii_set(cls, radiiset: str) -> str:
+        """
+        Make sure a valid radii set is passed.
+        """
+        radiisets = ["bondi", "uff", "allinger"]
+        if radiiset.lower() not in radiisets:
+            raise PCMSettingError(
+                f"{radiiset} is not a supported set please chose from {radiisets}"
+            )
+        return radiiset
+
+    @validator("cavity_Mode")
+    def _check_cavity_mode(cls, cavity: str) -> str:
+        """
+        Make sure that a valid cavity mode is passed.
+        """
+        if cavity.lower() != "implicit":
+            raise PCMSettingError(
+                f"{cavity} is not supported via QCSubmit only implicit can be used for collection based calculations."
+            )
+        return "Implicit"
+
+    @validator("medium_SolverType")
+    def _check_solver(cls, solver: str) -> str:
+        """
+        Make sure valid solver is passed.
+        """
+        solvers = ["IEFPCM", "CPCM"]
+        if solver.upper() not in solvers:
+            raise PCMSettingError(f"{solver} not supported please chose from {solvers}")
+        return solver.upper()
+
+    @validator("medium_Solvent")
+    def _check_solvent(cls, solvent: str) -> str:
+        """
+        Make sure that a valid solvent from the list of supported values is passed.
+        """
+
+        solvent_formula = cls._solvents.get(solvent.lower(), solvent.upper())
+        if solvent_formula not in cls._solvents.values():
+            raise PCMSettingError(
+                f"The solvent {solvent} is not supported please chose from the following solvents or formulas {cls._solvents.items()}"
+            )
+        return solvent_formula
+
+    def __init__(self, **kwargs):
+        """
+        Fully validate the model making sure options are compatible and convert any defaults to the give unit system.
+        """
+        # convert all inputs to the correct units
+        units = kwargs.get("units", None)
+        if units is not None and units.lower() == "angstrom":
+            # we need to convert the default values only which have length scales
+            if "medium_ProbeRadius" not in kwargs:
+                medium_ProbeRadius = (
+                    self.__fields__["medium_ProbeRadius"].default
+                    * constants.bohr2angstroms
+                )
+                kwargs["medium_ProbeRadius"] = medium_ProbeRadius
+            if "cavity_MinRadius" not in kwargs:
+                cavity_MinRadius = (
+                    self.__fields__["cavity_MinRadius"].default
+                    * constants.bohr2angstroms
+                )
+                kwargs["cavity_MinRadius"] = cavity_MinRadius
+            if "cavity_Area" not in kwargs:
+                cavity_Area = (
+                    self.__fields__["cavity_Area"].default
+                    * constants.bohr2angstroms ** 2
+                )
+                kwargs["cavity_Area"] = cavity_Area
+        super(PCMSettings, self).__init__(**kwargs)
+
+    def to_string(self) -> str:
+        """
+        Generate the formated PCM settings string which can be ingested by psi4 via the qcschema interface.
+        """
+        # format the medium keywords
+        medium_str, cavity_str = "", ""
+        for prop in self.__fields__.keys():
+            if "medium" in prop:
+                medium_str += f"\n     {prop[7:]} = {getattr(self, prop)}"
+            elif "cavity" in prop:
+                cavity_str += f"\n     {prop[7:]} = {getattr(self, prop)}"
+        # format the cavity keywords
+        pcm_string = f"""
+        Units = {self.units}
+        CODATA = {self.codata}
+        Medium {{{medium_str
+        }}}
+        Cavity {{{cavity_str}}}"""
+        return pcm_string
+
+
 class QCSpec(ResultsConfig):
 
-    method: constr(strip_whitespace=True) = "B3LYP-D3BJ"
-    basis: Optional[constr(strip_whitespace=True)] = "DZVP"
-    program: str = "psi4"
-    spec_name: str = "default"
-    spec_description: str = (
-        "Standard OpenFF optimization quantum chemistry specification."
+    method: constr(strip_whitespace=True) = Field(
+        "B3LYP-D3BJ",
+        description="The name of the computational model used to execute the calculation. This could be the QC method or the forcefield name.",
     )
-    store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none
+    basis: Optional[constr(strip_whitespace=True)] = Field(
+        "DZVP",
+        description="The name of the basis that should be used with the given method, outside of QC this can be the parameterization ie antechamber or None.",
+    )
+    program: str = Field(
+        "psi4",
+        description="The name of the program that will be used to perform the calculation.",
+    )
+    spec_name: str = Field(
+        "default",
+        description="The name the specification will be stored under in QCArchive.",
+    )
+    spec_description: str = Field(
+        "Standard OpenFF optimization quantum chemistry specification.",
+        description="The description of the specification which will be stored in QCArchive.",
+    )
+    store_wavefunction: WavefunctionProtocolEnum = Field(
+        WavefunctionProtocolEnum.none,
+        description="The level of wavefunction detail that should be saved in QCArchive. Note that this is done for every calculation and should not be used with optimizations.",
+    )
+    implicit_solvent: Optional[PCMSettings] = Field(
+        None,
+        description="If PCM is to be used with psi4 this is the full description of the settings that should be used.",
+    )
 
     def __init__(
         self,
@@ -71,6 +307,7 @@ class QCSpec(ResultsConfig):
         spec_name: str = "default",
         spec_description: str = "Standard OpenFF optimization quantum chemistry specification.",
         store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none,
+        implicit_solvent: Optional[PCMSettings] = None,
     ):
         """
         Validate the combination of method, basis and program.
@@ -106,6 +343,11 @@ class QCSpec(ResultsConfig):
         }
 
         if program.lower() != "psi4":
+            # make sure PCM is not set
+            if implicit_solvent is not None:
+                raise QCSpecificationError(
+                    "PCM can only be used with PSI4 please set implicit solvent to None."
+                )
             # we need to make sure it is valid in the above list
             program_settings = settings.get(program.lower(), None)
             if program_settings is None:
@@ -131,6 +373,7 @@ class QCSpec(ResultsConfig):
             spec_name=spec_name,
             spec_description=spec_description,
             store_wavefunction=store_wavefunction,
+            implicit_solvent=implicit_solvent,
         )
 
     def dict(
@@ -207,6 +450,7 @@ class QCSpecificationHandler(BaseModel):
         spec_description: str,
         store_wavefunction: str = "none",
         overwrite: bool = False,
+        implicit_solvent: Optional[PCMSettings] = None,
     ) -> None:
         """
         Add a new qcspecification to the factory which will be applied to the dataset.
@@ -219,6 +463,7 @@ class QCSpecificationHandler(BaseModel):
             spec_description: The description of the spec
             store_wavefunction: what parts of the wavefunction that should be saved
             overwrite: If there is a spec under this name already overwrite it
+            implicit_solvent: The implicit solvent settings if it is to be used.
         """
         spec = QCSpec(
             method=method,
@@ -227,6 +472,7 @@ class QCSpecificationHandler(BaseModel):
             spec_name=spec_name,
             spec_description=spec_description,
             store_wavefunction=store_wavefunction,
+            implicit_solvent=implicit_solvent,
         )
 
         if spec_name not in self.qc_specifications:

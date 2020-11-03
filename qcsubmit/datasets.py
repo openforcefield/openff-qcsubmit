@@ -9,8 +9,6 @@ import tqdm
 from openforcefield import topology as off
 from pydantic import PositiveInt, constr, validator
 from qcfractal.interface import FractalClient
-from qcfractal.interface.collections.collection_utils import composition_planner
-from qcfractal.interface.models import ComputeResponse
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from simtk import unit
 
@@ -19,6 +17,7 @@ from .common_structures import (
     DatasetConfig,
     IndexCleaner,
     Metadata,
+    QCSpec,
     QCSpecificationHandler,
     TorsionIndexer,
 )
@@ -339,6 +338,7 @@ class DatasetEntry(DatasetConfig):
                             f" proper/improper torsion."
                         )
         # now we need to process all of the initial molecules to make sure the cmiles is present
+        # and force c1 symmetry
         initial_molecules = []
         for mol in self.initial_molecules:
             extras = mol.extras or {}
@@ -347,6 +347,8 @@ class DatasetEntry(DatasetConfig):
             ] = self.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
             mol_data = mol.dict()
             mol_data["extras"] = extras
+            # put into strict c1 symmetry
+            mol_data["fix_symmetry"] = "c1"
             initial_molecules.append(qcel.models.Molecule.parse_obj(mol_data))
         # now assign the new molecules
         self.initial_molecules = initial_molecules
@@ -934,12 +936,10 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
                 metadata=self.metadata.dict(),
             )
 
-        # store the keyword set into the collection
-        kw = ptl.models.KeywordSet(
-            values=self.dict(include={"maxiter", "scf_properties"})
-        )
         # here we need to add a spec for each program and set the default
         for spec in self.qc_specifications.values():
+            # generate the keyword set
+            kw = self._get_spec_keywords(spec=spec)
             try:
                 # try and add the keywords if present then continue
                 collection.add_keywords(
@@ -974,96 +974,37 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         # save the final dataset
         collection.save()
 
-        # submit the calculations for each spec using the workaround
-        # TODO replace this call when qcfractal is updated.
-        responses = self._dataset_add_compute(collection=collection)
-        collection.save()
-        # for spec in self.qc_specifications.values():
-        #     response = collection.compute(
-        #         method=spec.method,
-        #         basis=spec.basis,
-        #         keywords=spec.spec_name,
-        #         program=spec.program,
-        #         tag=self.compute_tag,
-        #         priority=self.priority,
-        #     )
-        #
-        #     collection.save()
-        #     # save the response per submission
-        #     responses[spec.spec_name] = response
+        # submit the calculations for each spec
+        responses = {}
+        for spec in self.qc_specifications.values():
+            response = collection.compute(
+                method=spec.method,
+                basis=spec.basis,
+                keywords=spec.spec_name,
+                program=spec.program,
+                tag=self.compute_tag,
+                priority=self.priority,
+                protocols={"wavefunction": spec.store_wavefunction.value},
+            )
+
+            collection.save()
+            # save the response per submission
+            responses[spec.spec_name] = response
 
         return responses
-        # result = BasicResult()
-        # while await_result:
-        #
-        #     pass
-        #
-        # return result
 
-    def _dataset_add_compute(
-        self, collection: ptl.collections.Dataset
-    ) -> Dict[str, ComputeResponse]:
+    def _get_spec_keywords(self, spec: QCSpec) -> ptl.models.KeywordSet:
         """
-        Workaround to add compute to a basic dataset with wavefunction protocols until qcfractal is updated.
+        Build a keyword set which is specific to this QC specification and accounts for implicit solvent when requested.
         """
-        # only allowed on normal datasets
-        if self.dataset_type == "DataSet":
-            # get the molecule ids
-            molecule_idx = [e.molecule_id for e in collection.data.records]
-            responses = {}
-            for spec in self.qc_specifications.values():
-                compute_keys = {
-                    "program": spec.program,
-                    "method": spec.method,
-                    "basis": spec.basis,
-                    "keywords": spec.spec_name,
-                }
-                name, dbkeys, history = collection._default_parameters(
-                    compute_keys["program"],
-                    compute_keys["method"],
-                    compute_keys["basis"],
-                    compute_keys["keywords"],
-                    stoich=compute_keys.get("stoich", None),
-                )
+        # use the basic keywords we allow
+        data = self.dict(include={"maxiter", "scf_properties"})
+        # account for implicit solvent
+        if spec.implicit_solvent is not None:
+            data["pcm"] = True
+            data["pcm__input"] = spec.implicit_solvent.to_string()
 
-                collection._check_client()
-                collection._check_state()
-
-                umols = list(set(molecule_idx))
-
-                ids = []
-                submitted = []
-                existing = []
-
-                for compute_set in composition_planner(**dbkeys):
-
-                    for i in range(0, len(umols), collection.client.query_limit):
-                        chunk_mols = umols[i : i + collection.client.query_limit]
-                        ret = collection.client.add_compute(
-                            **compute_set,
-                            molecule=chunk_mols,
-                            tag=self.compute_tag,
-                            priority=self.priority,
-                            protocols={"wavefunction": spec.store_wavefunction.value},
-                        )
-
-                        ids.extend(ret.ids)
-                        submitted.extend(ret.submitted)
-                        existing.extend(ret.existing)
-
-                    qhistory = history.copy()
-                    qhistory["program"] = compute_set["program"]
-                    qhistory["method"] = compute_set["method"]
-                    qhistory["basis"] = compute_set["basis"]
-                    collection._add_history(**qhistory)
-
-                responses[spec.spec_name] = ComputeResponse(
-                    ids=ids, submitted=submitted, existing=existing
-                )
-
-            # save and return
-            collection.save()
-            return responses
+        return ptl.models.KeywordSet(values=data)
 
     def export_dataset(self, file_name: str, compression: Optional[str] = None) -> None:
         """
@@ -1476,7 +1417,7 @@ class OptimizationDataset(BasicDataset):
 
         return new_dataset
 
-    def _add_keywords(self, client: ptl.FractalClient) -> str:
+    def _add_keywords(self, client: ptl.FractalClient, spec: QCSpec) -> str:
         """
         Add the keywords to the client and return the index number of the keyword set.
 
@@ -1484,9 +1425,7 @@ class OptimizationDataset(BasicDataset):
             kw_id: The keyword index number in the client.
         """
 
-        kw = ptl.models.KeywordSet(
-            values=self.dict(include={"maxiter", "scf_properties"})
-        )
+        kw = self._get_spec_keywords(spec=spec)
         kw_id = client.add_keywords([kw])[0]
         return kw_id
 
@@ -1565,12 +1504,12 @@ class OptimizationDataset(BasicDataset):
                 metadata=self.metadata.dict(),
             )
 
-        # store the keyword set into the collection
-        kw_id = self._add_keywords(target_client)
         # create the optimization specification
         opt_spec = self.optimization_procedure.get_optimzation_spec()
         # create the qc specification and add them all
         for spec in self.qc_specifications.values():
+            # get a keyword id for this specification
+            kw_id = self._add_keywords(client=target_client, spec=spec)
             qc_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
             collection.add_specification(
                 name=spec.spec_name,
@@ -1773,12 +1712,12 @@ class TorsiondriveDataset(OptimizationDataset):
                 provenance=self.provenance,
                 metadata=self.metadata.dict(),
             )
-        # store the keyword set into the collection
-        kw_id = self._add_keywords(target_client)
         # create the optimization specification
         opt_spec = self.optimization_procedure.get_optimzation_spec()
         # create the qc specification for each spec
         for spec in self.qc_specifications.values():
+            # get the kd id from the client for this spec
+            kw_id = self._add_keywords(client=target_client, spec=spec)
             qc_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
             collection.add_specification(
                 name=spec.spec_name,
@@ -1788,7 +1727,7 @@ class TorsiondriveDataset(OptimizationDataset):
                 overwrite=False,
             )
 
-        # start add the molecule to the dataset, multipule conformers/molecules can be used as the starting geometry
+        # start add the molecule to the dataset, multiple conformers/molecules can be used as the starting geometry
         for i, (index, data) in enumerate(self.dataset.items()):
             try:
                 collection.add_entry(
@@ -1819,306 +1758,3 @@ class TorsiondriveDataset(OptimizationDataset):
             )
             responses[spec_name] = response
         return responses
-
-
-# class QCFractalDataset(object):
-#     """
-#     Abstract base class for QCFractal dataset.
-#
-#     Attributes
-#     ----------
-#     name : str
-#         The dataset name
-#     description : str
-#         A detailed description of the dataset
-#     input_oemols : list of OEMol
-#         Original molecules prior to processing
-#     oemols : list of multi-conformer OEMol
-#         Unique molecules in the dataset
-#
-#     """
-#
-#     def __init__(self, name, description, input_oemols, oemols):
-#         """
-#         Create a new QCFractalDataset
-#
-#         Parameters
-#         ----------
-#         name : str
-#             The dataset name
-#         description : str
-#             A detailed description of the dataset
-#         input_oemols : list of OEMol
-#             The original molecules provided to the generator for dataset construction.
-#         oemols : list of multi-conformer OEMol
-#             Molecules that survived after enumeration, fragmentation, deduplication, filtering, and conformer expansion.
-#         """
-#         self.name = name
-#         self.description = description
-#
-#         # Store copies of molecules
-#         from openeye import oechem
-#         self.input_oemols = [ oechem.OEMol(oemol) for oemol in input_oemols ]
-#         self.oemols = [ oechem.OEMol(oemol) for oemol in oemols ]
-#
-#     def mol_to_qcschema_dict(self, oemol):
-#         """
-#         Render a given OEMol as a QCSchema dict.
-#
-#         {
-#             'initial_molecules' : [ qcschema_mol_conf1, qcschema_mol_conf2, ... ],
-#             'cmiles_identifiers' : ...
-#         }
-#
-#         Returns
-#         -------
-#         qcschema_dict : dict
-#             The dict containing all conformations as a list in qcschma_dict['initial_molecules']
-#             and CMILES identifiers as qcschema_dict['cmiles_identifiers']
-#         """
-#         # Generate CMILES ids
-#         import cmiles
-#         try:
-#             cmiles_ids = cmiles.get_molecule_ids(oemol)
-#         except:
-#             from openeye import oechem
-#             smiles = oechem.OEMolToSmiles(oemol)
-#             logging.info('cmiles failed to generate molecule ids {}'.format(smiles))
-#             self.cmiles_failures.add(smiles)
-#             #continue
-#
-#         # Extract mapped SMILES
-#         mapped_smiles = cmiles_ids['canonical_isomeric_explicit_hydrogen_mapped_smiles']
-#
-#         # Create QCSchema for all conformers defined in the molecule
-#         qcschema_molecules = [ cmiles.utils.mol_to_map_ordered_qcschema(conformer, mapped_smiles) for conformer in oemol.GetConfs() ]
-#
-#         # Create the QCSchema dict that includes both the specified molecules and CMILES ids
-#         qcschema_dict = {
-#             'initial_molecules': qcschema_molecules,
-#             'cmiles_identifiers': cmiles_ids
-#             }
-#
-#         return qcschema_dict
-#
-#     def render_molecules(self, filename, rows=10, cols=6):
-#         """
-#         Create a PDF showing all unique molecules in this dataset.
-#
-#         Parmeters
-#         ---------
-#         filename : str
-#             Name of file to be written (ending in .pdf or .png)
-#         rows : int, optional, default=10
-#             Number of rows
-#         cols : int, optional, default=6
-#             Number of columns
-#         """
-#         from openeye import oedepict
-#
-#         # Configure display settings
-#         itf = oechem.OEInterface()
-#         PageByPage = True
-#         suppress_h = True
-#         ropts = oedepict.OEReportOptions(rows, cols)
-#         ropts.SetHeaderHeight(25)
-#         ropts.SetFooterHeight(25)
-#         ropts.SetCellGap(2)
-#         ropts.SetPageMargins(10)
-#         report = oedepict.OEReport(ropts)
-#         cellwidth, cellheight = report.GetCellWidth(), report.GetCellHeight()
-#         opts = oedepict.OE2DMolDisplayOptions(cellwidth, cellheight, oedepict.OEScale_Default * 0.5)
-#         opts.SetAromaticStyle(oedepict.OEAromaticStyle_Circle)
-#         pen = oedepict.OEPen(oechem.OEBlack, oechem.OEBlack, oedepict.OEFill_On, 1.0)
-#         opts.SetDefaultBondPen(pen)
-#         oedepict.OESetup2DMolDisplayOptions(opts, itf)
-#
-#         # Render molecules
-#         for oemol in self.oemols:
-#             # Render molecule
-#             cell = report.NewCell()
-#             oemol_copy = oechem.OEMol(oemol)
-#             oedepict.OEPrepareDepiction(oemol_copy, False, suppress_h)
-#             disp = oedepict.OE2DMolDisplay(oemol_copy, opts)
-#             oedepict.OERenderMolecule(cell, disp)
-#
-#         # Write the report
-#         oedepict.OEWriteReport(filename, report)
-#
-#     def write_smiles(self, filename, mapped=False):
-#         """
-#         Write canonical isomeric SMILES entries for all unique molecules in this set.
-#
-#         Parameters
-#         ----------
-#         filename : str
-#             Filename to which SMILES are to be written
-#         mapped : bool, optional, default=False
-#             If True, will write explicit hydrogen canonical isomeric tagged SMILES
-#         """
-#         if filename.endswith('.gz'):
-#             import gzip
-#             open_fun = gzip.open
-#         else:
-#             open_fun = open
-#
-#         import cmiles
-#         with open_fun(filename, 'w') as outfile:
-#             for oemol in self.oemols:
-#                 smiles = cmiles.utils.mol_to_smiles(oemol, mapped=mapped)
-#                 outfile.write(smiles + '\n')
-#
-#     def to_json(self, filename):
-#         raise Exception('Abstract base class does not implement this method')
-#
-#     def submit(self,
-#                  address: Union[str, 'FractalServer'] = 'api.qcarchive.molssi.org:443',
-#                  username: Optional[str] = None,
-#                  password: Optional[str] = None,
-#                  verify: bool = True):
-#         """
-#         Submit the dataset to QCFractal server for computation.
-#         """
-#         raise Exception('Not implemented')
-#
-# class OptimizationDataset(QCFractalDataset):
-#
-#     def to_json(self, filename):
-#         """
-#         Render the OptimizationDataset to QCSchema JSON
-#
-#         [
-#           {
-#              'cmiles_identifiers' : ...,
-#              'initial_molecules' : [ qcschema_mol_conf1, qcschema_mol_conf2, ... ]
-#           },
-#
-#           ...
-#         ]
-#
-#         Parameters
-#         ----------
-#         filename : str
-#             Filename (ending in .json or .json.gz) to be written
-#
-#         """
-#         if filename.endswith('.json.gz'):
-#             import gzip
-#             open_fun = gzip.open
-#         else:
-#             open_fun = open
-#
-#         import json
-#         with open_fun(filename, 'w') as outfile:
-#             outfile.write(json.dumps(self.optimization_input, indent=2, sort_keys=True).encode('utf-8'))
-#
-# class TorsionDriveDataset(QCFractalDataset):
-#
-#     def to_json(self, filename):
-#         """
-#         Render the TorsionDriveDataset to QCSchema JSON
-#
-#         [
-#           "index" : {
-#              'atom_indices' : ...,
-#              'cmiles_identifiers' : ...,
-#              'initial_molecules' : [ qcschema_mol_conf1, qcschema_mol_conf2, ... ]
-#           },
-#
-#           ...
-#         ]
-#
-#         Parameters
-#         ----------
-#         filename : str
-#             Filename (ending in .json or .json.gz) to be written
-#
-#         """
-#         if filename.endswith('.json.gz'):
-#             import gzip
-#             open_fun = gzip.open
-#         else:
-#             open_fun = open
-#
-#         import json
-#         with open_fun(filename, 'w') as outfile:
-#             outfile.write(json.dumps(self.qcschema_dict, indent=2, sort_keys=True).encode('utf-8'))
-#
-#     def render_molecules(self, filename, rows=10, cols=6):
-#         """
-#         Create a PDF showing all unique molecules in this dataset.
-#
-#         Parmeters
-#         ---------
-#         filename : str
-#             Name of file to be written (ending in .pdf or .png)
-#         rows : int, optional, default=10
-#             Number of rows
-#         cols : int, optional, default=6
-#             Number of columns
-#         """
-#         from openeye import oedepict
-#
-#         # Configure display settings
-#         itf = oechem.OEInterface()
-#         PageByPage = True
-#         suppress_h = True
-#         ropts = oedepict.OEReportOptions(rows, cols)
-#         ropts.SetHeaderHeight(25)
-#         ropts.SetFooterHeight(25)
-#         ropts.SetCellGap(2)
-#         ropts.SetPageMargins(10)
-#         report = oedepict.OEReport(ropts)
-#         cellwidth, cellheight = report.GetCellWidth(), report.GetCellHeight()
-#         opts = oedepict.OE2DMolDisplayOptions(cellwidth, cellheight, oedepict.OEScale_Default * 0.5)
-#         opts.SetAromaticStyle(oedepict.OEAromaticStyle_Circle)
-#         pen = oedepict.OEPen(oechem.OEBlack, oechem.OEBlack, oedepict.OEFill_On, 1.0)
-#         opts.SetDefaultBondPen(pen)
-#         oedepict.OESetup2DMolDisplayOptions(opts, itf)
-#
-#         # Render molecules
-#         for json_molecule in json_molecules.values():
-#             # Create oemol
-#             import cmiles
-#             oemol = cmiles.utils.load_molecule(json_molecule['initial_molecules'][0])
-#
-#             # Get atom indices
-#             atom_indices = json_molecule['atom_indices'][0]
-#
-#             # Render molecule
-#             cell = report.NewCell()
-#             oemol_copy = oechem.OEMol(oemol)
-#             oedepict.OEPrepareDepiction(oemol_copy, False, suppress_h)
-#             disp = oedepict.OE2DMolDisplay(oemol_copy, opts)
-#
-#             # Highlight central torsion bond and atoms selected to be driven for torsion
-#             class NoAtom(oechem.OEUnaryAtomPred):
-#                 def __call__(self, atom):
-#                     return False
-#             class AtomInTorsion(oechem.OEUnaryAtomPred):
-#                 def __call__(self, atom):
-#                     return atom.GetIdx() in atom_indices
-#             class NoBond(oechem.OEUnaryBondPred):
-#                 def __call__(self, bond):
-#                     return False
-#             class BondInTorsion(oechem.OEUnaryBondPred):
-#                 def __call__(self, bond):
-#                     return (bond.GetBgn().GetIdx() in atom_indices) and (bond.GetEnd().GetIdx() in atom_indices)
-#             class CentralBondInTorsion(oechem.OEUnaryBondPred):
-#                 def __call__(self, bond):
-#                     return (bond.GetBgn().GetIdx() in atom_indices[1:3]) and (bond.GetEnd().GetIdx() in atom_indices[1:3])
-#
-#             atoms = mol.GetAtoms(AtomInTorsion())
-#             bonds = mol.GetBonds(NoBond())
-#             abset = oechem.OEAtomBondSet(atoms, bonds)
-#             oedepict.OEAddHighlighting(disp, oechem.OEColor(oechem.OEYellow), oedepict.OEHighlightStyle_BallAndStick, abset)
-#
-#             atoms = mol.GetAtoms(NoAtom())
-#             bonds = mol.GetBonds(CentralBondInTorsion())
-#             abset = oechem.OEAtomBondSet(atoms, bonds)
-#             oedepict.OEAddHighlighting(disp, oechem.OEColor(oechem.OEOrange), oedepict.OEHighlightStyle_BallAndStick, abset)
-#
-#             oedepict.OERenderMolecule(cell, disp)
-#
-#         # Write the report
-#         oedepict.OEWriteReport(filename, report)
