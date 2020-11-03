@@ -191,7 +191,7 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
     factory = BasicDatasetFactory(driver="energy")
     factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="default",
                         spec_description="testing the single points with pcm",
-                        implicit_solvent=PCMSettings(units="au", solvent="water"),
+                        implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
                         overwrite=True)
 
     dataset = factory.create_dataset(dataset_name=f"Test single points with pcm water",
@@ -579,7 +579,7 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
 
     factory = OptimizationDatasetFactory(driver="gradient")
     factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="pcm_water", spec_description="test",
-                        implicit_solvent=PCMSettings(units="au", solvent="water"),
+                        implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
                         overwrite=True)
 
     dataset = factory.create_dataset(dataset_name=f"Test optimizations info with pcm water",

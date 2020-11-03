@@ -219,12 +219,13 @@ class PCMSettings(ResultsConfig):
             )
         return solvent_formula
 
-    def __init__(self, units: str, solvent: str, **kwargs):
+    def __init__(self, **kwargs):
         """
         Fully validate the model making sure options are compatible and convert any defaults to the give unit system.
         """
         # convert all inputs to the correct units
-        if units.lower() == "angstrom":
+        units = kwargs.get("units", None)
+        if units is not None and units.lower() == "angstrom":
             # we need to convert the default values only which have length scales
             if "medium_ProbeRadius" not in kwargs:
                 medium_ProbeRadius = (
@@ -244,9 +245,6 @@ class PCMSettings(ResultsConfig):
                     * constants.bohr2angstroms ** 2
                 )
                 kwargs["cavity_Area"] = cavity_Area
-        # add the units and solvent to the dict
-        kwargs["units"] = units
-        kwargs["medium_Solvent"] = solvent
         super(PCMSettings, self).__init__(**kwargs)
 
     def to_string(self) -> str:
