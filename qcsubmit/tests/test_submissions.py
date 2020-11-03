@@ -194,8 +194,9 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
                         implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
                         overwrite=True)
 
+    # only use one molecule due to the time it takes to run with pcm
     dataset = factory.create_dataset(dataset_name=f"Test single points with pcm water",
-                                     molecules=molecules,
+                                     molecules=molecules[0],
                                      description="Test basics dataset with pcm water",
                                      tagline="Testing single point datasets with pcm water",
                                      )
@@ -575,7 +576,8 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
     if not has_program(program):
         pytest.skip(f"Program '{program}' not found.")
 
-    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
+    # use a single small molecule due to the extra time PCM takes
+    molecules = Molecule.from_smiles("C")
 
     factory = OptimizationDatasetFactory(driver="gradient")
     factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="pcm_water", spec_description="test",
@@ -583,7 +585,7 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
                         overwrite=True)
 
     dataset = factory.create_dataset(dataset_name=f"Test optimizations info with pcm water",
-                                     molecules=molecules[:2],
+                                     molecules=molecules,
                                      description="Test optimization dataset",
                                      tagline="Testing optimization datasets",
                                      )
