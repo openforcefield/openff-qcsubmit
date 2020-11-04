@@ -819,6 +819,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             raise_errors: bool, default=True
                 if True the function will raise an error for missing basis coverage, else we return the missing data and just print warnings.
         """
+        import re
         import warnings
 
         import basis_set_exchange as bse
@@ -839,9 +840,14 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
 
             elif spec.program.lower() == "psi4":
                 # now check psi4
-                # TODO this list should be updated with more basis transfroms as we find them
+                # TODO this list should be updated with more basis transforms as we find them
                 psi4_converter = {"dzvp": "dgauss-dzvp"}
                 basis = psi4_converter.get(spec.basis.lower(), spec.basis.lower())
+                # here we need to apply conversions for special characters to match bse
+                # replace the *
+                basis = re.sub("\*", "_st_", basis)
+                # replace any /
+                basis = re.sub("/", "_sl_", basis)
                 basis_meta = bse.get_metadata()[basis]
                 elements = basis_meta["versions"][basis_meta["latest_version"]][
                     "elements"
