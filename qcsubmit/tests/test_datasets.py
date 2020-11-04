@@ -1567,7 +1567,9 @@ def test_dataset_roundtrip_compression(dataset_type, compression):
     pytest.param(({"method": "wb97x-d", "basis": "aug-cc-pV(5+d)Z", "program": "psi4"}, {"I", "C", "H"}, True), id="aug-cc-pV(5+d)Z Error"),
     pytest.param(({"method": "openff-1.0.0", "basis": "smirnoff", "program": "openmm"}, {"C", "H", "N"}, False), id="Smirnoff Pass"),
     pytest.param(({"method": "GFN2-xTB", "basis": None, "program": "xtb"}, {"C", "N", "Se"}, False), id="XTB Pass"),
-    pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, {"C", "N", "O"}, False), id="Rdkit UFF Pass")
+    pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, {"C", "N", "O"}, False), id="Rdkit UFF Pass"),
+    pytest.param(({"method": "hf", "basis": "6-311++G**", "program": "psi4"}, {"Br", "C", "O", "N"}, True), id="6-311++G** regex sub Error"),
+    pytest.param(({"method": "hf", "basis": "cc-pV5Z(fi/sf/fw)", "program": "psi4"}, {"Br", "C", "O", "N"}, False), id="cc-pV5Z(fi/sf/fw) regex Pass")
 ])
 def test_basis_coverage_single(basis_data):
     """
@@ -1608,7 +1610,7 @@ def test_basis_coverage_multiple():
     # get the coverage
     basis_coverage = dataset._get_missing_basis_coverage(raise_errors=False)
     # all should pass but ani
-    ani_report  = basis_coverage.pop("torchani")
+    ani_report = basis_coverage.pop("torchani")
     assert ani_report == {"I"}
     # make sure the rest are all empty
     for report in basis_coverage.values():
