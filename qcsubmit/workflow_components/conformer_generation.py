@@ -2,6 +2,7 @@ from typing import List, Optional
 
 import simtk.unit as unit
 from openforcefield.topology import Molecule
+from pydantic import Field
 
 from qcsubmit.datasets import ComponentResult
 
@@ -26,9 +27,16 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     # custom components for this class
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
-    rms_cutoff: Optional[float] = None
-    max_conformers: int = 10
-    clear_existing: bool = True
+    rms_cutoff: Optional[float] = Field(
+        None,
+        description="The rms cut off in angstroms to be used when generating the conformers. Passing None will use the default in toolkit of 1.",
+    )
+    max_conformers: int = Field(
+        10, description="The maximum number of conformers to be generated per molecule."
+    )
+    clear_existing: bool = Field(
+        True, description="If any pre-existing conformers should be kept."
+    )
 
     def _apply_init(self, result: ComponentResult) -> None:
         """

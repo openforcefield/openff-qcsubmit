@@ -7,7 +7,6 @@ from pydantic import BaseModel, PositiveInt, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
 
-from . import workflow_components
 from .common_structures import ClientHandler, Metadata, QCSpecificationHandler
 from .datasets import (
     BasicDataset,
@@ -16,7 +15,7 @@ from .datasets import (
     TorsiondriveDataset,
 )
 from .exceptions import (
-    CompoenentRequirementError,
+    ComponentRequirementError,
     DihedralConnectionError,
     DriverError,
     InvalidWorkflowComponentError,
@@ -27,6 +26,7 @@ from .exceptions import (
 from .procedures import GeometricProcedure
 from .serializers import deserialize, serialize
 from .validators import scf_property_validator
+from .workflow_components import CustomWorkflowComponent, get_component, list_components
 
 
 class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
@@ -61,7 +61,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
     priority: str = "normal"
     dataset_tags: List[str] = ["openff"]
     compute_tag: str = "openff"
-    workflow: Dict[str, workflow_components.CustomWorkflowComponent] = {}
+    workflow: Dict[str, CustomWorkflowComponent] = {}
     _dataset_type: BasicDataset = BasicDataset
     _mm_programs: List[str] = [
         "openmm",
@@ -159,8 +159,8 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
     def add_workflow_component(
         self,
         components: Union[
-            List[workflow_components.CustomWorkflowComponent],
-            workflow_components.CustomWorkflowComponent,
+            List[CustomWorkflowComponent],
+            CustomWorkflowComponent,
         ],
     ) -> None:
         """
@@ -180,11 +180,11 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
             components = [components]
 
         for component in components:
-            if issubclass(type(component), workflow_components.CustomWorkflowComponent):
+            if issubclass(type(component), CustomWorkflowComponent):
                 try:
                     component.is_available()
                 except ModuleNotFoundError as e:
-                    raise CompoenentRequirementError(
+                    raise ComponentRequirementError(
                         f"The component {component.component_name} could not be added to "
                         f"the workflow due to missing requirements"
                     ) from e
@@ -206,9 +206,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
                     f"class of CustomWorkflowComponent."
                 )
 
-    def get_workflow_component(
-        self, component_name: str
-    ) -> workflow_components.CustomWorkflowComponent:
+    def get_workflow_component(self, component_name: str) -> CustomWorkflowComponent:
         """
         Find the workflow component by its component_name attribute.
 
@@ -280,9 +278,8 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
                 name = key.split("@")[0]
             else:
                 name = key
-            component = getattr(workflow_components, name, None)
-            if component is not None:
-                self.add_workflow_component(component.parse_obj(value))
+            component = get_component(name)
+            self.add_workflow_component(component.parse_obj(value))
 
     def export_workflow(self, file_name: str) -> None:
         """
@@ -500,10 +497,10 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
 
             ```python
             >>> from qcsubmit.factories import BasicDatasetFactory
-            >>> from qcsubmit import workflow_components
+            >>> from qcsubmit.workflow_components import get_component
             >>> from openforcefield.topology import Molecule
             >>> factory = BasicDatasetFactory()
-            >>> gen = workflow_components.StandardConformerGenerator()
+            >>> gen = get_component("StandardConformerGenerator")
             >>> gen.clear_exsiting = True
             >>> gen.max_conformers = 1
             >>> factory.add_workflow_component(gen)

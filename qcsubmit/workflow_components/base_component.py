@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 import tqdm
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, Field, validator
 from pydantic.main import ModelMetaclass
 from qcelemental.util import which_import
 
@@ -38,10 +38,21 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=InheritSlots):
     factory code
     """
 
-    component_name: str
-    component_description: str
-    component_fail_message: str
-    _properties: ComponentProperties
+    component_name: str = Field(
+        ..., description="The name of the component which should match the class name."
+    )
+    component_description: str = Field(
+        ...,
+        description="A short description of what the component will do to the molecules.",
+    )
+    component_fail_message: str = Field(
+        ...,
+        description="A short description with hints on why the molecule may have caused an error in this workflow component.",
+    )
+    _properties: ComponentProperties = Field(
+        ...,
+        description="The internal runtime properties of the component which can not be changed, these indecate if the component can be ran in parallel and if it may produce duplicate molecules.",
+    )
     _cache: Dict
 
     class Config:
@@ -230,7 +241,10 @@ class ToolkitValidator(BaseModel):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    toolkit: str = "openeye"
+    toolkit: str = Field(
+        "openeye",
+        description="The name of the toolkit which should be used in this component.",
+    )
     _toolkits: Dict = {"rdkit": RDKitToolkitWrapper, "openeye": OpenEyeToolkitWrapper}
 
     @validator("toolkit")

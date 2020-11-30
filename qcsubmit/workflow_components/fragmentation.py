@@ -4,7 +4,7 @@ Components that aid with Fragmentation of molecules.
 from typing import Dict, List, Optional, Union
 
 from openforcefield.topology import Molecule
-from pydantic import validator
+from pydantic import Field, validator
 from qcelemental.util import which_import
 
 from ..common_structures import ComponentProperties, TorsionIndexer
@@ -16,11 +16,7 @@ from .base_component import CustomWorkflowComponent, ToolkitValidator
 class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
     """
     Fragment molecules using the WBO fragmenter class of the fragmenter module.
-
-    Atrributes:
-        threshold. float, default=0.03
-            The WBO threshold to be used when comparing
-
+    For more information see <https://github.com/openforcefield/fragmenter>.
     """
 
     component_name = "WBOFragmenter"
@@ -29,25 +25,23 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
     )
     component_fail_message = "The molecule could not be fragmented correctly."
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
-    threshold: float = 0.03
-    keep_non_rotor_ring_substituents: bool = False
-    functional_groups: Optional[Union[bool, str]] = None
-    heuristic: str = "path_length"
-    include_parent: bool = False
-
-    @validator("heuristic")
-    def check_heuristic(cls, heuristic):
-        """
-        Make sure the heuristic is valid.
-        """
-
-        allowed_heuristic = ["path_length", "wbo"]
-        if heuristic.lower() not in allowed_heuristic:
-            raise ValueError(
-                f"The requested heuristic must be either path_length or wbo."
-            )
-        else:
-            return heuristic.lower()
+    threshold: float = Field(
+        0.03,
+        description="The WBO error threshold between the parent and the fragment value, the fragmentation will stop when the difference between the fragment and parent is less than this value.",
+    )
+    keep_non_rotor_ring_substituents: bool = Field(
+        False,
+        description="If any non rotor ring substituents should be kept during the fragmentation resulting in smaller fragments.",
+    )
+    functional_groups: Optional[Union[bool, str]] = Field(
+        None,
+        description="The path to the yaml/json file containing a list of functional group types to be considered during fragmentation. Supplying None will cause fragmenter to use"
+        "its own predefined list.",
+    )
+    include_parent: bool = Field(
+        False,
+        description="If the parent molecule should also be included in the output.",
+    )
 
     @validator("functional_groups")
     def check_functional_groups(cls, functional_group):
@@ -128,7 +122,6 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
                 fragment_factory.fragment(
                     threshold=self.threshold,
                     keep_non_rotor_ring_substituents=self.keep_non_rotor_ring_substituents,
-                    heuristic=self.heuristic,
                 )
 
                 # we need to store the central bond which was fragmented around

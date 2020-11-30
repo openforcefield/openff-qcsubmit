@@ -9,8 +9,17 @@ from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWra
 
 from qcsubmit import workflow_components
 from qcsubmit.datasets import ComponentResult
+from qcsubmit.exceptions import ComponentRegisterError, InvalidWorkflowComponentError
 from qcsubmit.utils import check_missing_stereo, get_data
 from qcsubmit.validators import check_torsion_connection
+from qcsubmit.workflow_components import (
+    CustomWorkflowComponent,
+    ToolkitValidator,
+    deregister_component,
+    get_component,
+    list_components,
+    register_component,
+)
 
 
 def get_container(molecules: [Molecule]) -> ComponentResult:
@@ -34,12 +43,95 @@ def get_stereoisomers():
 
 def get_tautomers():
     """
-    Get a set of molecules that all have tauomers
+    Get a set of molecules that all have tautomers
     """
 
     mols = Molecule.from_file(get_data("tautomers_small.smi"), allow_undefined_stereo=True)
 
     return mols
+
+
+def test_list_components():
+    """
+    Make sure that all registered components are returned.
+    """
+    components = list_components()
+    for component in components:
+        assert component.component_name == component.__class__.__name__
+
+
+def test_register_component_replace():
+    """
+    Test registering a component that is already registered with and without using replace.
+    """
+    # get the standard conformer generator
+    gen = workflow_components.StandardConformerGenerator(max_conformers=1)
+
+    with pytest.raises(ComponentRegisterError):
+        register_component(component=gen, replace=False)
+
+    # now register using replace with a new default
+    register_component(component=gen, replace=True)
+
+    gen2 = get_component(gen.component_name)
+    assert gen2.max_conformers == gen.max_conformers
+
+    # now return th list back to normal
+    register_component(component=workflow_components.StandardConformerGenerator(), replace=True)
+
+
+def test_register_component_error():
+    """
+    Make sure an error is raised if we try and register a component that is not a sub class of CustomWorkflowComponent.
+    """
+    # fake component
+    charge_filter = {"component_name": "charge_filter"}
+
+    with pytest.raises(InvalidWorkflowComponentError):
+        register_component(component=charge_filter)
+
+
+@pytest.mark.parametrize("component", [
+    pytest.param(workflow_components.SmartsFilter(), id="Class instance"),
+    pytest.param("SmartsFilter", id="Class name")
+])
+def test_deregister_component(component):
+    """
+    Make sure we can deregister components via name or class.
+    """
+    # deregister the component
+    deregister_component(component=component)
+
+    assert workflow_components.SmartsFilter() not in list_components()
+
+    # now add it back
+    register_component(component=workflow_components.SmartsFilter())
+
+
+def test_deregister_component_error():
+    """
+    Make sure an error is raised when we try to remove a component that was not registered first.
+    """
+
+    with pytest.raises(ComponentRegisterError):
+        deregister_component(component="ChargeFilter")
+
+
+def test_get_component():
+    """
+    Make sure the correct component is returned when requested.
+    """
+    gen = get_component("standardconformergenerator")
+
+    assert gen == workflow_components.StandardConformerGenerator()
+
+
+def test_get_component_error():
+    """
+    Make sure an error is rasied when we try to get a component that was not registered.
+    """
+    with pytest.raises(ComponentRegisterError):
+        get_component(component_name="ChargeFilter")
 
 
 def test_custom_component():
@@ -48,9 +140,9 @@ def test_custom_component():
     """
 
     with pytest.raises(TypeError):
-        test = workflow_components.CustomWorkflowComponent()
+        test = CustomWorkflowComponent()
 
-    class TestComponent(workflow_components.CustomWorkflowComponent):
+    class TestComponent(CustomWorkflowComponent):
 
         component_name = "Test component"
         component_description = "Test component"
@@ -89,7 +181,7 @@ def test_toolkit_mixin(toolkit):
     toolkit_name, toolkit_class = toolkit
     if toolkit_class.is_available():
 
-        class TestClass(workflow_components.ToolkitValidator, workflow_components.CustomWorkflowComponent):
+        class TestClass(ToolkitValidator, CustomWorkflowComponent):
             """Should not need to implement the provenance."""
 
             component_name = "ToolkitValidator"
@@ -204,7 +296,7 @@ def test_weight_filter_apply():
         pytest.param((workflow_components.EnumerateStereoisomers, "undefined_only", True), id="EnumerateStereoisomers"),
         pytest.param((workflow_components.RotorFilter, "maximum_rotors", 3), id="RotorFilter"),
         pytest.param((workflow_components.SmartsFilter, "allowed_substructures", ["[C:1]-[C:2]"]), id="SmartsFilter"),
-        pytest.param((workflow_components.WBOFragmenter, "heuristic", "wbo"), id="WBOFragmenter"),
+        pytest.param((workflow_components.WBOFragmenter, "threshold", 0.5), id="WBOFragmenter"),
         pytest.param((workflow_components.EnumerateProtomers, "max_states", 5), id="EnumerateProtomers"),
         pytest.param((workflow_components.RMSDCutoffConformerFilter, "cutoff", 1.2), id="RMSDCutoffConformerFilter")
     ],
