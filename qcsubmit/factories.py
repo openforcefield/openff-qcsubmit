@@ -26,7 +26,7 @@ from .exceptions import (
 from .procedures import GeometricProcedure
 from .serializers import deserialize, serialize
 from .validators import scf_property_validator
-from .workflow_components import CustomWorkflowComponent, get_component, list_components
+from .workflow_components import CustomWorkflowComponent, get_component
 
 
 class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
