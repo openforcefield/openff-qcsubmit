@@ -70,6 +70,7 @@ def scf_property_validator(scf_property: str) -> str:
         "lowdin_charges",
         "wiberg_lowdin_indices",
         "mayer_indices",
+        "mbis_charges",
     ]
 
     if scf_property.lower() not in allowed_properties:
