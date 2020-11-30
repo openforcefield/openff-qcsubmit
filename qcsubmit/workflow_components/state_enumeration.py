@@ -5,6 +5,7 @@ from typing import List
 
 from openforcefield.topology import Molecule
 from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
+from pydantic import Field
 
 from ..common_structures import ComponentProperties
 from ..datasets import ComponentResult
@@ -32,7 +33,9 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
     component_fail_message = "The molecule tautomers could not be enumerated."
 
     # custom settings for the class
-    max_tautomers: int = 20
+    max_tautomers: int = Field(
+        20, description="The maximum number of tautomers that should be generated."
+    )
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     def _apply_init(self, result: ComponentResult) -> None:
@@ -105,9 +108,17 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
         "The molecules stereo centers or bonds could not be enumerated"
     )
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
-    undefined_only: bool = False
-    max_isomers: int = 20
-    rationalise: bool = True
+    undefined_only: bool = Field(
+        False,
+        description="If we should only enumerate parts of the molecule with undefined stereochemistry or all stereochemistry.",
+    )
+    max_isomers: int = Field(
+        20, description="The maximum number of stereoisomers to be generated."
+    )
+    rationalise: bool = Field(
+        True,
+        description="If we should check that the resulting molecules are physically possible by attempting to generate conformers for them.",
+    )
 
     def _apply_init(self, result: ComponentResult) -> None:
 
@@ -174,7 +185,9 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     _toolkits = {"openeye": OpenEyeToolkitWrapper}
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
 
-    max_states: int = 10
+    max_states: int = Field(
+        10, description="The maximum number of states that should be generated."
+    )
 
     def _apply_init(self, result: ComponentResult) -> None:
 

@@ -48,9 +48,18 @@ class MissingWorkflowComponentError(QCSubmitException):
     header = "QCSubmit Missing Workflow Component Error"
 
 
-class CompoenentRequirementError(QCSubmitException):
+class ComponentRegisterError(QCSubmitException):
     """
-    The requested workflow componenet could not be added due to missing requirements.
+    A component with this name has already been registered with QCSubmit.
+    """
+
+    error_type = "component_registered_error"
+    header = "QCSubmit Component Registered Error"
+
+
+class ComponentRequirementError(QCSubmitException):
+    """
+    The requested workflow component could not be added due to missing requirements.
     """
 
     error_type = "missing_requirements_error"
@@ -63,7 +72,7 @@ class InvalidClientError(QCSubmitException):
     """
 
     error_type = "invalid_client_error"
-    header = "QCSumit Invalid Client Error"
+    header = "QCSubmit Invalid Client Error"
 
 
 class DriverError(QCSubmitException):
