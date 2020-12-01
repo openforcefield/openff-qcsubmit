@@ -9,7 +9,11 @@ import tqdm
 from openforcefield import topology as off
 from pydantic import PositiveInt, constr, validator
 from qcfractal.interface import FractalClient
-from qcportal.models.common_models import DriverEnum, QCSpecification
+from qcportal.models.common_models import (
+    DriverEnum,
+    OptimizationSpecification,
+    QCSpecification,
+)
 from simtk import unit
 
 from .common_structures import (
@@ -28,6 +32,7 @@ from .exceptions import (
     DatasetInputError,
     DihedralConnectionError,
     MissingBasisCoverageError,
+    QCSpecificationError,
     UnsupportedFiletypeError,
 )
 from .procedures import GeometricProcedure
@@ -1458,6 +1463,65 @@ class OptimizationDataset(BasicDataset):
 
         return qc_spec
 
+    def add_dataset_specification(
+        self,
+        spec: QCSpec,
+        opt_spec: OptimizationSpecification,
+        collection: Union[
+            ptl.collections.OptimizationDataset, ptl.collections.TorsionDriveDataset
+        ],
+    ) -> bool:
+        """
+        Try to add the local qc specification to the given collection, this will check if a spec under this name has already been added and if it should be overwritten.
+
+        Parameters:
+            spec: The QCSpec we are trying to add to the collection
+            opt_spec: The qcportal style optimization spec
+            collection: The collection we are trying to add this compute specification to
+
+        Notes:
+            If a specification is already stored under this name in the collection we have options:
+            - If a spec with the same name but different details has been added and used we must raise an error to change the name of the new spec
+            - If the spec has been added and has not been used then overwrite it.
+
+        Returns:
+            `True` if the specification is present in the collection and is exactly the same as what we are trying to add.
+            `False` if no specification can be found in the collection with the given name.
+
+        Raises:
+             QCSpecificationError: If a specification with the same name is already added to the collection but has different settings.
+        """
+        # build the qcportal version of our spec
+        kw_id = self._add_keywords(client=collection.client, spec=spec)
+        qcportal_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
+
+        # see if the spec is in the history
+        if spec.spec_name.lower() in collection.data.history:
+            collection_spec = collection.get_specification(name=spec.spec_name)
+            # check they are the same
+            if (
+                collection_spec.optimization_spec == opt_spec
+                and qcportal_spec == collection_spec.qc_spec
+            ):
+                # the spec is already there and is the same so just skip adding it
+                return True
+            else:
+                raise QCSpecificationError(
+                    f"A specification with the name {spec.spec_name} is already registered with the collection but has different settings and has already been used and should not be overwriten. "
+                    f"Please change the name of this specification to continue."
+                )
+
+        else:
+            # the spec either has not been added or has not been used so set the new default
+            collection.add_specification(
+                name=spec.spec_name,
+                optimization_spec=opt_spec,
+                qc_spec=qcportal_spec,
+                description=spec.spec_description,
+                overwrite=True,
+            )
+            return True
+
     def submit(
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
@@ -1514,15 +1578,8 @@ class OptimizationDataset(BasicDataset):
         opt_spec = self.optimization_procedure.get_optimzation_spec()
         # create the qc specification and add them all
         for spec in self.qc_specifications.values():
-            # get a keyword id for this specification
-            kw_id = self._add_keywords(client=target_client, spec=spec)
-            qc_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
-            collection.add_specification(
-                name=spec.spec_name,
-                optimization_spec=opt_spec,
-                qc_spec=qc_spec,
-                description=spec.spec_description,
-                overwrite=False,
+            self.add_dataset_specification(
+                spec=spec, opt_spec=opt_spec, collection=collection
             )
 
         i = 0
@@ -1561,13 +1618,6 @@ class OptimizationDataset(BasicDataset):
             responses[spec_name] = response
 
         return responses
-
-        # result = BasicResult()
-        # while await_result:
-        #
-        #     pass
-        #
-        # return result
 
 
 class TorsiondriveDataset(OptimizationDataset):
@@ -1722,15 +1772,8 @@ class TorsiondriveDataset(OptimizationDataset):
         opt_spec = self.optimization_procedure.get_optimzation_spec()
         # create the qc specification for each spec
         for spec in self.qc_specifications.values():
-            # get the kd id from the client for this spec
-            kw_id = self._add_keywords(client=target_client, spec=spec)
-            qc_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
-            collection.add_specification(
-                name=spec.spec_name,
-                optimization_spec=opt_spec,
-                qc_spec=qc_spec,
-                description=spec.spec_description,
-                overwrite=False,
+            self.add_dataset_specification(
+                spec=spec, opt_spec=opt_spec, collection=collection
             )
 
         # start add the molecule to the dataset, multiple conformers/molecules can be used as the starting geometry
