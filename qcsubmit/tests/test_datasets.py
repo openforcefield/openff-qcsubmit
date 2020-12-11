@@ -1487,7 +1487,7 @@ def test_dataset_export_full_dataset_json(dataset_type):
         attributes = get_cmiles(molecule)
         try:
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
-        except TypeError:
+        except ValidationError:
             dihedrals = [get_dihedral(molecule), ]
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
     with temp_directory():
