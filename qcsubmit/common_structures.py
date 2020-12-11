@@ -53,6 +53,32 @@ class ComponentProperties(BaseModel):
         extra: "forbid"
 
 
+class TDSettings(DatasetConfig):
+    """
+    A replacement of the TDKeywords class in the QCFractal which drops the dihedrals field as this is moved up the model.
+    The settings here overwrite the gloab dataset and allow the user to have control over the individual scans.
+    """
+
+    grid_spacing: Optional[List[int]] = Field(
+        None, description="List of grid spacings for the dihedral scan in degrees."
+    )
+    dihedral_ranges: Optional[List[Tuple[int, int]]] = Field(
+        None,
+        description="A list of the dihedral scan limits of the form (lower, upper)",
+    )
+    energy_decrease_thresh: Optional[float] = Field(
+        None,
+        description="The threshold of the smallest energy decrease amount to trigger activating optimizations from "
+        "grid point.",
+    )
+    energy_upper_limit: Optional[float] = Field(
+        None,
+        description="The threshold if the energy of a grid point that is higher than the current global minimum, to "
+        "start new optimizations, in unit of a.u. I.e. if energy_upper_limit = 0.05, current global "
+        "minimum energy is -9.9 , then a new task starting with energy -9.8 will be skipped.",
+    )
+
+
 class PCMSettings(ResultsConfig):
     """
     A class to handle PCM settings which can be used with PSi4.
