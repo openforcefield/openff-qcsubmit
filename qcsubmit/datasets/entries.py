@@ -184,7 +184,7 @@ class TorsionDriveEntry(DatasetEntry):
     A Torsiondrive dataset specific class which can check dihedral indices and store torsiondrive specific settings with built in validation.
     """
 
-    dihedrals: Optional[List[Tuple[int, int, int, int]]]
+    dihedrals: List[Tuple[int, int, int, int]]
     keywords: Optional[TDSettings] = TDSettings()
 
     def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
