@@ -354,7 +354,6 @@ def test_torsiondrivedataset_new_torsiondrive(public_client):
     entry = new_dataset.dataset["[ch2:3]([ch2:2][oh:4])[oh:1]_12"]
     # make sure all starting molecules are present
     assert len(entry.initial_molecules) == 24
-    assert entry.constraints.has_constraints is False
 
 
 def test_torsiondrivedataset_new_optimization(public_client):

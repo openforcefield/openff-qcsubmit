@@ -191,3 +191,21 @@ class PCMSettingError(QCSubmitException):
 
     error_type = "pcm_setting_error"
     header = "PCM Setting Error"
+
+
+class InvalidDatasetError(QCSubmitException):
+    """
+    The dataset can not be registered as it is not valid sub class of the Dataset
+    """
+
+    error_type = "invalid_dataset_error"
+    header = "Invalid Dataset Error"
+
+
+class DatasetRegisterError(QCSubmitException):
+    """
+    A dataset of this type has already been registered with qcsubmit
+    """
+
+    error_type = "dataset_register_error"
+    header = "Dataset Register Error"

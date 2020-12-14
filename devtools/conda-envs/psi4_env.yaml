@@ -22,12 +22,14 @@ dependencies:
   - codecov
   - qcportal >=0.13.0
   - qcengine >=0.15.0
-  - psi4 >=1.3
+  - psi4 ==1.4a3.dev1+8afefb7
+  - pcmsolver ==1.2.1
   - openeye-toolkits ==2019.10.2
   - qcfractal >=0.13.0
   - torsiondrive
   - fragmenter
   - basis_set_exchange
+  - typing-extensions
 
     # Pip-only installs
 #  - pip:

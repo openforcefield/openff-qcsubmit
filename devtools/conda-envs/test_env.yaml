@@ -26,6 +26,7 @@ dependencies:
   - torsiondrive
   - fragmenter
   - basis_set_exchange
+  - typing-extensions
 
     # Pip-only installs
 #  - pip:

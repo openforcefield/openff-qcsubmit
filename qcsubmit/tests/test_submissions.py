@@ -707,6 +707,43 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
             assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
 
 
+def test_torsiondrive_scan_keywords(fractal_compute_server):
+    """
+    Test running torsiondrives with unique keyword settings which overwrite the global grid spacing and scan range.
+    """
+
+    client = FractalClient(fractal_compute_server)
+    molecules = Molecule.from_smiles("CO")
+    factory = TorsiondriveDatasetFactory()
+    factory.clear_qcspecs()
+    factory.add_qc_spec(method="openff_unconstrained-1.1.0", basis="smirnoff", program="openmm", spec_description="scan range test", spec_name="openff-1.1.0")
+    dataset = factory.create_dataset(dataset_name="Torsiondrive scan keywords", molecules=molecules,
+                                     description="Testing scan keywords which overwrite the global settings",
+                                     tagline="Testing scan keywords which overwrite the global settings")
+    # now add a mock url so we can submit the data
+    dataset.metadata.long_description_url = "https://test.org"
+
+    # now set the keywords
+    keys = list(dataset.dataset.keys())
+    entry = dataset.dataset[keys[0]]
+    entry.keywords = {"grid_spacing": [5],
+                      "dihedral_ranges": [(-10, 10)]}
+
+    # now submit
+    dataset.submit(client=client)
+    fractal_compute_server.await_services(max_iter=50)
+
+    # make sure of the results are complete
+    ds = client.get_collection("TorsionDriveDataset", dataset.dataset_name)
+
+    # get the entry
+    record = ds.get_record(ds.df.index[0], "openff-1.1.0")
+    assert record.keywords.grid_spacing == [5]
+    assert record.keywords.grid_spacing != dataset.grid_spacing
+    assert record.keywords.dihedral_ranges == [(-10, 10)]
+    assert record.keywords.dihedral_ranges != dataset.dihedral_ranges
+
+
 @pytest.mark.parametrize("specification", [
     pytest.param(({"method": "openff_unconstrained-1.1.0", "basis": "smirnoff", "program": "openmm"}, "gradient"), id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
     pytest.param(({"method": "mmff94", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit mmff94 gradient")

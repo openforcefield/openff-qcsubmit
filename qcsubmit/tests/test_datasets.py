@@ -15,9 +15,12 @@ from qcsubmit.constraints import Constraints, PositionConstraintSet
 from qcsubmit.datasets import (
     BasicDataset,
     ComponentResult,
-    DatasetEntry,
     OptimizationDataset,
+    OptimizationEntry,
     TorsiondriveDataset,
+    list_datasets,
+    load_dataset,
+    register_dataset,
 )
 from qcsubmit.exceptions import (
     AngleConnectionError,
@@ -25,7 +28,9 @@ from qcsubmit.exceptions import (
     ConstraintError,
     DatasetCombinationError,
     DatasetInputError,
+    DatasetRegisterError,
     DihedralConnectionError,
+    InvalidDatasetError,
     LinearTorsionError,
     MissingBasisCoverageError,
     QCSpecificationError,
@@ -83,6 +88,59 @@ def get_cmiles(molecule: Molecule) -> Dict[str, str]:
 
     factory = BasicDatasetFactory()
     return factory.create_cmiles_metadata(molecule)
+
+
+def test_list_datasets():
+    """
+    Make sure all registered datasets are returned
+    """
+    datasets = list_datasets()
+    assert len(datasets) == 3
+
+
+@pytest.mark.parametrize("dataset", [
+    pytest.param(BasicDataset, id="basic dataset"),
+    pytest.param(OptimizationDataset, id="optimization dataset"),
+    pytest.param(TorsiondriveDataset, id="torsiondrive dataset")
+])
+def test_load_dataset_obj(dataset):
+    """
+    Test the dataset util function can load any of the registered datasets
+    """
+    new_dataset = load_dataset(dataset().dict())
+    assert new_dataset.dataset_type == dataset.__fields__["dataset_type"].default
+
+
+def test_load_dataset_file():
+    """
+    Make sure the dataset util function can load a dataset from file.
+    """
+    dataset = load_dataset(get_data("valid_torsion_dataset.json"))
+    assert dataset.dataset_type == "TorsiondriveDataset"
+
+
+def test_load_dataset_error():
+    """
+    Make sure an error is raised when we can not load the dataset type.
+    """
+    with pytest.raises(DatasetRegisterError):
+        load_dataset({"dataset_type": "unknown"})
+
+
+def test_register_dataset():
+    """
+    Make sure datasets are correctly registered
+    """
+    # try and register a dict
+    with pytest.raises(InvalidDatasetError):
+        register_dataset(dataset=type({"dataset": "new"}))
+
+    # now try and add the basic type again
+    with pytest.raises(DatasetRegisterError):
+        register_dataset(dataset=BasicDataset)
+
+    register_dataset(dataset=BasicDataset, replace=True)
+    assert len(list_datasets()) == 3
 
 
 def test_componentresult_repr():
@@ -323,7 +381,7 @@ def test_dataset_linear_dihedral_validator():
     """
 
     from qcsubmit.factories import TorsiondriveDatasetFactory
-    dataset = BasicDataset()
+    dataset = TorsiondriveDataset()
     molecules = Molecule.from_file(get_data("linear_molecules.sdf"), allow_undefined_stereo=True)
     factory = TorsiondriveDatasetFactory()
     linear_smarts = "[*!D1:1]~[$(*#*)&D2,$(C=*)&D2:2]"
@@ -336,6 +394,23 @@ def test_dataset_linear_dihedral_validator():
         attributes = get_cmiles(molecule)
         with pytest.raises(LinearTorsionError):
             dataset.add_molecule(index="linear test", molecule=molecule, attributes=attributes, dihedrals=[dihedral, ])
+
+
+def test_torsiondrive_unqiue_settings():
+    """
+    Test adding unqiue settings to a torsiondrive entry.
+    """
+    from qcsubmit.factories import TorsiondriveDatasetFactory
+    dataset = TorsiondriveDataset()
+    molecule = Molecule.from_smiles("CO")
+    bond = molecule.find_rotatable_bonds()[0]
+    factory = TorsiondriveDatasetFactory()
+    dataset.add_molecule(index="test", molecule=molecule, attributes=get_cmiles(molecule), dihedrals=[factory._get_torsion_string(bond), ], keywords={"grid_spacing": [5], "dihedral_ranges": [(-50, 50),]})
+    # make sure the object was made and the values are set
+    assert dataset.dataset["test"].keywords.grid_spacing == [5, ]
+    assert dataset.dataset["test"].keywords.dihedral_ranges == [(-50, 50), ]
+    assert dataset.dataset["test"].keywords.grid_spacing != dataset.grid_spacing
+    assert dataset.dataset["test"].keywords.dihedral_ranges != dataset.dihedral_ranges
 
 
 @pytest.mark.parametrize("constraint_settings", [
@@ -434,11 +509,11 @@ def test_add_constraints_to_entry_errors(constraint_settings):
     Test adding new constraints to a valid dataset entry, make sure errors are raised if we say the constraint is bonded but it is not.
     """
     mol = Molecule.from_smiles("CC")
-    entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
+    entry = OptimizationEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
     # get the constraint info
     constraint, constraint_type, indices, value, error = constraint_settings
     with pytest.raises(error):
-            entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
+        entry.add_constraint(constraint=constraint, constraint_type=constraint_type, indices=indices, value=value)
 
 
 @pytest.mark.parametrize("constraint_settings", [
@@ -452,7 +527,7 @@ def test_add_constraints_to_entry(constraint_settings):
     Test adding new constraints to a valid dataset entry make sure no warnings are raised as the constraints are bonded.
     """
     mol = Molecule.from_smiles("CC")
-    entry = DatasetEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
+    entry = OptimizationEntry(off_molecule=mol, attributes=get_cmiles(mol), index=mol.to_smiles(), keywords={}, extras={})
     # get the constraint info
     constraint, constraint_type, indices, value, bonded, error = constraint_settings
     if error is None:
@@ -477,7 +552,7 @@ def test_add_entry_with_constraints(constraint_setting):
     """
     Add an entry to a dataset with constraints in the keywords and make sure they converted to the constraints field.
     """
-    dataset = BasicDataset()
+    dataset = OptimizationDataset()
     # now add a molecule with constraints in the keywords
     mol = Molecule.from_file(get_data("ethane.sdf"), "sdf")
     constraints = {"set": [{"type": "dihedral", "indices": [0, 1, 2, 3], "value": 50, "bonded": False},
@@ -1361,12 +1436,10 @@ def test_basicdataset_molecules_to_file(file_data):
 
 
 @pytest.mark.parametrize("toolkit_data", [
-    pytest.param(("openeye", None, False), id="openeye no highlights"),
-    pytest.param(("openeye", None, True), id="openeye with highlights"),
-    pytest.param(("rdkit", None, False), id="rdkit, no highlights"),
-    pytest.param(("rdkit", None, True), id="rdkit with highlights"),
-    pytest.param((None, None, False), id="Openeye by default."),
-    pytest.param(("bad_toolkit", ValueError, False), id="Bad toolkit name.")
+    pytest.param(("openeye", None), id="openeye no highlights"),
+    pytest.param(("rdkit", None), id="rdkit, no highlights"),
+    pytest.param((None, None), id="Openeye by default."),
+    pytest.param(("bad_toolkit", ValueError), id="Bad toolkit name.")
 ])
 def test_dataset_to_pdf_no_torsions(toolkit_data):
     """
@@ -1375,17 +1448,11 @@ def test_dataset_to_pdf_no_torsions(toolkit_data):
     dataset = BasicDataset()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
-    toolkit, error, highlight = toolkit_data
+    toolkit, error = toolkit_data
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
-        if highlight:
-            first_dihedral = list(molecule.propers)[0]
-            # get the atomic numbers
-            dihedrals = [tuple([atom.molecule_atom_index for atom in first_dihedral])]
-        else:
-            dihedrals = None
-        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
 
     with temp_directory():
         # try and export the pdf file
@@ -1394,7 +1461,29 @@ def test_dataset_to_pdf_no_torsions(toolkit_data):
                 dataset.visualize(file_name="molecules.pdf", toolkit=toolkit)
         else:
             dataset.visualize(file_name="molecules.pdf", toolkit=toolkit)
-            
+
+
+@pytest.mark.parametrize("toolkit", [
+    pytest.param("openeye", id="openeye"),
+    pytest.param("rdkit", id="rdkit"),
+])
+def test_dataset_to_pdf_with_torsions(toolkit):
+    """
+    Test exporting molecules to PDF with torsions.
+    """
+    dataset = TorsiondriveDataset()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    for molecule in molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        first_dihedral = list(molecule.propers)[0]
+        # get the atom index
+        dihedrals = [tuple([atom.molecule_atom_index for atom in first_dihedral])]
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
+
+    with temp_directory():
+        dataset.visualize(file_name="molecules.pdf", toolkit=toolkit)
+
 
 @pytest.mark.parametrize("dataset_type", [
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
@@ -1412,7 +1501,7 @@ def test_dataset_export_full_dataset_json(dataset_type):
         attributes = get_cmiles(molecule)
         try:
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
-        except TypeError:
+        except ValidationError:
             dihedrals = [get_dihedral(molecule), ]
             dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
     with temp_directory():

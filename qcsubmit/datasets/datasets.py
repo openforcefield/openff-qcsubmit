@@ -2,7 +2,6 @@ import json
 import os
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
-import numpy as np
 import qcelemental as qcel
 import qcportal as ptl
 import tqdm
@@ -14,9 +13,9 @@ from qcportal.models.common_models import (
     OptimizationSpecification,
     QCSpecification,
 )
-from simtk import unit
+from typing_extensions import Literal
 
-from .common_structures import (
+from ..common_structures import (
     ClientHandler,
     DatasetConfig,
     IndexCleaner,
@@ -25,28 +24,19 @@ from .common_structures import (
     QCSpecificationHandler,
     TorsionIndexer,
 )
-from .constraints import Constraints
-from .exceptions import (
-    ConstraintError,
+from ..constraints import Constraints
+from ..exceptions import (
     DatasetCombinationError,
     DatasetInputError,
-    DihedralConnectionError,
     MissingBasisCoverageError,
     QCSpecificationError,
     UnsupportedFiletypeError,
 )
-from .procedures import GeometricProcedure
-from .results import SingleResult
-from .serializers import deserialize, serialize
-from .validators import (
-    check_constraints,
-    check_improper_connection,
-    check_linear_torsions,
-    check_torsion_connection,
-    check_valence_connectivity,
-    cmiles_validator,
-    scf_property_validator,
-)
+from ..procedures import GeometricProcedure
+from ..results import SingleResult
+from ..serializers import deserialize, serialize
+from ..validators import scf_property_validator
+from .entries import DatasetEntry, FilterEntry, OptimizationEntry, TorsionDriveEntry
 
 
 class ComponentResult:
@@ -268,196 +258,6 @@ class ComponentResult:
         return f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' filtered='{self.n_filtered}'>"
 
 
-class DatasetEntry(DatasetConfig):
-    """
-    A basic data class to construct the datasets which holds any information about the molecule and options used in
-    the qcarchive calculation.
-
-    Note:
-        * ``extras`` are passed into the qcelemental.models.Molecule on creation.
-        * any extras that should passed to the calculation like extra constrains should be passed to ``keywords``.
-    """
-
-    index: str
-    initial_molecules: List[qcel.models.Molecule]
-    attributes: Dict[str, Any]
-    dihedrals: Optional[List[Tuple[int, int, int, int]]]
-    extras: Optional[Dict[str, Any]] = {}
-    keywords: Optional[Dict[str, Any]] = {}
-    constraints: Constraints = Constraints()
-
-    _attribute_validator = validator("attributes", allow_reuse=True)(cmiles_validator)
-    _qcel_molecule_validator = validator(
-        "initial_molecules", allow_reuse=True, each_item=True
-    )(check_valence_connectivity)
-
-    def __init__(self, off_molecule: off.Molecule = None, **kwargs):
-        """
-        Init the dataclass handling conversions of the molecule first.
-        This is needed to make sure the extras are passed into the qcschema molecule.
-        """
-
-        # if the constraints are in the keywords move them out for validation
-        if "constraints" in kwargs["keywords"]:
-            constraint_dict = kwargs["keywords"].pop("constraints")
-            constraints = Constraints(**constraint_dict)
-            kwargs["constraints"] = constraints
-
-        extras = kwargs["extras"]
-        # if we get an off_molecule we need to convert it
-        if off_molecule is not None:
-            if off_molecule.n_conformers == 0:
-                off_molecule.generate_conformers(n_conformers=1)
-            schema_mols = [
-                off_molecule.to_qcschema(conformer=conformer, extras=extras)
-                for conformer in range(off_molecule.n_conformers)
-            ]
-            kwargs["initial_molecules"] = schema_mols
-
-        super().__init__(**kwargs)
-        # validate any constraints being added
-        check_constraints(
-            constraints=self.constraints,
-            molecule=self.get_off_molecule(include_conformers=False),
-        )
-        # now validate the torsions check proper first
-        if self.dihedrals is not None:
-            if off_molecule is None:
-                off_molecule = self.get_off_molecule(include_conformers=False)
-
-            # now validate the dihedrals
-            for torsion in self.dihedrals:
-                # check for linear torsions
-                check_linear_torsions(torsion, off_molecule)
-                try:
-                    check_torsion_connection(torsion=torsion, molecule=off_molecule)
-                except DihedralConnectionError:
-                    # if this fails as well raise
-                    try:
-                        check_improper_connection(
-                            improper=torsion, molecule=off_molecule
-                        )
-                    except DihedralConnectionError:
-                        raise DihedralConnectionError(
-                            f"The dihedral {torsion} for molecule {off_molecule} is not a valid"
-                            f" proper/improper torsion."
-                        )
-        # now we need to process all of the initial molecules to make sure the cmiles is present
-        # and force c1 symmetry
-        initial_molecules = []
-        for mol in self.initial_molecules:
-            extras = mol.extras or {}
-            extras[
-                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-            ] = self.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
-            mol_data = mol.dict()
-            mol_data["extras"] = extras
-            # put into strict c1 symmetry
-            mol_data["fix_symmetry"] = "c1"
-            initial_molecules.append(qcel.models.Molecule.parse_obj(mol_data))
-        # now assign the new molecules
-        self.initial_molecules = initial_molecules
-
-    def get_off_molecule(self, include_conformers: bool = True) -> off.Molecule:
-        """Build and openforcefield.topology.Molecule representation of the input molecule.
-
-        Parameters:
-            include_conformers: If `True` all of the input conformers are included else they are dropped.
-        """
-
-        molecule = off.Molecule.from_mapped_smiles(
-            mapped_smiles=self.attributes[
-                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-            ],
-            allow_undefined_stereo=True,
-        )
-        molecule.name = self.index
-        if include_conformers:
-            for conformer in self.initial_molecules:
-                geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
-                molecule.add_conformer(geometry.in_units_of(unit.angstrom))
-        return molecule
-
-    def add_constraint(
-        self,
-        constraint: str,
-        constraint_type: str,
-        indices: List[int],
-        bonded: bool = True,
-        **kwargs,
-    ) -> None:
-        """
-        Add new constraint of the given type.
-
-        Parameters:
-            constraint: The major type of constraint, freeze or set
-            constraint_type: the constraint sub type, angle, distance etc
-            indices: The atom indices the constraint should be placed on
-            bonded: If the constraint is intended to be put a bonded set of atoms
-            kwargs: Any extra information needed by the constraint, for the set class they need a value `value=float`
-        """
-        if constraint.lower() == "freeze":
-            self.constraints.add_freeze_constraint(
-                constraint_type=constraint_type, indices=indices, bonded=bonded
-            )
-        elif constraint.lower() == "set":
-            self.constraints.add_set_constraint(
-                constraint_type=constraint_type,
-                indices=indices,
-                bonded=bonded,
-                **kwargs,
-            )
-        else:
-            raise ConstraintError(
-                f"The constraint {constraint} is not available please chose from freeze or set."
-            )
-        # run the constraint check
-        check_constraints(
-            constraints=self.constraints,
-            molecule=self.get_off_molecule(include_conformers=False),
-        )
-
-    @property
-    def formatted_keywords(self) -> Dict[str, Any]:
-        """
-        Format the keywords with the constraints values.
-        """
-        import copy
-
-        if self.constraints.has_constraints:
-            constraints = self.constraints.dict()
-            keywords = copy.deepcopy(self.keywords)
-            keywords["constraints"] = constraints
-            return keywords
-        else:
-            return self.keywords
-
-
-class FilterEntry(DatasetConfig):
-    """
-    A basic data class that contains information on components run in a workflow and the associated molecules which were
-    removed by it.
-    """
-
-    component_name: str
-    component_description: Dict[str, Any]
-    component_provenance: Dict[str, str]
-    molecules: List[str]
-
-    def __init__(self, off_molecules: List[off.Molecule] = None, **kwargs):
-        """
-        Init the dataclass handling conversions of the molecule first.
-        """
-        if off_molecules is not None:
-            molecules = [
-                molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
-                for molecule in off_molecules
-            ]
-            kwargs["molecules"] = molecules
-
-        super().__init__(**kwargs)
-
-
 class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetConfig):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to
@@ -475,7 +275,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
     dataset_tagline: constr(
         min_length=8, regex="[a-zA-Z]"
     ) = "OpenForcefield single point evaluations."
-    dataset_type: constr(regex="DataSet") = "DataSet"
+    dataset_type: Literal["DataSet"] = "DataSet"
     maxiter: PositiveInt = 200
     driver: DriverEnum = DriverEnum.energy
     scf_properties: List[str] = [
@@ -495,6 +295,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
     dataset: Dict[str, DatasetEntry] = {}
     filtered_molecules: Dict[str, FilterEntry] = {}
     _file_writers = {"json": json.dump}
+    _entry_class = DatasetEntry
 
     _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(
         scf_property_validator
@@ -789,7 +590,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         """
 
         try:
-            data_entry = DatasetEntry(
+            data_entry = self._entry_class(
                 off_molecule=molecule,
                 index=index,
                 attributes=attributes,
@@ -1173,7 +974,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             oedepict.OEPrepareDepiction(mol, False, suppress_h)
             disp = oedepict.OE2DMolDisplay(mol, opts)
 
-            if data.dihedrals is not None:
+            if hasattr(data, "dihedrals"):
                 # work out if we have a double or single torsion
                 if len(data.dihedrals) == 1:
                     dihedrals = data.dihedrals[0]
@@ -1239,7 +1040,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
             rdkit_mol = data.get_off_molecule(include_conformers=False).to_rdkit()
             AllChem.Compute2DCoords(rdkit_mol)
             molecules.append(rdkit_mol)
-            if data.dihedrals is not None:
+            if hasattr(data, "dihedrals"):
                 tagged_atoms.extend(data.dihedrals)
         # if no atoms are to be tagged set to None
         if not tagged_atoms:
@@ -1334,13 +1135,15 @@ class OptimizationDataset(BasicDataset):
     dataset_tagline: constr(
         min_length=8, regex="[a-zA-Z]"
     ) = "OpenForcefield optimizations."
-    dataset_type: constr(regex="OptimizationDataset") = "OptimizationDataset"
+    dataset: Dict[str, OptimizationEntry] = {}
+    dataset_type: Literal["OptimizationDataset"] = "OptimizationDataset"
     description: constr(
         min_length=8, regex="[a-zA-Z]"
     ) = "An optimization dataset using geometric."
     metadata: Metadata = Metadata(collection_type=dataset_type)
     driver: DriverEnum = DriverEnum.gradient
     optimization_procedure: GeometricProcedure = GeometricProcedure()
+    _entry_class = OptimizationEntry
 
     @validator("driver")
     def _check_driver(cls, driver):
@@ -1355,7 +1158,7 @@ class OptimizationDataset(BasicDataset):
         """
         import copy
 
-        from .utils import remap_list
+        from ..utils import remap_list
 
         # make sure the dataset types match
         if self.dataset_type != other.dataset_type:
@@ -1627,15 +1430,15 @@ class TorsiondriveDataset(OptimizationDataset):
 
     Important:
         The dihedral_ranges for the whole dataset can be defined here or if different scan ranges are required on a case
-         by case basis they can be defined for each torsion in a molecule separately in the properties attribute of the
-        molecule. For example `mol.properties['dihedral_range'] = (-165, 180)`
+         by case basis they can be defined for each torsion in a molecule separately in the keywords of the torsiondrive entry.
     """
 
     dataset_name = "TorsionDriveDataset"
     dataset_tagline: constr(
         min_length=8, regex="[a-zA-Z]"
     ) = "OpenForcefield TorsionDrives."
-    dataset_type: constr(regex="TorsiondriveDataset") = "TorsiondriveDataset"
+    dataset: Dict[str, TorsionDriveEntry] = {}
+    dataset_type: Literal["TorsiondriveDataset"] = "TorsiondriveDataset"
     description: constr(
         min_length=8, regex="[a-zA-Z]"
     ) = "A TorsionDrive dataset using geometric."
@@ -1643,10 +1446,11 @@ class TorsiondriveDataset(OptimizationDataset):
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )
-    grid_spacings: List[int] = [15]
+    grid_spacing: List[int] = [15]
     energy_upper_limit: float = 0.05
     dihedral_ranges: Optional[List[Tuple[int, int]]] = None
     energy_decrease_thresh: Optional[float] = None
+    _entry_class = TorsionDriveEntry
 
     def __add__(self, other: "TorsiondriveDataset") -> "TorsiondriveDataset":
         """
@@ -1779,17 +1583,19 @@ class TorsiondriveDataset(OptimizationDataset):
         # start add the molecule to the dataset, multiple conformers/molecules can be used as the starting geometry
         for i, (index, data) in enumerate(self.dataset.items()):
             try:
+                # for each TD setting check if we have a unique value to replace the global setting
                 collection.add_entry(
                     name=index,
                     initial_molecules=data.initial_molecules,
                     dihedrals=data.dihedrals,
-                    grid_spacing=self.grid_spacings,
-                    energy_upper_limit=self.energy_upper_limit,
+                    grid_spacing=data.keywords.grid_spacing or self.grid_spacing,
+                    energy_upper_limit=data.keywords.energy_upper_limit
+                    or self.energy_upper_limit,
                     attributes=data.attributes,
-                    energy_decrease_thresh=self.energy_decrease_thresh,
-                    dihedral_ranges=data.keywords.get(
-                        "dihedral_ranges", self.dihedral_ranges
-                    ),
+                    energy_decrease_thresh=data.keywords.energy_decrease_thresh
+                    or self.energy_decrease_thresh,
+                    dihedral_ranges=data.keywords.dihedral_ranges
+                    or self.dihedral_ranges,
                 )
             except KeyError:
                 continue
