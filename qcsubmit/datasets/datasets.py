@@ -648,13 +648,25 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
                 # now check psi4
                 # TODO this list should be updated with more basis transforms as we find them
                 psi4_converter = {"dzvp": "dgauss-dzvp"}
+                month_subs = {"jun-", "mar-", "apr-", "may-", "feb-"}
                 basis = psi4_converter.get(spec.basis.lower(), spec.basis.lower())
                 # here we need to apply conversions for special characters to match bse
                 # replace the *
                 basis = re.sub("\*", "_st_", basis)
                 # replace any /
                 basis = re.sub("/", "_sl_", basis)
-                basis_meta = bse.get_metadata()[basis]
+                # check for heavy tags
+                basis = re.sub("heavy-", "", basis)
+                try:
+                    basis_meta = bse.get_metadata()[basis]
+                except KeyError:
+                    # now try and do month subs
+                    for month in month_subs:
+                        if month in basis:
+                            basis = re.sub(month, "", basis)
+                    # now try and get the basis again
+                    basis_meta = bse.get_metadata()[basis]
+
                 elements = basis_meta["versions"][basis_meta["latest_version"]][
                     "elements"
                 ]

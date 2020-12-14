@@ -1658,7 +1658,14 @@ def test_dataset_roundtrip_compression(dataset_type, compression):
     pytest.param(({"method": "GFN2-xTB", "basis": None, "program": "xtb"}, {"C", "N", "Se"}, False), id="XTB Pass"),
     pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, {"C", "N", "O"}, False), id="Rdkit UFF Pass"),
     pytest.param(({"method": "hf", "basis": "6-311++G**", "program": "psi4"}, {"Br", "C", "O", "N"}, True), id="6-311++G** regex sub Error"),
-    pytest.param(({"method": "hf", "basis": "cc-pV5Z(fi/sf/fw)", "program": "psi4"}, {"Br", "C", "O", "N"}, False), id="cc-pV5Z(fi/sf/fw) regex Pass")
+    pytest.param(({"method": "hf", "basis": "cc-pV5Z(fi/sf/fw)", "program": "psi4"}, {"Br", "C", "O", "N"}, False), id="cc-pV5Z(fi/sf/fw) regex Pass"),
+    pytest.param(({"method": "hf", "basis": "heavy-aug-cc-pvtz", "program": "psi4"}, {"Br", "C", "O", "N"}, False),
+                 id="heavy-aug-cc-pvtz heavy regex Pass"),
+    pytest.param(({"method": "hf", "basis": "apr-cc-pV(5+d)Z", "program": "psi4"}, {"Br", "C", "O", "N"}, False),
+                 id="apr-cc-pV(5+d)Z regex Pass"),
+    pytest.param(({"method": "hf", "basis": "jun-cc-pV(Q+d)Z", "program": "psi4"}, {"Cl", "C", "O", "N", "Si"}, False),
+                 id="jun-cc-pV(Q+d)Z  Pass no regex"),
+
 ])
 def test_basis_coverage_single(basis_data):
     """
