@@ -1436,12 +1436,10 @@ def test_basicdataset_molecules_to_file(file_data):
 
 
 @pytest.mark.parametrize("toolkit_data", [
-    pytest.param(("openeye", None, False), id="openeye no highlights"),
-    pytest.param(("openeye", None, True), id="openeye with highlights"),
-    pytest.param(("rdkit", None, False), id="rdkit, no highlights"),
-    pytest.param(("rdkit", None, True), id="rdkit with highlights"),
-    pytest.param((None, None, False), id="Openeye by default."),
-    pytest.param(("bad_toolkit", ValueError, False), id="Bad toolkit name.")
+    pytest.param(("openeye", None), id="openeye no highlights"),
+    pytest.param(("rdkit", None), id="rdkit, no highlights"),
+    pytest.param((None, None), id="Openeye by default."),
+    pytest.param(("bad_toolkit", ValueError), id="Bad toolkit name.")
 ])
 def test_dataset_to_pdf_no_torsions(toolkit_data):
     """
@@ -1450,17 +1448,11 @@ def test_dataset_to_pdf_no_torsions(toolkit_data):
     dataset = BasicDataset()
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
-    toolkit, error, highlight = toolkit_data
+    toolkit, error = toolkit_data
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
-        if highlight:
-            first_dihedral = list(molecule.propers)[0]
-            # get the atomic numbers
-            dihedrals = [tuple([atom.molecule_atom_index for atom in first_dihedral])]
-        else:
-            dihedrals = None
-        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
 
     with temp_directory():
         # try and export the pdf file
@@ -1469,7 +1461,29 @@ def test_dataset_to_pdf_no_torsions(toolkit_data):
                 dataset.visualize(file_name="molecules.pdf", toolkit=toolkit)
         else:
             dataset.visualize(file_name="molecules.pdf", toolkit=toolkit)
-            
+
+
+@pytest.mark.parametrize("toolkit", [
+    pytest.param("openeye", id="openeye"),
+    pytest.param("rdkit", id="rdkit"),
+])
+def test_dataset_to_pdf_with_torsions(toolkit):
+    """
+    Test exporting molecules to PDF with torsions.
+    """
+    dataset = TorsiondriveDataset()
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    for molecule in molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        first_dihedral = list(molecule.propers)[0]
+        # get the atom index
+        dihedrals = [tuple([atom.molecule_atom_index for atom in first_dihedral])]
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
+
+    with temp_directory():
+        dataset.visualize(file_name="molecules.pdf", toolkit=toolkit)
+
 
 @pytest.mark.parametrize("dataset_type", [
     pytest.param(BasicDataset, id="BasicDataset"), pytest.param(OptimizationDataset, id="OptimizationDataset"),
