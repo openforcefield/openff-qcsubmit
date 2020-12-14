@@ -277,6 +277,28 @@ def test_componentresult_deduplication_diff_coords(duplicates):
                     assert molecule.conformers[i].tolist() != molecule.conformers[j].tolist()
 
 
+def test_componentresult_deduplication_iso():
+    """
+    Make sure that duplicates are correctly handled when the inchikey matches but standard isomorphism fails
+    due to bond order and formal charge differences.
+    """
+    result = ComponentResult(component_name="Test iso deduplication", component_description={},
+                             component_provenance={})
+
+    # build two molecules which has the same inchikey
+    mol1 = Molecule.from_smiles(smiles="[H]c1c(c(c(c(c1[H])[H])[S+2](N([H])[H])([O-])[O-])[H])[H]", hydrogens_are_explicit=True)
+    mol1.generate_conformers(n_conformers=1)
+    mol2 = Molecule.from_smiles(smiles="[H]c1c(c(c(c(c1[H])[H])S(=O)(=O)N([H])[H])[H])[H]", hydrogens_are_explicit=True)
+    mol2.generate_conformers(n_conformers=1)
+
+    # add the molecules
+    result.add_molecule(mol1)
+    result.add_molecule(mol2)
+
+    assert result.n_molecules == 1
+    assert result.n_conformers == 2
+
+
 def test_componentresult_remove_molecule():
     """
     Test removing a molecule not in a dataset.

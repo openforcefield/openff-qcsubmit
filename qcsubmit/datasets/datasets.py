@@ -184,9 +184,13 @@ class ComponentResult:
 
         if not self.skip_unique_check and molecule_hash in self._molecules:
             # we need to align the molecules and transfer the coords and properties
-            # get the mapping
+            # get the mapping, drop some comparisons to match inchikey
             isomorphic, mapping = off.Molecule.are_isomorphic(
-                molecule, self._molecules[molecule_hash], return_atom_map=True
+                molecule,
+                self._molecules[molecule_hash],
+                return_atom_map=True,
+                formal_charge_matching=False,
+                bond_order_matching=False,
             )
             assert isomorphic is True
             # transfer any torsion indexes for similar fragments
