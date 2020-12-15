@@ -738,6 +738,23 @@ def test_rotor_filter_pass():
     for molecule in result.molecules:
         assert len(molecule.find_rotatable_bonds()) <= rotor_filter.maximum_rotors
 
+def test_rotor_filter_min_pass():
+    """
+    Make sure the rotor filter removes the correct molecules.
+    """
+
+    rotor_filter = workflow_components.RotorFilter()
+    rotor_filter.minimum_rotors = 2
+    rotor_filter.filter_by = 'min'
+
+    mols = get_tautomers()
+
+    # we have to remove duplicated records
+    molecule_container = get_container(mols)
+    result = rotor_filter.apply(molecule_container.molecules, processors=1)
+    for molecule in result.molecules:
+        assert len(molecule.find_rotatable_bonds()) >= rotor_filter.minimum_rotors
+
 
 def test_rotor_filter_fail():
     """
@@ -755,6 +772,23 @@ def test_rotor_filter_fail():
         assert len(molecule.find_rotatable_bonds()) <= rotor_filter.maximum_rotors
     for molecule in result.filtered:
         assert len(molecule.find_rotatable_bonds()) > rotor_filter.maximum_rotors
+
+def test_rotor_filter_min_fail():
+    """
+    Test filtering out molecules with too low rotatable bonds.
+    """
+
+    rotor_filter = workflow_components.RotorFilter()
+    rotor_filter.minimum_rotors = 2
+    rotor_filter.filter_by = 'min'
+    mols = get_tautomers()
+
+    molecule_container = get_container(mols)
+    result = rotor_filter.apply(molecule_container.molecules, processors=1)
+    for molecule in result.molecules:
+        assert len(molecule.find_rotatable_bonds()) >= rotor_filter.minimum_rotors
+    for molecule in result.filtered:
+        assert len(molecule.find_rotatable_bonds()) < rotor_filter.minimum_rotors
 
 
 def test_smarts_filter_validator():

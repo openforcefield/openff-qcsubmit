@@ -349,7 +349,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
 
 class RotorFilter(BasicSettings, CustomWorkflowComponent):
     """
-    Filters molecules based on the maximum allowed number of rotatable bonds.
+    Filters molecules based on the minimum/maximum allowed number of rotatable bonds.
 
     Note:
         Rotatable bonds are non terminal torsions found using the `find_rotatable_bonds` method of the
@@ -357,10 +357,16 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
     """
 
     component_name = "RotorFilter"
-    component_description = (
-        "Filter the molecules based on the maximum number of allowed rotatable bonds."
+    component_description = "Filter the molecules based on the minimum/maximum number of allowed rotatable bonds."
+    component_fail_message = "The molecule has too many(low) rotatable bonds."
+    filter_by: str = Field(
+        "max",
+        description="Filter by maximum allowed rotors, represented by tag 'max', or a minimum number to be present, represented by 'min'.",
     )
-    component_fail_message = "The molecule has too many rotatable bonds."
+    minimum_rotors: int = Field(
+        1,
+        description="The minimum number of rotatable bonds to be present in the molecule.",
+    )
 
     maximum_rotors: int = Field(
         4, description="The maximum number of rotatable bonds allowed in the molecule."
@@ -383,13 +389,23 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
         # create the return
         result = self._create_result()
 
-        # run the the molecules and calculate the number of rotatable bonds
-        for molecule in molecules:
-            if len(molecule.find_rotatable_bonds()) > self.maximum_rotors:
-                result.filter_molecule(molecule)
+        if self.filter_by == "max":
+            # run the the molecules and calculate the number of rotatable bonds
+            for molecule in molecules:
+                if len(molecule.find_rotatable_bonds()) > self.maximum_rotors:
+                    result.filter_molecule(molecule)
 
-            else:
-                result.add_molecule(molecule)
+                else:
+                    result.add_molecule(molecule)
+
+        elif self.filter_by == "min":
+            # run the the molecules and calculate the number of rotatable bonds
+            for molecule in molecules:
+                if len(molecule.find_rotatable_bonds()) < self.minimum_rotors:
+                    result.filter_molecule(molecule)
+
+                else:
+                    result.add_molecule(molecule)
 
         return result
 
