@@ -1,12 +1,10 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Generator
 
 from openforcefield import topology as off
 from openforcefield.utils.toolkits import (
     RDKitToolkitWrapper,
     UndefinedStereochemistryError,
 )
-
-from qcsubmit.datasets import BasicDataset, OptimizationDataset, TorsiondriveDataset
 
 
 def get_data(relative_path):
@@ -91,9 +89,21 @@ def condense_molecules(molecules: List[off.Molecule]) -> off.Molecule:
     return molecule
 
 
+def chunk_generator(iterable: List, chunk_size: int) -> Generator[List, None, None]:
+    """
+    Take an iterable and return a list of lists of the specified size.
+
+    Parameters:
+         iterable: An iterable object like a list
+         chunk_size: The size of each chunk
+    """
+    for i in range(0, len(iterable), chunk_size):
+        yield iterable[i : i + chunk_size]
+
+
 def update_specification_and_metadata(
     dataset: Union["BasicDataset", "OptimizationDataset", "TorsiondriveDataset"], client
-) -> Union[BasicDataset, OptimizationDataset, TorsiondriveDataset]:
+) -> Union["BasicDataset", "OptimizationDataset", "TorsiondriveDataset"]:
     """
     For the given dataset update the metadata and specifications using data from an archive instance.
 
