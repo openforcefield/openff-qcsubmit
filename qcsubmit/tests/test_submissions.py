@@ -114,7 +114,8 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
     client = FractalClient(fractal_compute_server)
 
     qc_specs = [{"method": "openff-1.0.0", "basis": "smirnoff", "program": "openmm", "spec_name": "openff"},
-                {"method": "gaff-2.11", "basis": "antechamber", "program": "openmm", "spec_name": "gaff"}]
+                {"method": "gaff-2.11", "basis": "antechamber", "program": "openmm", "spec_name": "gaff"},
+                {"method": "smirnoff99frosst-1.1.0", "basis": "smirnoff", "program": "openmm", "spec_name": "smirnoff99frosst"}]
 
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
