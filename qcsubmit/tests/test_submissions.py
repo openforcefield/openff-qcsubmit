@@ -131,7 +131,7 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
                                      description="Test basics dataset",
                                      tagline="Testing single point datasets",
                                      )
-    print(dataset.scf_properties)
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client, await_result=False)
 
