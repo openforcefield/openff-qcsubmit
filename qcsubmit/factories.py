@@ -3,11 +3,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import tqdm
 from openforcefield import topology as off
-from pydantic import BaseModel, PositiveInt, validator
+from pydantic import Field, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
+from typing_extensions import Literal
 
-from .common_structures import ClientHandler, Metadata, QCSpecificationHandler
+from .common_structures import CommonBase, Metadata, MoleculeAttributes, SCFProperties
 from .datasets import (
     BasicDataset,
     ComponentResult,
@@ -25,84 +26,27 @@ from .exceptions import (
 )
 from .procedures import GeometricProcedure
 from .serializers import deserialize, serialize
-from .validators import scf_property_validator
 from .workflow_components import CustomWorkflowComponent, get_component
 
 
-class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
+class BasicDatasetFactory(CommonBase):
     """
     Basic dataset generator factory used to build work flows using workflow components before executing them to generate
     a dataset.
 
     The basic dataset is ideal for large collections of single point calculations using any of the energy, gradient or
     hessian drivers.
-
-    The main metadata features here are concerned with the QM settings to be used which includes the driver.
-
-    Attributes:
-        maxiter: The maximum amount of SCF cycles allowed.
-        driver:  The driver that should be used in the calculation ie energy/gradient/hessian.
-        scf_properties: A list of QM properties which should be calculated and collected during the driver calculation.
-        client:  The name of the client the data will be sent to for privet clusters this should be the file name where
-            the data is stored.
-        priority: The priority with which the dataset should be calculated.
-        tag: The tag name which should be given to the collection.
-        workflow: A dictionary which holds the workflow components to be executed in the set order.
     """
 
-    maxiter: PositiveInt = 200
-    driver: DriverEnum = DriverEnum.energy
-    scf_properties: List[str] = [
-        "dipole",
-        "quadrupole",
-        "wiberg_lowdin_indices",
-        "mayer_indices",
-    ]
-    priority: str = "normal"
-    dataset_tags: List[str] = ["openff"]
-    compute_tag: str = "openff"
-    workflow: Dict[str, CustomWorkflowComponent] = {}
-    _dataset_type: BasicDataset = BasicDataset
-    _mm_programs: List[str] = [
-        "openmm",
-        "rdkit",
-    ]  # a list of mm programs which require cmiles in the extras
-
-    _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(
-        scf_property_validator
+    factory_type: Literal["BasicDatasetFactory"] = Field(
+        "BasicDatasetFactory",
+        description="The type of dataset factory which corresponds to the dataset made.",
     )
-    processes: Union[None, int] = None
-
-    class Config:
-        validate_assignment: bool = True
-        arbitrary_types_allowed: bool = True
-        title: str = "QCFractalDatasetFactory"
-
-    def add_scf_property(self, scf_property: str) -> None:
-        """
-        Add an scf_property to the list of scf_properties requested during a calculation.
-
-        Parameters:
-            scf_property: The name of the property which should be entered into the list.
-
-        Raises:
-            DatasetInputError: If the scf_property is not valid.
-        """
-
-        validated_property = scf_property_validator(scf_property)
-        if validated_property not in self.scf_properties:
-            self.scf_properties.append(validated_property)
-
-    def remove_scf_property(self, scf_property: str) -> None:
-        """
-        Remove an scf_property from the validated list.
-
-        Parameters:
-            scf_property: The name of the property which should be removed.
-        """
-        validated_property = scf_property_validator(scf_property)
-        if validated_property in self.scf_properties:
-            self.scf_properties.remove(validated_property)
+    workflow: Dict[str, CustomWorkflowComponent] = Field(
+        {},
+        description="The set of workflow components and their settings which will be executed in order on the input molecules to make the dataset.",
+    )
+    _dataset_type: BasicDataset = BasicDataset
 
     def _get_molecular_complex_info(self) -> Dict[str, Any]:
         """
@@ -306,11 +250,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
         Raises:
             UnsupportedFiletypeError: When the file type requested is not supported.
         """
-
-        # yaml type driver fix
-        data = self.dict(exclude={"driver"})
-        data["driver"] = self.driver.value
-        serialize(serializable=data, file_name=file_name)
+        serialize(serializable=self, file_name=file_name)
 
     def import_settings(
         self, settings: Union[str, Dict], clear_workflow: bool = True
@@ -432,24 +372,24 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
         if isinstance(molecules, str):
             if os.path.isfile(molecules):
                 workflow_molecules = ComponentResult(
-                    component_name=self.Config.title,
-                    component_description={"component_name": self.Config.title},
+                    component_name=self.factory_type,
+                    component_description={"component_name": self.factory_type},
                     component_provenance=self.provenance(),
                     input_file=molecules,
                 )
 
             elif os.path.isdir(molecules):
                 workflow_molecules = ComponentResult(
-                    component_name=self.Config.title,
-                    component_description={"component_name": self.Config.title},
+                    component_name=self.factory_type,
+                    component_description={"component_name": self.factory_type},
                     component_provenance=self.provenance(),
                     input_directory=molecules,
                 )
 
         elif isinstance(molecules, off.Molecule):
             workflow_molecules = ComponentResult(
-                component_name=self.Config.title,
-                component_description={"component_name": self.Config.title},
+                component_name=self.factory_type,
+                component_description={"component_name": self.factory_type},
                 component_provenance=self.provenance(),
                 molecules=[
                     molecules,
@@ -458,8 +398,8 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
 
         else:
             workflow_molecules = ComponentResult(
-                component_name=self.Config.title,
-                component_description={"component_name": self.Config.title},
+                component_name=self.factory_type,
+                component_description={"component_name": self.factory_type},
                 component_provenance=self.provenance(),
                 molecules=molecules,
             )
@@ -565,7 +505,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
             # order the molecule
             order_mol = molecule.canonical_order_atoms()
             attributes = self.create_cmiles_metadata(molecule=order_mol)
-            attributes["provenance"] = self.provenance()
+            attributes.provenance = self.provenance()
 
             # always put the cmiles in the extras from what we have just calculated to ensure correct order
             extras = molecule.properties.get("extras", {})
@@ -590,7 +530,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
 
         return dataset
 
-    def create_cmiles_metadata(self, molecule: off.Molecule) -> Dict[str, str]:
+    def create_cmiles_metadata(self, molecule: off.Molecule) -> MoleculeAttributes:
         """
         Create the Cmiles metadata for the molecule in this dataset.
 
@@ -634,7 +574,7 @@ class BasicDatasetFactory(ClientHandler, QCSpecificationHandler, BaseModel):
             "inchi_key": molecule.to_inchikey(fixed_hydrogens=False),
         }
 
-        return cmiles
+        return MoleculeAttributes(**cmiles)
 
     def create_index(self, molecule: off.Molecule) -> str:
         """
@@ -664,15 +604,19 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
     optimisation.
     """
 
+    factory_type: Literal["OptimizationDatasetFactory"] = Field(
+        "OptimizationDatasetFactory",
+        description="The type of dataset factory which corresponds to the dataset made.",
+    )
     # set the driver to be gradient this should not be changed when running
     driver = DriverEnum.gradient
     _dataset_type = OptimizationDataset
 
     # use the default geometric settings during optimisation
-    optimization_program: GeometricProcedure = GeometricProcedure()
-
-    class Config:
-        title = "OptimizationDatasetFactory"
+    optimization_program: GeometricProcedure = Field(
+        GeometricProcedure(),
+        description="The optimization program and settings that should be used.",
+    )
 
     @validator("driver")
     def _check_driver(cls, driver):
@@ -750,19 +694,32 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     the optimisation.
     """
 
-    grid_spacings: List[int] = [15]
-    energy_upper_limit: float = 0.05
-    dihedral_ranges: Optional[List[Tuple[int, int]]] = None
-    energy_decrease_thresh: Optional[float] = None
+    factory_type: Literal["TorsiondriveDatasetFactory"] = Field(
+        "TorsiondriveDatasetFactory",
+        description="The type of dataset factory which corresponds to the dataset made.",
+    )
+    grid_spacing: List[int] = Field(
+        [15],
+        description="The grid spcaing that should be used for all torsiondrives, this can be overwriten on a per entry basis.",
+    )
+    energy_upper_limit: float = Field(
+        0.05,
+        description="The upper energy limit to spawn new optimizations in the torsiondrive.",
+    )
+    dihedral_ranges: Optional[List[Tuple[int, int]]] = Field(
+        None,
+        description="The scan range that should be used for each torsiondrive, this can be overwriten on a per entry basis.",
+    )
+    energy_decrease_thresh: Optional[float] = Field(
+        None,
+        description="The energy lower threshold to trigger new optimizations in the torsiondrive.",
+    )
     _dataset_type = TorsiondriveDataset
 
     # set the default settings for a torsiondrive calculation.
     optimization_program = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )
-
-    class Config:
-        title = "TorsiondriveDatasetFactory"
 
     def create_dataset(
         self,

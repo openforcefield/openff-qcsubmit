@@ -3,15 +3,21 @@ Constraint base classes and methods.
 """
 from typing import List, Tuple, Union
 
-from pydantic import ValidationError, constr, validator
+from pydantic import Field, ValidationError, validator
+from typing_extensions import Literal
 
 from .common_structures import ResultsConfig
 from .exceptions import ConstraintError
 
 
 class Constraint(ResultsConfig):
-    type: constr(regex="basic_constraint") = "basic_constraint"
-    indices: Tuple[int, ...]
+    type: Literal["basic_constraint"] = Field(
+        "basic_constraint",
+        description="The literal type of constraint which is linked to the geometric keywords.",
+    )
+    indices: Tuple[int, ...] = Field(
+        ..., description="The indices of the atoms which are to be constrained."
+    )
 
     @validator("indices")
     def _order_and_check_indices(cls, indices: Tuple[int, ...]) -> Tuple[int, ...]:
@@ -42,9 +48,12 @@ class Constraint(ResultsConfig):
 
 
 class DistanceConstraint(Constraint):
-    type: constr(regex="distance") = "distance"
+    type: Literal["distance"] = "distance"
     indices: Tuple[int, int]
-    bonded: bool = True
+    bonded: bool = Field(
+        True,
+        description="If this is a bonded constraint, this will trigger a validation step to ensure all of the atoms are bonded.",
+    )
 
 
 class DistanceConstraintSet(DistanceConstraint):
@@ -52,7 +61,7 @@ class DistanceConstraintSet(DistanceConstraint):
 
 
 class AngleConstraint(DistanceConstraint):
-    type: constr(regex="angle") = "angle"
+    type: Literal["angle"] = "angle"
     indices: Tuple[int, int, int]
 
 
@@ -61,7 +70,7 @@ class AngleConstraintSet(AngleConstraint):
 
 
 class DihedralConstraint(DistanceConstraint):
-    type: constr(regex="dihedral") = "dihedral"
+    type: Literal["dihedral"] = "dihedral"
     indices: Tuple[int, int, int, int]
 
 
@@ -70,13 +79,16 @@ class DihedralConstraintSet(DihedralConstraint):
 
 
 class PositionConstraint(Constraint):
-    type: constr(regex="xyz") = "xyz"
+    type: Literal["xyz"] = "xyz"
     indices: Tuple[int, ...]
 
 
 class PositionConstraintSet(PositionConstraint):
     indices: Tuple[int]
-    value: Union[str, Tuple[float, float, float]]
+    value: Union[str, Tuple[float, float, float]] = Field(
+        ...,
+        description="The value the constraint should be set to, a value or possition.",
+    )
 
     @validator("value")
     def _format_position(cls, value: Union[str, List[float]]) -> str:
@@ -121,7 +133,7 @@ class Constraints(ResultsConfig):
         Union[
             DihedralConstraint, AngleConstraint, DistanceConstraint, PositionConstraint
         ]
-    ] = []
+    ] = Field([], description="The list of freeze type constraints.")
     set: List[
         Union[
             DihedralConstraintSet,
@@ -129,7 +141,7 @@ class Constraints(ResultsConfig):
             DistanceConstraintSet,
             PositionConstraintSet,
         ]
-    ] = []
+    ] = Field([], description="The list of set type constraints.")
     _constraint_types_freeze = {
         "distance": DistanceConstraint,
         "angle": AngleConstraint,

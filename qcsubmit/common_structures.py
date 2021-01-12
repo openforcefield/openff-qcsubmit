@@ -4,16 +4,18 @@ This file contains common starting structures which can be mixed into datasets, 
 import getpass
 import re
 from datetime import date, datetime
+from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import qcportal as ptl
-from pydantic import BaseModel, Field, HttpUrl, constr, validator
+from pydantic import BaseModel, Field, HttpUrl, PositiveInt, constr, validator
 from qcelemental import constants
 from qcelemental.models.results import WavefunctionProtocolEnum
 from qcfractal.interface import FractalClient
+from qcportal.models.common_models import DriverEnum
 
-from qcsubmit.exceptions import DatasetInputError, PCMSettingError, QCSpecificationError
+from .exceptions import DatasetInputError, PCMSettingError, QCSpecificationError
 
 
 class DatasetConfig(BaseModel):
@@ -25,7 +27,11 @@ class DatasetConfig(BaseModel):
         arbitrary_types_allowed: bool = True
         allow_mutation: bool = True
         validate_assignment: bool = True
-        json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
+        json_encoders: Dict[str, Any] = {
+            np.ndarray: lambda v: v.flatten().tolist(),
+            Enum: lambda v: v.value,
+        }
+        extra: True
 
 
 class ResultsConfig(BaseModel):
@@ -36,7 +42,10 @@ class ResultsConfig(BaseModel):
     class Config:
         arbitrary_types_allowed: bool = True
         allow_mutation: bool = False
-        json_encoders: Dict[str, Any] = {np.ndarray: lambda v: v.flatten().tolist()}
+        json_encoders: Dict[str, Any] = {
+            np.ndarray: lambda v: v.flatten().tolist(),
+            Enum: lambda v: v.value,
+        }
 
 
 class ComponentProperties(BaseModel):
@@ -56,7 +65,7 @@ class ComponentProperties(BaseModel):
 class TDSettings(DatasetConfig):
     """
     A replacement of the TDKeywords class in the QCFractal which drops the dihedrals field as this is moved up the model.
-    The settings here overwrite the gloab dataset and allow the user to have control over the individual scans.
+    The settings here overwrite the global dataset and allow the user to have control over the individual scans.
     """
 
     grid_spacing: Optional[List[int]] = Field(
@@ -304,11 +313,11 @@ class QCSpec(ResultsConfig):
         "DZVP",
         description="The name of the basis that should be used with the given method, outside of QC this can be the parameterization ie antechamber or None.",
     )
-    program: str = Field(
+    program: constr(strip_whitespace=True) = Field(
         "psi4",
         description="The name of the program that will be used to perform the calculation.",
     )
-    spec_name: str = Field(
+    spec_name: constr(strip_whitespace=True) = Field(
         "default",
         description="The name the specification will be stored under in QCArchive.",
     )
@@ -329,8 +338,8 @@ class QCSpec(ResultsConfig):
         self,
         method: constr(strip_whitespace=True) = "B3LYP-D3BJ",
         basis: Optional[constr(strip_whitespace=True)] = "DZVP",
-        program: str = "psi4",
-        spec_name: str = "default",
+        program: constr(strip_whitespace=True) = "psi4",
+        spec_name: constr(strip_whitespace=True) = "default",
         spec_description: str = "Standard OpenFF optimization quantum chemistry specification.",
         store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none,
         implicit_solvent: Optional[PCMSettings] = None,
@@ -433,7 +442,10 @@ class QCSpecificationHandler(BaseModel):
     A mixin class for handling the QCSpecification
     """
 
-    qc_specifications: Dict[str, QCSpec] = {"default": QCSpec()}
+    qc_specifications: Dict[str, QCSpec] = Field(
+        {"default": QCSpec()},
+        description="The QCSpecifications which will be computed for this dataset.",
+    )
 
     def clear_qcspecs(self) -> None:
         """
@@ -534,10 +546,17 @@ def order_scan_range(scan_range: Tuple[int, int]) -> Optional[Tuple[int, int]]:
 class SingleTorsion(ResultsConfig):
     """
     A class used to mark torsions that will be driven for torsiondrive datasets.
+
+    Note:
+        This is only for 1D torsiondrives.
     """
 
-    torsion1: Tuple[int, int, int, int]
-    scan_range1: Optional[Tuple[int, int]] = None
+    torsion1: Tuple[int, int, int, int] = Field(
+        ..., description="The torsion which is to be driven."
+    )
+    scan_range1: Optional[Tuple[int, int]] = Field(
+        None, description="The scan range used in the torsion drive"
+    )
 
     _order_torsion1 = validator("torsion1", allow_reuse=True)(order_torsion)
     _order_scan_range1 = validator("scan_range1", allow_reuse=True)(order_scan_range)
@@ -580,8 +599,14 @@ class SingleTorsion(ResultsConfig):
 class DoubleTorsion(SingleTorsion):
     """A class used to mark coupled torsions which should be scanned."""
 
-    torsion2: Tuple[int, int, int, int]
-    scan_range2: Optional[Tuple[int, int]] = None
+    torsion2: Tuple[int, int, int, int] = Field(
+        ...,
+        description="The torsion tuple of the second dihedral to be drive at the same time as the first.",
+    )
+    scan_range2: Optional[Tuple[int, int]] = Field(
+        None,
+        description="The separate scan range that should be used for the second dihedral.",
+    )
 
     _order_torsion2 = validator("torsion2", allow_reuse=True)(order_torsion)
     _order_scan_range2 = validator("scan_range2", allow_reuse=True)(order_scan_range)
@@ -642,9 +667,16 @@ class ImproperTorsion(ResultsConfig):
     A class to keep track of improper torsions being scanned.
     """
 
-    central_atom: int
-    improper: Tuple[int, int, int, int]
-    scan_range: Optional[Tuple[int, int]] = None
+    central_atom: int = Field(
+        ..., description="The index of the central atom of an improper torsion."
+    )
+    improper: Tuple[int, int, int, int] = Field(
+        ..., description="The tuple of the atoms in the improper torsion."
+    )
+    scan_range: Optional[Tuple[int, int]] = Field(
+        None,
+        description="The scan range of the improper dihedral which should normally be limited.",
+    )
 
     _order_scan_range = validator("scan_range", allow_reuse=True)(order_scan_range)
 
@@ -682,9 +714,20 @@ class TorsionIndexer(DatasetConfig):
     A class to keep track of the torsions highlighted for scanning, with methods for combining and deduplication.
     """
 
-    torsions: Dict[Tuple[int, int], SingleTorsion] = {}
-    double_torsions: Dict[Tuple[Tuple[int, int], Tuple[int, int]], DoubleTorsion] = {}
-    imporpers: Dict[int, ImproperTorsion] = {}
+    torsions: Dict[Tuple[int, int], SingleTorsion] = Field(
+        {},
+        description="A dictionary of the torsions to be scanned grouped by the central bond in the torsion.",
+    )
+    double_torsions: Dict[
+        Tuple[Tuple[int, int], Tuple[int, int]], DoubleTorsion
+    ] = Field(
+        {},
+        description="A dictionary of the 2D torsions to be scanned grouped by the sorted combination of the central bonds.",
+    )
+    imporpers: Dict[int, ImproperTorsion] = Field(
+        {},
+        description="A dictionary of the improper torsions to be scanned grouped by the central atom in the torsion.",
+    )
 
     @property
     def get_dihedrals(
@@ -909,14 +952,36 @@ class Metadata(DatasetConfig):
     A general metadata class which is required to be filled in before submitting a dataset to the qcarchive.
     """
 
-    submitter: str = getpass.getuser()
-    creation_date: date = datetime.today().date()
-    collection_type: Optional[str] = None
-    dataset_name: Optional[str] = None
-    short_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = None
-    long_description_url: Optional[HttpUrl] = None
-    long_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = None
-    elements: Set[str] = set()
+    submitter: str = Field(
+        getpass.getuser(),
+        description="The name of the submitter/creator of the dataset, this is automatically generated but can be changed.",
+    )
+    creation_date: date = Field(
+        datetime.today().date(),
+        description="The date the dataset was created on, this is automatically generated.",
+    )
+    collection_type: Optional[str] = Field(
+        None,
+        description="The type of collection that will be created in QCArchive this is automatically updated when attached to a dataset.",
+    )
+    dataset_name: Optional[str] = Field(
+        None,
+        description="The name that will be given to the collection once it is put into QCArchive, this is updated when attached to a dataset.",
+    )
+    short_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = Field(
+        None, description="A short informative description of the dataset."
+    )
+    long_description_url: Optional[HttpUrl] = Field(
+        None,
+        description="The url which links to more information about the submission normally a github repo with scripts showing how the dataset was created.",
+    )
+    long_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = Field(
+        None,
+        description="A long description of the purpose of the dataset and the molecules within.",
+    )
+    elements: Set[str] = Field(
+        set(), description="The unique set of elements present in the dataset"
+    )
 
     def validate_metadata(self, raise_errors: bool = False) -> Optional[List[str]]:
         """
@@ -935,3 +1000,139 @@ class Metadata(DatasetConfig):
             )
         else:
             return empty_fields
+
+
+class MoleculeAttributes(DatasetConfig):
+    """
+    A class to hold and validate the molecule attributes associated with a QCArchive entry, All attributes are required
+    to be entered into a dataset.
+
+    Note:
+        The attributes here are not exhaustive but are based on those given by cmiles and can all be obtain through the openforcefield toolkit Molecule class.
+    """
+
+    class Config:
+        extra = "allow"
+
+    canonical_smiles: str
+    canonical_isomeric_smiles: str
+    canonical_explicit_hydrogen_smiles: str
+    canonical_isomeric_explicit_hydrogen_smiles: str
+    canonical_isomeric_explicit_hydrogen_mapped_smiles: str = Field(
+        ...,
+        description="The fully mapped smiles where every atom should have a numerical tag so that the molecule can be rebuilt to match the order of the coordinates.",
+    )
+    molecular_formula: str = Field(
+        ...,
+        description="The hill formula of the molecule as given by the openfftoolkit.",
+    )
+    standard_inchi: str = Field(
+        ...,
+        description="The standard inchi given by the inchi program ie not fixed hydrogen layer.",
+    )
+    inchi_key: str = Field(
+        ..., description="The standard inchi key given by the inchi program."
+    )
+
+
+class SCFProperties(str, Enum):
+    """
+    The type of SCF property that should be extracted from a single point calculation.
+    """
+
+    Dipole = "dipole"
+    Quadrupole = "quadrupole"
+    MullikenCharges = "mulliken_charges"
+    LowdinCharges = "lowdin_charges"
+    WibergLowdinIndices = "wiberg_lowdin_indices"
+    MayerIndices = "mayer_indices"
+    MBISCharges = "mbis_charges"
+
+    @classmethod
+    def _missing_(cls, value):
+        """
+        overwrite the missing method to handle properties with incorrect capitalization.
+        """
+        for member in cls.__members__.values():
+            if member._value_ == value.lower():
+                return member
+        raise DatasetInputError(
+            f"{value} is not a valid {cls.__name__} please chose from {cls.__members__.values()}"
+        )
+
+
+class CommonBase(DatasetConfig, IndexCleaner, ClientHandler, QCSpecificationHandler):
+    """
+    A common base structure which the dataset and factory classes derive from.
+    """
+
+    maxiter: PositiveInt = Field(
+        200,
+        description="The maximum number of SCF iterations in QM calculations this will be ignored by programs where this does not make sense.",
+    )
+    driver: DriverEnum = Field(
+        DriverEnum.energy,
+        description="The type of single point calculations which will be computed. Note some services require certain calculations for example optimizations require graident calculations.",
+    )
+    scf_properties: List[Union[SCFProperties, str]] = Field(
+        [
+            SCFProperties.Dipole,
+            SCFProperties.Quadrupole,
+            SCFProperties.WibergLowdinIndices,
+            SCFProperties.MayerIndices,
+        ],
+        description="The SCF properties which should be extracted after every single point calculation.",
+    )
+    priority: str = Field(
+        "normal",
+        description="The priority the dataset should be computed at compared to other datasets currently running.",
+    )
+    dataset_tags: List[str] = Field(
+        ["openff"], description="The dataset tags which help identify the dataset."
+    )
+    compute_tag: str = Field(
+        "openff",
+        description="The tag the computes tasks will be assigned to, managers wishing to execute these tasks should use this compute tag.",
+    )
+
+    def add_scf_property(self, scf_property: SCFProperties) -> None:
+        """
+        Add an scf_property to the list of scf_properties requested during a calculation.
+
+        Parameters:
+            scf_property: The name of the property which should be entered into the list.
+
+        Raises:
+            DatasetInputError: If the scf_property is not valid.
+        """
+        # make sure the property is valid first
+        try:
+            validated_property = SCFProperties(scf_property)
+        except ValueError:
+            raise DatasetInputError(
+                f"{scf_property} is not a valid SCF property please chose from {SCFProperties.__members__}"
+            )
+        if validated_property not in self.scf_properties:
+            self.scf_properties.append(validated_property)
+
+    def remove_scf_property(self, scf_property: SCFProperties) -> None:
+        """
+        Remove an scf_property from the validated list.
+
+        Parameters:
+            scf_property: The name of the property which should be removed.
+        """
+        if scf_property.lower() in self.scf_properties:
+            self.scf_properties.remove(scf_property.lower())
+
+    def dict(self, *args, **kwargs):
+        """
+        Overwrite the dict method to handle any enums when saving to yaml/json via a dict call.
+        """
+        data = super(CommonBase, self).dict(*args, **kwargs)
+        # now add the enum values
+        if "driver" in data:
+            data["driver"] = self.driver.value
+        if "scf_properties" in data:
+            data["scf_properties"] = [prop.value for prop in self.scf_properties]
+        return data

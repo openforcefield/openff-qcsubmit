@@ -10,7 +10,7 @@ from openforcefield.topology import Molecule
 from pydantic import ValidationError
 from simtk import unit
 
-from qcsubmit.common_structures import TorsionIndexer
+from qcsubmit.common_structures import MoleculeAttributes, TorsionIndexer
 from qcsubmit.constraints import Constraints, PositionConstraintSet
 from qcsubmit.datasets import (
     BasicDataset,
@@ -81,7 +81,7 @@ def get_dihedral(molecule: Molecule) -> Tuple[int, int, int, int]:
     return tuple(dihedral)
 
 
-def get_cmiles(molecule: Molecule) -> Dict[str, str]:
+def get_cmiles(molecule: Molecule) -> MoleculeAttributes:
     """
     Generate a valid and full cmiles for the given molecule.
     """
@@ -1309,7 +1309,7 @@ def test_dataset_nmolecules_tautomers():
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
-        attributes["inchi_key"] = same_inchi
+        attributes.inchi_key = same_inchi
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
 
     assert dataset.n_molecules == len(molecules)
@@ -1418,7 +1418,7 @@ def test_basicdataset_add_molecule_missing_attributes():
     assert ethane.n_conformers != 0
     index = ethane.to_smiles()
     attributes = {"test": "test"}
-    with pytest.raises(DatasetInputError):
+    with pytest.raises(ValidationError):
         dataset.add_molecule(index=index, attributes=attributes, molecule=ethane)
 
 

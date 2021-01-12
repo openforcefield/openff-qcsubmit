@@ -19,66 +19,33 @@ from .exceptions import (
     MolecularComplexError,
 )
 
-
-def cmiles_validator(cmiles: Dict[str, str]) -> Dict[str, str]:
-    """
-    Validate the cmiles attributes for a molecule submission.
-
-    Parameters:
-        cmiles: The cmiles attributes for the molecule which is to be submitted.
-
-    Raises:
-        DatasetInputError: If the cmiles is missing a field.
-    """
-
-    expected_cmiles = {
-        "canonical_smiles",
-        "canonical_isomeric_smiles",
-        "canonical_explicit_hydrogen_smiles",
-        "canonical_isomeric_explicit_hydrogen_smiles",
-        "canonical_isomeric_explicit_hydrogen_mapped_smiles",
-        "molecular_formula",
-        "standard_inchi",
-        "inchi_key",
-    }
-    # use set logic to find missing expected attributes from cmiles
-    supplied_cmiles = set(cmiles.keys())
-    difference = expected_cmiles.difference(supplied_cmiles)
-    if difference:
-        raise DatasetInputError(
-            f"The supplied cmiles is missing the following fields {difference}."
-        )
-
-    return cmiles
-
-
-def scf_property_validator(scf_property: str) -> str:
-    """
-    Validate a single scf property this is used for each in a list and also for adding  a new property.
-
-    Parameters:
-        scf_property: The scf property which is to be added.
-
-    Raises:
-        DatasetInputError: If the scf property is not correct.
-    """
-
-    allowed_properties = [
-        "dipole",
-        "quadrupole",
-        "mulliken_charges",
-        "lowdin_charges",
-        "wiberg_lowdin_indices",
-        "mayer_indices",
-        "mbis_charges",
-    ]
-
-    if scf_property.lower() not in allowed_properties:
-        raise DatasetInputError(
-            f"The requested scf_property {scf_property} is not valid please chose from {allowed_properties}."
-        )
-
-    return scf_property.lower()
+# def scf_property_validator(scf_property: str) -> str:
+#     """
+#     Validate a single scf property this is used for each in a list and also for adding  a new property.
+#
+#     Parameters:
+#         scf_property: The scf property which is to be added.
+#
+#     Raises:
+#         DatasetInputError: If the scf property is not correct.
+#     """
+#
+#     allowed_properties = [
+#         "dipole",
+#         "quadrupole",
+#         "mulliken_charges",
+#         "lowdin_charges",
+#         "wiberg_lowdin_indices",
+#         "mayer_indices",
+#         "mbis_charges",
+#     ]
+#
+#     if scf_property.lower() not in allowed_properties:
+#         raise DatasetInputError(
+#             f"The requested scf_property {scf_property} is not valid please chose from {allowed_properties}."
+#         )
+#
+#     return scf_property.lower()
 
 
 def check_improper_connection(
