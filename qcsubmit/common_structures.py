@@ -1074,7 +1074,7 @@ class CommonBase(DatasetConfig, IndexCleaner, ClientHandler, QCSpecificationHand
         DriverEnum.energy,
         description="The type of single point calculations which will be computed. Note some services require certain calculations for example optimizations require graident calculations.",
     )
-    scf_properties: List[Union[SCFProperties, str]] = Field(
+    scf_properties: List[SCFProperties] = Field(
         [
             SCFProperties.Dipole,
             SCFProperties.Quadrupole,

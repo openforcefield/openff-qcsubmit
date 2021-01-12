@@ -8,7 +8,7 @@ from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
 from typing_extensions import Literal
 
-from .common_structures import CommonBase, Metadata, MoleculeAttributes, SCFProperties
+from .common_structures import CommonBase, Metadata, MoleculeAttributes
 from .datasets import (
     BasicDataset,
     ComponentResult,

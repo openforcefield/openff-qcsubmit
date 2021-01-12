@@ -2,7 +2,7 @@
 Centralise the validators for easy reuse between factories and datasets.
 """
 
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import qcelemental as qcel
 from openforcefield import topology as off
@@ -13,39 +13,10 @@ from .exceptions import (
     AtomConnectionError,
     BondConnectionError,
     ConstraintError,
-    DatasetInputError,
     DihedralConnectionError,
     LinearTorsionError,
     MolecularComplexError,
 )
-
-# def scf_property_validator(scf_property: str) -> str:
-#     """
-#     Validate a single scf property this is used for each in a list and also for adding  a new property.
-#
-#     Parameters:
-#         scf_property: The scf property which is to be added.
-#
-#     Raises:
-#         DatasetInputError: If the scf property is not correct.
-#     """
-#
-#     allowed_properties = [
-#         "dipole",
-#         "quadrupole",
-#         "mulliken_charges",
-#         "lowdin_charges",
-#         "wiberg_lowdin_indices",
-#         "mayer_indices",
-#         "mbis_charges",
-#     ]
-#
-#     if scf_property.lower() not in allowed_properties:
-#         raise DatasetInputError(
-#             f"The requested scf_property {scf_property} is not valid please chose from {allowed_properties}."
-#         )
-#
-#     return scf_property.lower()
 
 
 def check_improper_connection(
