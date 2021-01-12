@@ -387,11 +387,13 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
 
         # run the the molecules and calculate the number of rotatable bonds
         for molecule in molecules:
-            if len(molecule.find_rotatable_bonds()) > self.maximum_rotors or len(molecule.find_rotatable_bonds()) < self.minimum_rotors:
+            if (
+                len(molecule.find_rotatable_bonds()) > self.maximum_rotors
+                or len(molecule.find_rotatable_bonds()) < self.minimum_rotors
+            ):
                 result.filter_molecule(molecule)
             else:
                 result.add_molecule(molecule)
-
 
         return result
 
