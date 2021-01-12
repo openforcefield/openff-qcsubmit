@@ -729,6 +729,7 @@ def test_rotor_filter_pass():
 
     rotor_filter = workflow_components.RotorFilter()
     rotor_filter.maximum_rotors = 3
+    rotor_filter.minimum_rotors = None
 
     mols = get_tautomers()
 
@@ -745,8 +746,7 @@ def test_rotor_filter_min_pass():
 
     rotor_filter = workflow_components.RotorFilter()
     rotor_filter.minimum_rotors = 2
-    rotor_filter.filter_by = 'min'
-
+    rotor_filter.maximum_rotors = None
     mols = get_tautomers()
 
     # we have to remove duplicated records
@@ -763,6 +763,7 @@ def test_rotor_filter_fail():
 
     rotor_filter = workflow_components.RotorFilter()
     rotor_filter.maximum_rotors = 1
+    rotor_filter.minimum_rotors = None
 
     mols = get_tautomers()
 
@@ -780,7 +781,7 @@ def test_rotor_filter_min_fail():
 
     rotor_filter = workflow_components.RotorFilter()
     rotor_filter.minimum_rotors = 2
-    rotor_filter.filter_by = 'min'
+    rotor_filter.maximum_rotors = None
     mols = get_tautomers()
 
     molecule_container = get_container(mols)
