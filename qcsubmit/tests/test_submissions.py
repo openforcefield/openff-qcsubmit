@@ -131,7 +131,7 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
                                      description="Test basics dataset",
                                      tagline="Testing single point datasets",
                                      )
-
+    print(dataset.scf_properties)
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client, await_result=False)
 
@@ -837,7 +837,7 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type):
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test ignore_error for {factory.Config.title}",
+    dataset = factory.create_dataset(dataset_name=f"Test ignore_error for {factory.factory_type}",
                                      molecules=molecule,
                                      description="Test ignore errors dataset",
                                      tagline="Testing ignore errors datasets",

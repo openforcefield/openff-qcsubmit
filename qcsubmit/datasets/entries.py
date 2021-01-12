@@ -7,10 +7,10 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import openforcefield.topology as off
 import qcelemental as qcel
-from pydantic import validator
+from pydantic import Field, validator
 from simtk import unit
 
-from ..common_structures import DatasetConfig, TDSettings
+from ..common_structures import DatasetConfig, MoleculeAttributes, TDSettings
 from ..constraints import Constraints
 from ..exceptions import ConstraintError, DihedralConnectionError
 from ..validators import (
@@ -19,7 +19,6 @@ from ..validators import (
     check_linear_torsions,
     check_torsion_connection,
     check_valence_connectivity,
-    cmiles_validator,
 )
 
 
@@ -33,13 +32,27 @@ class DatasetEntry(DatasetConfig):
         * any extras that should passed to the calculation like extra constrains should be passed to ``keywords``.
     """
 
-    index: str
-    initial_molecules: List[qcel.models.Molecule]
-    attributes: Dict[str, Any]
-    extras: Optional[Dict[str, Any]] = {}
-    keywords: Optional[Dict[str, Any]] = {}
+    index: str = Field(
+        ...,
+        description="The index name the molecule will be stored under in QCArchive. Note that if multipule geometries are provided the index will be augmented with a value indecating the conformer number so -0, -1.",
+    )
+    initial_molecules: List[qcel.models.Molecule] = Field(
+        ...,
+        description="A list of QCElemental Molecule objects which contain the geometries to be used as inputs for the calculation.",
+    )
+    attributes: MoleculeAttributes = Field(
+        ...,
+        description="The complete set of required cmiles attributes for the molecule.",
+    )
+    extras: Optional[Dict[str, Any]] = Field(
+        {},
+        description="Any extra information that should be injected into the QCElemental models before being submited like the cmiles information.",
+    )
+    keywords: Optional[Dict[str, Any]] = Field(
+        {},
+        description="Any extra keywords that should be used in the QCArchive calculation should be passed here.",
+    )
 
-    _attribute_validator = validator("attributes", allow_reuse=True)(cmiles_validator)
     _qcel_molecule_validator = validator(
         "initial_molecules", allow_reuse=True, each_item=True
     )(check_valence_connectivity)
@@ -70,7 +83,7 @@ class DatasetEntry(DatasetConfig):
             extras = mol.extras or {}
             extras[
                 "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-            ] = self.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+            ] = self.attributes.canonical_isomeric_explicit_hydrogen_mapped_smiles
             mol_data = mol.dict()
             mol_data["extras"] = extras
             # put into strict c1 symmetry
@@ -87,9 +100,7 @@ class DatasetEntry(DatasetConfig):
         """
 
         molecule = off.Molecule.from_mapped_smiles(
-            mapped_smiles=self.attributes[
-                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-            ],
+            mapped_smiles=self.attributes.canonical_isomeric_explicit_hydrogen_mapped_smiles,
             allow_undefined_stereo=True,
         )
         molecule.name = self.index
@@ -105,7 +116,10 @@ class OptimizationEntry(DatasetEntry):
     An optimization dataset specific entry class which can handle constraints.
     """
 
-    constraints: Constraints = Constraints()
+    constraints: Constraints = Field(
+        Constraints(),
+        description="Any constraints which should be used during an optimization.",
+    )
 
     def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
         """
@@ -184,8 +198,14 @@ class TorsionDriveEntry(DatasetEntry):
     A Torsiondrive dataset specific class which can check dihedral indices and store torsiondrive specific settings with built in validation.
     """
 
-    dihedrals: List[Tuple[int, int, int, int]]
-    keywords: Optional[TDSettings] = TDSettings()
+    dihedrals: List[Tuple[int, int, int, int]] = Field(
+        ...,
+        description="The list of dihedrals that should be driven, currently only 1D or 2D torsions are supported.",
+    )
+    keywords: Optional[TDSettings] = Field(
+        TDSettings(),
+        description="The torsiondrive keyword settings which can be used to overwrite the general global settings used in the dataset allowing for finner control.",
+    )
 
     def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
 
@@ -216,9 +236,18 @@ class FilterEntry(DatasetConfig):
     removed by it.
     """
 
-    component_name: str
-    component_description: Dict[str, Any]
-    component_provenance: Dict[str, str]
+    component_name: str = Field(
+        ...,
+        description="The name of the component ran, this should be one of the components registered with qcsubmit.",
+    )
+    component_description: Dict[str, Any] = Field(
+        ...,
+        description="A dictionary which captures information about what the component does including why a molecule might fail the step and the run time settings of any configurable attributes.",
+    )
+    component_provenance: Dict[str, str] = Field(
+        ...,
+        description="A dictionary of the version information of all dependencies of the component.",
+    )
     molecules: List[str]
 
     def __init__(self, off_molecules: List[off.Molecule] = None, **kwargs):
