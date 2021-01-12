@@ -14,7 +14,7 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - openforcefield >=0.7.0
+  - openforcefield ==0.8.3
   - openforcefields
   - openmmforcefields
   - smirnoff99Frosst
@@ -22,7 +22,8 @@ dependencies:
   - codecov
   - qcportal >=0.13.0
   - qcengine >=0.15.0
-  - psi4 ==1.4a3.dev1+8afefb7
+  - psi4 >=1.4a2
+  - gau2grid ==2.0.3
   - pcmsolver ==1.2.1
   - openeye-toolkits ==2019.10.2
   - qcfractal >=0.13.0
