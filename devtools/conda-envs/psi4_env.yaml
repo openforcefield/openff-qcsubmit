@@ -22,7 +22,7 @@ dependencies:
   - codecov
   - qcportal >=0.13.0
   - qcengine >=0.15.0
-  - psi4 ==1.4a3.dev63+afa0c21
+  - psi4 ==1.4a3.dev61+2dd1fe1
   - pcmsolver ==1.2.1
   - openeye-toolkits ==2019.10.2
   - qcfractal >=0.13.0
