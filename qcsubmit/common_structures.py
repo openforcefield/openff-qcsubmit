@@ -401,6 +401,9 @@ class QCSpec(ResultsConfig):
                 raise QCSpecificationError(
                     f"The method {method} is not supported for the program {program} with basis {basis}, please chose from {allowed_methods}"
                 )
+            # if we have a smirnoff99Frosst force field we need to get the capitalization correct
+            method = re.sub("frosst", "Frosst", method)
+
         super().__init__(
             method=method,
             basis=basis,
