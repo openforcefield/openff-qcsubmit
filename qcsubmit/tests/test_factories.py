@@ -22,7 +22,7 @@ from qcsubmit.testing import temp_directory
 from qcsubmit.utils import get_data
 
 
-def test_scf_properties_asignment():
+def test_scf_properties_assignment():
     """Test adding different scf_properties and make sure they are validated correctly."""
 
     factory = BasicDatasetFactory()

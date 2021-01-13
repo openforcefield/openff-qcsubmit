@@ -6,7 +6,7 @@ import qcelemental as qcel
 import qcportal as ptl
 import tqdm
 from openforcefield import topology as off
-from pydantic import PositiveInt, constr, validator
+from pydantic import Field, constr, validator
 from qcfractal.interface import FractalClient
 from qcportal.models.common_models import (
     DriverEnum,
@@ -16,10 +16,9 @@ from qcportal.models.common_models import (
 from typing_extensions import Literal
 
 from ..common_structures import (
-    ClientHandler,
-    DatasetConfig,
-    IndexCleaner,
+    CommonBase,
     Metadata,
+    MoleculeAttributes,
     QCSpec,
     QCSpecificationHandler,
     TorsionIndexer,
@@ -34,7 +33,6 @@ from ..exceptions import (
 )
 from ..procedures import GeometricProcedure
 from ..serializers import deserialize, serialize
-from ..validators import scf_property_validator
 from .entries import DatasetEntry, FilterEntry, OptimizationEntry, TorsionDriveEntry
 from ..utils import chunk_generator
 
@@ -262,7 +260,7 @@ class ComponentResult:
         return f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' filtered='{self.n_filtered}'>"
 
 
-class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetConfig):
+class BasicDataset(CommonBase):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to
     submission.
@@ -275,35 +273,38 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         The molecules in this dataset are all expanded so that different conformers are unique submissions.
     """
 
-    dataset_name: str = "BasicDataset"
-    dataset_tagline: constr(
-        min_length=8, regex="[a-zA-Z]"
-    ) = "OpenForcefield single point evaluations."
-    dataset_type: Literal["DataSet"] = "DataSet"
-    maxiter: PositiveInt = 200
-    driver: DriverEnum = DriverEnum.energy
-    scf_properties: List[str] = [
-        "dipole",
-        "quadrupole",
-        "wiberg_lowdin_indices",
-        "mayer_indices",
-    ]
-    priority: str = "normal"
-    description: constr(
-        min_length=8, regex="[a-zA-Z]"
-    ) = f"A basic dataset using the {driver} driver."
-    dataset_tags: List[str] = ["openff"]
-    compute_tag: str = "openff"
-    metadata: Metadata = Metadata()
-    provenance: Dict[str, str] = {}
-    dataset: Dict[str, DatasetEntry] = {}
-    filtered_molecules: Dict[str, FilterEntry] = {}
+    dataset_name: str = Field(
+        "BasicDataset",
+        description="The name of the dataset, this will be the name given to the collection in QCArchive.",
+    )
+    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = Field(
+        "OpenForcefield single point evaluations.",
+        description="The tagline should be a short description of the dataset which will be displayed by the QCArchive client when the collections are listed.",
+    )
+    dataset_type: Literal["DataSet"] = Field(
+        "DataSet",
+        description="The dataset type corresponds to the type of collection that will be made in QCArchive.",
+    )
+    description: constr(min_length=8, regex="[a-zA-Z]") = Field(
+        f"A basic dataset of single points.",
+        description="A long description of the datasets purpose and details about the molecules within.",
+    )
+    metadata: Metadata = Field(
+        Metadata(), description="The metadata describing the dataset."
+    )
+    provenance: Dict[str, str] = Field(
+        {},
+        description="A dictionary of the software and versions used to generate the dataset.",
+    )
+    dataset: Dict[str, DatasetEntry] = Field(
+        {}, description="The actual dataset to be stored in QCArchive."
+    )
+    filtered_molecules: Dict[str, FilterEntry] = Field(
+        {},
+        description="The set of workflow components used to generate the dataset with any filtered molecules.",
+    )
     _file_writers = {"json": json.dump}
     _entry_class = DatasetEntry
-
-    _scf_validator = validator("scf_properties", each_item=True, allow_reuse=True)(
-        scf_property_validator
-    )
 
     def __init__(self, **kwargs):
         """
@@ -391,7 +392,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         inchi_key = molecule.to_inchikey(fixed_hydrogens=False)
         hits = []
         for entry in self.dataset.values():
-            if inchi_key == entry.attributes["inchi_key"]:
+            if inchi_key == entry.attributes.inchi_key:
                 # they have same basic inchi now match the molecule
                 if molecule == entry.get_off_molecule(include_conformers=False):
                     hits.append(entry.index)
@@ -459,7 +460,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         """
         molecules = {}
         for entry in self.dataset.values():
-            inchikey = entry.attributes["inchi_key"]
+            inchikey = entry.attributes.inchi_key
             try:
                 like_mols = molecules[inchikey]
                 mol_to_add = entry.get_off_molecule(False).to_inchikey(
@@ -567,7 +568,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         self,
         index: str,
         molecule: off.Molecule,
-        attributes: Dict[str, Any],
+        attributes: Union[Dict[str, Any], MoleculeAttributes],
         extras: Optional[Dict[str, Any]] = None,
         keywords: Optional[Dict[str, Any]] = None,
         **kwargs,
@@ -1118,8 +1119,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         """
 
         smiles = [
-            data.attributes["canonical_isomeric_smiles"]
-            for data in self.dataset.values()
+            data.attributes.canonical_isomeric_smiles for data in self.dataset.values()
         ]
         return smiles
 
@@ -1128,7 +1128,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         Create a list of the molecules standard InChI.
         """
 
-        inchi = [data.attributes["standard_inchi"] for data in self.dataset.values()]
+        inchi = [data.attributes.standard_inchi for data in self.dataset.values()]
         return inchi
 
     def _molecules_to_inchikey(self) -> List[str]:
@@ -1136,7 +1136,7 @@ class BasicDataset(IndexCleaner, ClientHandler, QCSpecificationHandler, DatasetC
         Create a list of the molecules standard InChIKey.
         """
 
-        inchikey = [data.attributes["inchi_key"] for data in self.dataset.values()]
+        inchikey = [data.attributes.inchi_key for data in self.dataset.values()]
         return inchikey
 
 
@@ -1155,9 +1155,12 @@ class OptimizationDataset(BasicDataset):
     description: constr(
         min_length=8, regex="[a-zA-Z]"
     ) = "An optimization dataset using geometric."
-    metadata: Metadata = Metadata(collection_type=dataset_type)
+    metadata: Metadata = Metadata()
     driver: DriverEnum = DriverEnum.gradient
-    optimization_procedure: GeometricProcedure = GeometricProcedure()
+    optimization_procedure: GeometricProcedure = Field(
+        GeometricProcedure(),
+        description="The optimization program and settings that should be used.",
+    )
     _entry_class = OptimizationEntry
 
     @validator("driver")
@@ -1498,10 +1501,22 @@ class TorsiondriveDataset(OptimizationDataset):
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )
-    grid_spacing: List[int] = [15]
-    energy_upper_limit: float = 0.05
-    dihedral_ranges: Optional[List[Tuple[int, int]]] = None
-    energy_decrease_thresh: Optional[float] = None
+    grid_spacing: List[int] = Field(
+        [15],
+        description="The grid spcaing that should be used for all torsiondrives, this can be overwriten on a per entry basis.",
+    )
+    energy_upper_limit: float = Field(
+        0.05,
+        description="The upper energy limit to spawn new optimizations in the torsiondrive.",
+    )
+    dihedral_ranges: Optional[List[Tuple[int, int]]] = Field(
+        None,
+        description="The scan range that should be used for each torsiondrive, this can be overwriten on a per entry basis.",
+    )
+    energy_decrease_thresh: Optional[float] = Field(
+        None,
+        description="The energy lower threshold to trigger new optimizations in the torsiondrive.",
+    )
     _entry_class = TorsionDriveEntry
 
     def __add__(self, other: "TorsiondriveDataset") -> "TorsiondriveDataset":
