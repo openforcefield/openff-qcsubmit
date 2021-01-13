@@ -355,7 +355,7 @@ class QCSpec(ResultsConfig):
         # set up the valid method basis and program combinations
         ani_methods = {"ani1x", "ani1ccx", "ani2x"}
         openff_forcefields = list(
-            ff.split(".offxml")[0].lower() for ff in get_available_force_fields()
+            ff.split(".offxml")[0] for ff in get_available_force_fields()
         )
         gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
         xtb_methods = {
@@ -397,12 +397,12 @@ class QCSpec(ResultsConfig):
             # now we need to check the methods
             # strip the offxml if present
             method = method.split(".offxml")[0].lower()
+            # if we have a smirnoff99Frosst force field we need to get the capitalization correct
+            method = re.sub("frosst", "Frosst", method)
             if method not in allowed_methods:
                 raise QCSpecificationError(
                     f"The method {method} is not supported for the program {program} with basis {basis}, please chose from {allowed_methods}"
                 )
-            # if we have a smirnoff99Frosst force field we need to get the capitalization correct
-            method = re.sub("frosst", "Frosst", method)
 
         super().__init__(
             method=method,
