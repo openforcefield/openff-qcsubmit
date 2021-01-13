@@ -32,8 +32,8 @@ from ..exceptions import (
 )
 from ..procedures import GeometricProcedure
 from ..serializers import deserialize, serialize
-from .entries import DatasetEntry, FilterEntry, OptimizationEntry, TorsionDriveEntry
 from ..utils import chunk_generator
+from .entries import DatasetEntry, FilterEntry, OptimizationEntry, TorsionDriveEntry
 
 
 class ComponentResult:
@@ -1692,7 +1692,12 @@ class TorsiondriveDataset(OptimizationDataset):
         pool.shutdown(wait=True)
         return responses
 
-    def _add_dataset_entry(self, dataset: ptl.collections.TorsionDriveDataset, data: TorsionDriveEntry, **kwargs) -> Tuple[str, bool]:
+    def _add_dataset_entry(
+        self,
+        dataset: ptl.collections.TorsionDriveDataset,
+        data: TorsionDriveEntry,
+        **kwargs,
+    ) -> Tuple[str, bool]:
         """
         Add a molecule to the given optimization dataset and return the ids and the result of adding the molecule.
         """

@@ -1,4 +1,4 @@
-from typing import Dict, List, Union, Generator
+from typing import Dict, Generator, List, Union
 
 from openforcefield import topology as off
 from openforcefield.utils.toolkits import (
