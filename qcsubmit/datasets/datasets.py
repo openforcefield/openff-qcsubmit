@@ -20,7 +20,6 @@ from ..common_structures import (
     Metadata,
     MoleculeAttributes,
     QCSpec,
-    QCSpecificationHandler,
     TorsionIndexer,
 )
 from ..constraints import Constraints
@@ -1469,7 +1468,7 @@ class OptimizationDataset(BasicDataset):
             dataset.add_entry(
                 name=name,
                 initial_molecule=molecule,
-                attributes=data.attributes,
+                attributes=data.attributes.dict(),
                 additional_keywords=data.formatted_keywords,
                 save=False,
             )
@@ -1693,9 +1692,7 @@ class TorsiondriveDataset(OptimizationDataset):
         pool.shutdown(wait=True)
         return responses
 
-    def _add_dataset_entry(
-        self, dataset: ptl.collections.TorsionDriveDataset, data: TorsionDriveEntry
-    ) -> Tuple[str, bool]:
+    def _add_dataset_entry(self, dataset: ptl.collections.TorsionDriveDataset, data: TorsionDriveEntry, **kwargs) -> Tuple[str, bool]:
         """
         Add a molecule to the given optimization dataset and return the ids and the result of adding the molecule.
         """
@@ -1707,7 +1704,7 @@ class TorsiondriveDataset(OptimizationDataset):
                 grid_spacing=data.keywords.grid_spacing or self.grid_spacing,
                 energy_upper_limit=data.keywords.energy_upper_limit
                 or self.energy_upper_limit,
-                attributes=data.attributes,
+                attributes=data.attributes.dict(),
                 energy_decrease_thresh=data.keywords.energy_decrease_thresh
                 or self.energy_decrease_thresh,
                 dihedral_ranges=data.keywords.dihedral_ranges or self.dihedral_ranges,
