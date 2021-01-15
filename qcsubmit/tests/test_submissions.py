@@ -56,13 +56,13 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
                                      )
 
     with pytest.raises(DatasetInputError):
-        dataset.submit(client=client, await_result=False)
+        dataset.submit(client=client)
 
     # now add a mock url so we can submit the data
     dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
-    dataset.submit(client=client, await_result=False)
+    dataset.submit(client=client)
 
     fractal_compute_server.await_results()
 
@@ -132,13 +132,13 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
                                      )
     print(dataset.scf_properties)
     with pytest.raises(DatasetInputError):
-        dataset.submit(client=client, await_result=False)
+        dataset.submit(client=client)
 
     # now add a mock url so we can submit the data
     dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
-    dataset.submit(client=client, await_result=False)
+    dataset.submit(client=client)
 
     fractal_compute_server.await_results()
 
@@ -206,13 +206,13 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
                                      )
 
     with pytest.raises(DatasetInputError):
-        dataset.submit(client=client, await_result=False)
+        dataset.submit(client=client)
 
     # now add a mock url so we can submit the data
     dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
-    dataset.submit(client=client, await_result=False)
+    dataset.submit(client=client)
 
     fractal_compute_server.await_results()
 
@@ -282,7 +282,7 @@ def test_adding_specifications(fractal_compute_server):
 
     opt_dataset.metadata.long_description_url = "https://test.org"
     # submit the optimizations and let the compute run
-    opt_dataset.submit(client=client, await_result=False)
+    opt_dataset.submit(client=client)
     fractal_compute_server.await_results()
     fractal_compute_server.await_services()
 
@@ -350,7 +350,7 @@ def test_adding_compute(fractal_compute_server, dataset_data):
     dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
-    dataset.submit(client=client, await_result=False)
+    dataset.submit(client=client)
     # make sure that the compute has finished
     fractal_compute_server.await_results()
     fractal_compute_server.await_services(max_iter=50)
@@ -467,7 +467,7 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
 
     # submit the dataset
     # now submit again
-    dataset.submit(client=client, await_result=False)
+    dataset.submit(client=client)
 
     fractal_compute_server.await_results()
 
@@ -536,7 +536,7 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
-    dataset.submit(client=client, await_result=False)
+    dataset.submit(client=client)
 
     fractal_compute_server.await_results()
 
@@ -581,13 +581,13 @@ def test_optimization_submissions(fractal_compute_server, specification):
                                      )
 
     with pytest.raises(DatasetInputError):
-        dataset.submit(client=client, await_result=False)
+        dataset.submit(client=client)
 
     # now add a mock url so we can submit the data
     dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
-    dataset.submit(client=client, await_result=False)
+    dataset.submit(client=client)
 
     fractal_compute_server.await_results()
 
@@ -656,13 +656,13 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
                                      )
 
     with pytest.raises(DatasetInputError):
-        dataset.submit(client=client, await_result=False)
+        dataset.submit(client=client)
 
     # now add a mock url so we can submit the data
     dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
-    dataset.submit(client=client, await_result=False)
+    dataset.submit(client=client)
 
     fractal_compute_server.await_results()
 
@@ -772,13 +772,13 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
                                      )
 
     with pytest.raises(DatasetInputError):
-        dataset.submit(client=client, await_result=False)
+        dataset.submit(client=client)
 
     # now add a mock url so we can submit the data
     dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
-    dataset.submit(client=client, await_result=False)
+    dataset.submit(client=client)
 
     fractal_compute_server.await_services(max_iter=50)
 
