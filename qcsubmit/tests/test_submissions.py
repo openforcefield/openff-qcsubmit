@@ -557,7 +557,7 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
 @pytest.mark.parametrize("specification", [
     pytest.param({"method": "hf", "basis": "3-21g", "program": "psi4"}, id="PSI4 hf 3-21g gradient"),
     pytest.param({"method": "openff_unconstrained-1.0.0", "basis": "smirnoff", "program": "openmm"}, id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
-    pytest.param({"method": "smirnoff99frosst-1.1.0", "basis": "smirnoff", "program": "openmm", "spec_name": "smirnoff99frosst"}, id="Smirnoff99Fross-1.1.0"),
+    pytest.param({"method": "smirnoff99frosst-1.1.0", "basis": "smirnoff", "program": "openmm"}, id="Smirnoff99Frosst-1.1.0"),
     pytest.param({"method": "uff", "basis": None, "program": "rdkit"}, id="RDKit UFF")
 ])
 def test_optimization_submissions(fractal_compute_server, specification):
