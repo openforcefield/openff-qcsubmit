@@ -1416,7 +1416,7 @@ class OptimizationDataset(BasicDataset):
             for j, molecule in enumerate(data.initial_molecules):
                 name = index + f"-{tag + j}"
                 task = pool.submit(
-                    self._add_dataset_entry, *(collection, name, molecule, data)
+                    self._add_optimization_entry, *(collection, name, molecule, data)
                 )
                 work.append(task)
 
@@ -1454,7 +1454,7 @@ class OptimizationDataset(BasicDataset):
         pool.shutdown(wait=True)
         return responses
 
-    def _add_dataset_entry(
+    def _add_optimization_entry(
         self,
         dataset: ptl.collections.OptimizationDataset,
         name: str,
@@ -1655,7 +1655,7 @@ class TorsiondriveDataset(OptimizationDataset):
         pool = ThreadPoolExecutor(max_workers=threads)
         # start add the molecule to the dataset, multiple conformers/molecules can be used as the starting geometry
         for index, data in self.dataset.items():
-            task = pool.submit(self._add_dataset_entry, *(collection, data))
+            task = pool.submit(self._add_torsiondrive_entry, *(collection, data))
             work.append(task)
 
         # count how many tasks have been made
@@ -1692,14 +1692,13 @@ class TorsiondriveDataset(OptimizationDataset):
         pool.shutdown(wait=True)
         return responses
 
-    def _add_dataset_entry(
+    def _add_torsiondrive_entry(
         self,
         dataset: ptl.collections.TorsionDriveDataset,
         data: TorsionDriveEntry,
-        **kwargs,
     ) -> Tuple[str, bool]:
         """
-        Add a molecule to the given optimization dataset and return the ids and the result of adding the molecule.
+        Add a molecule to the given torsiondrive dataset and return the ids and the result of adding the molecule.
         """
         try:
             dataset.add_entry(
