@@ -114,8 +114,7 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
     client = FractalClient(fractal_compute_server)
 
     qc_specs = [{"method": "openff-1.0.0", "basis": "smirnoff", "program": "openmm", "spec_name": "openff"},
-                {"method": "gaff-2.11", "basis": "antechamber", "program": "openmm", "spec_name": "gaff"},
-                {"method": "smirnoff99frosst-1.1.0", "basis": "smirnoff", "program": "openmm", "spec_name": "smirnoff99frosst"}]
+                {"method": "gaff-2.11", "basis": "antechamber", "program": "openmm", "spec_name": "gaff"},]
 
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
@@ -556,26 +555,27 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
 
 
 @pytest.mark.parametrize("specification", [
-    pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "gradient"), id="PSI4 hf 3-21g gradient"),
-    pytest.param(({"method": "openff_unconstrained-1.0.0", "basis": "smirnoff", "program": "openmm"}, "gradient"), id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
-    pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit UFF gradient")
+    pytest.param({"method": "hf", "basis": "3-21g", "program": "psi4"}, id="PSI4 hf 3-21g gradient"),
+    pytest.param({"method": "openff_unconstrained-1.0.0", "basis": "smirnoff", "program": "openmm"}, id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
+    pytest.param({"method": "smirnoff99frosst-1.1.0", "basis": "smirnoff", "program": "openmm", "spec_name": "smirnoff99frosst"}, id="Smirnoff99Fross-1.1.0"),
+    pytest.param({"method": "uff", "basis": None, "program": "rdkit"}, id="RDKit UFF")
 ])
 def test_optimization_submissions(fractal_compute_server, specification):
     """Test submitting an Optimization dataset to a snowflake server."""
 
     client = FractalClient(fractal_compute_server)
 
-    qc_spec, driver = specification
+    qc_spec = specification
     program = qc_spec["program"]
     if not has_program(program):
         pytest.skip(f"Program '{program}' not found.")
 
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
-    factory = OptimizationDatasetFactory(driver=driver)
+    factory = OptimizationDatasetFactory()
     factory.add_qc_spec(**qc_spec, spec_name="default", spec_description="test", overwrite=True)
 
-    dataset = factory.create_dataset(dataset_name=f"Test optimizations info {program}, {driver}",
+    dataset = factory.create_dataset(dataset_name=f"Test optimizations info {program}",
                                      molecules=molecules[:2],
                                      description="Test optimization dataset",
                                      tagline="Testing optimization datasets",
