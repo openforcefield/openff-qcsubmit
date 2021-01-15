@@ -31,8 +31,8 @@ from ..exceptions import (
     UnsupportedFiletypeError,
 )
 from ..procedures import GeometricProcedure
-from ..results import SingleResult
 from ..serializers import deserialize, serialize
+from ..utils import chunk_generator
 from .entries import DatasetEntry, FilterEntry, OptimizationEntry, TorsionDriveEntry
 
 
@@ -715,28 +715,28 @@ class BasicDataset(CommonBase):
     def submit(
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
-        await_result: Optional[bool] = False,
+        threads: Optional[int] = None,
         ignore_errors: bool = False,
-    ) -> SingleResult:
+        verbose: bool = False,
+    ) -> Dict:
         """
-        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-        corresponding result class.
+         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
+         corresponding result class.
 
-        Parameters:
-        client : Union[str, qcportal.FractalClient]
-            The name of the file containing the client information or an actual client instance.
-        await_result : bool, optional, default=False
-            If the user wants to wait for the calculation to finish before returning.
-        ignore_errors : bool, default=False
-            If the user wants to submit the compute regardless of errors set this to True. Mainly to override basis coverage.
+         Parameters:
+         client : Union[str, qcportal.FractalClient]
+             The name of the file containing the client information or an actual client instance.
+         ignore_errors : bool, default=False
+             If the user wants to submit the compute regardless of errors set this to True. Mainly to override basis coverage.
 
 
         Returns:
-            The collection of the results which have completed.
+             A dictionary of the compute response from the client for each specification submitted.
 
-        Raises:
-            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
+         Raises:
+             MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         # pre submission checks
         # make sure we have some QCSpec to submit
@@ -780,7 +780,7 @@ class BasicDataset(CommonBase):
             except (KeyError, AttributeError):
                 pass
 
-        i = 0
+        new_entries = 0
         # now add the molecules to the database, saving every 30 for speed
         for index, data in self.dataset.items():
             # check if the index we have been supplied has a number tag already if so start from this tag
@@ -790,35 +790,34 @@ class BasicDataset(CommonBase):
                 name = index + f"-{tag + j}"
                 try:
                     collection.add_entry(name=name, molecule=molecule)
-                    i += 1
+                    new_entries += 1
                 except KeyError:
                     continue
 
-                finally:
-                    if i % 30 == 0:
-                        # save the added entries
-                        collection.save()
-
         # save the final dataset
         collection.save()
-
+        if verbose:
+            print(f"New Molecules added {new_entries}/{self.n_records}")
         # submit the calculations for each spec
         responses = {}
+        pool = ThreadPoolExecutor(max_workers=threads)
+        work = {}
+        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
         for spec in self.qc_specifications.values():
-            response = collection.compute(
-                method=spec.method,
-                basis=spec.basis,
-                keywords=spec.spec_name,
-                program=spec.program,
-                tag=self.compute_tag,
-                priority=self.priority,
-                protocols={"wavefunction": spec.store_wavefunction.value},
-            )
+            spec_kwargs.update(spec.dict(include={"method", "basis", "program"}))
+            spec_kwargs["keywords"] = spec.spec_name
+            spec_kwargs["protocols"] = {"wavefunction": spec.store_wavefunction.value}
+            task = pool.submit(collection.compute, **spec_kwargs)
+            work[task] = spec.spec_name
 
-            collection.save()
-            # save the response per submission
-            responses[spec.spec_name] = response
+        iterable = as_completed(work)
+        iterable = tqdm.tqdm(
+            iterable, total=len(work), ncols=80, desc="Tasks", disable=not verbose
+        )
+        for result in iterable:
+            responses[work[result]] = result.result()
 
+        pool.shutdown(wait=True)
         return responses
 
     def _get_spec_keywords(self, spec: QCSpec) -> ptl.models.KeywordSet:
@@ -1346,25 +1345,27 @@ class OptimizationDataset(BasicDataset):
     def submit(
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
-        await_result: bool = False,
+        threads: Optional[int] = None,
         ignore_errors: bool = False,
-    ) -> SingleResult:
+        verbose: bool = False,
+    ) -> Dict:
         """
-        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-        corresponding result class.
+         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
+         corresponding result class.
 
-        Parameters:
-            await_result: If the user wants to wait for the calculation to finish before returning.
-            client: The name of the file containing the client information or the client instance.
-            ignore_errors: If the user wants to ignore basis coverage errors and submit the dataset.
+         Parameters:
+             client: The name of the file containing the client information or the client instance.
+             threads: The number of threads used to contact the client.
+             ignore_errors: If the user wants to ignore basis coverage errors and submit the dataset.
+             verbose: If we should print out useful information during the submission or not.
 
         Returns:
-            Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
-            calculations.
+             A dictionary of the compute response from the client for each specification submitted.
 
-        Raises:
-            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
+         Raises:
+             MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         # pre submission checks
         # check for qcspecs
@@ -1403,42 +1404,77 @@ class OptimizationDataset(BasicDataset):
                 spec=spec, opt_spec=opt_spec, collection=collection
             )
 
-        i = 0
-        # now add the molecules to the database, saving every 30 for speed
+        # start a thread pool worker for submissions
+        work = []
+        new_entries = 0
+        indices = []
+        pool = ThreadPoolExecutor(max_workers=threads)
         for index, data in self.dataset.items():
             # check if the index we have been supplied has a number tag already if so start from this tag
             index, tag = self._clean_index(index=index)
 
             for j, molecule in enumerate(data.initial_molecules):
                 name = index + f"-{tag + j}"
-                try:
-                    collection.add_entry(
-                        name=name,
-                        initial_molecule=molecule,
-                        attributes=data.attributes.dict(),
-                        additional_keywords=data.formatted_keywords,
-                        save=False,
-                    )
-                    i += 1
-                except KeyError:
-                    continue
+                task = pool.submit(
+                    self._add_optimization_entry, *(collection, name, molecule, data)
+                )
+                work.append(task)
 
-                finally:
-                    if i % 30 == 0:
-                        # save the added entries
-                        collection.save()
+        # count how many tasks have been made
+        for task in as_completed(work):
+            new_index, result = task.result()
+            new_entries += int(result)
+            indices.append(new_index)
 
-        # save the added entries
+        if verbose:
+            print(f"Number of new entries: {new_entries}/{self.n_records}")
         collection.save()
-        responses = {}
-        # submit the calculations for each spec
-        for spec_name in self.qc_specifications.keys():
-            response = collection.compute(
-                specification=spec_name, tag=self.compute_tag, priority=self.priority
-            )
-            responses[spec_name] = response
 
+        responses = {}
+        chunk_size = 100
+        # submit the calculations for each spec
+        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
+        for spec_name in self.qc_specifications.keys():
+            spec_tasks = 0
+            work = []
+            for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
+                spec_kwargs["subset"] = mol_chunk
+                task = pool.submit(collection.compute, spec_name, **spec_kwargs)
+                work.append(task)
+
+            work_list = as_completed(work)
+            work_list = tqdm.tqdm(
+                work_list, total=len(work), ncols=80, desc="Tasks", disable=not verbose
+            )
+            for result in work_list:
+                spec_tasks += result.result()
+
+            responses[spec_name] = spec_tasks
+
+        pool.shutdown(wait=True)
         return responses
+
+    def _add_optimization_entry(
+        self,
+        dataset: ptl.collections.OptimizationDataset,
+        name: str,
+        molecule: qcel.models.Molecule,
+        data: OptimizationEntry,
+    ) -> Tuple[str, bool]:
+        """
+        Add a molecule to the given optimization dataset and return the ids and the result of adding the molecule.
+        """
+        try:
+            dataset.add_entry(
+                name=name,
+                initial_molecule=molecule,
+                attributes=data.attributes.dict(),
+                additional_keywords=data.formatted_keywords,
+                save=False,
+            )
+            return name, True
+        except KeyError:
+            return name, False
 
 
 class TorsiondriveDataset(OptimizationDataset):
@@ -1556,26 +1592,28 @@ class TorsiondriveDataset(OptimizationDataset):
     def submit(
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
-        await_result: bool = False,
+        threads: Optional[int] = None,
         ignore_errors: bool = False,
-    ) -> SingleResult:
+        verbose: bool = False,
+    ) -> Dict:
         """
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
         corresponding result class.
 
         Parameters:
-            await_result: If the user wants to wait for the calculation to finish before returning.
             client: The name of the file containing the client information or the client instance.
+            threads: The number of threads used to connect with the client.
             ignore_errors: If the user wants to ignore basis coverage issues and submit the dataset.
+            verbose: If help messages should be printed while submitting the dataset.
 
 
         Returns:
-            Either `None` if we are not waiting for the results or a BasicResult instance with all of the completed
-            calculations.
+            A dictionary of the compute response from the client for each specification submitted.
 
         Raises:
             MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         # pre submission checks
         # check for qcspecs
@@ -1610,36 +1648,71 @@ class TorsiondriveDataset(OptimizationDataset):
                 spec=spec, opt_spec=opt_spec, collection=collection
             )
 
+        # start a thread pool worker for the submissions
+        work = []
+        new_entries = 0
+        indices = []
+        pool = ThreadPoolExecutor(max_workers=threads)
         # start add the molecule to the dataset, multiple conformers/molecules can be used as the starting geometry
-        for i, (index, data) in enumerate(self.dataset.items()):
-            try:
-                # for each TD setting check if we have a unique value to replace the global setting
-                collection.add_entry(
-                    name=index,
-                    initial_molecules=data.initial_molecules,
-                    dihedrals=data.dihedrals,
-                    grid_spacing=data.keywords.grid_spacing or self.grid_spacing,
-                    energy_upper_limit=data.keywords.energy_upper_limit
-                    or self.energy_upper_limit,
-                    attributes=data.attributes.dict(),
-                    energy_decrease_thresh=data.keywords.energy_decrease_thresh
-                    or self.energy_decrease_thresh,
-                    dihedral_ranges=data.keywords.dihedral_ranges
-                    or self.dihedral_ranges,
-                )
-            except KeyError:
-                continue
-            finally:
-                if i % 30 == 0:
-                    collection.save()
+        for index, data in self.dataset.items():
+            task = pool.submit(self._add_torsiondrive_entry, *(collection, data))
+            work.append(task)
 
+        # count how many tasks have been made
+        for task in as_completed(work):
+            index, result = task.result()
+            new_entries += int(result)
+            indices.append(index)
+
+        if verbose:
+            print(f"Number of new entries: {new_entries}/{self.n_records}")
         collection.save()
 
         responses = {}
+        chunk_size = 100
         # submit the calculations for each spec
+        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
         for spec_name in self.qc_specifications.keys():
-            response = collection.compute(
-                specification=spec_name, tag=self.compute_tag, priority=self.priority
+            spec_tasks = 0
+            work = []
+            for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
+                spec_kwargs["subset"] = mol_chunk
+                task = pool.submit(collection.compute, spec_name, **spec_kwargs)
+                work.append(task)
+
+            work_list = as_completed(work)
+            work_list = tqdm.tqdm(
+                work_list, total=len(work), ncols=80, desc="Tasks", disable=not verbose
             )
-            responses[spec_name] = response
+            for result in work_list:
+                spec_tasks += result.result()
+
+            responses[spec_name] = spec_tasks
+
+        pool.shutdown(wait=True)
         return responses
+
+    def _add_torsiondrive_entry(
+        self,
+        dataset: ptl.collections.TorsionDriveDataset,
+        data: TorsionDriveEntry,
+    ) -> Tuple[str, bool]:
+        """
+        Add a molecule to the given torsiondrive dataset and return the ids and the result of adding the molecule.
+        """
+        try:
+            dataset.add_entry(
+                name=data.index,
+                initial_molecules=data.initial_molecules,
+                dihedrals=data.dihedrals,
+                grid_spacing=data.keywords.grid_spacing or self.grid_spacing,
+                energy_upper_limit=data.keywords.energy_upper_limit
+                or self.energy_upper_limit,
+                attributes=data.attributes.dict(),
+                energy_decrease_thresh=data.keywords.energy_decrease_thresh
+                or self.energy_decrease_thresh,
+                dihedral_ranges=data.keywords.dihedral_ranges or self.dihedral_ranges,
+            )
+            return data.index, True
+        except KeyError:
+            return data.index, False
