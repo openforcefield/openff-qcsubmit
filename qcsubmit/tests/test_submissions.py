@@ -575,7 +575,7 @@ def test_optimization_submissions(fractal_compute_server, specification):
     factory = OptimizationDatasetFactory()
     factory.add_qc_spec(**qc_spec, spec_name="default", spec_description="test", overwrite=True)
 
-    dataset = factory.create_dataset(dataset_name=f"Test optimizations info {program}",
+    dataset = factory.create_dataset(dataset_name=f"Test optimizations info {program}, {qc_spec['method']}",
                                      molecules=molecules[:2],
                                      description="Test optimization dataset",
                                      tagline="Testing optimization datasets",
@@ -608,7 +608,7 @@ def test_optimization_submissions(fractal_compute_server, specification):
 
         assert spec.description == qc_spec.spec_description
         assert spec.qc_spec.driver == dataset.driver
-        assert spec.qc_spec.method == qc_spec.method
+        assert spec.qc_spec.method == qc_spec.method.lower()
         assert spec.qc_spec.basis == qc_spec.basis
         assert spec.qc_spec.program == qc_spec.program
 
