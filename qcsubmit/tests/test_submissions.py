@@ -101,6 +101,8 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
             basis=spec.basis,
             program=spec.program,
         )
+        # make sure all of the conformers were submitted
+        assert len(query.index) == len(molecules)
         for index in query.index:
             result = query.loc[index].record
             assert result.status.value.upper() == "COMPLETE"
@@ -130,7 +132,7 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
                                      description="Test basics dataset",
                                      tagline="Testing single point datasets",
                                      )
-    print(dataset.scf_properties)
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
@@ -174,6 +176,8 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
             basis=spec.basis,
             program=spec.program,
         )
+        # make sure all conformers are submitted
+        assert len(query.index) == len(molecules)
         for index in query.index:
             result = query.loc[index].record
             assert result.status.value.upper() == "COMPLETE"
@@ -824,9 +828,9 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
     pytest.param(OptimizationDatasetFactory, id="OptimizationDataset ignore_errors"),
     pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset ignore_errors"),
 ])
-def test_ignore_errors_all_datasets(fractal_compute_server, factory_type):
+def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys):
     """
-    For each dataset make sure that when the basis is not fully covered the dataset raises warning errors.
+    For each dataset make sure that when the basis is not fully covered the dataset raises warning errors, and verbose information
     """
     import warnings
     client = FractalClient(fractal_compute_server)
@@ -844,10 +848,94 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type):
 
     dataset.metadata.long_description_url = "https://test.org"
 
-    # make sure the dataset rasies an error here
+    # make sure the dataset raises an error here
     with pytest.raises(MissingBasisCoverageError):
         dataset.submit(client=client, ignore_errors=False)
 
-    # now we want to try again and make sure warnings are rasied
+    # now we want to try again and make sure warnings are raised
     with pytest.warns(UserWarning):
-        dataset.submit(client=client, ignore_errors=True)
+        dataset.submit(client=client, ignore_errors=True, verbose=True)
+
+    info = capsys.readouterr()
+    assert info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
+
+
+@pytest.mark.parametrize("factory_type", [
+    pytest.param(BasicDatasetFactory, id="Basicdataset"),
+    pytest.param(OptimizationDatasetFactory, id="Optimizationdataset")
+])
+def test_index_not_changed(fractal_compute_server, factory_type):
+    """
+    Make sure that when we submit molecules from a dataset/optimizationdataset with one input conformer that the index is not changed.
+    """
+    factory = factory_type()
+    factory.clear_qcspecs()
+    client = FractalClient(fractal_compute_server)
+    # add only mm specs
+    factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley",
+                        spec_description="standard parsley spec")
+
+    molecule = Molecule.from_smiles("C")
+    # make sure we only have one conformer
+    molecule.generate_conformers(n_conformers=1)
+    dataset = factory.create_dataset(dataset_name=f"Test index change for {factory.factory_type}",
+                                     molecules=molecule,
+                                     description="Test index change dataset",
+                                     tagline="Testing index changes datasets",
+                                     )
+
+    dataset.metadata.long_description_url = "https://test.org"
+    # now change the index name to something unique
+    entry = dataset.dataset.pop(list(dataset.dataset.keys())[0])
+    entry.index = "my_unique_index"
+    dataset.dataset[entry.index] = entry
+
+    dataset.submit(client=client)
+
+    # pull the dataset and make sure our index is present
+    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+
+    if dataset.dataset_type == "DataSet":
+        query = ds.get_records(method="openff-1.0.0", basis="smirnoff", program="openmm")
+        assert "my_unique_index" in query.index
+    else:
+        assert "my_unique_index" in ds.df.index
+
+
+@pytest.mark.parametrize("factory_type", [
+    pytest.param(OptimizationDatasetFactory, id="OptimizationDataset index clash"),
+    pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset index clash"),
+])
+def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys):
+    """
+    Make sure that the new entries is not incremented if we can not add a molecule to the server due to a name clash.
+    TODO add basic dataset into the testing if the api changes to return an error when adding the same index twice
+    """
+    import warnings
+    client = FractalClient(fractal_compute_server)
+    # molecule containing boron
+    molecule = Molecule.from_smiles("CO")
+    molecule.generate_conformers(n_conformers=1)
+    factory = factory_type()
+    factory.clear_qcspecs()
+    # add only mm specs
+    factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
+    dataset = factory.create_dataset(dataset_name=f"Test index clash for {factory.factory_type}",
+                                     molecules=molecule,
+                                     description="Test ignore errors dataset",
+                                     tagline="Testing ignore errors datasets",
+                                     )
+
+    dataset.metadata.long_description_url = "https://test.org"
+
+    # make sure all expected index get submitted
+    dataset.submit(client=client, verbose=True)
+    info = capsys.readouterr()
+    assert info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
+
+    # now add a new spec and try and submit again
+    dataset.clear_qcspecs()
+    dataset.add_qc_spec(method="mmff94", basis=None, program="rdkit", spec_name="mff94", spec_description="mff94 force field in rdkit")
+    dataset.submit(client=client, verbose=True)
+    info = capsys.readouterr()
+    assert info.out == f"Number of new entries: 0/{dataset.n_records}\n"
