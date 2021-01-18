@@ -4,7 +4,7 @@ The procedure settings controllers
 
 from typing import Dict
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 from qcportal.models.common_models import OptimizationSpecification
 from typing_extensions import Literal
 
@@ -22,7 +22,7 @@ class GeometricProcedure(BaseModel):
             - `hdlc` Hybrid Delocalised Internal Coordinates
             - `tric` Translation-Rotation-Internal Coordinates, this is the default default
 
-    Improtant:
+    Important:
         Geometric currently accepts the following convergence criteria sets:
 
             | Set  | Set Name  | Energy  | GRMS  | GMAX  | DRMS  | DMAX  |
