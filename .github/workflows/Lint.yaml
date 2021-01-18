@@ -31,4 +31,4 @@ jobs:
       - name: Run black
         shell: bash
         run: |
-          black qcsubmit --check
+          black openff/qcsubmit --check
