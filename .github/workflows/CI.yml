@@ -85,14 +85,14 @@ jobs:
           fi
           conda activate test
           python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
-          python -m pip install --no-deps .
+          python setup.py develop --no-deps
 
       - name: Test the package
         shell: bash
         run: |
           . devtools/gh-actions/initialize_conda.sh
           conda activate test
-          pytest -v --cov=qcsubmit/ --cov-config=setup.cfg qcsubmit/tests/ --cov-report=xml
+          pytest -v --cov=openff/qcsubmit/ --cov-config=setup.cfg openff/qcsubmit/tests/ --cov-report=xml
 
       - name: Codecov
         uses: codecov/codecov-action@v1

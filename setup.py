@@ -4,7 +4,7 @@ Automated tools for submitting molecules to QCFractal
 """
 import sys
 
-from setuptools import find_packages, setup
+from setuptools import setup, find_namespace_packages
 
 import versioneer
 
@@ -23,9 +23,9 @@ except:
 
 setup(
     # Self-descriptive entries which should always be present
-    name='qcsubmit',
-    author='Open Force Field Initiative',
-    author_email='john.chodera@choderalab.org',
+    name='openff-qcsubmit',
+    author='Open Force Field Consortium',
+    author_email='info@openforcefield.org',
     description=short_description[0],
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -36,7 +36,7 @@ setup(
     # Which Python importable modules should be included when your package is installed
     # Handled automatically by setuptools. Use 'exclude' to prevent some specific
     # subpackage(s) from being added, if needed
-    packages=find_packages(),
+    packages=find_namespace_packages(include=["openff.*"]),
 
     # Optional include package data to ship with your package
     # Customize MANIFEST.in if the general case does not suit your needs

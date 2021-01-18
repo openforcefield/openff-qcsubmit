@@ -4,8 +4,8 @@ theme:
 markdown_extensions:
   - codehilite:
       guess_lang: false
-repo_name: 'openforcefield/qcsubmit'
-repo_url: 'https://github.com/openforcefield/qcsubmit'
+repo_name: 'openforcefield/openff-qcsubmit'
+repo_url: 'https://github.com/openforcefield/openff-qcsubmit'
 plugins:
   - mkdocstrings
   - mkdocs-jupyter

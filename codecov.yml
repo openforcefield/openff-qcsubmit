@@ -1,7 +1,7 @@
 # Codecov configuration to make it a bit less noisy
 coverage:
   ignore:
-    - qcsubmit/test/.*
+    - openff/qcsubmit/test/.*
   status:
     patch: false
     project:
