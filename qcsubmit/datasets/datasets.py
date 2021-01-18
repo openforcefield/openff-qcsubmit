@@ -781,23 +781,26 @@ class BasicDataset(CommonBase):
                 pass
 
         new_entries = 0
-        # now add the molecules to the database, saving every 30 for speed
+        # now add the molecules to the database
         for index, data in self.dataset.items():
-            # check if the index we have been supplied has a number tag already if so start from this tag
-            index, tag = self._clean_index(index=index)
+            if len(data.initial_molecules) > 1:
+                # check if the index we have been supplied has a number tag already if so start from this tag
+                index, tag = self._clean_index(index=index)
 
-            for j, molecule in enumerate(data.initial_molecules):
-                name = index + f"-{tag + j}"
-                try:
-                    collection.add_entry(name=name, molecule=molecule)
-                    new_entries += 1
-                except KeyError:
-                    continue
+                for j, molecule in enumerate(data.initial_molecules):
+                    name = index + f"-{tag + j}"
+                    new_entries += self._add_dataset_entry(
+                        dataset=collection, name=name, molecule=molecule
+                    )
+            else:
+                new_entries += self._add_dataset_entry(
+                    dataset=collection, name=index, molecule=data.initial_molecules[0]
+                )
 
         # save the final dataset
         collection.save()
         if verbose:
-            print(f"New Molecules added {new_entries}/{self.n_records}")
+            print(f"Number of new entries: {new_entries}/{self.n_records}")
         # submit the calculations for each spec
         responses = {}
         pool = ThreadPoolExecutor(max_workers=threads)
@@ -819,6 +822,21 @@ class BasicDataset(CommonBase):
 
         pool.shutdown(wait=True)
         return responses
+
+    def _add_dataset_entry(
+        self,
+        dataset: ptl.collections.Dataset,
+        name: str,
+        molecule: qcel.models.Molecule,
+    ) -> bool:
+        """
+        Try and add a molecule to the basic dataset and return if we were successful or not.
+        """
+        try:
+            dataset.add_entry(name=name, molecule=molecule)
+            return True
+        except KeyError:
+            return False
 
     def _get_spec_keywords(self, spec: QCSpec) -> ptl.models.KeywordSet:
         """
@@ -1410,13 +1428,21 @@ class OptimizationDataset(BasicDataset):
         indices = []
         pool = ThreadPoolExecutor(max_workers=threads)
         for index, data in self.dataset.items():
-            # check if the index we have been supplied has a number tag already if so start from this tag
-            index, tag = self._clean_index(index=index)
+            if len(data.initial_molecules) > 1:
+                # check if the index we have been supplied has a number tag already if so start from this tag
+                index, tag = self._clean_index(index=index)
 
-            for j, molecule in enumerate(data.initial_molecules):
-                name = index + f"-{tag + j}"
+                for j, molecule in enumerate(data.initial_molecules):
+                    name = index + f"-{tag + j}"
+                    task = pool.submit(
+                        self._add_optimization_entry,
+                        *(collection, name, molecule, data),
+                    )
+                    work.append(task)
+            else:
                 task = pool.submit(
-                    self._add_optimization_entry, *(collection, name, molecule, data)
+                    self._add_optimization_entry,
+                    *(collection, index, data.initial_molecules[0], data),
                 )
                 work.append(task)
 
