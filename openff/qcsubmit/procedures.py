@@ -40,7 +40,7 @@ class GeometricProcedure(BaseModel):
         "geometric", description="The name of the program executing the procedure."
     )
     coordsys: Literal["tric", "prim", "dlc", "hdlc", "cart"] = Field(
-        "tric",
+        "dlc",
         description="The type of coordinate system which should be used during the optimization. Choices are tric, prim, dlc, hdlc, and cart.",
     )
     enforce: float = Field(
