@@ -357,11 +357,13 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
     """
 
     component_name = "RotorFilter"
-    component_description = "Filter the molecules based on the minimum or/and maximum number of allowed " \
-                            "rotatable bonds. When the filter is applied without supplying any values for " \
-                            "maximum_rotors or minimum_rotors then it defaults to at least 1 rotor and upto " \
-                            "a maximum of 4 rotors. None can also be supplied to apply only an upper or" \
-                            "a lower bound on the number of allowed rotors."
+    component_description = (
+        "Filter the molecules based on the minimum or/and maximum number of allowed "
+        "rotatable bonds. When the filter is applied without supplying any values for "
+        "maximum_rotors or minimum_rotors then it defaults to at least 1 rotor and upto "
+        "a maximum of 4 rotors. None can also be supplied to apply only an upper or"
+        "a lower bound on the number of allowed rotors."
+    )
     component_fail_message = "The molecule has too many(low) rotatable bonds."
     minimum_rotors: Optional[int] = Field(
         1,
@@ -395,7 +397,7 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
             rotors[molecule] = len(molecule.find_rotatable_bonds())
 
         for molecule in molecules:
-            if(self.maximum_rotors and self.minimum_rotors):
+            if self.maximum_rotors and self.minimum_rotors:
                 if (
                     rotors[molecule] > self.maximum_rotors
                     or rotors[molecule] < self.minimum_rotors
@@ -403,17 +405,13 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
                     result.filter_molecule(molecule)
                 else:
                     result.add_molecule(molecule)
-            elif(self.maximum_rotors and not self.minimum_rotors):
-                if (
-                    rotors[molecule] > self.maximum_rotors
-                ):
+            elif self.maximum_rotors and not self.minimum_rotors:
+                if rotors[molecule] > self.maximum_rotors:
                     result.filter_molecule(molecule)
                 else:
                     result.add_molecule(molecule)
-            elif(self.minimum_rotors and not self.maximum_rotors):
-                if (
-                    rotors[molecule] < self.minimum_rotors
-                ):
+            elif self.minimum_rotors and not self.maximum_rotors:
+                if rotors[molecule] < self.minimum_rotors:
                     result.filter_molecule(molecule)
                 else:
                     result.add_molecule(molecule)
