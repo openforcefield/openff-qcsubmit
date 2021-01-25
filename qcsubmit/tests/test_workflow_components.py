@@ -903,6 +903,22 @@ def test_rotor_filter_min_fail():
     for molecule in result.filtered:
         assert len(molecule.find_rotatable_bonds()) < rotor_filter.minimum_rotors
 
+def test_rotor_filter_no_options_pass():
+    """
+    Test filtering out molecules with None passed to both the maximum_rotors and minimum_rotors arguments.
+    """
+
+    rotor_filter = workflow_components.RotorFilter()
+    rotor_filter.minimum_rotors = None
+    rotor_filter.maximum_rotors = None
+    mols = get_tautomers()
+    len_mols = len(mols)
+    molecule_container = get_container(mols)
+
+    result = rotor_filter.apply(molecule_container.molecules, processors=1)
+    len_result = result.n_molecules
+    #since no molecules are filtered both the lengths of input and output should match
+    assert len_mols==len_result
 
 def test_smarts_filter_validator():
     """
