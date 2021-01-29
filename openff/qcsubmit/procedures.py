@@ -4,9 +4,11 @@ The procedure settings controllers
 
 from typing import Dict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from qcportal.models.common_models import OptimizationSpecification
 from typing_extensions import Literal
+
+from openff.qcsubmit.validators import literal_lower, literal_upper
 
 
 class GeometricProcedure(BaseModel):
@@ -85,6 +87,11 @@ class GeometricProcedure(BaseModel):
     class Config:
         validate_assignment = True
         title = "GeometricProcedure"
+
+    _convergence_set_check = validator("convergence_set", pre=True, allow_reuse=True)(
+        literal_upper
+    )
+    _coordsys_check = validator("coordsys", pre=True, allow_reuse=True)(literal_lower)
 
     def get_optimzation_spec(self) -> OptimizationSpecification:
         """
