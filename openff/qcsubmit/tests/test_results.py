@@ -23,22 +23,23 @@ def public_client():
 def test_optimization_default_results(public_client):
     """
     Test collecting results from the public qcarchive.
-    The optimization collection is small containing only 302 records however some are incomplete and only 150
+    The optimization collection is small containing only 576 records however some are incomplete and only 16
     unique molecules should be pulled.
+    This also tests the ability to rebuild a non default geometric procedure from server.
     """
 
     result = OptimizationCollectionResult.from_server(
         client=public_client,
         spec_name="default",
-        dataset_name="OpenFF Gen 2 Opt Set 1 Roche",
+        dataset_name="OpenFF Protein Fragments v1.0",
         include_trajectory=False,
         final_molecule_only=False)
 
-    assert result.n_molecules == 150
-    assert result.n_results == 298
+    assert result.n_molecules == 16
+    assert result.n_results == 576
     assert result.method == "b3lyp-d3bj"
-    assert result.basis == "dzvp"
-    assert result.dataset_name == "OpenFF Gen 2 Opt Set 1 Roche"
+    assert result.basis == "def2-tzvp"
+    assert result.dataset_name == "OpenFF Protein Fragments v1.0"
     assert result.program == "psi4"
 
     # by default the result should pull the initial and final molecule only

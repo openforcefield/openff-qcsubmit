@@ -19,6 +19,20 @@ from openff.qcsubmit.exceptions import (
 )
 
 
+def literal_lower(liertal: str) -> str:
+    """
+    Take a string and lower it for a literal type check.
+    """
+    return liertal.lower()
+
+
+def literal_upper(literal: str) -> str:
+    """
+    Take a string and upper it for a literal type check.
+    """
+    return literal.upper()
+
+
 def check_improper_connection(
     improper: Tuple[int, int, int, int], molecule: off.Molecule
 ) -> Tuple[int, int, int, int]:
