@@ -914,7 +914,6 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
     TODO add basic dataset into the testing if the api changes to return an error when adding the same index twice
     """
     client = FractalClient(fractal_compute_server)
-    # molecule containing boron
     molecule = Molecule.from_smiles("CO")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
@@ -940,3 +939,54 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
     dataset.submit(client=client, verbose=True)
     info = capsys.readouterr()
     assert info.out == f"Number of new entries: 0/{dataset.n_records}\n"
+
+
+@pytest.mark.parametrize("factory_type", [
+    pytest.param(OptimizationDatasetFactory, id="OptimizationDataset expand compute"),
+    pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset expand compute"),
+])
+def test_expanding_compute(fractal_compute_server, factory_type):
+    """
+    Make sure that if we expand the compute of a dataset tasks are generated.
+    """
+    client = FractalClient(fractal_compute_server)
+    molecule = Molecule.from_smiles("CC")
+    molecule.generate_conformers(n_conformers=1)
+    factory = factory_type()
+    factory.clear_qcspecs()
+    # add only mm specs
+    factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default",
+                        spec_description="standard parsley spec")
+    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.factory_type}",
+                                     molecules=molecule,
+                                     description="Test compute expansion",
+                                     tagline="Testing compute expansion",
+                                     )
+
+    dataset.metadata.long_description_url = "https://test.org"
+
+    # make sure all expected index get submitted
+    dataset.submit(client=client)
+    # grab the dataset and check the history
+    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    assert ds.data.history == {"default"}
+
+    # now make another dataset to expand the compute
+    factory.clear_qcspecs()
+    # add only mm specs
+    factory.add_qc_spec(method="openff-1.2.0", basis="smirnoff", program="openmm", spec_name="parsley2",
+                        spec_description="standard parsley spec")
+    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.factory_type}",
+                                     molecules=[],
+                                     description="Test compute expansion",
+                                     tagline="Testing compute expansion",
+                                     )
+    # now submit again
+    dataset.submit(client=client)
+
+    # now grab the dataset again and check the tasks list
+    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    assert ds.data.history == {"default", "parsley2"}
+    # make sure a record has been made
+    entry = ds.get_entry(ds.df.index[0])
+    assert "parsley2" in entry.object_map

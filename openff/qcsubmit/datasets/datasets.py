@@ -1460,6 +1460,9 @@ class OptimizationDataset(BasicDataset):
         if verbose:
             print(f"Number of new entries: {new_entries}/{self.n_records}")
         collection.save()
+        # if we have no new indices grab them all from the dataset
+        if not indices:
+            indices = list(collection.df.index)
 
         responses = {}
         chunk_size = 100
@@ -1698,6 +1701,10 @@ class TorsiondriveDataset(OptimizationDataset):
         if verbose:
             print(f"Number of new entries: {new_entries}/{self.n_records}")
         collection.save()
+
+        # if there are no new tasks, generate them for all entries
+        if not indices:
+            indices = list(collection.df.index)
 
         responses = {}
         chunk_size = 100
