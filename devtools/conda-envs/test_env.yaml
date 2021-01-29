@@ -3,6 +3,7 @@ name: basic_qcsubmit
 channels:
   - conda-forge
   - omnia
+  - omnia/label/benchmark
   - defaults
 
 dependencies:
@@ -13,7 +14,7 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - openforcefield >=0.7.0
+  - openforcefield =0.8.4rc1
   - openforcefields
   - smirnoff99Frosst
   - openmmforcefields
@@ -21,7 +22,7 @@ dependencies:
   - pyyaml
   - codecov
   - qcportal
-  - openeye-toolkits ==2019.10.2
+  - openeye-toolkits =2019.10.2
   - qcfractal
   - torsiondrive
   - fragmenter

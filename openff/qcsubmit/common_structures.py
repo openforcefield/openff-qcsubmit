@@ -359,7 +359,7 @@ class QCSpec(ResultsConfig):
         # set up the valid method basis and program combinations
         ani_methods = {"ani1x", "ani1ccx", "ani2x"}
         openff_forcefields = list(
-            ff.split(".offxml")[0] for ff in get_available_force_fields()
+            ff.split(".offxml")[0].lower() for ff in get_available_force_fields()
         )
         gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
         xtb_methods = {
