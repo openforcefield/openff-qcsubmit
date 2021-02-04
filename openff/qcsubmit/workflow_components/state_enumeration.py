@@ -3,10 +3,6 @@ Components to expand stereochemistry and tautomeric states of molecules.
 """
 from typing import List
 
-from openforcefield.topology import Molecule
-from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
-from pydantic import Field
-
 from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
 from openff.qcsubmit.datasets import ComponentResult
 from openff.qcsubmit.utils import check_missing_stereo
@@ -14,6 +10,9 @@ from openff.qcsubmit.workflow_components.base_component import (
     CustomWorkflowComponent,
     ToolkitValidator,
 )
+from openforcefield.topology import Molecule
+from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
+from pydantic import Field
 
 
 class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
@@ -69,7 +68,9 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
                 else:
                     for tautomer in tautomers:
                         if dihedrals is not None:
-                            tautomer.properties["dihedrals"] = TorsionIndexer.parse_obj(dihedrals)
+                            tautomer.properties["dihedrals"] = TorsionIndexer.parse_obj(
+                                dihedrals
+                            )
                         result.add_molecule(tautomer)
 
             except Exception:
@@ -129,7 +130,6 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
 
         result = self._create_result()
 
-
         for molecule in molecules:
             dihedrals = molecule.properties.get("dihedrals", None)
             try:
@@ -144,7 +144,9 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
                 for isomer in isomers:
                     if not check_missing_stereo(isomer):
                         if dihedrals is not None:
-                            isomer.properties["dihedrals"] = TorsionIndexer.parse_obj(dihedrals)
+                            isomer.properties["dihedrals"] = TorsionIndexer.parse_obj(
+                                dihedrals
+                            )
                         result.add_molecule(isomer)
 
                 # now check the input
@@ -214,7 +216,9 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
                     for protomer in protomers:
                         if dihedrals is not None:
-                            protomer.properties["dihedrals"] = TorsionIndexer.parse_obj(dihedrals)
+                            protomer.properties["dihedrals"] = TorsionIndexer.parse_obj(
+                                dihedrals
+                            )
                         result.add_molecule(protomer)
                     result.add_molecule(molecule)
 
