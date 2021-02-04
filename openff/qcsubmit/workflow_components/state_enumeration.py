@@ -3,17 +3,16 @@ Components to expand stereochemistry and tautomeric states of molecules.
 """
 from typing import List
 
-from openforcefield.topology import Molecule
-from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
-from pydantic import Field
-
-from openff.qcsubmit.common_structures import ComponentProperties
+from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
 from openff.qcsubmit.datasets import ComponentResult
 from openff.qcsubmit.utils import check_missing_stereo
 from openff.qcsubmit.workflow_components.base_component import (
     CustomWorkflowComponent,
     ToolkitValidator,
 )
+from openforcefield.topology import Molecule
+from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
+from pydantic import Field
 
 
 class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
@@ -58,6 +57,7 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
         result = self._create_result()
 
         for molecule in molecules:
+            dihedrals = molecule.properties.get("dihedrals", None)
             try:
                 tautomers = molecule.enumerate_tautomers(
                     max_states=self.max_tautomers, toolkit_registry=toolkit
@@ -67,6 +67,10 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
                     result.add_molecule(molecule)
                 else:
                     for tautomer in tautomers:
+                        if dihedrals is not None:
+                            tautomer.properties["dihedrals"] = TorsionIndexer.parse_obj(
+                                dihedrals
+                            )
                         result.add_molecule(tautomer)
 
             except Exception:
@@ -127,6 +131,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
         result = self._create_result()
 
         for molecule in molecules:
+            dihedrals = molecule.properties.get("dihedrals", None)
             try:
                 isomers = molecule.enumerate_stereoisomers(
                     undefined_only=self.undefined_only,
@@ -138,6 +143,10 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
                 # now check that each molecule is well defined
                 for isomer in isomers:
                     if not check_missing_stereo(isomer):
+                        if dihedrals is not None:
+                            isomer.properties["dihedrals"] = TorsionIndexer.parse_obj(
+                                dihedrals
+                            )
                         result.add_molecule(isomer)
 
                 # now check the input
@@ -201,10 +210,15 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
         if has_oe:
 
             for molecule in molecules:
+                dihedrals = molecule.properties.get("dihedrals", None)
                 try:
                     protomers = molecule.enumerate_protomers(max_states=self.max_states)
 
                     for protomer in protomers:
+                        if dihedrals is not None:
+                            protomer.properties["dihedrals"] = TorsionIndexer.parse_obj(
+                                dihedrals
+                            )
                         result.add_molecule(protomer)
                     result.add_molecule(molecule)
 
