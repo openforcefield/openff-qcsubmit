@@ -720,28 +720,33 @@ class BasicDataset(CommonBase):
     def submit(
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
-        threads: Optional[int] = None,
+        processes: Optional[int] = None,
         ignore_errors: bool = False,
         verbose: bool = False,
     ) -> Dict:
         """
-         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-         corresponding result class.
+        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
+        corresponding result class.
 
-         Parameters:
-         client : Union[str, qcportal.FractalClient]
-             The name of the file containing the client information or an actual client instance.
-         ignore_errors : bool, default=False
-             If the user wants to submit the compute regardless of errors set this to True. Mainly to override basis coverage.
+        Parameters
+        ----------
+        client : Union[str, qcportal.FractalClient]
+            The name of the file containing the client information or an actual client instance.
+        processes : int
+            Number of processes to use for submission; if set to 0, no separate process pool will be used.
+        ignore_errors : bool, default=False
+            If the user wants to submit the compute regardless of errors set this to True. Mainly to override basis coverage.
 
-
-        Returns:
+        Returns
+        -------
              A dictionary of the compute response from the client for each specification submitted.
 
-         Raises:
-             MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
+        Raises
+        ------
+        MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
+
         """
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from concurrent.futures import ProcessPoolExecutor, as_completed
 
         # pre submission checks
         # make sure we have some QCSpec to submit
@@ -808,14 +813,22 @@ class BasicDataset(CommonBase):
             print(f"Number of new entries: {new_entries}/{self.n_records}")
         # submit the calculations for each spec
         responses = {}
-        pool = ThreadPoolExecutor(max_workers=threads)
+
+        # if processes == 0, we don't want to use a separate pool at all
+        if processes == 0:
+            def execute(func, **kwargs):
+                return func(**kwargs)
+        else:
+            pool = ProcessPoolExecutor(max_workers=processes)
+            execute = pool.submit
+
         work = {}
         spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
         for spec in self.qc_specifications.values():
             spec_kwargs.update(spec.dict(include={"method", "basis", "program"}))
             spec_kwargs["keywords"] = spec.spec_name
             spec_kwargs["protocols"] = {"wavefunction": spec.store_wavefunction.value}
-            task = pool.submit(collection.compute, **spec_kwargs)
+            task = execute(collection.compute, **spec_kwargs)
             work[task] = spec.spec_name
 
         iterable = as_completed(work)
@@ -825,7 +838,8 @@ class BasicDataset(CommonBase):
         for result in iterable:
             responses[work[result]] = result.result()
 
-        pool.shutdown(wait=True)
+        if processes != 0:
+            pool.shutdown(wait=True)
         return responses
 
     def _add_dataset_entry(
@@ -1368,27 +1382,35 @@ class OptimizationDataset(BasicDataset):
     def submit(
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
-        threads: Optional[int] = None,
+        processes : Optional[int] = None,
         ignore_errors: bool = False,
         verbose: bool = False,
     ) -> Dict:
         """
-         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-         corresponding result class.
+        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
+        corresponding result class.
 
-         Parameters:
-             client: The name of the file containing the client information or the client instance.
-             threads: The number of threads used to contact the client.
-             ignore_errors: If the user wants to ignore basis coverage errors and submit the dataset.
-             verbose: If we should print out useful information during the submission or not.
+        Parameters
+        ----------
+        client : Union[str, ptl.FractalClient, FractalClient]
+            The name of the file containing the client information or the client instance.
+        processes : int
+            Number of processes to use for submission; if set to 0, no separate process pool will be used.
+        ignore_errors : bool
+            If the user wants to ignore basis coverage errors and submit the dataset.
+        verbose : bool
+            If we should print out useful information during the submission or not.
 
-        Returns:
+        Returns
+        -------
              A dictionary of the compute response from the client for each specification submitted.
 
-         Raises:
-             MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
+        Raises
+        ------
+        MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
+
         """
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from concurrent.futures import ProcessPoolExecutor, as_completed
 
         # pre submission checks
         # check for qcspecs
@@ -1431,7 +1453,15 @@ class OptimizationDataset(BasicDataset):
         work = []
         new_entries = 0
         indices = []
-        pool = ThreadPoolExecutor(max_workers=threads)
+
+        # if processes == 0, we don't want to use a separate pool at all
+        if processes == 0:
+            def execute(func, **kwargs):
+                return func(**kwargs)
+        else:
+            pool = ProcessPoolExecutor(max_workers=processes)
+            execute = pool.submit
+
         for index, data in self.dataset.items():
             if len(data.initial_molecules) > 1:
                 # check if the index we have been supplied has a number tag already if so start from this tag
@@ -1439,13 +1469,13 @@ class OptimizationDataset(BasicDataset):
 
                 for j, molecule in enumerate(data.initial_molecules):
                     name = index + f"-{tag + j}"
-                    task = pool.submit(
+                    task = execute(
                         self._add_optimization_entry,
                         *(collection, name, molecule, data),
                     )
                     work.append(task)
             else:
-                task = pool.submit(
+                task = execute(
                     self._add_optimization_entry,
                     *(collection, index, data.initial_molecules[0], data),
                 )
@@ -1473,7 +1503,7 @@ class OptimizationDataset(BasicDataset):
             work = []
             for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
                 spec_kwargs["subset"] = mol_chunk
-                task = pool.submit(collection.compute, spec_name, **spec_kwargs)
+                task = execute(collection.compute, spec_name, **spec_kwargs)
                 work.append(task)
 
             work_list = as_completed(work)
@@ -1626,7 +1656,7 @@ class TorsiondriveDataset(OptimizationDataset):
     def submit(
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
-        threads: Optional[int] = None,
+        processes: Optional[int] = None,
         ignore_errors: bool = False,
         verbose: bool = False,
     ) -> Dict:
@@ -1634,20 +1664,27 @@ class TorsiondriveDataset(OptimizationDataset):
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
         corresponding result class.
 
-        Parameters:
-            client: The name of the file containing the client information or the client instance.
-            threads: The number of threads used to connect with the client.
-            ignore_errors: If the user wants to ignore basis coverage issues and submit the dataset.
-            verbose: If help messages should be printed while submitting the dataset.
+        Parameters
+        ----------
+        client : Union[str, ptl.FractalClient, FractalClient]
+            The name of the file containing the client information or the client instance.
+        processes : int
+            Number of processes to use for submission; if set to 0, no separate process pool will be used.
+        ignore_errors : bool
+            If the user wants to ignore basis coverage errors and submit the dataset.
+        verbose : bool
+            If we should print out useful information during the submission or not.
 
+        Returns
+        -------
+             A dictionary of the compute response from the client for each specification submitted.
 
-        Returns:
-            A dictionary of the compute response from the client for each specification submitted.
+        Raises
+        ------
+        MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
 
-        Raises:
-            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from concurrent.futures import ProcessPoolExecutor, as_completed
 
         # pre submission checks
         # check for qcspecs
@@ -1686,10 +1723,18 @@ class TorsiondriveDataset(OptimizationDataset):
         work = []
         new_entries = 0
         indices = []
-        pool = ThreadPoolExecutor(max_workers=threads)
+
+        # if processes == 0, we don't want to use a separate pool at all
+        if processes == 0:
+            def execute(func, **kwargs):
+                return func(**kwargs)
+        else:
+            pool = ProcessPoolExecutor(max_workers=processes)
+            execute = pool.submit
+
         # start add the molecule to the dataset, multiple conformers/molecules can be used as the starting geometry
         for index, data in self.dataset.items():
-            task = pool.submit(self._add_torsiondrive_entry, *(collection, data))
+            task = execute(self._add_torsiondrive_entry, *(collection, data))
             work.append(task)
 
         # count how many tasks have been made
@@ -1715,7 +1760,7 @@ class TorsiondriveDataset(OptimizationDataset):
             work = []
             for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
                 spec_kwargs["subset"] = mol_chunk
-                task = pool.submit(collection.compute, spec_name, **spec_kwargs)
+                task = execute(collection.compute, spec_name, **spec_kwargs)
                 work.append(task)
 
             work_list = as_completed(work)
