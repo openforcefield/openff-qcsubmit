@@ -22,7 +22,7 @@ dependencies:
   - pyyaml
   - codecov
   - qcportal >=0.13.0
-  - qcengine >=0.15.0
+  - qcengine ==0.17.0
   - psi4 >=1.4a2
   - gau2grid =2.0.3
   - pcmsolver =1.2.1
