@@ -22,13 +22,11 @@ dependencies:
   - pyyaml
   - codecov
   - qcportal
-  - openeye-toolkits =2019.10.2
   - qcfractal
   - torsiondrive
   - fragmenter ==0.0.7
   - basis_set_exchange
   - typing-extensions
-  - pydantic ==1.7.2
 
     # Pip-only installs
 #  - pip:
