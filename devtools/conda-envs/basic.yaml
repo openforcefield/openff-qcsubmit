@@ -14,7 +14,7 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - openforcefield >=0.8.0
+  - openforcefield >=0.8.4
   - openforcefields
   - smirnoff99Frosst
   - openmmforcefields
