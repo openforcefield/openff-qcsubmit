@@ -5,7 +5,7 @@ All of the individual dataset entry types are defined here.
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import openforcefield.topology as off
+import openff.toolkit.topology as off
 import qcelemental as qcel
 from pydantic import Field, validator
 from simtk import unit

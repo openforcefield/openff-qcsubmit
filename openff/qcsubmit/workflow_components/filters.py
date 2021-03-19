@@ -4,12 +4,12 @@ File containing the filters workflow components.
 import re
 from typing import Dict, List, Optional, Set, Union
 
-from openforcefield.topology import Molecule
-from openforcefield.typing.chemistry.environment import (
+from openff.toolkit.topology import Molecule
+from openff.toolkit.typing.chemistry.environment import (
     ChemicalEnvironment,
     SMIRKSParsingError,
 )
-from openforcefield.typing.engines.smirnoff import ForceField
+from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import Field, validator
 from rdkit.Chem.rdMolAlign import AlignMol
 

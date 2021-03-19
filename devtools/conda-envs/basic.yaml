@@ -14,11 +14,11 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - openforcefield >=0.8.4
-  - openforcefields
+  - openff-toolkit
+  - openff-forcefields
   - smirnoff99Frosst
-  - openmmforcefields
-  - qcengine ==0.17.0
+  - openmmforcefields >=0.9.0
+  - qcengine >=0.18.0
   - pyyaml
   - codecov
   - qcportal

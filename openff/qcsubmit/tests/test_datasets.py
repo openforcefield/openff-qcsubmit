@@ -6,7 +6,7 @@ from typing import Tuple
 
 import numpy as np
 import pytest
-from openforcefield.topology import Molecule
+from openff.toolkit.topology import Molecule
 from pydantic import ValidationError
 from simtk import unit
 

@@ -3,8 +3,8 @@ Components to expand stereochemistry and tautomeric states of molecules.
 """
 from typing import List
 
-from openforcefield.topology import Molecule
-from openforcefield.utils.toolkits import OpenEyeToolkitWrapper
+from openff.toolkit.topology import Molecule
+from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper
 from pydantic import Field
 
 from openff.qcsubmit.common_structures import ComponentProperties
