@@ -351,7 +351,7 @@ class QCSpec(ResultsConfig):
         """
         Validate the combination of method, basis and program.
         """
-        from openforcefield.typing.engines.smirnoff import get_available_force_fields
+        from openff.toolkit.typing.engines.smirnoff import get_available_force_fields
         from openmmforcefields.generators.template_generators import (
             GAFFTemplateGenerator,
         )

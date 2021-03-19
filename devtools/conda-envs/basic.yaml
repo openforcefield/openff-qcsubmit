@@ -14,21 +14,19 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - openforcefield >=0.8.4
-  - openforcefields
+  - openff-toolkit
+  - openff-forcefields
   - smirnoff99Frosst
-  - openmmforcefields
-  - qcengine ==0.17.0
+  - openmmforcefields >=0.9.0
+  - qcengine >=0.18.0
   - pyyaml
   - codecov
   - qcportal
-  - openeye-toolkits =2019.10.2
   - qcfractal
   - torsiondrive
   - fragmenter ==0.0.7
   - basis_set_exchange
   - typing-extensions
-  - pydantic ==1.7.2
 
     # Pip-only installs
 #  - pip:

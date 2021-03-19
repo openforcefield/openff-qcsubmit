@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import qcelemental as qcel
 import qcportal as ptl
-from openforcefield.topology import Molecule
+from openff.toolkit.topology import Molecule
 from pydantic import constr, validator
 from qcelemental.models.types import Array
 from qcportal.models import OptimizationRecord, ResultRecord
@@ -747,7 +747,7 @@ class OptimizationEntryResult(ResultsConfig):
         Returns:
             `True` if the connectivity has changed or `False` if it has not.
         """
-        from openforcefield.topology import NotBondedError
+        from openff.toolkit.topology import NotBondedError
 
         # grab the molecule with its bonds
         molecule = self.molecule

@@ -15,22 +15,20 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - openforcefield >=0.8.4
-  - openforcefields
-  - openmmforcefields
+  - openff-toolkit
+  - openff-forcefields
+  - openmmforcefields >=0.9.0
   - smirnoff99Frosst
   - pyyaml
   - codecov
-  - qcportal >=0.13.0
-  - qcengine ==0.17.0
+  - qcportal
+  - qcengine >=0.18.0
   - psi4 >=1.4a2
   - gau2grid =2.0.3
   - pcmsolver =1.2.1
-  - openeye-toolkits =2019.10.2
-  - qcfractal >=0.13.0
+  - qcfractal
   - torsiondrive
   - fragmenter ==0.0.7
-  - pydantic ==1.7.2
   - basis_set_exchange
   - typing-extensions
 

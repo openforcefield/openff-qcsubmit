@@ -2,8 +2,8 @@ import abc
 from typing import Any, Dict, List, Optional
 
 import tqdm
-from openforcefield.topology import Molecule
-from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
+from openff.toolkit.topology import Molecule
+from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
 from pydantic import BaseModel, Field, validator
 from pydantic.main import ModelMetaclass
 from qcelemental.util import which_import
@@ -268,13 +268,11 @@ class ToolkitValidator(BaseModel):
             A dictionary containing the version information about the backend toolkit called to perform the task.
         """
 
-        import openforcefield
-
-        from openff import qcsubmit
+        from openff import qcsubmit, toolkit
 
         provenance = {
-            "Openff-Toolkit": openforcefield.__version__,
-            "Openff-QCSubmit": qcsubmit.__version__,
+            "openff-toolkit": toolkit.__version__,
+            "openff-qcsubmit": qcsubmit.__version__,
         }
 
         if self.toolkit == "rdkit":
@@ -344,13 +342,11 @@ class BasicSettings(BaseModel):
         The basic settings provenance generator.
         """
 
-        import openforcefield
-
-        from openff import qcsubmit
+        from openff import qcsubmit, toolkit
 
         provenance = {
-            "Openff-Toolkit": openforcefield.__version__,
-            "Openff-QCSubmit": qcsubmit.__version__,
+            "openff-toolkit": toolkit.__version__,
+            "openff-qcsubmit": qcsubmit.__version__,
         }
 
         return provenance

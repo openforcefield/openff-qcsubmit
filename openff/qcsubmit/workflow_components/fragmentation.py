@@ -3,7 +3,7 @@ Components that aid with Fragmentation of molecules.
 """
 from typing import Dict, List, Optional, Union
 
-from openforcefield.topology import Molecule
+from openff.toolkit.topology import Molecule
 from pydantic import Field, validator
 from qcelemental.util import which_import
 
