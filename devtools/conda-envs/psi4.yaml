@@ -1,10 +1,11 @@
-name: basic_qcsubmit
+name: test
 
 channels:
   - conda-forge
   - omnia
-  - omnia/label/benchmark
   - defaults
+  - openeye
+  - psi4/label/dev
 
 dependencies:
     # Base depends
@@ -14,18 +15,22 @@ dependencies:
     # Testing
   - pytest
   - pytest-cov
-  - openforcefield =0.8.4rc1
+  - openforcefield >=0.8.4
   - openforcefields
-  - smirnoff99Frosst
   - openmmforcefields
-  - qcengine >=0.15.0
+  - smirnoff99Frosst
   - pyyaml
   - codecov
-  - qcportal
+  - qcportal >=0.13.0
+  - qcengine ==0.17.0
+  - psi4 >=1.4a2
+  - gau2grid =2.0.3
+  - pcmsolver =1.2.1
   - openeye-toolkits =2019.10.2
-  - qcfractal
+  - qcfractal >=0.13.0
   - torsiondrive
-  - fragmenter
+  - fragmenter ==0.0.7
+  - pydantic ==1.7.2
   - basis_set_exchange
   - typing-extensions
 
