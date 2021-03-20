@@ -481,6 +481,7 @@ def test_enumerating_stereoisomers_apply(toolkit):
     else:
         pytest.skip(f"Toolkit {toolkit_name} is not available.")
 
+
 @pytest.mark.parametrize(
     "toolkit",
     [
