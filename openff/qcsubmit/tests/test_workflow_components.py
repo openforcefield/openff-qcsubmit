@@ -4,8 +4,8 @@ Tests for each of the workflow components try to avoid specific openeye function
 from typing import Dict, List
 
 import pytest
-from openforcefield.topology import Molecule
-from openforcefield.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
+from openff.toolkit.topology import Molecule
+from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
 
 from openff.qcsubmit import workflow_components
 from openff.qcsubmit.datasets import ComponentResult
@@ -201,7 +201,7 @@ def test_toolkit_mixin(toolkit):
         test.toolkit = toolkit_name
         prov = test.provenance()
         assert toolkit_name in prov
-        assert "Openff-Toolkit" in prov
+        assert "openff-toolkit" in prov
 
     else:
         pytest.skip(f"Toolkit {toolkit_name} not avilable.")
@@ -237,7 +237,7 @@ def test_standardconformer_generator_validators(toolkit):
         conf_gen.clear_existing = "no"
         assert conf_gen.clear_existing is False
 
-        assert "Openff-Toolkit" in conf_gen.provenance()
+        assert "openff-toolkit" in conf_gen.provenance()
 
     else:
         pytest.skip(f"Toolkit {toolkit} not available.")
@@ -270,7 +270,7 @@ def test_weight_filter_validator():
     assert weight.minimum_weight == 0
 
     assert "openmm_units" in weight.provenance()
-    assert "Openff-Toolkit" in weight.provenance()
+    assert "openff-toolkit" in weight.provenance()
 
 
 def test_weight_filter_apply():
@@ -626,7 +626,7 @@ def test_coverage_filter():
     """
     Make sure the coverage filter removes the correct molecules.
     """
-    from openforcefield.typing.engines.smirnoff import ForceField
+    from openff.toolkit.typing.engines.smirnoff import ForceField
 
     coverage_filter = workflow_components.CoverageFilter()
     coverage_filter.allowed_ids = ["b83"]
@@ -768,7 +768,7 @@ def test_smarts_filter_validator():
     Make sure the validator is checking the allowed and filtered fields have valid smirks strings.
     """
 
-    from openforcefield.typing.chemistry import SMIRKSParsingError
+    from openff.toolkit.typing.chemistry import SMIRKSParsingError
 
     filter = workflow_components.SmartsFilter()
 

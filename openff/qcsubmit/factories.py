@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import tqdm
-from openforcefield import topology as off
+from openff.toolkit import topology as off
 from pydantic import Field, validator
 from qcportal import FractalClient
 from qcportal.models.common_models import DriverEnum
@@ -75,13 +75,11 @@ class BasicDatasetFactory(CommonBase):
             used first when available.
         """
 
-        import openforcefield
-
-        from openff import qcsubmit
+        from openff import qcsubmit, toolkit
 
         provenance = {
-            "qcsubmit": qcsubmit.__version__,
-            "openforcefield": openforcefield.__version__,
+            "openff-qcsubmit": qcsubmit.__version__,
+            "openff-toolkit": toolkit.__version__,
         }
         try:
             import openeye
@@ -438,7 +436,7 @@ class BasicDatasetFactory(CommonBase):
             ```python
             >>> from openff.qcsubmit.factories import BasicDatasetFactory
             >>> from openff.qcsubmit.workflow_components import get_component
-            >>> from openforcefield.topology import Molecule
+            >>> from openff.toolkit.topology import Molecule
             >>> factory = BasicDatasetFactory()
             >>> gen = get_component("StandardConformerGenerator")
             >>> gen.clear_exsiting = True

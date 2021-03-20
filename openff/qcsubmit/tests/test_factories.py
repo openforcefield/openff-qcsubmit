@@ -3,7 +3,7 @@ Tests for building and running workflows, exporting and importing settings.
 """
 
 import pytest
-from openforcefield.topology import Molecule
+from openff.toolkit.topology import Molecule
 from pydantic import ValidationError
 
 from openff.qcsubmit import workflow_components
