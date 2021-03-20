@@ -470,6 +470,8 @@ def test_enumerating_stereoisomers_apply(toolkit):
         mols = get_stereoisomers()
 
         result = enumerate_stereo.apply(mols, processors=1)
+        for mol in mols:
+            assert mol in result.molecules
 
         # make sure no molecules have undefined stereo
         for molecule in result.molecules:
@@ -478,6 +480,7 @@ def test_enumerating_stereoisomers_apply(toolkit):
 
     else:
         pytest.skip(f"Toolkit {toolkit_name} is not available.")
+
 
 @pytest.mark.parametrize(
     "toolkit",
@@ -545,7 +548,7 @@ def test_check_missing_stereo(data):
 )
 def test_enumerating_tautomers_apply(toolkit):
     """
-    Test enumerating tautomers.
+    Test enumerating tautomers and make sue the input molecule is also returned.
     """
 
     toolkit_name, toolkit_class = toolkit
@@ -559,11 +562,11 @@ def test_enumerating_tautomers_apply(toolkit):
 
         result = enumerate_tauts.apply(mols, processors=1)
 
-        # remove the input molecules by filtering
+        # check the input molecule is present
         for mol in mols:
-            result.filter_molecule(mol)
+            assert mol in result.molecules
 
-        assert len(result.molecules) > 0
+        assert result.n_molecules > len(mols)
 
     else:
         pytest.skip(f"Toolkit {toolkit_name} is not available.")
@@ -615,6 +618,7 @@ def test_enumerating_protomers_apply():
     mol = Molecule.from_smiles('Oc2ccc(c1ccncc1)cc2')
     result = enumerate_protomers.apply([mol, ], processors=1)
 
+    assert mol in result.molecules
     # this means that the parent molecule was included
     assert result.n_molecules == 3
 

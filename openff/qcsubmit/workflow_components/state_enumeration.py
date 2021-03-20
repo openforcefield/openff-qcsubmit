@@ -43,7 +43,9 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
-        Enumerate tautomers of the input molecule if no tautomers are found only the input molecule is returned.
+        Enumerate tautomers of the input molecule.
+
+        The input molecules tautomers are enumerated using the desired backend toolkit and are returned along with the input molecule.
 
          Parameters:
             molecules: The list of molecules the component should be applied on.
@@ -62,12 +64,10 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
                 tautomers = molecule.enumerate_tautomers(
                     max_states=self.max_tautomers, toolkit_registry=toolkit
                 )
-
-                if len(tautomers) == 0:
-                    result.add_molecule(molecule)
-                else:
-                    for tautomer in tautomers:
-                        result.add_molecule(tautomer)
+                for tautomer in tautomers:
+                    result.add_molecule(tautomer)
+                # add the input molecule
+                result.add_molecule(molecule=molecule)
 
             except Exception:
                 result.filter_molecule(molecule)
