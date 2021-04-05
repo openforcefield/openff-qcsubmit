@@ -1038,6 +1038,52 @@ class MoleculeAttributes(DatasetConfig):
         ..., description="The standard inchi key given by the inchi program."
     )
 
+    @classmethod
+    def from_openff_molecule(cls, molecule) -> "MoleculeAttributes":
+        """Create the Cmiles metadata for an OpenFF molecule object.
+
+        Parameters:
+            molecule: The molecule for which the cmiles data will be generated.
+
+        Returns:
+            The Cmiles identifiers generated for the input molecule.
+
+        Note:
+            The Cmiles identifiers currently include:
+
+            - `canonical_smiles`
+            - `canonical_isomeric_smiles`
+            - `canonical_explicit_hydrogen_smiles`
+            - `canonical_isomeric_explicit_hydrogen_smiles`
+            - `canonical_isomeric_explicit_hydrogen_mapped_smiles`
+            - `molecular_formula`
+            - `standard_inchi`
+            - `inchi_key`
+        """
+
+        cmiles = {
+            "canonical_smiles": molecule.to_smiles(
+                isomeric=False, explicit_hydrogens=False, mapped=False
+            ),
+            "canonical_isomeric_smiles": molecule.to_smiles(
+                isomeric=True, explicit_hydrogens=False, mapped=False
+            ),
+            "canonical_explicit_hydrogen_smiles": molecule.to_smiles(
+                isomeric=False, explicit_hydrogens=True, mapped=False
+            ),
+            "canonical_isomeric_explicit_hydrogen_smiles": molecule.to_smiles(
+                isomeric=True, explicit_hydrogens=True, mapped=False
+            ),
+            "canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(
+                isomeric=True, explicit_hydrogens=True, mapped=True
+            ),
+            "molecular_formula": molecule.hill_formula,
+            "standard_inchi": molecule.to_inchi(fixed_hydrogens=False),
+            "inchi_key": molecule.to_inchikey(fixed_hydrogens=False),
+        }
+
+        return MoleculeAttributes(**cmiles)
+
 
 class SCFProperties(str, Enum):
     """
