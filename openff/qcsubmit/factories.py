@@ -551,28 +551,7 @@ class BasicDatasetFactory(CommonBase):
             - `inchi_key`
         """
 
-        cmiles = {
-            "canonical_smiles": molecule.to_smiles(
-                isomeric=False, explicit_hydrogens=False, mapped=False
-            ),
-            "canonical_isomeric_smiles": molecule.to_smiles(
-                isomeric=True, explicit_hydrogens=False, mapped=False
-            ),
-            "canonical_explicit_hydrogen_smiles": molecule.to_smiles(
-                isomeric=False, explicit_hydrogens=True, mapped=False
-            ),
-            "canonical_isomeric_explicit_hydrogen_smiles": molecule.to_smiles(
-                isomeric=True, explicit_hydrogens=True, mapped=False
-            ),
-            "canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(
-                isomeric=True, explicit_hydrogens=True, mapped=True
-            ),
-            "molecular_formula": molecule.hill_formula,
-            "standard_inchi": molecule.to_inchi(fixed_hydrogens=False),
-            "inchi_key": molecule.to_inchikey(fixed_hydrogens=False),
-        }
-
-        return MoleculeAttributes(**cmiles)
+        return MoleculeAttributes.from_openff_molecule(molecule)
 
     def create_index(self, molecule: off.Molecule) -> str:
         """
