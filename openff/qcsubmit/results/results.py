@@ -3,15 +3,18 @@ A module which contains convenience classes for referencing, retrieving and filt
 results from a QCFractal instance.
 """
 import abc
-from typing import Callable, Dict, Iterable, List, TypeVar, Union
+from typing import Callable, Dict, Iterable, List, Optional, TypeVar, Union
 
 import qcportal
 from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, validator
 from qcportal.collections.dataset import MoleculeEntry
 from qcportal.models import ResultRecord
-from qcportal.models.common_models import ObjectId
+from qcportal.models.common_models import DriverEnum, ObjectId
 from typing_extensions import Literal
+
+from openff.qcsubmit.common_structures import Metadata
+from openff.qcsubmit.datasets import BasicDataset, OptimizationDataset
 
 T = TypeVar("T")
 S = TypeVar("S")
@@ -258,6 +261,31 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         return cls(entries={client.address: [*result_records.values()]})
 
+    def create_basic_dataset(
+        self,
+        dataset_name: str,
+        description: str,
+        tagline: str,
+        driver: DriverEnum,
+        metadata: Optional[Metadata] = None,
+    ) -> BasicDataset:
+        """Create a basic dataset from the results of the current dataset.
+
+        Notes:
+            * This may be used, for example, to evaluate the hessians of each optimized
+              geometry.
+
+        Parameters:
+            dataset_name: The name that will be given to the new dataset.
+            tagline: The tagline that should be given to the new dataset.
+            description: The description that should be given to the new dataset.
+            metadata: The metadata for the new dataset.
+            driver: The driver to be used on the basic dataset.
+
+        Returns:
+            The created basic dataset.
+        """
+
 
 class TorsionDriveResult(_BaseResult):
     """A class which stores a reference to, and allows the retrieval of, data from
@@ -308,3 +336,28 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             )
 
         return cls(entries={client.address: [*result_records.values()]})
+
+    def create_optimization_dataset(
+        self,
+        dataset_name: str,
+        description: str,
+        tagline: str,
+        metadata: Optional[Metadata] = None,
+    ) -> OptimizationDataset:
+        """Create an optimization dataset from the results of the current torsion drive
+        dataset. This will result in many constrained optimizations for each molecule.
+
+        Note:
+            The final geometry of each torsiondrive constrained optimization is supplied
+            as a starting geometry.
+
+        Parameters:
+            dataset_name: The name that will be given to the new dataset.
+            tagline: The tagline that should be given to the new dataset.
+            description: The description that should be given to the new dataset.
+            metadata: The metadata for the new dataset.
+
+        Returns:
+            The created optimization dataset.
+        """
+        raise NotImplementedError()
