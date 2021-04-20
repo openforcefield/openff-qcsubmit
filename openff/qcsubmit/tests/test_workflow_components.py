@@ -332,7 +332,7 @@ def test_rmsd_filter():
     rmsd_filter = workflow_components.RMSDCutoffConformerFilter(cutoff=1)
     mol = Molecule.from_smiles("CCCC")
     # make a lot of conformers for the molecule
-    mol.generate_conformers(n_conformers=1000, rms_cutoff=0.5 * unit.angstrom, toolkit_registry=RDKitToolkitWrapper())
+    mol.generate_conformers(n_conformers=1000, rms_cutoff=0.05 * unit.angstrom, toolkit_registry=RDKitToolkitWrapper())
     ref_mol = copy.deepcopy(mol)
     result = rmsd_filter.apply([mol, ], processors=1)
     # now make sure the number of conformers is different
