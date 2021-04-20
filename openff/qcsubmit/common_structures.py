@@ -897,8 +897,9 @@ class IndexCleaner:
     @staticmethod
     def _clean_index(index: str) -> Tuple[str, int]:
         """
-        Take an index and clean it by checking if it already has an enumerator in it return the core index and any
-        numeric tags if no tag is found the tag is set to 0.
+        Take an index and clean it by checking if it already has an enumerator in it.
+        Return the core index and any numeric tags.
+        If no tag is found the tag is set to 0.
 
         Parameters:
             index: The index for the entry which should be checked, if no numeric tag can be found return 0.

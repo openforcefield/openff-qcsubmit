@@ -264,7 +264,140 @@ class ComponentResult:
         return f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' filtered='{self.n_filtered}'>"
 
 
-class BasicDataset(CommonBase):
+class DatasetBase(CommonBase):
+
+    def submit(
+        self,
+        client: Union[str, ptl.FractalClient, FractalClient],
+        processes: Optional[int] = None,
+        ignore_errors: bool = False,
+        verbose: bool = False,
+        chunk_size: int = 100,
+    ) -> Dict:
+        """
+        Submit the dataset to a QCFractal server.
+
+        Parameters
+        ----------
+        client : Union[str, ptl.FractalClient]
+            The name of the file containing the client information or an actual client instance.
+        processes : int
+            Number of processes to use for submission; if set to 0, no separate process pool will be used.
+        ignore_errors : bool, default=False
+            If the user wants to submit the compute regardless of errors set this to True.
+            Mainly to override basis coverage.
+        chunk_size : int, default = 100
+            Max number of molecules or molecules+specs to include in individual server calls.
+
+        Returns
+        -------
+        A dictionary of the compute response from the client for each specification submitted.
+
+        Raises
+        ------
+        MissingBasisCoverageError
+            If the chosen basis set does not cover some of the elements in the dataset.
+
+        """
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+
+        # pre submission checks
+        # make sure we have some QCSpec to submit
+        self._check_qc_specs()
+        # basis set coverage check
+        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
+
+        # get client instance
+        target_client = self._activate_client(client)
+
+        # see if collection already exists
+        # if so, we'll extend it
+        # if not, we'll create a new one
+        try:
+            collection = target_client.get_collection(
+                    self.dataset_type, self.dataset_name)
+        except KeyError:
+            self.metadata.validate_metadata(raise_errors=True)
+            collection = self._generate_collection(client=target_client)
+
+        # create specifications
+        procedure_spec = self._get_procedure_spec()
+        for spec in self.qc_specifications.values():
+            self.add_dataset_specification(
+                spec=spec, procedure_spec=procedure_spec, collection=collection)
+
+        # add the molecules to the database
+        new_entries = 0
+        indices = []
+        for i, (index, data) in enumerate(self.dataset.items()):
+            if len(data.initial_molecules) > 1:
+
+                # if we hit the chunk size, we upload to the server
+                if (i % chunk_size) == 0:
+                    collection.save()
+
+                # check if the index has a number tag
+                # if so, start from this tag
+                index, tag = self._clean_index(index=index)
+
+                for j, molecule in enumerate(data.initial_molecules):
+                    name = index + f"-{tag + j}"
+                    new_entries += self._add_entry(
+                        dataset=collection, name=name, molecule=molecule,
+                        data=data
+                    )
+                    indices.append(index)
+            else:
+                new_entries += self._add_entry(
+                    dataset=collection, name=index,
+                    molecule=data.initial_molecules[0],
+                    data=data
+                )
+                indices.append(index)
+
+        # upload remainder molecules to the server
+        collection.save()
+        if verbose:
+            print(f"Number of new entries: {new_entries}/{self.n_records}")
+
+
+        # set up process pool for comput submission
+        # if processes == 0, perform in-process, no pool
+        if processes == 0:
+            def execute(func, **kwargs):
+                return func(**kwargs)
+        else:
+            pool = ProcessPoolExecutor(max_workers=processes)
+            execute = pool.submit
+
+        # add compute specs to the collection
+        responses = {}
+        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
+        for spec_name in self.qc_specifications.keys():
+            spec_tasks = 0
+            work = []
+            for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
+                spec_kwargs["subset"] = mol_chunk
+                task = execute(collection.compute, spec_name, **spec_kwargs)
+                work.append(task)
+
+            work_list = as_completed(work)
+            work_list = tqdm.tqdm(
+                work_list, total=len(work), ncols=80,
+                desc="Tasks", disable=(not verbose)
+            )
+            for result in work_list:
+                spec_tasks += result.result()
+
+            responses[spec_name] = spec_tasks
+
+        # shut down process pool, if present
+        if processes != 0:
+            pool.shutdown(wait=True)
+        return responses
+
+
+class BasicDataset(DatasetBase):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to
     submission.
@@ -730,7 +863,7 @@ class BasicDataset(CommonBase):
 
         Parameters
         ----------
-        client : Union[str, qcportal.FractalClient]
+        client : Union[str, ptl.FractalClient]
             The name of the file containing the client information or an actual client instance.
         processes : int
             Number of processes to use for submission; if set to 0, no separate process pool will be used.
