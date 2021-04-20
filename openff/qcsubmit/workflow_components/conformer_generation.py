@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 import simtk.unit as unit
-from openforcefield.topology import Molecule
+from openff.toolkit.topology import Molecule
 from pydantic import Field
 
 from openff.qcsubmit.common_structures import ComponentProperties

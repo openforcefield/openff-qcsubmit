@@ -1,7 +1,7 @@
 from typing import Dict, Generator, List, Union
 
-from openforcefield import topology as off
-from openforcefield.utils.toolkits import (
+from openff.toolkit import topology as off
+from openff.toolkit.utils.toolkits import (
     RDKitToolkitWrapper,
     UndefinedStereochemistryError,
 )

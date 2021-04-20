@@ -5,7 +5,7 @@ from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 import qcelemental as qcel
 import qcportal as ptl
 import tqdm
-from openforcefield import topology as off
+from openff.toolkit import topology as off
 from pydantic import Field, constr, validator
 from qcfractal.interface import FractalClient
 from qcportal.models.common_models import (
@@ -921,7 +921,7 @@ class BasicDataset(CommonBase):
             parameter type.
         """
 
-        from openforcefield.typing.engines.smirnoff import ForceField
+        from openff.toolkit.typing.engines.smirnoff import ForceField
 
         coverage = {}
         param_types = {
@@ -966,7 +966,7 @@ class BasicDataset(CommonBase):
             columns: The number of molecules per row.
             toolkit: The option to specify the backend toolkit used to produce the pdf file.
         """
-        from openforcefield.utils.toolkits import OPENEYE_AVAILABLE, RDKIT_AVAILABLE
+        from openff.toolkit.utils.toolkits import OPENEYE_AVAILABLE, RDKIT_AVAILABLE
 
         toolkits = {
             "openeye": (OPENEYE_AVAILABLE, self._create_openeye_pdf),

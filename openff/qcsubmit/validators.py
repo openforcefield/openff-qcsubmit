@@ -5,7 +5,7 @@ Centralise the validators for easy reuse between factories and datasets.
 from typing import List, Tuple
 
 import qcelemental as qcel
-from openforcefield import topology as off
+from openff.toolkit import topology as off
 
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.exceptions import (

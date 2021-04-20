@@ -5,7 +5,7 @@ Here we use the qcfractal fractal_compute_server fixture to set up the database.
 """
 
 import pytest
-from openforcefield.topology import Molecule
+from openff.toolkit.topology import Molecule
 from qcengine.testing import has_program
 from qcportal import FractalClient
 
