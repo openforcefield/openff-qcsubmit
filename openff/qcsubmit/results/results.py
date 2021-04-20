@@ -3,18 +3,22 @@ A module which contains convenience classes for referencing, retrieving and filt
 results from a QCFractal instance.
 """
 import abc
-from typing import Callable, Dict, Iterable, List, Optional, TypeVar, Union
+from collections import defaultdict
+from typing import Callable, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 import qcportal
 from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, validator
+from qcportal import FractalClient
 from qcportal.collections.dataset import MoleculeEntry
-from qcportal.models import ResultRecord
+from qcportal.models import OptimizationRecord, ResultRecord, TorsionDriveRecord
 from qcportal.models.common_models import DriverEnum, ObjectId
+from qcportal.models.records import RecordBase
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import Metadata
 from openff.qcsubmit.datasets import BasicDataset, OptimizationDataset
+from openff.qcsubmit.exceptions import RecordTypeError
 
 T = TypeVar("T")
 S = TypeVar("S")
@@ -30,10 +34,16 @@ class _BaseResult(BaseModel, abc.ABC):
         ...,
         description="The unique id assigned to the record referenced by this result.",
     )
+
     cmiles: str = Field(
         ...,
         description="The canonical, isomeric, explicit hydrogen, mapped SMILES "
         "representation of the molecule that this record was created for.",
+    )
+    inchi_key: str = Field(
+        ...,
+        description="The InChI key generated from the ``cmiles`` representation. This "
+        "may be used as a hash for the molecule referenced by this record.",
     )
 
     @property
@@ -51,18 +61,24 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
     entries: Dict[str, List[_BaseResult]] = Field(
         ...,
-        description="The entries stored in this collection in a dictionary of the form"
+        description="The entries stored in this collection in a dictionary of the form "
         "``collection.entries['qcfractal_address'] = [record_1, ..., record_N]``.",
     )
 
     @validator("entries")
     def _validate_entries(cls, values):
 
-        record_ids = {value.record_id for value in values}
-        assert len(values) == len(record_ids), "duplicate entries were found"
+        for client_address, entries in values.items():
+
+            record_ids = {entry.record_id for entry in entries}
+            assert len(entries) == len(
+                record_ids
+            ), f"duplicate entries were found for {client_address}"
+
+        return values
 
     @property
-    def n_entries(self) -> int:
+    def n_results(self) -> int:
         """Returns the number of results in this collection."""
         return sum(len(entries) for entries in self.entries.values())
 
@@ -70,7 +86,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
     def n_molecules(self) -> int:
         """Returns the number of unique molecules referenced by this collection."""
         return len(
-            {entry.cmiles for entries in self.entries.values() for entry in entries}
+            {entry.inchi_key for entries in self.entries.values() for entry in entries}
         )
 
     @staticmethod
@@ -112,8 +128,33 @@ class _BaseResultCollection(BaseModel, abc.ABC):
         """
         raise NotImplementedError()
 
-    @abc.abstractmethod
-    def to_records(self) -> List[ResultRecord]:
+    @classmethod
+    def _validate_record_types(
+        cls, records: List[ResultRecord], expected_type: Type[RecordBase]
+    ):
+        """A helper method which raises a ``RecordTypeError`` if all records in the list
+        are not of the specified type."""
+
+        incorrect_types = [
+            record for record in records if not isinstance(record, expected_type)
+        ]
+
+        if len(incorrect_types) > 0:
+
+            incorrect_types_dict = defaultdict(set)
+
+            for record in incorrect_types:
+                incorrect_types_dict[record.__class__.__name__].add(record.id)
+
+            raise RecordTypeError(
+                f"The collection contained a records which were of the wrong type. "
+                f"This collection should only store {expected_type.__name__} records."
+                f"{dict(**incorrect_types_dict)}"
+            )
+
+    def to_records(
+        self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
+    ):
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection.
 
@@ -121,7 +162,32 @@ class _BaseResultCollection(BaseModel, abc.ABC):
         -----
         * The records are retrieved from the server in batches
         """
-        raise NotImplementedError()
+
+        clients = (
+            {}
+            if client is None
+            else {client.address.rstrip("/"): client}
+            if isinstance(client, FractalClient)
+            else {c.address.rstrip("/"): c for c in client}
+        )
+
+        records = []
+
+        for client_address, entries in self.entries.items():
+
+            client = clients.get(
+                client_address.rstrip("/"), FractalClient(client_address)
+            )
+
+            records.extend(
+                self._query_in_chunks(
+                    client.query_procedures,
+                    [entry.record_id for entry in entries],
+                    client.query_limit,
+                )
+            )
+
+        return records
 
 
 class BasicResult(_BaseResult):
@@ -137,7 +203,7 @@ class BasicResultCollection(_BaseResultCollection):
 
     entries: Dict[str, List[BasicResult]] = Field(
         ...,
-        description="The entries stored in this collection in a dictionary of the form"
+        description="The entries stored in this collection in a dictionary of the form "
         "``collection.entries['qcfractal_address'] = [record_1, ..., record_N]``.",
     )
 
@@ -202,6 +268,15 @@ class BasicResultCollection(_BaseResultCollection):
                         cmiles=molecules[entries[index].molecule_id].extras[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
+                        inchi_key=Molecule.from_mapped_smiles(
+                            molecules[entries[index].molecule_id].extras[
+                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                            ],
+                            # Undefined stereochemistry is not expected however there
+                            # may be some TK specific edge cases we don't want
+                            # exceptions for such as OE and nitrogen stereochemistry.
+                            allow_undefined_stereo=True,
+                        ).to_inchikey(fixed_hydrogens=False),
                     )
                     for index, (result,) in query.iterrows()
                     if result.status.value.upper() == "COMPLETE"
@@ -209,6 +284,15 @@ class BasicResultCollection(_BaseResultCollection):
             )
 
         return cls(entries={client.address: [*result_records.values()]})
+
+    def to_records(
+        self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
+    ) -> List[ResultRecord]:
+
+        records = super(BasicResultCollection, self).to_records(client)
+        self._validate_record_types(records, ResultRecord)
+
+        return records
 
 
 class OptimizationResult(_BaseResult):
@@ -224,7 +308,7 @@ class OptimizationResultCollection(_BaseResultCollection):
 
     entries: Dict[str, List[OptimizationResult]] = Field(
         ...,
-        description="The entries stored in this collection in a dictionary of the form"
+        description="The entries stored in this collection in a dictionary of the form "
         "``collection.entries['qcfractal_address'] = [record_1, ..., record_N]``.",
     )
 
@@ -253,6 +337,7 @@ class OptimizationResultCollection(_BaseResultCollection):
                         cmiles=entry.attributes[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
+                        inchi_key=entry.attributes["inchi_key"],
                     )
                     for entry in dataset.data.records.values()
                     if query[entry.name].status.value.upper() == "COMPLETE"
@@ -260,6 +345,15 @@ class OptimizationResultCollection(_BaseResultCollection):
             )
 
         return cls(entries={client.address: [*result_records.values()]})
+
+    def to_records(
+        self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
+    ) -> List[OptimizationRecord]:
+
+        records = super(OptimizationResultCollection, self).to_records(client)
+        self._validate_record_types(records, OptimizationRecord)
+
+        return records
 
     def create_basic_dataset(
         self,
@@ -285,6 +379,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         Returns:
             The created basic dataset.
         """
+        raise NotImplementedError()
 
 
 class TorsionDriveResult(_BaseResult):
@@ -300,7 +395,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
     entries: Dict[str, List[TorsionDriveResult]] = Field(
         ...,
-        description="The entries stored in this collection in a dictionary of the form"
+        description="The entries stored in this collection in a dictionary of the form "
         "``collection.entries['qcfractal_address'] = [record_1, ..., record_N]``.",
     )
 
@@ -329,6 +424,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                         cmiles=entry.attributes[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
+                        inchi_key=entry.attributes["inchi_key"],
                     )
                     for entry in dataset.data.records.values()
                     if query[entry.name].status.value.upper() == "COMPLETE"
@@ -336,6 +432,15 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             )
 
         return cls(entries={client.address: [*result_records.values()]})
+
+    def to_records(
+        self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
+    ) -> List[TorsionDriveRecord]:
+
+        records = super(TorsionDriveResultCollection, self).to_records(client)
+        self._validate_record_types(records, TorsionDriveRecord)
+
+        return records
 
     def create_optimization_dataset(
         self,
