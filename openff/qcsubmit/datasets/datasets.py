@@ -1,5 +1,6 @@
 import json
 import os
+import abc
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 import qcelemental as qcel
@@ -264,7 +265,14 @@ class ComponentResult:
         return f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' filtered='{self.n_filtered}'>"
 
 
-class DatasetBase(CommonBase):
+class DatasetBaseMixin(abc.ABC):
+
+    def _add_entries(self):
+        pass
+
+    def _add_entry(self):
+        pass
+
     def submit(
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
@@ -358,26 +366,27 @@ class DatasetBase(CommonBase):
                 task = execute(collection.compute, **spec_kwargs)
                 work.append(task)
 
-            work_list = as_completed(work)
-            work_list = tqdm.tqdm(
-                work_list,
-                total=len(work),
-                ncols=80,
-                desc="Tasks",
-                disable=(not verbose),
-            )
-            for result in work_list:
-                spec_tasks += result.result()
+            if processes is not None:
+                work_list = as_completed(work)
+                work_list = tqdm.tqdm(
+                    work_list,
+                    total=len(work),
+                    ncols=80,
+                    desc="Tasks",
+                    disable=(not verbose),
+                )
+                for result in work_list:
+                    spec_tasks += result.result()
 
             responses[spec_name] = spec_tasks
 
         # shut down process pool, if present
-        if processes != 0:
+        if processes is not None:
             pool.shutdown(wait=True)
         return responses
 
 
-class BasicDataset(DatasetBase):
+class BasicDataset(DatasetBaseMixin, CommonBase):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to
     submission.
@@ -885,11 +894,13 @@ class BasicDataset(DatasetBase):
         indices = []
 
         for i, (index, data) in enumerate(self.dataset.items()):
+
+            # if we hit the chunk size, we upload to the server
+            if (i % chunk_size) == 0:
+                collection.save()
+
             if len(data.initial_molecules) > 1:
 
-                # if we hit the chunk size, we upload to the server
-                if (i % chunk_size) == 0:
-                    collection.save()
 
                 # check if the index has a number tag
                 # if so, start from this tag
