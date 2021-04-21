@@ -305,7 +305,7 @@ class DatasetBase(CommonBase):
         # make sure we have some QCSpec to submit
         self._check_qc_specs()
         # basis set coverage check
-        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
+        self._get_missing_basis_coverage(raise_errors=(not ignore_errors))
 
         # get client instance
         target_client = self._activate_client(client)
@@ -317,7 +317,7 @@ class DatasetBase(CommonBase):
             collection = target_client.get_collection(
                     self.dataset_type, self.dataset_name)
         except KeyError:
-            self.metadata.validate_metadata(raise_errors=True)
+            self._validate_metadata()
             collection = self._generate_collection(client=target_client)
 
         # create specifications
@@ -327,41 +327,11 @@ class DatasetBase(CommonBase):
                 spec=spec, procedure_spec=procedure_spec, collection=collection)
 
         # add the molecules to the database
-        new_entries = 0
-        indices = []
-        for i, (index, data) in enumerate(self.dataset.items()):
-            if len(data.initial_molecules) > 1:
-
-                # if we hit the chunk size, we upload to the server
-                if (i % chunk_size) == 0:
-                    collection.save()
-
-                # check if the index has a number tag
-                # if so, start from this tag
-                index, tag = self._clean_index(index=index)
-
-                for j, molecule in enumerate(data.initial_molecules):
-                    name = index + f"-{tag + j}"
-                    new_entries += self._add_entry(
-                        dataset=collection, name=name, molecule=molecule,
-                        data=data
-                    )
-                    indices.append(index)
-            else:
-                new_entries += self._add_entry(
-                    dataset=collection, name=index,
-                    molecule=data.initial_molecules[0],
-                    data=data
-                )
-                indices.append(index)
-
-        # upload remainder molecules to the server
-        collection.save()
+        indices, new_entries = self._add_entries(collection, chunk_size)
         if verbose:
             print(f"Number of new entries: {new_entries}/{self.n_records}")
 
-
-        # set up process pool for comput submission
+        # set up process pool for compute submission
         # if processes == 0, perform in-process, no pool
         if processes == 0:
             def execute(func, **kwargs):
@@ -370,15 +340,19 @@ class DatasetBase(CommonBase):
             pool = ProcessPoolExecutor(max_workers=processes)
             execute = pool.submit
 
+        # if we have no indices, such as with a pure compute submission,
+        # then get all of the existing ones and use these
+        if not indices:
+            indices = self._get_indices(collection)
+
         # add compute specs to the collection
         responses = {}
-        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
-        for spec_name in self.qc_specifications.keys():
+        for spec_name, spec in self.qc_specifications.items():
             spec_tasks = 0
             work = []
             for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
-                spec_kwargs["subset"] = mol_chunk
-                task = execute(collection.compute, spec_name, **spec_kwargs)
+                spec_kwargs = self._compute_kwargs(spec, mol_chunk)
+                task = execute(collection.compute, **spec_kwargs)
                 work.append(task)
 
             work_list = as_completed(work)
@@ -850,54 +824,13 @@ class BasicDataset(DatasetBase):
         if not raise_errors:
             return basis_report
 
-    def submit(
-        self,
-        client: Union[str, ptl.FractalClient, FractalClient],
-        processes: Optional[int] = None,
-        ignore_errors: bool = False,
-        verbose: bool = False,
-    ) -> Dict:
-        """
-        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-        corresponding result class.
+    def _validate_metadata(self):
+        self.metadata.validate_metadata(raise_errors=True)
 
-        Parameters
-        ----------
-        client : Union[str, ptl.FractalClient]
-            The name of the file containing the client information or an actual client instance.
-        processes : int
-            Number of processes to use for submission; if set to 0, no separate process pool will be used.
-        ignore_errors : bool, default=False
-            If the user wants to submit the compute regardless of errors set this to True. Mainly to override basis coverage.
-
-        Returns
-        -------
-             A dictionary of the compute response from the client for each specification submitted.
-
-        Raises
-        ------
-        MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
-
-        """
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-
-        # pre submission checks
-        # make sure we have some QCSpec to submit
-        self._check_qc_specs()
-        # basis set coverage check
-        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
-
-        target_client = self._activate_client(client)
-        # work out if we are extending a collection
-        try:
-            collection = target_client.get_collection("Dataset", self.dataset_name)
-        except KeyError:
-            # we are making a new dataset so make sure the metadata is complete
-            # we hard code the default to be psi4 but each spec can submit their own program to use
-            self.metadata.validate_metadata(raise_errors=True)
-            collection = ptl.collections.Dataset(
+    def _generate_collection(self, client):
+        collection = ptl.collections.Dataset(
                 name=self.dataset_name,
-                client=target_client,
+                client=client,
                 default_driver=self.driver,
                 default_program="psi4",
                 tagline=self.dataset_tagline,
@@ -907,82 +840,87 @@ class BasicDataset(DatasetBase):
                 metadata=self.metadata.dict(),
             )
 
-        # here we need to add a spec for each program and set the default
-        for spec in self.qc_specifications.values():
-            # generate the keyword set
-            kw = self._get_spec_keywords(spec=spec)
-            try:
-                # try and add the keywords if present then continue
-                collection.add_keywords(
-                    alias=spec.spec_name,
-                    program=spec.program,
-                    keyword=kw,
-                    default=False,
-                )
-                collection.save()
-            except (KeyError, AttributeError):
-                pass
+        return collection
 
+    def _get_procedure_spec(self):
+        """Needed for `submit` usage.
+        """
+        return None
+
+    def _get_indices(self, collection):
+        return collection.get_index()
+
+    def add_dataset_specification(self,
+            spec, procedure_spec, collection):
+        # generate the keyword set
+        kw = self._get_spec_keywords(spec=spec)
+        try:
+            # try and add the keywords if present then continue
+            collection.add_keywords(
+                alias=spec.spec_name,
+                program=spec.program,
+                keyword=kw,
+                default=False,
+            )
+            collection.save()
+        except (KeyError, AttributeError):
+            pass
+
+    def _compute_kwargs(self, spec, mol_chunk):
+        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
+        spec_kwargs.update(spec.dict(include={"method", "basis", "program"}))
+        spec_kwargs["keywords"] = spec.spec_name
+        spec_kwargs["protocols"] = {"wavefunction": spec.store_wavefunction.value}
+        
+        # NOTE: requires a PR on QCFractal to make this work for `Dataset`
+        spec_kwargs['subset'] = mol_chunk
+        return spec_kwargs
+
+    def _add_entries(self, collection, chunk_size):
         new_entries = 0
-        # now add the molecules to the database
-        for index, data in self.dataset.items():
+        indices = []
+
+        for i, (index, data) in enumerate(self.dataset.items()):
             if len(data.initial_molecules) > 1:
-                # check if the index we have been supplied has a number tag already if so start from this tag
+
+                # if we hit the chunk size, we upload to the server
+                if (i % chunk_size) == 0:
+                    collection.save()
+
+                # check if the index has a number tag
+                # if so, start from this tag
                 index, tag = self._clean_index(index=index)
 
                 for j, molecule in enumerate(data.initial_molecules):
                     name = index + f"-{tag + j}"
-                    new_entries += self._add_dataset_entry(
-                        dataset=collection, name=name, molecule=molecule
+                    new_entries += self._add_entry(
+                        dataset=collection, name=name, molecule=molecule,
+                        data=data
                     )
+                    indices.append(index)
             else:
-                new_entries += self._add_dataset_entry(
-                    dataset=collection, name=index, molecule=data.initial_molecules[0]
+                new_entries += self._add_entry(
+                    dataset=collection, name=index,
+                    molecule=data.initial_molecules[0],
+                    data=data
                 )
+                indices.append(index)
 
-        # save the final dataset
+        # upload remainder molecules to the server
         collection.save()
-        if verbose:
-            print(f"Number of new entries: {new_entries}/{self.n_records}")
-        # submit the calculations for each spec
-        responses = {}
 
-        # if processes == 0, we don't want to use a separate pool at all
-        if processes == 0:
-            def execute(func, **kwargs):
-                return func(**kwargs)
-        else:
-            pool = ProcessPoolExecutor(max_workers=processes)
-            execute = pool.submit
+        return indices, new_entries
 
-        work = {}
-        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
-        for spec in self.qc_specifications.values():
-            spec_kwargs.update(spec.dict(include={"method", "basis", "program"}))
-            spec_kwargs["keywords"] = spec.spec_name
-            spec_kwargs["protocols"] = {"wavefunction": spec.store_wavefunction.value}
-            task = execute(collection.compute, **spec_kwargs)
-            work[task] = spec.spec_name
-
-        iterable = as_completed(work)
-        iterable = tqdm.tqdm(
-            iterable, total=len(work), ncols=80, desc="Tasks", disable=not verbose
-        )
-        for result in iterable:
-            responses[work[result]] = result.result()
-
-        if processes != 0:
-            pool.shutdown(wait=True)
-        return responses
-
-    def _add_dataset_entry(
+    def _add_entry(
         self,
         dataset: ptl.collections.Dataset,
         name: str,
         molecule: qcel.models.Molecule,
+        data: dict
     ) -> bool:
         """
-        Try and add a molecule to the basic dataset and return if we were successful or not.
+        Attempt to add molecule the dataset.
+        Return `True` if successful, `False` otherwise.
         """
         try:
             dataset.add_entry(name=name, molecule=molecule)
@@ -1456,7 +1394,7 @@ class OptimizationDataset(BasicDataset):
     def add_dataset_specification(
         self,
         spec: QCSpec,
-        opt_spec: OptimizationSpecification,
+        procedure_spec: OptimizationSpecification,
         collection: Union[
             ptl.collections.OptimizationDataset, ptl.collections.TorsionDriveDataset
         ],
@@ -1490,7 +1428,7 @@ class OptimizationDataset(BasicDataset):
             collection_spec = collection.get_specification(name=spec.spec_name)
             # check they are the same
             if (
-                collection_spec.optimization_spec == opt_spec
+                collection_spec.optimization_spec == procedure_spec 
                 and qcportal_spec == collection_spec.qc_spec
             ):
                 # the spec is already there and is the same so just skip adding it
@@ -1505,153 +1443,45 @@ class OptimizationDataset(BasicDataset):
             # the spec either has not been added or has not been used so set the new default
             collection.add_specification(
                 name=spec.spec_name,
-                optimization_spec=opt_spec,
+                optimization_spec=procedure_spec,
                 qc_spec=qcportal_spec,
                 description=spec.spec_description,
                 overwrite=True,
             )
             return True
 
-    def submit(
-        self,
-        client: Union[str, ptl.FractalClient, FractalClient],
-        processes : Optional[int] = None,
-        ignore_errors: bool = False,
-        verbose: bool = False,
-    ) -> Dict:
-        """
-        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-        corresponding result class.
-
-        Parameters
-        ----------
-        client : Union[str, ptl.FractalClient, FractalClient]
-            The name of the file containing the client information or the client instance.
-        processes : int
-            Number of processes to use for submission; if set to 0, no separate process pool will be used.
-        ignore_errors : bool
-            If the user wants to ignore basis coverage errors and submit the dataset.
-        verbose : bool
-            If we should print out useful information during the submission or not.
-
-        Returns
-        -------
-             A dictionary of the compute response from the client for each specification submitted.
-
-        Raises
-        ------
-        MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
-
-        """
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-
-        # pre submission checks
-        # check for qcspecs
-        self._check_qc_specs()
-        # basis set coverage check
-        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
-
-        target_client = self._activate_client(client)
-        # work out if we are extending a collection
-        try:
-            collection = target_client.get_collection(
-                "OptimizationDataset", self.dataset_name
+    def _validate_metadata(self):
+        # we are making a new dataset so make sure the url metadata is supplied
+        if self.metadata.long_description_url is None:
+            raise DatasetInputError(
+                "Please provide a long_description_url for the metadata before submitting."
             )
-        except KeyError:
-            # we are making a new dataset so make sure the url metadata is supplied
-            if self.metadata.long_description_url is None:
-                raise DatasetInputError(
-                    "Please provide a long_description_url for the metadata before submitting."
-                )
 
-            collection = ptl.collections.OptimizationDataset(
+    def _generate_collection(self, client):
+        collection = ptl.collections.OptimizationDataset(
                 name=self.dataset_name,
-                client=target_client,
+                client=client,
                 tagline=self.dataset_tagline,
                 tags=self.dataset_tags,
                 description=self.description,
                 provenance=self.provenance,
                 metadata=self.metadata.dict(),
             )
+        return collection
 
-        # create the optimization specification
-        opt_spec = self.optimization_procedure.get_optimzation_spec()
-        # create the qc specification and add them all
-        for spec in self.qc_specifications.values():
-            self.add_dataset_specification(
-                spec=spec, opt_spec=opt_spec, collection=collection
-            )
+    def _get_procedure_spec(self):
+        return self.optimization_procedure.get_optimzation_spec()
 
-        # start a thread pool worker for submissions
-        work = []
-        new_entries = 0
-        indices = []
+    def _get_indices(self, collection):
+        return collection.df.index.tolist()
 
-        # if processes == 0, we don't want to use a separate pool at all
-        if processes == 0:
-            def execute(func, **kwargs):
-                return func(**kwargs)
-        else:
-            pool = ProcessPoolExecutor(max_workers=processes)
-            execute = pool.submit
-
-        for index, data in self.dataset.items():
-            if len(data.initial_molecules) > 1:
-                # check if the index we have been supplied has a number tag already if so start from this tag
-                index, tag = self._clean_index(index=index)
-
-                for j, molecule in enumerate(data.initial_molecules):
-                    name = index + f"-{tag + j}"
-                    task = execute(
-                        self._add_optimization_entry,
-                        *(collection, name, molecule, data),
-                    )
-                    work.append(task)
-            else:
-                task = execute(
-                    self._add_optimization_entry,
-                    *(collection, index, data.initial_molecules[0], data),
-                )
-                work.append(task)
-
-        # count how many tasks have been made
-        for task in as_completed(work):
-            new_index, result = task.result()
-            new_entries += int(result)
-            indices.append(new_index)
-
-        if verbose:
-            print(f"Number of new entries: {new_entries}/{self.n_records}")
-        collection.save()
-        # if we have no new indices grab them all from the dataset
-        if not indices:
-            indices = list(collection.df.index)
-
-        responses = {}
-        chunk_size = 100
-        # submit the calculations for each spec
+    def _compute_kwargs(self, spec, mol_chunk):
         spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
-        for spec_name in self.qc_specifications.keys():
-            spec_tasks = 0
-            work = []
-            for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
-                spec_kwargs["subset"] = mol_chunk
-                task = execute(collection.compute, spec_name, **spec_kwargs)
-                work.append(task)
+        spec_kwargs["subset"] = mol_chunk
+        spec_kwargs['specification'] = spec.spec_name
+        return spec_kwargs
 
-            work_list = as_completed(work)
-            work_list = tqdm.tqdm(
-                work_list, total=len(work), ncols=80, desc="Tasks", disable=not verbose
-            )
-            for result in work_list:
-                spec_tasks += result.result()
-
-            responses[spec_name] = spec_tasks
-
-        pool.shutdown(wait=True)
-        return responses
-
-    def _add_optimization_entry(
+    def _add_entry(
         self,
         dataset: ptl.collections.OptimizationDataset,
         name: str,
@@ -1786,136 +1616,47 @@ class TorsiondriveDataset(OptimizationDataset):
         """
         return len(self.dataset)
 
-    def submit(
-        self,
-        client: Union[str, ptl.FractalClient, FractalClient],
-        processes: Optional[int] = None,
-        ignore_errors: bool = False,
-        verbose: bool = False,
-    ) -> Dict:
-        """
-        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-        corresponding result class.
+    def _validate_metadata(self):
+        self.metadata.validate_metadata(raise_errors=True)
 
-        Parameters
-        ----------
-        client : Union[str, ptl.FractalClient, FractalClient]
-            The name of the file containing the client information or the client instance.
-        processes : int
-            Number of processes to use for submission; if set to 0, no separate process pool will be used.
-        ignore_errors : bool
-            If the user wants to ignore basis coverage errors and submit the dataset.
-        verbose : bool
-            If we should print out useful information during the submission or not.
-
-        Returns
-        -------
-             A dictionary of the compute response from the client for each specification submitted.
-
-        Raises
-        ------
-        MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
-
-        """
-        from concurrent.futures import ProcessPoolExecutor, as_completed
-
-        # pre submission checks
-        # check for qcspecs
-        self._check_qc_specs()
-        # basis set coverage check
-        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
-
-        target_client = self._activate_client(client)
-        # work out if we are extending a collection
-        try:
-            collection = target_client.get_collection(
-                "TorsionDriveDataset", self.dataset_name
-            )
-        except KeyError:
-            # we are making a new dataset so make sure the metadata is complete
-            self.metadata.validate_metadata(raise_errors=True)
-
-            collection = ptl.collections.TorsionDriveDataset(
-                name=self.dataset_name,
-                client=target_client,
+    def _generate_collection(self, client):
+        collection = ptl.collections.TorsionDriveDataset(
+                name=self.datkaset_name,
+                client=client,
                 tagline=self.dataset_tagline,
                 tags=self.dataset_tags,
                 description=self.description,
                 provenance=self.provenance,
                 metadata=self.metadata.dict(),
             )
-        # create the optimization specification
-        opt_spec = self.optimization_procedure.get_optimzation_spec()
-        # create the qc specification for each spec
-        for spec in self.qc_specifications.values():
-            self.add_dataset_specification(
-                spec=spec, opt_spec=opt_spec, collection=collection
-            )
+        return collection
 
-        # start a thread pool worker for the submissions
-        work = []
+    def _add_entries(self, collection, chunk_size):
+        # start add the molecule to the dataset, multiple conformers/molecules can be used as the starting geometry
         new_entries = 0
         indices = []
 
-        # if processes == 0, we don't want to use a separate pool at all
-        if processes == 0:
-            def execute(func, **kwargs):
-                return func(**kwargs)
-        else:
-            pool = ProcessPoolExecutor(max_workers=processes)
-            execute = pool.submit
+        for i, (index, data) in enumerate(self.dataset.items()):
+            # if we hit the chunk size, we upload to the server
+            if (i % chunk_size) == 0:
+                collection.save()
 
-        # start add the molecule to the dataset, multiple conformers/molecules can be used as the starting geometry
-        for index, data in self.dataset.items():
-            task = execute(self._add_torsiondrive_entry, *(collection, data))
-            work.append(task)
-
-        # count how many tasks have been made
-        for task in as_completed(work):
-            index, result = task.result()
-            new_entries += int(result)
+            new_entries += self._add_entry(dataset=collection, data=data)
             indices.append(index)
 
-        if verbose:
-            print(f"Number of new entries: {new_entries}/{self.n_records}")
+        # upload remainder molecules to the server
         collection.save()
 
-        # if there are no new tasks, generate them for all entries
-        if not indices:
-            indices = list(collection.df.index)
+        return indices, new_entries
 
-        responses = {}
-        chunk_size = 100
-        # submit the calculations for each spec
-        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
-        for spec_name in self.qc_specifications.keys():
-            spec_tasks = 0
-            work = []
-            for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
-                spec_kwargs["subset"] = mol_chunk
-                task = execute(collection.compute, spec_name, **spec_kwargs)
-                work.append(task)
-
-            work_list = as_completed(work)
-            work_list = tqdm.tqdm(
-                work_list, total=len(work), ncols=80, desc="Tasks", disable=not verbose
-            )
-            for result in work_list:
-                spec_tasks += result.result()
-
-            responses[spec_name] = spec_tasks
-
-        pool.shutdown(wait=True)
-        return responses
-
-    def _add_torsiondrive_entry(
+    def _add_entry(
         self,
         dataset: ptl.collections.TorsionDriveDataset,
         data: TorsionDriveEntry,
     ) -> Tuple[str, bool]:
         """
-        Add a molecule to the given torsiondrive dataset and return the ids and the result of adding the molecule.
-        """
+        Add a molecule to the given torsiondrive dataset and return the ids and
+        the result of adding the molecule.  """
         try:
             dataset.add_entry(
                 name=data.index,
