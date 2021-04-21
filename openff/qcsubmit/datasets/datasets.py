@@ -265,7 +265,6 @@ class ComponentResult:
 
 
 class DatasetBase(CommonBase):
-
     def submit(
         self,
         client: Union[str, ptl.FractalClient, FractalClient],
@@ -315,7 +314,8 @@ class DatasetBase(CommonBase):
         # if not, we'll create a new one
         try:
             collection = target_client.get_collection(
-                    self.dataset_type, self.dataset_name)
+                self.dataset_type, self.dataset_name
+            )
         except KeyError:
             self._validate_metadata()
             collection = self._generate_collection(client=target_client)
@@ -324,7 +324,8 @@ class DatasetBase(CommonBase):
         procedure_spec = self._get_procedure_spec()
         for spec in self.qc_specifications.values():
             self.add_dataset_specification(
-                spec=spec, procedure_spec=procedure_spec, collection=collection)
+                spec=spec, procedure_spec=procedure_spec, collection=collection
+            )
 
         # add the molecules to the database
         indices, new_entries = self._add_entries(collection, chunk_size)
@@ -334,8 +335,10 @@ class DatasetBase(CommonBase):
         # set up process pool for compute submission
         # if processes == 0, perform in-process, no pool
         if processes == 0:
+
             def execute(func, **kwargs):
                 return func(**kwargs)
+
         else:
             pool = ProcessPoolExecutor(max_workers=processes)
             execute = pool.submit
@@ -357,8 +360,11 @@ class DatasetBase(CommonBase):
 
             work_list = as_completed(work)
             work_list = tqdm.tqdm(
-                work_list, total=len(work), ncols=80,
-                desc="Tasks", disable=(not verbose)
+                work_list,
+                total=len(work),
+                ncols=80,
+                desc="Tasks",
+                disable=(not verbose),
             )
             for result in work_list:
                 spec_tasks += result.result()
@@ -829,29 +835,27 @@ class BasicDataset(DatasetBase):
 
     def _generate_collection(self, client):
         collection = ptl.collections.Dataset(
-                name=self.dataset_name,
-                client=client,
-                default_driver=self.driver,
-                default_program="psi4",
-                tagline=self.dataset_tagline,
-                tags=self.dataset_tags,
-                description=self.description,
-                provenance=self.provenance,
-                metadata=self.metadata.dict(),
-            )
+            name=self.dataset_name,
+            client=client,
+            default_driver=self.driver,
+            default_program="psi4",
+            tagline=self.dataset_tagline,
+            tags=self.dataset_tags,
+            description=self.description,
+            provenance=self.provenance,
+            metadata=self.metadata.dict(),
+        )
 
         return collection
 
     def _get_procedure_spec(self):
-        """Needed for `submit` usage.
-        """
+        """Needed for `submit` usage."""
         return None
 
     def _get_indices(self, collection):
         return collection.get_index()
 
-    def add_dataset_specification(self,
-            spec, procedure_spec, collection):
+    def add_dataset_specification(self, spec, procedure_spec, collection):
         # generate the keyword set
         kw = self._get_spec_keywords(spec=spec)
         try:
@@ -871,9 +875,9 @@ class BasicDataset(DatasetBase):
         spec_kwargs.update(spec.dict(include={"method", "basis", "program"}))
         spec_kwargs["keywords"] = spec.spec_name
         spec_kwargs["protocols"] = {"wavefunction": spec.store_wavefunction.value}
-        
+
         # NOTE: requires a PR on QCFractal to make this work for `Dataset`
-        spec_kwargs['subset'] = mol_chunk
+        spec_kwargs["subset"] = mol_chunk
         return spec_kwargs
 
     def _add_entries(self, collection, chunk_size):
@@ -894,15 +898,15 @@ class BasicDataset(DatasetBase):
                 for j, molecule in enumerate(data.initial_molecules):
                     name = index + f"-{tag + j}"
                     new_entries += self._add_entry(
-                        dataset=collection, name=name, molecule=molecule,
-                        data=data
+                        dataset=collection, name=name, molecule=molecule, data=data
                     )
                     indices.append(index)
             else:
                 new_entries += self._add_entry(
-                    dataset=collection, name=index,
+                    dataset=collection,
+                    name=index,
                     molecule=data.initial_molecules[0],
-                    data=data
+                    data=data,
                 )
                 indices.append(index)
 
@@ -916,7 +920,7 @@ class BasicDataset(DatasetBase):
         dataset: ptl.collections.Dataset,
         name: str,
         molecule: qcel.models.Molecule,
-        data: dict
+        data: dict,
     ) -> bool:
         """
         Attempt to add molecule the dataset.
@@ -1428,7 +1432,7 @@ class OptimizationDataset(BasicDataset):
             collection_spec = collection.get_specification(name=spec.spec_name)
             # check they are the same
             if (
-                collection_spec.optimization_spec == procedure_spec 
+                collection_spec.optimization_spec == procedure_spec
                 and qcportal_spec == collection_spec.qc_spec
             ):
                 # the spec is already there and is the same so just skip adding it
@@ -1459,14 +1463,14 @@ class OptimizationDataset(BasicDataset):
 
     def _generate_collection(self, client):
         collection = ptl.collections.OptimizationDataset(
-                name=self.dataset_name,
-                client=client,
-                tagline=self.dataset_tagline,
-                tags=self.dataset_tags,
-                description=self.description,
-                provenance=self.provenance,
-                metadata=self.metadata.dict(),
-            )
+            name=self.dataset_name,
+            client=client,
+            tagline=self.dataset_tagline,
+            tags=self.dataset_tags,
+            description=self.description,
+            provenance=self.provenance,
+            metadata=self.metadata.dict(),
+        )
         return collection
 
     def _get_procedure_spec(self):
@@ -1478,7 +1482,7 @@ class OptimizationDataset(BasicDataset):
     def _compute_kwargs(self, spec, mol_chunk):
         spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
         spec_kwargs["subset"] = mol_chunk
-        spec_kwargs['specification'] = spec.spec_name
+        spec_kwargs["specification"] = spec.spec_name
         return spec_kwargs
 
     def _add_entry(
@@ -1621,14 +1625,14 @@ class TorsiondriveDataset(OptimizationDataset):
 
     def _generate_collection(self, client):
         collection = ptl.collections.TorsionDriveDataset(
-                name=self.datkaset_name,
-                client=client,
-                tagline=self.dataset_tagline,
-                tags=self.dataset_tags,
-                description=self.description,
-                provenance=self.provenance,
-                metadata=self.metadata.dict(),
-            )
+            name=self.datkaset_name,
+            client=client,
+            tagline=self.dataset_tagline,
+            tags=self.dataset_tags,
+            description=self.description,
+            provenance=self.provenance,
+            metadata=self.metadata.dict(),
+        )
         return collection
 
     def _add_entries(self, collection, chunk_size):
@@ -1656,7 +1660,7 @@ class TorsiondriveDataset(OptimizationDataset):
     ) -> Tuple[str, bool]:
         """
         Add a molecule to the given torsiondrive dataset and return the ids and
-        the result of adding the molecule.  """
+        the result of adding the molecule."""
         try:
             dataset.add_entry(
                 name=data.index,
