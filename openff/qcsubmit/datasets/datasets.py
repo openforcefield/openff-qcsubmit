@@ -281,7 +281,7 @@ class DatasetBase(CommonBase):
         client : Union[str, ptl.FractalClient]
             The name of the file containing the client information or an actual client instance.
         processes : int
-            Number of processes to use for submission; if set to 0, no separate process pool will be used.
+            Number of processes to use for submission; if `None`, no separate process pool will be used.
         ignore_errors : bool, default=False
             If the user wants to submit the compute regardless of errors set this to True.
             Mainly to override basis coverage.
@@ -334,7 +334,7 @@ class DatasetBase(CommonBase):
 
         # set up process pool for compute submission
         # if processes == 0, perform in-process, no pool
-        if processes == 0:
+        if processes is None:
 
             def execute(func, **kwargs):
                 return func(**kwargs)
