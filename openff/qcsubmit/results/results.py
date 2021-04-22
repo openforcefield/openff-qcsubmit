@@ -10,14 +10,16 @@ import qcportal
 from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, validator
 from qcportal import FractalClient
-from qcportal.collections.dataset import MoleculeEntry
+from qcportal.collections import OptimizationDataset, TorsionDriveDataset
+from qcportal.collections.collection import Collection as QCCollection
+from qcportal.collections.dataset import Dataset, MoleculeEntry
 from qcportal.models import OptimizationRecord, ResultRecord, TorsionDriveRecord
 from qcportal.models.common_models import DriverEnum, ObjectId
 from qcportal.models.records import RecordBase
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import Metadata
-from openff.qcsubmit.datasets import BasicDataset, OptimizationDataset
+from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
 
 T = TypeVar("T")
@@ -105,10 +107,30 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
     @classmethod
     @abc.abstractmethod
+    def from_datasets(
+        cls: T,
+        datasets: Union[QCCollection, Iterable[QCCollection]],
+        spec_name: str = "default",
+    ) -> T:
+        """Retrieve the COMPLETE record ids referenced by the specified datasets.
+
+        Args:
+            datasets: The datasets to retrieve the records from.
+            spec_name: The name of the QC specification that the records to retrieve
+                should have been computed using.
+
+        Returns:
+            A results collection object containing the record ids and a minimal amount
+            of associated metadata such as the CMILES of the associated molecule.
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    @abc.abstractmethod
     def from_server(
         cls: T,
         client: qcportal.FractalClient,
-        datasets: Iterable[str],
+        datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> T:
         """Retrieve (and deduplicate) the COMPLETE record ids referenced by the
@@ -208,22 +230,28 @@ class BasicResultCollection(_BaseResultCollection):
     )
 
     @classmethod
-    def from_server(
+    def from_datasets(
         cls,
-        client: qcportal.FractalClient,
-        datasets: Union[str, Iterable[str]],
+        datasets: Union[Dataset, Iterable[Dataset]],
         spec_name: str = "default",
     ) -> "BasicResultCollection":
 
-        if isinstance(datasets, str):
+        if isinstance(datasets, QCCollection):
             datasets = [datasets]
 
-        result_records = {}
+        if not all(isinstance(dataset, Dataset) for dataset in datasets):
+
+            raise TypeError(
+                "A ``BasicResultCollection`` can only be created from ``Dataset`` "
+                "objects."
+            )
+
+        result_records = defaultdict(dict)
         molecules = {}
 
-        for dataset_name in datasets:
+        for dataset in datasets:
 
-            dataset = client.get_collection("Dataset", dataset_name)
+            client = dataset.client
 
             dataset_specs = {
                 spec: {"method": method, "basis": basis, "program": program}
@@ -231,9 +259,8 @@ class BasicResultCollection(_BaseResultCollection):
             }
 
             if spec_name not in dataset_specs:
-
                 raise KeyError(
-                    f"The {dataset_name} dataset does not contain a '{spec_name}' "
+                    f"The {dataset.data.name} dataset does not contain a '{spec_name}' "
                     f"compute specification"
                 )
 
@@ -261,7 +288,7 @@ class BasicResultCollection(_BaseResultCollection):
                 }
             )
 
-            result_records.update(
+            result_records[client.address].update(
                 {
                     result.id: BasicResult(
                         record_id=result.id,
@@ -283,7 +310,31 @@ class BasicResultCollection(_BaseResultCollection):
                 }
             )
 
-        return cls(entries={client.address: [*result_records.values()]})
+        return cls(
+            entries={
+                address: [*entries.values()]
+                for address, entries in result_records.items()
+            }
+        )
+
+    @classmethod
+    def from_server(
+        cls,
+        client: qcportal.FractalClient,
+        datasets: Union[str, Iterable[str]],
+        spec_name: str = "default",
+    ) -> "BasicResultCollection":
+
+        if isinstance(datasets, str):
+            datasets = [datasets]
+
+        return cls.from_datasets(
+            [
+                client.get_collection("Dataset", dataset_name)
+                for dataset_name in datasets
+            ],
+            spec_name,
+        )
 
     def to_records(
         self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
@@ -313,24 +364,30 @@ class OptimizationResultCollection(_BaseResultCollection):
     )
 
     @classmethod
-    def from_server(
+    def from_datasets(
         cls,
-        client: qcportal.FractalClient,
-        datasets: Union[str, Iterable[str]],
+        datasets: Union[OptimizationDataset, Iterable[OptimizationDataset]],
         spec_name: str = "default",
     ) -> "OptimizationResultCollection":
 
-        if isinstance(datasets, str):
+        if isinstance(datasets, QCCollection):
             datasets = [datasets]
 
-        result_records = {}
+        if not all(isinstance(dataset, OptimizationDataset) for dataset in datasets):
 
-        for dataset_name in datasets:
+            raise TypeError(
+                "A ``OptimizationResultCollection`` can only be created from "
+                "``OptimizationDataset`` objects."
+            )
 
-            dataset = client.get_collection("OptimizationDataset", dataset_name)
+        result_records = defaultdict(dict)
+
+        for dataset in datasets:
+
+            client = dataset.client
             query = dataset.query(spec_name)
 
-            result_records.update(
+            result_records[client.address].update(
                 {
                     query[entry.name].id: OptimizationResult(
                         record_id=query[entry.name].id,
@@ -344,7 +401,31 @@ class OptimizationResultCollection(_BaseResultCollection):
                 }
             )
 
-        return cls(entries={client.address: [*result_records.values()]})
+        return cls(
+            entries={
+                address: [*entries.values()]
+                for address, entries in result_records.items()
+            }
+        )
+
+    @classmethod
+    def from_server(
+        cls,
+        client: qcportal.FractalClient,
+        datasets: Union[str, Iterable[str]],
+        spec_name: str = "default",
+    ) -> "OptimizationResultCollection":
+
+        if isinstance(datasets, str):
+            datasets = [datasets]
+
+        return cls.from_datasets(
+            [
+                client.get_collection("OptimizationDataset", dataset_name)
+                for dataset_name in datasets
+            ],
+            spec_name,
+        )
 
     def to_records(
         self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
@@ -400,24 +481,30 @@ class TorsionDriveResultCollection(_BaseResultCollection):
     )
 
     @classmethod
-    def from_server(
+    def from_datasets(
         cls,
-        client: qcportal.FractalClient,
-        datasets: Union[str, Iterable[str]],
+        datasets: Union[TorsionDriveDataset, Iterable[TorsionDriveDataset]],
         spec_name: str = "default",
     ) -> "TorsionDriveResultCollection":
 
-        if isinstance(datasets, str):
+        if isinstance(datasets, QCCollection):
             datasets = [datasets]
 
-        result_records = {}
+        if not all(isinstance(dataset, TorsionDriveDataset) for dataset in datasets):
 
-        for dataset_name in datasets:
+            raise TypeError(
+                "A ``TorsionDriveResultCollection`` can only be created from "
+                "``TorsionDriveDataset`` objects."
+            )
 
-            dataset = client.get_collection("TorsionDriveDataset", dataset_name)
+        result_records = defaultdict(dict)
+
+        for dataset in datasets:
+
+            client = dataset.client
             query = dataset.query(spec_name)
 
-            result_records.update(
+            result_records[client.address].update(
                 {
                     query[entry.name].id: TorsionDriveResult(
                         record_id=query[entry.name].id,
@@ -431,7 +518,31 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                 }
             )
 
-        return cls(entries={client.address: [*result_records.values()]})
+        return cls(
+            entries={
+                address: [*entries.values()]
+                for address, entries in result_records.items()
+            }
+        )
+
+    @classmethod
+    def from_server(
+        cls,
+        client: qcportal.FractalClient,
+        datasets: Union[str, Iterable[str]],
+        spec_name: str = "default",
+    ) -> "TorsionDriveResultCollection":
+
+        if isinstance(datasets, str):
+            datasets = [datasets]
+
+        return cls.from_datasets(
+            [
+                client.get_collection("TorsionDriveDataset", dataset_name)
+                for dataset_name in datasets
+            ],
+            spec_name,
+        )
 
     def to_records(
         self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
