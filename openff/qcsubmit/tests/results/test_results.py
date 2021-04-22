@@ -188,13 +188,17 @@ def test_base_filter(basic_result_collection):
 
             return result_collection
 
-    filtered_collection = basic_result_collection.filter(DummyFilter())
+    filtered_collection = basic_result_collection.filter(
+        DummyFilter(),
+        DummyFilter(),
+    )
 
     assert filtered_collection.n_results == 4
     assert filtered_collection.n_molecules == 3
 
     assert "applied-filters" in filtered_collection.provenance
-    assert "DummyFilter" in filtered_collection.provenance["applied-filters"]
+    assert "DummyFilter-0" in filtered_collection.provenance["applied-filters"]
+    assert "DummyFilter-1" in filtered_collection.provenance["applied-filters"]
 
 
 @pytest.mark.parametrize(

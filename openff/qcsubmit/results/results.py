@@ -239,11 +239,6 @@ class _BaseResultCollection(BaseModel, abc.ABC):
         for collection_filter in filters:
             filtered_collection = collection_filter.apply(filtered_collection)
 
-        filtered_collection.provenance["applied-filters"] = {
-            collection_filter.__class__.__name__: {**collection_filter.dict()}
-            for collection_filter in filters
-        }
-
         return filtered_collection
 
 

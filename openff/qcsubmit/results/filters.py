@@ -54,4 +54,12 @@ class ResultFilter(BaseModel, abc.ABC):
             f"results were removed after applying a {self.__class__.__name__} filter."
         )
 
+        if "applied-filters" not in filtered_collection.provenance:
+            filtered_collection.provenance["applied-filters"] = {}
+
+        n_existing_filters = len(filtered_collection.provenance["applied-filters"])
+        filter_name = f"{self.__class__.__name__}-{n_existing_filters}"
+
+        filtered_collection.provenance["applied-filters"][filter_name] = {**self.dict()}
+
         return filtered_collection

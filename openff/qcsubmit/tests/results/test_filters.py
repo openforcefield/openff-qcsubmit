@@ -20,3 +20,6 @@ def test_apply_filter(basic_result_collection, caplog):
 
     assert filtered_collection.n_results == 4
     assert "4 results were removed" in caplog.text
+
+    assert "applied-filters" in filtered_collection.provenance
+    assert "DummyFilter-0" in filtered_collection.provenance["applied-filters"]
