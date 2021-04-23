@@ -7,7 +7,6 @@ from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Dict,
     Iterable,
     List,
@@ -20,7 +19,6 @@ from typing import (
 import qcportal
 from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, validator
-from qcportal import FractalClient
 from qcportal.collections import OptimizationDataset, TorsionDriveDataset
 from qcportal.collections.collection import Collection as QCCollection
 from qcportal.collections.dataset import Dataset, MoleculeEntry
@@ -32,6 +30,10 @@ from typing_extensions import Literal
 from openff.qcsubmit.common_structures import Metadata
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
+from openff.qcsubmit.results.caching import (
+    cached_query_molecules,
+    cached_query_procedures,
+)
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.filters import ResultFilter
@@ -111,20 +113,6 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             {entry.inchi_key for entries in self.entries.values() for entry in entries}
         )
 
-    @staticmethod
-    def _query_in_chunks(
-        query_function: Callable[[List[str]], S], query_ids: List[str], query_limit: int
-    ) -> List[S]:
-        """Take the query list of ids and query the database in query limit chunks."""
-
-        client_results = [
-            result
-            for i in range(0, len(query_ids), query_limit)
-            for result in query_function(query_ids[i : i + query_limit])
-        ]
-
-        return client_results
-
     @classmethod
     @abc.abstractmethod
     def from_datasets(
@@ -194,9 +182,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
                 f"{dict(**incorrect_types_dict)}"
             )
 
-    def to_records(
-        self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
-    ):
+    def to_records(self):
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection.
 
@@ -205,28 +191,14 @@ class _BaseResultCollection(BaseModel, abc.ABC):
         * The records are retrieved from the server in batches
         """
 
-        clients = (
-            {}
-            if client is None
-            else {client.address.rstrip("/"): client}
-            if isinstance(client, FractalClient)
-            else {c.address.rstrip("/"): c for c in client}
-        )
-
         records = []
 
         for client_address, entries in self.entries.items():
 
-            client = clients.get(
-                client_address.rstrip("/"), FractalClient(client_address)
-            )
-
             records.extend(
-                self._query_in_chunks(
-                    client.query_procedures,
-                    [entry.record_id for entry in entries],
-                    client.query_limit,
-                )
+                cached_query_procedures(
+                    client_address, [entry.record_id for entry in entries]
+                ),
             )
 
         return records
@@ -319,14 +291,13 @@ class BasicResultCollection(_BaseResultCollection):
             molecules.update(
                 {
                     molecule.id: molecule
-                    for molecule in cls._query_in_chunks(
-                        client.query_molecules,
+                    for molecule in cached_query_molecules(
+                        client.address,
                         [
                             entry.molecule_id
                             for entry in entries.values()
                             if entry.molecule_id not in molecules
                         ],
-                        client.query_limit,
                     )
                 }
             )
@@ -379,11 +350,9 @@ class BasicResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(
-        self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
-    ) -> List[ResultRecord]:
+    def to_records(self) -> List[ResultRecord]:
 
-        records = super(BasicResultCollection, self).to_records(client)
+        records = super(BasicResultCollection, self).to_records()
         self._validate_record_types(records, ResultRecord)
 
         return records
@@ -470,11 +439,9 @@ class OptimizationResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(
-        self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
-    ) -> List[OptimizationRecord]:
+    def to_records(self) -> List[OptimizationRecord]:
 
-        records = super(OptimizationResultCollection, self).to_records(client)
+        records = super(OptimizationResultCollection, self).to_records()
         self._validate_record_types(records, OptimizationRecord)
 
         return records
@@ -587,11 +554,9 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(
-        self, client: Optional[Union[FractalClient, List[FractalClient]]] = None
-    ) -> List[TorsionDriveRecord]:
+    def to_records(self) -> List[TorsionDriveRecord]:
 
-        records = super(TorsionDriveResultCollection, self).to_records(client)
+        records = super(TorsionDriveResultCollection, self).to_records()
         self._validate_record_types(records, TorsionDriveRecord)
 
         return records

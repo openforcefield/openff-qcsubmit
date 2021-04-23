@@ -1,9 +1,7 @@
 import logging
 
 import pytest
-from openff.toolkit.topology import Molecule
 from pydantic import ValidationError
-from qcportal import FractalClient
 
 from openff.qcsubmit.results.filters import ResultFilter, SMARTSFilter, SMILESFilter
 
@@ -74,41 +72,3 @@ def test_molecule_filter_apply(result_filter, expected_ids, basic_result_collect
         assert entry_ids == {
             entry.record_id for entry in filtered_collection.entries[address]
         }
-
-
-@pytest.mark.parametrize(
-    "expected_cmiles, expected_n_conformers, record_id, molecule_function",
-    [
-        (
-            "[H:3][C:1]([H:4])([H:5])[O:2][H:6]",
-            1,
-            "32651863",
-            ResultFilter._basic_record_to_molecule,
-        ),
-        (
-            "[C:1]([H:2])([H:3])([H:4])[H:5]",
-            1,
-            "25724668",
-            ResultFilter._optimization_record_to_molecule,
-        ),
-        (
-            "[H:6][N:5]([H:7])[C:3](=[O:4])[C:1]#[N:2]",
-            24,
-            "36633243",
-            ResultFilter._torsion_drive_record_to_molecule,
-        ),
-    ],
-)
-def test_record_to_molecule(
-    expected_cmiles, expected_n_conformers, record_id, molecule_function
-):
-
-    expected_molecule = Molecule.from_mapped_smiles(expected_cmiles)
-
-    record = FractalClient().query_procedures(record_id)[0]
-
-    molecule = molecule_function(expected_cmiles, record)
-    assert molecule.n_conformers == expected_n_conformers
-
-    are_isomorphic, _ = Molecule.are_isomorphic(molecule, expected_molecule)
-    assert are_isomorphic

@@ -16,16 +16,10 @@ from openff.qcsubmit.results import (
     OptimizationResultCollection,
     TorsionDriveResultCollection,
 )
+from openff.qcsubmit.results.caching import clear_results_caches
 from openff.qcsubmit.results.filters import ResultFilter
 from openff.qcsubmit.results.results import OptimizationResult, _BaseResultCollection
 from openff.qcsubmit.tests import does_not_raise
-
-
-@pytest.fixture
-def public_client():
-    """Setup a new connection to the public qcarchive client."""
-
-    return FractalClient()
 
 
 def test_base_molecule_property():
@@ -127,25 +121,6 @@ def test_base_n_molecules_property():
     )
 
     assert collection.n_molecules == 2
-
-
-def test_base_query_in_chunks():
-
-    n_queries = 0
-
-    def _query_function(ids):
-
-        nonlocal n_queries
-        n_queries += 1
-
-        return [int(i) + 1 for i in ids]
-
-    result = _BaseResultCollection._query_in_chunks(
-        _query_function, ["1", "2", "3", "4", "5"], 2
-    )
-
-    assert result == [2, 3, 4, 5, 6]
-    assert n_queries == 3
 
 
 def test_base_validate_record_types():
@@ -256,6 +231,7 @@ def test_collection_from_server(
                 }
             ),
             ResultRecord(
+                id=ObjectId("1"),
                 program="psi4",
                 driver=DriverEnum.gradient,
                 method="scf",
@@ -278,6 +254,7 @@ def test_collection_from_server(
             ),
             OptimizationRecord(
                 program="psi4",
+                id=ObjectId("1"),
                 qc_spec=QCSpecification(
                     driver=DriverEnum.gradient,
                     method="scf",
@@ -291,6 +268,9 @@ def test_collection_from_server(
     ],
 )
 def test_to_results(collection, record, monkeypatch):
+
+    clear_results_caches()
+
     def mock_query_procedures(*args, **kwargs):
         return [record]
 

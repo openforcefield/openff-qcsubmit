@@ -31,6 +31,8 @@ dependencies:
   - fragmenter ==0.0.7
   - basis_set_exchange
   - typing-extensions
+  - requests-mock
+  - cachetools
 
     # Pip-only installs
 #  - pip:
