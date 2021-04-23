@@ -4,7 +4,7 @@ results from a QCFractal instance.
 """
 import abc
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 import qcportal
 from openff.toolkit.topology import Molecule
@@ -21,6 +21,7 @@ from typing_extensions import Literal
 from openff.qcsubmit.common_structures import Metadata
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
+from openff.qcsubmit.results.filters import ResultFilter
 
 T = TypeVar("T")
 S = TypeVar("S")
@@ -65,6 +66,12 @@ class _BaseResultCollection(BaseModel, abc.ABC):
         ...,
         description="The entries stored in this collection in a dictionary of the form "
         "``collection.entries['qcfractal_address'] = [record_1, ..., record_N]``.",
+    )
+
+    provenance: Dict[str, Any] = Field(
+        {},
+        description="A dictionary which can contain provenance information about "
+        "how and why this collection was curated.",
     )
 
     @validator("entries")
@@ -210,6 +217,29 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             )
 
         return records
+
+    def filter(self, *filters: ResultFilter):
+        """Filter this collection by applying a set of filters sequentially, returning
+        a new collection containing only the retained entries.
+
+        Notes:
+            Information about any applied filters will be stored in the provenance
+            dictionary in the 'applied-filters' field. Any existing information in
+            this field will be overwritten here.
+
+        Args:
+            filters: The filters to apply, in the order to apply them in.
+
+        Returns:
+            The collection containing only the retained entries.
+        """
+
+        filtered_collection = self.copy(deep=True)
+
+        for collection_filter in filters:
+            filtered_collection = collection_filter.apply(filtered_collection)
+
+        return filtered_collection
 
 
 class BasicResult(_BaseResult):

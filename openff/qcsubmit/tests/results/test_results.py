@@ -16,6 +16,7 @@ from openff.qcsubmit.results import (
     OptimizationResultCollection,
     TorsionDriveResultCollection,
 )
+from openff.qcsubmit.results.filters import ResultFilter
 from openff.qcsubmit.results.results import OptimizationResult, _BaseResultCollection
 from openff.qcsubmit.tests import does_not_raise
 
@@ -173,6 +174,31 @@ def test_base_validate_record_types():
 
     with pytest.raises(RecordTypeError, match="The collection contained a records"):
         _BaseResultCollection._validate_record_types(records, OptimizationRecord)
+
+
+def test_base_filter(basic_result_collection):
+    class DummyFilter(ResultFilter):
+        def _apply(self, result_collection):
+
+            result_collection.entries = {
+                "http://localhost:442": result_collection.entries[
+                    "http://localhost:442"
+                ]
+            }
+
+            return result_collection
+
+    filtered_collection = basic_result_collection.filter(
+        DummyFilter(),
+        DummyFilter(),
+    )
+
+    assert filtered_collection.n_results == 4
+    assert filtered_collection.n_molecules == 3
+
+    assert "applied-filters" in filtered_collection.provenance
+    assert "DummyFilter-0" in filtered_collection.provenance["applied-filters"]
+    assert "DummyFilter-1" in filtered_collection.provenance["applied-filters"]
 
 
 @pytest.mark.parametrize(
