@@ -2,8 +2,13 @@ import abc
 import logging
 from typing import TYPE_CHECKING, List, Optional, TypeVar
 
+import numpy as np
 from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, root_validator
+from qcportal.models import Molecule as QCMolecule
+from qcportal.models import OptimizationRecord, ResultRecord, TorsionDriveRecord
+from qcportal.models.records import RecordBase
+from simtk import unit
 
 if TYPE_CHECKING:
 
@@ -18,6 +23,112 @@ class ResultFilter(BaseModel, abc.ABC):
     """The base class for a filter which will retain selection of QC records based on
     a specific criterion.
     """
+
+    @classmethod
+    def _basic_record_to_molecule(cls, cmiles: str, record: ResultRecord) -> Molecule:
+        """Creates a molecule object from a result record, storing the records
+        conformer on the molecule.
+
+        Args:
+            cmiles: The CMILES associated with the record.
+            record: The record to map to an OpenFF molecule.
+
+        Returns:
+            The record mapped to an OpenFF molecule.
+        """
+
+        qc_molecule: QCMolecule = record.get_molecule()
+
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            cmiles, allow_undefined_stereo=True
+        )
+
+        molecule.add_conformer(
+            np.array(qc_molecule.geometry, float).reshape(-1, 3) * unit.bohr
+        )
+
+        return molecule
+
+    @classmethod
+    def _optimization_record_to_molecule(
+        cls, cmiles: str, record: OptimizationRecord
+    ) -> Molecule:
+        """Creates a molecule object from an optimization record, storing the lowest
+        energy conformer on the molecule.
+
+        Args:
+            cmiles: The CMILES associated with the record.
+            record: The record to map to an OpenFF molecule.
+
+        Returns:
+            The record mapped to an OpenFF molecule.
+        """
+
+        qc_molecule: QCMolecule = record.get_final_molecule()
+
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            cmiles, allow_undefined_stereo=True
+        )
+
+        molecule.add_conformer(
+            np.array(qc_molecule.geometry, float).reshape(-1, 3) * unit.bohr
+        )
+
+        return molecule
+
+    @classmethod
+    def _torsion_drive_record_to_molecule(
+        cls, cmiles: str, record: TorsionDriveRecord
+    ) -> Molecule:
+        """Creates a molecule object from an torsion drive record, storing the lowest
+        energy conformer at each grid angle on the molecule.
+
+        Args:
+            cmiles: The CMILES associated with the record.
+            record: The record to map to an OpenFF molecule.
+
+        Returns:
+            The record mapped to an OpenFF molecule.
+        """
+
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            cmiles, allow_undefined_stereo=True
+        )
+        qc_molecule: QCMolecule
+
+        for qc_molecule in record.get_final_molecules().values():
+
+            molecule.add_conformer(
+                np.array(qc_molecule.geometry, float).reshape(-1, 3) * unit.bohr
+            )
+
+        return molecule
+
+    @classmethod
+    def _record_to_molecule(cls, cmiles: str, record: RecordBase) -> Molecule:
+        """Maps a record to an OpenFF molecule object.
+
+        Notes:
+            * For ``ResultRecord`` objects the single structure associated with the
+              record will be returned.
+            * For ``OptimizationRecord`` objects the minimum energy structure associated
+              with the record will be returned.
+            * For ``TorsionDriveRecord`` objects the minimum energy structure
+              at each grid angle will be returned.
+        """
+
+        if isinstance(record, ResultRecord):
+            return cls._basic_record_to_molecule(cmiles, record)
+        elif isinstance(record, OptimizationRecord):
+            return cls._optimization_record_to_molecule(cmiles, record)
+        elif isinstance(record, TorsionDriveRecord):
+            return cls._torsion_drive_record_to_molecule(cmiles, record)
+        else:
+
+            raise NotImplementedError(
+                "Only ``ResultRecord``, ``OptimizationRecord``, and "
+                "``TorsionDriveRecord`` objects are supported."
+            )
 
     @abc.abstractmethod
     def _apply(self, result_collection: "T") -> "T":
