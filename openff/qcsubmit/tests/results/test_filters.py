@@ -1,6 +1,13 @@
 import logging
 
-from openff.qcsubmit.results.filters import ResultFilter
+import pytest
+from pydantic import ValidationError
+
+from openff.qcsubmit.results.filters import (
+    ResultFilter,
+    SMARTSFilter,
+    SMILESFilter,
+)
 
 
 def test_apply_filter(basic_result_collection, caplog):
@@ -23,3 +30,49 @@ def test_apply_filter(basic_result_collection, caplog):
 
     assert "applied-filters" in filtered_collection.provenance
     assert "DummyFilter-0" in filtered_collection.provenance["applied-filters"]
+
+
+def test_smiles_filter_mutual_inputs():
+
+    with pytest.raises(ValidationError, match="exactly one of `smiles_to_include`"):
+        SMILESFilter(smiles_to_include=["C"], smiles_to_exclude=["CC"])
+
+
+def test_smarts_filter_mutual_inputs():
+
+    with pytest.raises(ValidationError, match="exactly one of `smarts_to_include`"):
+        SMARTSFilter(smarts_to_include=["C"], smarts_to_exclude=["CC"])
+
+
+@pytest.mark.parametrize(
+    "result_filter, expected_ids",
+    [
+        (SMILESFilter(smiles_to_include=["CCO"]), {"http://localhost:442": {"2", "3"}}),
+        (
+            SMILESFilter(smiles_to_exclude=["CCO"]),
+            {
+                "http://localhost:442": {"1", "4"},
+                "http://localhost:443": {"1", "2", "3", "4"},
+            },
+        ),
+        (
+            SMARTSFilter(smarts_to_include=["[#6]-[#8H1]"]),
+            {"http://localhost:442": {"1", "2", "3", "4"}},
+        ),
+        (
+            SMARTSFilter(smarts_to_exclude=["[#6]-[#8]"]),
+            {"http://localhost:443": {"1", "2", "3", "4"}},
+        ),
+    ],
+)
+def test_molecule_filter_apply(result_filter, expected_ids, basic_result_collection):
+
+    filtered_collection = result_filter.apply(basic_result_collection)
+
+    assert {*expected_ids} == {*filtered_collection.entries}
+
+    for address, entry_ids in expected_ids.items():
+
+        assert entry_ids == {
+            entry.record_id for entry in filtered_collection.entries[address]
+        }
