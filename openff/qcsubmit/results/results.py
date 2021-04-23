@@ -4,7 +4,18 @@ results from a QCFractal instance.
 """
 import abc
 from collections import defaultdict
-from typing import Any, Callable, Dict, Iterable, List, Optional, Type, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import qcportal
 from openff.toolkit.topology import Molecule
@@ -21,7 +32,9 @@ from typing_extensions import Literal
 from openff.qcsubmit.common_structures import Metadata
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
-from openff.qcsubmit.results.filters import ResultFilter
+
+if TYPE_CHECKING:
+    from openff.qcsubmit.results.filters import ResultFilter
 
 T = TypeVar("T")
 S = TypeVar("S")
@@ -218,7 +231,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
         return records
 
-    def filter(self, *filters: ResultFilter):
+    def filter(self, *filters: "ResultFilter"):
         """Filter this collection by applying a set of filters sequentially, returning
         a new collection containing only the retained entries.
 
