@@ -14,7 +14,6 @@ from openff.qcsubmit.results.caching import (
     cached_query_optimization_results,
     cached_query_procedures,
     cached_query_torsion_drive_results,
-    clear_results_caches,
 )
 
 
@@ -24,7 +23,6 @@ def test_batched_indices():
 
 def test_cached_query_procedures(public_client):
 
-    clear_results_caches()
     assert len(_record_cache) == 0
 
     record_ids = ["32651863", "32651864"]
@@ -44,7 +42,6 @@ def test_cached_query_procedures(public_client):
 
 def test_cached_query_molecule(public_client):
 
-    clear_results_caches()
     assert len(_molecule_cache) == 0
 
     molecule_ids = ["25696236", "25696152"]
@@ -89,8 +86,6 @@ def test_record_to_molecule(
     result, query_function, expected_n_conformers, public_client
 ):
 
-    clear_results_caches()
-
     expected_molecule = Molecule.from_mapped_smiles(result.cmiles)
 
     records = query_function(public_client.address, [result])
@@ -111,7 +106,6 @@ def test_record_to_molecule(
 
 def test_cached_query_torsion_drive_results(public_client):
 
-    clear_results_caches()
     assert len(_grid_id_cache) == 0
 
     result = TorsionDriveResult(

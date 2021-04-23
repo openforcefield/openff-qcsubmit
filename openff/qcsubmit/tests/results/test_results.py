@@ -16,7 +16,6 @@ from openff.qcsubmit.results import (
     OptimizationResultCollection,
     TorsionDriveResultCollection,
 )
-from openff.qcsubmit.results.caching import clear_results_caches
 from openff.qcsubmit.results.filters import ResultFilter
 from openff.qcsubmit.results.results import OptimizationResult, _BaseResultCollection
 from openff.qcsubmit.tests import does_not_raise
@@ -268,8 +267,6 @@ def test_collection_from_server(
     ],
 )
 def test_to_results(collection, record, monkeypatch):
-
-    clear_results_caches()
 
     def mock_query_procedures(*args, **kwargs):
         return [record]
