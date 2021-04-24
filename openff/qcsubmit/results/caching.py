@@ -1,10 +1,10 @@
 """A module which contains helpers for retrieving data from QCA and caching the
 results in memory for future requests."""
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, List, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 import numpy
-from cachetools import LRUCache
+from cachetools import Cache, LRUCache
 from openff.toolkit.topology import Molecule
 from qcportal import FractalClient
 from qcportal.models import Molecule as QCMolecule
@@ -61,6 +61,59 @@ def _cached_fractal_client(address: str) -> FractalClient:
     return FractalClient(address)
 
 
+def _cached_client_query(
+    client_address: str,
+    query_ids: List[T],
+    query_name: str,
+    query_cache: Cache,
+    cache_predicate: Optional[Callable[[Any], bool]] = None,
+) -> List[S]:
+    """A helper method to cache calls to ``FractalClient.query_XXX`` methods.
+
+    Args:
+        client_address: The address of the running QCFractal instance to query.
+        query_ids: The ids to query.
+        query_name: The name of the query function.
+        query_cache: The cache associated with a query. Records should be indexable
+            by ``query_cache[(client_address, query_id)]``.
+        cache_predicate: A function which returns whether and object should be added
+            to the cache.
+
+    Returns:
+        The returned query objects.
+    """
+
+    client_address = client_address.rstrip("/")
+
+    missing_query_ids = list(
+        {
+            query_id
+            for query_id in query_ids
+            if (client_address, query_id) not in query_cache
+        }
+    )
+
+    found_queries = [
+        query_cache[(client_address, query_id)]
+        for query_id in query_ids
+        if (client_address, query_id) in query_cache
+    ]
+
+    client = _cached_fractal_client(client_address)
+
+    for batch_ids in _batched_indices(missing_query_ids, client.query_limit):
+        for query in getattr(client, query_name)(batch_ids):
+
+            found_queries.append(query)
+
+            if cache_predicate is not None and not cache_predicate(query):
+                continue
+
+            query_cache[(client_address, query.id)] = query
+
+    return found_queries
+
+
 def cached_query_procedures(client_address: str, record_ids: List[str]) -> List[S]:
     """A cached version of ``FractalClient.query_procedures``.
 
@@ -72,28 +125,13 @@ def cached_query_procedures(client_address: str, record_ids: List[str]) -> List[
         The returned records.
     """
 
-    client_address = client_address.rstrip("/")
-
-    missing_record_ids = list(
-        {
-            record_id
-            for record_id in record_ids
-            if (client_address, record_id) not in _record_cache
-        }
+    return _cached_client_query(
+        client_address,
+        record_ids,
+        "query_procedures",
+        _record_cache,
+        lambda record: record.status.value.upper() == "COMPLETE",
     )
-
-    client = _cached_fractal_client(client_address)
-
-    for batch_ids in _batched_indices(missing_record_ids, client.query_limit):
-        for record in client.query_procedures(batch_ids):
-
-            if record.status.value.upper() != "COMPLETE":
-                # Don't cache incomplete records.
-                continue
-
-            _record_cache[(client_address, record.id)] = record
-
-    return [_record_cache[(client_address, record_id)] for record_id in record_ids]
 
 
 def cached_query_molecules(
@@ -109,25 +147,12 @@ def cached_query_molecules(
         The returned molecules.
     """
 
-    client_address = client_address.rstrip("/")
-
-    missing_molecule_ids = list(
-        {
-            molecule_id
-            for molecule_id in molecule_ids
-            if (client_address, molecule_id) not in _molecule_cache
-        }
+    return _cached_client_query(
+        client_address,
+        molecule_ids,
+        "query_molecules",
+        _molecule_cache,
     )
-
-    client = _cached_fractal_client(client_address)
-
-    for batch_ids in _batched_indices(missing_molecule_ids, client.query_limit):
-        for molecule in client.query_molecules(batch_ids):
-            _molecule_cache[(client_address, molecule.id)] = molecule
-
-    return [
-        _molecule_cache[(client_address, molecule_id)] for molecule_id in molecule_ids
-    ]
 
 
 def _cached_query_single_structure_results(
@@ -253,20 +278,23 @@ def _cached_torsion_drive_molecule_ids(
         for record in client.query_procedures(batch_ids)
     }
 
+    found_molecule_ids = {
+        grid_tuple: _grid_id_cache[(client_address, *grid_tuple)]
+        for grid_tuple, optimization_id in optimization_ids.items()
+        if (client_address, *grid_tuple) in _grid_id_cache
+    }
+
     for grid_tuple, optimization_id in missing_optimization_ids.items():
 
         qc_optimization = qc_optimizations[optimization_id]
+        found_molecule_ids[grid_tuple] = qc_optimization.final_molecule
 
         if qc_optimization.status.value.upper() != "COMPLETE":
-            # Don't cache incomplete records.
             continue
 
         _grid_id_cache[(client_address, *grid_tuple)] = qc_optimization.final_molecule
 
-    return {
-        grid_tuple: _grid_id_cache[(client_address, *grid_tuple)]
-        for grid_tuple in optimization_ids
-    }
+    return found_molecule_ids
 
 
 def cached_query_torsion_drive_results(

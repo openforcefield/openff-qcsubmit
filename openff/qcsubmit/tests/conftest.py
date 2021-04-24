@@ -11,6 +11,6 @@ def public_client():
     return FractalClient()
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def clear_results_caches_before_tests():
     clear_results_caches()
