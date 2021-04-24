@@ -1,7 +1,11 @@
+import json
+
+import numpy
 import pytest
 import requests_mock
 from openff.toolkit.topology import Molecule
-from qcportal.models import ObjectId
+from qcportal.models import ObjectId, ResultRecord, OptimizationRecord
+from simtk import unit
 
 from openff.qcsubmit.results import BasicResult, OptimizationResult, TorsionDriveResult
 from openff.qcsubmit.results.caching import (
@@ -60,7 +64,7 @@ def test_cached_query_molecule(public_client):
 
 
 @pytest.mark.parametrize(
-    "result, query_function, expected_n_conformers",
+    "result, query_function",
     [
         (
             BasicResult(
@@ -69,7 +73,6 @@ def test_cached_query_molecule(public_client):
                 inchi_key="",
             ),
             cached_query_basic_results,
-            1,
         ),
         (
             OptimizationResult(
@@ -78,12 +81,11 @@ def test_cached_query_molecule(public_client):
                 inchi_key="",
             ),
             cached_query_optimization_results,
-            1,
         ),
     ],
 )
 def test_record_to_molecule(
-    result, query_function, expected_n_conformers, public_client
+    result, query_function, public_client
 ):
 
     expected_molecule = Molecule.from_mapped_smiles(result.cmiles)
@@ -93,7 +95,19 @@ def test_record_to_molecule(
 
     record, molecule = records[0]
 
-    assert molecule.n_conformers == expected_n_conformers
+    assert molecule.n_conformers == 1
+
+    if isinstance(record, ResultRecord):
+        expected_qc_molecule = record.get_molecule()
+    elif isinstance(record, OptimizationRecord):
+        expected_qc_molecule = record.get_final_molecule()
+    else:
+        raise RuntimeError()
+
+    assert numpy.allclose(
+        molecule.conformers[0].value_in_unit(unit.bohr),
+        expected_qc_molecule.geometry.reshape((molecule.n_atoms, 3))
+    )
 
     are_isomorphic, _ = Molecule.are_isomorphic(molecule, expected_molecule)
     assert are_isomorphic
@@ -124,6 +138,19 @@ def test_cached_query_torsion_drive_results(public_client):
     assert molecule.n_conformers == 24
 
     assert "grid_ids" in molecule.properties
+
+    expected_qc_molecules = {
+        json.dumps(grid_id): expected_qc_molecule
+        for grid_id, expected_qc_molecule in record.get_final_molecules().items()
+    }
+
+    for grid_id, conformer in zip(molecule.properties["grid_ids"], molecule.conformers):
+
+        assert numpy.allclose(
+            conformer.value_in_unit(unit.bohr),
+            expected_qc_molecules[grid_id].geometry.reshape((molecule.n_atoms, 3))
+        )
+
     assert len(molecule.properties["grid_ids"]) == 24
 
     are_isomorphic, _ = Molecule.are_isomorphic(molecule, expected_molecule)
