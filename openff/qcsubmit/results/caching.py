@@ -29,9 +29,9 @@ RecordAndMolecule = Tuple[RecordBase, Molecule]
 
 _record_cache = LRUCache(maxsize=20000)
 
-_molecule_cache = LRUCache(maxsize=20000)
+_molecule_cache = LRUCache(maxsize=240000)
 
-_grid_id_cache = LRUCache(maxsize=40000)
+_grid_id_cache = LRUCache(maxsize=240000)
 
 
 def clear_results_caches():
