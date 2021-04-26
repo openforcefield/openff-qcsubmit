@@ -44,7 +44,8 @@ setup(
     include_package_data=True,
 
     # Allows `setup.py test` to work correctly with pytest
-    setup_requires=[] + pytest_runner, install_requires=['pydantic']
+    setup_requires=[] + pytest_runner,
+    install_requires=[]
 
     # Additional entries you may want simply uncomment the lines you want and fill in the data
     # url='http://www.my_package.com',  # Website
