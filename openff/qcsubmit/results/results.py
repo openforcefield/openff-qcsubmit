@@ -11,6 +11,7 @@ from typing import (
     Iterable,
     List,
     Optional,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -31,8 +32,10 @@ from openff.qcsubmit.common_structures import Metadata
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results.caching import (
+    cached_query_basic_results,
     cached_query_molecules,
-    cached_query_procedures,
+    cached_query_optimization_results,
+    cached_query_torsion_drive_results,
 )
 
 if TYPE_CHECKING:
@@ -182,26 +185,12 @@ class _BaseResultCollection(BaseModel, abc.ABC):
                 f"{dict(**incorrect_types_dict)}"
             )
 
-    def to_records(self):
+    @abc.abstractmethod
+    def to_records(self) -> List[Tuple[RecordBase, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
-        in this collection.
-
-        Notes
-        -----
-        * The records are retrieved from the server in batches
+        in this collection along with a corresponding OpenFF molecule object.
         """
-
-        records = []
-
-        for client_address, entries in self.entries.items():
-
-            records.extend(
-                cached_query_procedures(
-                    client_address, [entry.record_id for entry in entries]
-                ),
-            )
-
-        return records
+        raise NotImplementedError()
 
     def filter(self, *filters: "ResultFilter"):
         """Filter this collection by applying a set of filters sequentially, returning
@@ -342,6 +331,7 @@ class BasicResultCollection(_BaseResultCollection):
         if isinstance(datasets, str):
             datasets = [datasets]
 
+        # noinspection PyTypeChecker
         return cls.from_datasets(
             [
                 client.get_collection("Dataset", dataset_name)
@@ -350,12 +340,24 @@ class BasicResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self) -> List[ResultRecord]:
+    def to_records(self) -> List[Tuple[ResultRecord, Molecule]]:
+        """Returns the native QCPortal record objects for each of the records referenced
+        in this collection along with a corresponding OpenFF molecule object.
 
-        records = super(BasicResultCollection, self).to_records()
+        Each molecule will contain the conformer referenced by the record.
+        """
+
+        records_and_molecules = [
+            result
+            for client_address, entries in self.entries.items()
+            for result in cached_query_basic_results(client_address, entries)
+        ]
+
+        records, _ = zip(*records_and_molecules)
+
         self._validate_record_types(records, ResultRecord)
 
-        return records
+        return records_and_molecules
 
 
 class OptimizationResult(_BaseResult):
@@ -431,6 +433,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         if isinstance(datasets, str):
             datasets = [datasets]
 
+        # noinspection PyTypeChecker
         return cls.from_datasets(
             [
                 client.get_collection("OptimizationDataset", dataset_name)
@@ -439,12 +442,25 @@ class OptimizationResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self) -> List[OptimizationRecord]:
+    def to_records(self) -> List[Tuple[OptimizationRecord, Molecule]]:
+        """Returns the native QCPortal record objects for each of the records referenced
+        in this collection along with a corresponding OpenFF molecule object.
 
-        records = super(OptimizationResultCollection, self).to_records()
+        Each molecule will contain the minimum energy conformer referenced by the
+        record.
+        """
+
+        records_and_molecules = [
+            result
+            for client_address, entries in self.entries.items()
+            for result in cached_query_optimization_results(client_address, entries)
+        ]
+
+        records, _ = zip(*records_and_molecules)
+
         self._validate_record_types(records, OptimizationRecord)
 
-        return records
+        return records_and_molecules
 
     def create_basic_dataset(
         self,
@@ -546,6 +562,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         if isinstance(datasets, str):
             datasets = [datasets]
 
+        # noinspection PyTypeChecker
         return cls.from_datasets(
             [
                 client.get_collection("TorsionDriveDataset", dataset_name)
@@ -554,12 +571,26 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self) -> List[TorsionDriveRecord]:
+    def to_records(self) -> List[Tuple[TorsionDriveRecord, Molecule]]:
 
-        records = super(TorsionDriveResultCollection, self).to_records()
+        """Returns the native QCPortal record objects for each of the records referenced
+        in this collection along with a corresponding OpenFF molecule object.
+
+        Each molecule will contain the minimum energy conformer referenced by the
+        record.
+        """
+
+        records_and_molecules = [
+            result
+            for client_address, entries in self.entries.items()
+            for result in cached_query_torsion_drive_results(client_address, entries)
+        ]
+
+        records, _ = zip(*records_and_molecules)
+
         self._validate_record_types(records, TorsionDriveRecord)
 
-        return records
+        return records_and_molecules
 
     def create_optimization_dataset(
         self,

@@ -1,5 +1,7 @@
 import copy
 
+import numpy
+from openff.toolkit.topology import Molecule
 from pydantic import BaseModel
 from qcelemental.models import DriverEnum
 from qcportal.models import (
@@ -12,6 +14,7 @@ from qcportal.models import (
 )
 from qcportal.models.records import RecordStatusEnum
 from qcportal.models.torsiondrive import TDKeywords
+from simtk import unit
 
 from openff.qcsubmit.results import (
     BasicResult,
@@ -21,11 +24,26 @@ from openff.qcsubmit.results import (
     TorsionDriveResult,
     TorsionDriveResultCollection,
 )
+from openff.qcsubmit.results.results import _BaseResult
 
 
 class _FractalClient(BaseModel):
 
     address: str
+
+
+def _mock_molecule(entry: _BaseResult, n_conformers: int = 1) -> Molecule:
+
+    molecule: Molecule = Molecule.from_smiles(entry.cmiles)
+
+    for _ in range(n_conformers):
+
+        molecule.add_conformer(
+            numpy.arange(molecule.n_atoms * 3).reshape((molecule.n_atoms, 3))
+            * unit.angstrom
+        )
+
+    return molecule
 
 
 def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollection:
@@ -48,25 +66,22 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
         BasicResultCollection,
         "to_records",
         lambda self: [
-            ResultRecord(
-                id=entry.record_id,
-                program="psi4",
-                driver=DriverEnum.gradient,
-                method="scf",
-                basis="sto-3g",
-                molecule=entry.record_id,
-                status=RecordStatusEnum.complete,
-                client=_FractalClient(address=address),
+            (
+                ResultRecord(
+                    id=entry.record_id,
+                    program="psi4",
+                    driver=DriverEnum.gradient,
+                    method="scf",
+                    basis="sto-3g",
+                    molecule=entry.record_id,
+                    status=RecordStatusEnum.complete,
+                    client=_FractalClient(address=address),
+                ),
+                molecules[address][int(entry.record_id) - 1]
             )
             for address, entries in self.entries.items()
             for entry in entries
         ],
-    )
-
-    monkeypatch.setattr(
-        ResultRecord,
-        "get_molecule",
-        lambda self: molecules[self.client.address][int(self.id) - 1].to_qcschema(),
     )
 
     return collection
@@ -94,28 +109,25 @@ def mock_optimization_result_collection(
         OptimizationResultCollection,
         "to_records",
         lambda self: [
-            OptimizationRecord(
-                id=entry.record_id,
-                program="psi4",
-                qc_spec=QCSpecification(
-                    driver=DriverEnum.gradient,
-                    method="scf",
-                    basis="sto-3g",
+            (
+                OptimizationRecord(
+                    id=entry.record_id,
                     program="psi4",
+                    qc_spec=QCSpecification(
+                        driver=DriverEnum.gradient,
+                        method="scf",
+                        basis="sto-3g",
+                        program="psi4",
+                    ),
+                    initial_molecule=ObjectId(entry.record_id),
+                    status=RecordStatusEnum.complete,
+                    client=_FractalClient(address=address),
                 ),
-                initial_molecule=ObjectId(entry.record_id),
-                status=RecordStatusEnum.complete,
-                client=_FractalClient(address=address),
+                molecules[address][int(entry.record_id) - 1],
             )
             for address, entries in self.entries.items()
             for entry in entries
         ],
-    )
-
-    monkeypatch.setattr(
-        OptimizationRecord,
-        "get_final_molecule",
-        lambda self: molecules[self.client.address][int(self.id) - 1].to_qcschema(),
     )
 
     return collection
@@ -143,29 +155,32 @@ def mock_torsion_drive_result_collection(
         TorsionDriveResultCollection,
         "to_records",
         lambda self: [
-            TorsionDriveRecord(
-                id=entry.record_id,
-                qc_spec=QCSpecification(
-                    driver=DriverEnum.gradient,
-                    method="scf",
-                    basis="sto-3g",
-                    program="psi4",
+            (
+                TorsionDriveRecord(
+                    id=entry.record_id,
+                    qc_spec=QCSpecification(
+                        driver=DriverEnum.gradient,
+                        method="scf",
+                        basis="sto-3g",
+                        program="psi4",
+                    ),
+                    optimization_spec=OptimizationSpecification(
+                        program="geometric", keywords={}
+                    ),
+                    initial_molecule=[
+                        ObjectId(i + 1)
+                        for i in range(
+                            molecules[address][int(entry.record_id) - 1].n_conformers
+                        )
+                    ],
+                    status=RecordStatusEnum.complete,
+                    client=_FractalClient(address=address),
+                    keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
+                    final_energy_dict={},
+                    optimization_history={},
+                    minimum_positions={},
                 ),
-                optimization_spec=OptimizationSpecification(
-                    program="geometric", keywords={}
-                ),
-                initial_molecule=[
-                    ObjectId(i + 1)
-                    for i in range(
-                        molecules[address][int(entry.record_id) - 1].n_conformers
-                    )
-                ],
-                status=RecordStatusEnum.complete,
-                client=_FractalClient(address=address),
-                keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
-                final_energy_dict={},
-                optimization_history={},
-                minimum_positions={},
+                molecules[address][int(entry.record_id) - 1],
             )
             for address, entries in self.entries.items()
             for entry in entries
