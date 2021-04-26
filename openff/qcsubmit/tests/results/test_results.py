@@ -1,13 +1,26 @@
 """
 Test the results packages when collecting from the public qcarchive.
 """
-
+import numpy
 import pytest
+from openff.toolkit.topology import Molecule
 from pydantic import ValidationError
 from qcportal import FractalClient
-from qcportal.models import ObjectId, OptimizationRecord, ResultRecord
-from qcportal.models.common_models import DriverEnum, QCSpecification
+from qcportal.models import Molecule as QCMolecule
+from qcportal.models import (
+    ObjectId,
+    OptimizationRecord,
+    ResultRecord,
+    TorsionDriveRecord,
+)
+from qcportal.models.common_models import (
+    DriverEnum,
+    OptimizationSpecification,
+    QCSpecification,
+)
 from qcportal.models.records import RecordStatusEnum
+from qcportal.models.torsiondrive import TDKeywords
+from simtk import unit
 
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results import (
@@ -17,7 +30,11 @@ from openff.qcsubmit.results import (
     TorsionDriveResultCollection,
 )
 from openff.qcsubmit.results.filters import ResultFilter
-from openff.qcsubmit.results.results import OptimizationResult, _BaseResultCollection
+from openff.qcsubmit.results.results import (
+    OptimizationResult,
+    TorsionDriveResult,
+    _BaseResultCollection,
+)
 from openff.qcsubmit.tests import does_not_raise
 
 
@@ -223,8 +240,8 @@ def test_collection_from_server(
                     "https://api.qcarchive.molssi.org:443/": [
                         BasicResult(
                             record_id=ObjectId("1"),
-                            cmiles="[He:1]",
-                            inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
+                            cmiles="[Cl:1][Cl:2]",
+                            inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
                         )
                     ]
                 }
@@ -245,8 +262,8 @@ def test_collection_from_server(
                     "https://api.qcarchive.molssi.org:443/": [
                         OptimizationResult(
                             record_id=ObjectId("1"),
-                            cmiles="[He:1]",
-                            inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
+                            cmiles="[Cl:1][Cl:2]",
+                            inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
                         )
                     ]
                 }
@@ -264,19 +281,66 @@ def test_collection_from_server(
                 status=RecordStatusEnum.complete,
             ),
         ),
+        (
+            TorsionDriveResultCollection(
+                entries={
+                    "https://api.qcarchive.molssi.org:443/": [
+                        TorsionDriveResult(
+                            record_id=ObjectId("1"),
+                            cmiles="[Cl:1][Cl:2]",
+                            inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
+                        )
+                    ]
+                }
+            ),
+            TorsionDriveRecord(
+                id=ObjectId("1"),
+                qc_spec=QCSpecification(
+                    driver=DriverEnum.gradient,
+                    method="scf",
+                    basis="sto-3g",
+                    program="psi4",
+                ),
+                optimization_spec=OptimizationSpecification(
+                    program="geometric", keywords={}
+                ),
+                initial_molecule=[ObjectId("1")],
+                status=RecordStatusEnum.complete,
+                keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
+                final_energy_dict={},
+                optimization_history={},
+                minimum_positions={},
+            ),
+        ),
     ],
 )
-def test_to_results(collection, record, monkeypatch):
-
+def test_to_records(collection, record, monkeypatch):
     def mock_query_procedures(*args, **kwargs):
         return [record]
 
+    def mock_query_molecules(*args, **kwargs):
+
+        molecule: Molecule = Molecule.from_smiles("[Cl:1][Cl:2]")
+        molecule.add_conformer(numpy.arange(6).reshape((2, 3)) * unit.angstrom)
+
+        qc_molecule = QCMolecule(
+            **molecule.to_qcschema().dict(exclude={"id"}), id=args[1][0]
+        )
+
+        return [qc_molecule]
+
     monkeypatch.setattr(FractalClient, "query_procedures", mock_query_procedures)
+    monkeypatch.setattr(FractalClient, "query_molecules", mock_query_molecules)
 
-    records = collection.to_records()
+    records_and_molecules = collection.to_records()
+    assert len(records_and_molecules) == 1
 
-    assert len(records) == 1
-    assert isinstance(records[0], record.__class__)
+    record, molecule = records_and_molecules[0]
+
+    assert isinstance(record, record.__class__)
+
+    if not isinstance(record, TorsionDriveRecord):
+        assert molecule.n_conformers == 1
 
 
 # def test_optimization_create_basic_dataset(public_client):
