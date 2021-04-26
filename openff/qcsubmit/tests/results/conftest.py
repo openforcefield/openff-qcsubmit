@@ -44,7 +44,7 @@ def h_bond_basic_result_collection(monkeypatch) -> BasicResultCollection:
     """Create a basic collection which can be filtered."""
 
     # Create a molecule which contains internal h-bonds.
-    h_bond_molecule = Molecule.from_smiles("O\C=C/C=O")
+    h_bond_molecule = Molecule.from_smiles(r"O\C=C/C=O")
     h_bond_molecule.add_conformer(
         np.array(
             [
@@ -75,7 +75,7 @@ def optimization_result_collection(monkeypatch) -> OptimizationResultCollection:
     """Create a basic collection which can be filtered."""
 
     # Create a molecule which contains internal h-bonds.
-    h_bond_molecule = Molecule.from_smiles("O\C=C/C=O")
+    h_bond_molecule = Molecule.from_smiles(r"O\C=C/C=O")
     h_bond_molecule.add_conformer(
         np.array(
             [
@@ -108,7 +108,7 @@ def torsion_drive_result_collection(monkeypatch) -> TorsionDriveResultCollection
     """Create a basic collection which can be filtered."""
 
     # Create a molecule which contains atleast one internal h-bond.
-    h_bond_molecule = Molecule.from_smiles("O\C=C/C=O")
+    h_bond_molecule = Molecule.from_smiles(r"O\C=C/C=O")
     h_bond_molecule.add_conformer(
         np.array(
             [
@@ -143,7 +143,7 @@ def torsion_drive_result_collection(monkeypatch) -> TorsionDriveResultCollection
     )
 
     # Create a molecule which contains no internal h-bonds.
-    no_h_bond_molecule = Molecule.from_smiles("O\C=C/C=O")
+    no_h_bond_molecule = Molecule.from_smiles(r"O\C=C/C=O")
     no_h_bond_molecule.add_conformer(h_bond_molecule.conformers[0])
     no_h_bond_molecule.add_conformer(
         h_bond_molecule.conformers[0] + 1.0 * unit.angstrom

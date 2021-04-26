@@ -3,11 +3,7 @@ import logging
 import pytest
 from pydantic import ValidationError
 
-from openff.qcsubmit.results.filters import (
-    ResultFilter,
-    SMARTSFilter,
-    SMILESFilter,
-)
+from openff.qcsubmit.results.filters import ResultFilter, SMARTSFilter, SMILESFilter
 
 
 def test_apply_filter(basic_result_collection, caplog):
