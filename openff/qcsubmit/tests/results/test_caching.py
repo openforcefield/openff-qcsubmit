@@ -4,7 +4,7 @@ import numpy
 import pytest
 import requests_mock
 from openff.toolkit.topology import Molecule
-from qcportal.models import ObjectId, ResultRecord, OptimizationRecord
+from qcportal.models import ObjectId, OptimizationRecord, ResultRecord
 from simtk import unit
 
 from openff.qcsubmit.results import BasicResult, OptimizationResult, TorsionDriveResult
