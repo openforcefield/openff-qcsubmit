@@ -1,15 +1,15 @@
 import abc
 import logging
-from typing import TYPE_CHECKING, List, Optional, TypeVar
+from collections import defaultdict
+from typing import List, Optional, TypeVar
 
 from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, root_validator
+from qcportal.models.records import RecordBase
 
-if TYPE_CHECKING:
+from openff.qcsubmit.results.results import _BaseResult, _BaseResultCollection
 
-    from openff.qcsubmit.results.results import _BaseResult, _BaseResultCollection
-
-    T = TypeVar("T", bound=_BaseResultCollection)
+T = TypeVar("T", bound=_BaseResultCollection)
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,49 @@ class ResultFilter(BaseModel, abc.ABC):
         filtered_collection.provenance["applied-filters"][filter_name] = {**self.dict()}
 
         return filtered_collection
+
+
+class ResultRecordFilter(ResultFilter, abc.ABC):
+    """The base class for filters which will operate on QC records and their
+    corresponding molecules directly."""
+
+    @abc.abstractmethod
+    def _filter_function(
+        self, result: "_BaseResult", record: RecordBase, molecule: Molecule
+    ) -> bool:
+        """A method which should return whether to retain a particular result based
+        on some property of the associated QC record.
+        """
+        raise NotImplementedError()
+
+    def _apply(self, result_collection: "T") -> "T":
+
+        all_records_and_molecules = defaultdict(list)
+
+        for record, molecule in result_collection.to_records():
+            all_records_and_molecules[record.client.address].append((record, molecule))
+
+        filtered_results = {}
+
+        for address, entries in result_collection.entries.items():
+
+            entries_by_id = {entry.record_id: entry for entry in entries}
+
+            records_and_molecules = all_records_and_molecules[address]
+
+            filtered_ids = [
+                record.id
+                for record, molecule in records_and_molecules
+                if self._filter_function(entries_by_id[record.id], record, molecule)
+            ]
+
+            filtered_results[address] = [
+                entry for entry in entries if entry.record_id in filtered_ids
+            ]
+
+        result_collection.entries = filtered_results
+
+        return result_collection
 
 
 class SMILESFilter(ResultFilter):

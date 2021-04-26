@@ -3,7 +3,12 @@ import logging
 import pytest
 from pydantic import ValidationError
 
-from openff.qcsubmit.results.filters import ResultFilter, SMARTSFilter, SMILESFilter
+from openff.qcsubmit.results.filters import (
+    ResultFilter,
+    ResultRecordFilter,
+    SMARTSFilter,
+    SMILESFilter,
+)
 
 
 def test_apply_filter(basic_result_collection, caplog):
@@ -26,6 +31,19 @@ def test_apply_filter(basic_result_collection, caplog):
 
     assert "applied-filters" in filtered_collection.provenance
     assert "DummyFilter-0" in filtered_collection.provenance["applied-filters"]
+
+
+def test_apply_record_filter(basic_result_collection):
+    class DummyFilter(ResultRecordFilter):
+        def _filter_function(self, result, record, molecule) -> bool:
+            return record.client.address == "http://localhost:442"
+
+    filtered_collection = DummyFilter().apply(basic_result_collection)
+
+    assert filtered_collection.n_results == 4
+
+    assert "http://localhost:442" in filtered_collection.entries
+    assert "http://localhost:443" not in filtered_collection.entries
 
 
 def test_smiles_filter_mutual_inputs():
