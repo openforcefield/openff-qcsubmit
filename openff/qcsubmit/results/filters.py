@@ -3,9 +3,13 @@ import logging
 from collections import defaultdict
 from typing import List, Optional, TypeVar
 
+import numpy
 from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, root_validator
+from qcelemental.molutil import guess_connectivity
 from qcportal.models.records import RecordBase
+from simtk import unit
+from typing_extensions import Literal
 
 from openff.qcsubmit.results.results import _BaseResult, _BaseResultCollection
 
@@ -243,3 +247,98 @@ class SMARTSFilter(ResultFilter):
         }
 
         return result_collection
+
+
+class HydrogenBondFilter(ResultRecordFilter):
+    """A filter which will remove or retain records which were computed for molecules
+    which match specific SMARTS patterns.
+
+    Notes:
+        * For ``BasicResultCollection`` objects the single conformer associated with
+          each result record will be checked for hydrogen bonds.
+        * For ``OptimizationResultCollection`` objects the minimum energy conformer
+          associated with each optimization record will be checked for hydrogen bonds.
+        * For ``TorsionDriveResultCollection`` objects the minimum energy conformer
+          at each grid angle will be checked for hydrogen bonds.
+    """
+
+    method: Literal["baker-hubbard"] = Field(
+        "baker-hubbard", description="The method to use to detect any hydrogen bonds."
+    )
+
+    def _filter_function(
+        self, result: "_BaseResult", record: RecordBase, molecule: Molecule
+    ) -> bool:
+
+        import mdtraj
+
+        conformers = numpy.array(
+            [
+                conformer.value_in_unit(unit.nanometers).tolist()
+                for conformer in molecule.conformers
+            ]
+        )
+
+        mdtraj_topology = mdtraj.Topology.from_openmm(
+            molecule.to_topology().to_openmm()
+        )
+        mdtraj_trajectory = mdtraj.Trajectory(
+            conformers * unit.nanometers, mdtraj_topology
+        )
+
+        if self.method == "baker-hubbard":
+            h_bonds = mdtraj.baker_hubbard(mdtraj_trajectory, freq=0.0, periodic=False)
+        else:
+            raise NotImplementedError()
+
+        return len(h_bonds) == 0
+
+
+class ConnectivityFilter(ResultRecordFilter):
+    """A filter which will remove records whose corresponding molecules changed their
+    connectivity during the computation, e.g. a proton transfer occurred.
+
+    The connectivity will be percived from the 'final' conformer (see the Notes section)
+    using the ``qcelemental.molutil.guess_connectivity`` function.
+
+    Notes:
+        * For ``BasicResultCollection`` objects no filtering will occur.
+        * For ``OptimizationResultCollection`` objects the molecules final connectivity
+          will be perceived using the minimum energy conformer.
+        * For ``TorsionDriveResultCollection`` objects the connectivty will be
+          will be perceived using the minimum energy conformer conformer at each grid
+          angle.
+    """
+
+    tolerance: float = Field(
+        1.2, description="Tunes the covalent radii metric safety factor."
+    )
+
+    def _filter_function(
+        self, result: "_BaseResult", record: RecordBase, molecule: Molecule
+    ) -> bool:
+
+        qc_molecules = [
+            molecule.to_qcschema(conformer=i) for i in range(molecule.n_conformers)
+        ]
+
+        expected_connectivity = {
+            tuple(sorted([bond.atom1_index, bond.atom2_index]))
+            for bond in molecule.bonds
+        }
+
+        for qc_molecule in qc_molecules:
+
+            actual_connectivity = {
+                tuple(sorted(connection))
+                for connection in guess_connectivity(
+                    qc_molecule.symbols, qc_molecule.geometry, self.tolerance
+                )
+            }
+
+            if actual_connectivity == expected_connectivity:
+                continue
+
+            return False
+
+        return True
