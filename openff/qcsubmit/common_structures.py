@@ -12,7 +12,6 @@ import qcportal as ptl
 from pydantic import BaseModel, Field, HttpUrl, PositiveInt, constr, validator
 from qcelemental import constants
 from qcelemental.models.results import WavefunctionProtocolEnum
-from qcfractal.interface import FractalClient
 from qcportal.models.common_models import DriverEnum
 
 from openff.qcsubmit.exceptions import (
@@ -960,9 +959,14 @@ class ClientHandler:
             A qcportal.FractalClient instance.
         """
 
+        try:
+            from qcfractal.interface import FractalClient as QCFractalClient
+        except ModuleNotFoundError:
+            QCFractalClient = None
+
         if isinstance(client, ptl.FractalClient):
             return client
-        elif isinstance(client, FractalClient):
+        elif QCFractalClient is not None and isinstance(client, QCFractalClient):
             return client
         elif client == "public":
             return ptl.FractalClient()

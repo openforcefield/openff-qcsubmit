@@ -1,13 +1,22 @@
 import json
 import os
-from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import qcelemental as qcel
 import qcportal as ptl
 import tqdm
 from openff.toolkit import topology as off
 from pydantic import Field, constr, validator
-from qcfractal.interface import FractalClient
 from qcportal.models.common_models import (
     DriverEnum,
     OptimizationSpecification,
@@ -39,6 +48,9 @@ from openff.qcsubmit.exceptions import (
 from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.serializers import deserialize, serialize
 from openff.qcsubmit.utils import chunk_generator
+
+if TYPE_CHECKING:
+    from qcfractal.interface import FractalClient
 
 
 class ComponentResult:
@@ -719,7 +731,7 @@ class BasicDataset(CommonBase):
 
     def submit(
         self,
-        client: Union[str, ptl.FractalClient, FractalClient],
+        client: Union[str, ptl.FractalClient, "FractalClient"],
         threads: Optional[int] = None,
         ignore_errors: bool = False,
         verbose: bool = False,
@@ -1367,7 +1379,7 @@ class OptimizationDataset(BasicDataset):
 
     def submit(
         self,
-        client: Union[str, ptl.FractalClient, FractalClient],
+        client: Union[str, ptl.FractalClient, "FractalClient"],
         threads: Optional[int] = None,
         ignore_errors: bool = False,
         verbose: bool = False,
@@ -1625,7 +1637,7 @@ class TorsiondriveDataset(OptimizationDataset):
 
     def submit(
         self,
-        client: Union[str, ptl.FractalClient, FractalClient],
+        client: Union[str, ptl.FractalClient, "FractalClient"],
         threads: Optional[int] = None,
         ignore_errors: bool = False,
         verbose: bool = False,
