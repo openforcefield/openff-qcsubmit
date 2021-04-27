@@ -15,7 +15,7 @@ Automated tools for submitting molecules to QCArchive instances.
 
 A development version of QCSubmit can be installed via conda:
 
-    conda install -c conda-forge -c omnia/label/rc -c omnia -c openff-qcsubmit
+    conda install -c conda-forge -c omnia/label/rc -c omnia openff-qcsubmit
 
 If you want the OpenEye Toolkit and Fragmenter, do instead:
 
