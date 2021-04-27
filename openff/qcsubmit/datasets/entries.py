@@ -103,10 +103,7 @@ class DatasetEntry(DatasetConfig):
             include_conformers: If `True` all of the input conformers are included else they are dropped.
         """
 
-        molecule = off.Molecule.from_mapped_smiles(
-            mapped_smiles=self.attributes.canonical_isomeric_explicit_hydrogen_mapped_smiles,
-            allow_undefined_stereo=True,
-        )
+        molecule = self.attributes.to_openff_molecule()
         molecule.name = self.index
         if include_conformers:
             for conformer in self.initial_molecules:

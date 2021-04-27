@@ -9,6 +9,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import qcportal as ptl
+from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, HttpUrl, PositiveInt, constr, validator
 from qcelemental import constants
 from qcelemental.models.results import WavefunctionProtocolEnum
@@ -1065,7 +1066,7 @@ class MoleculeAttributes(DatasetConfig):
     )
 
     @classmethod
-    def from_openff_molecule(cls, molecule) -> "MoleculeAttributes":
+    def from_openff_molecule(cls, molecule: Molecule) -> "MoleculeAttributes":
         """Create the Cmiles metadata for an OpenFF molecule object.
 
         Parameters:
@@ -1109,10 +1110,19 @@ class MoleculeAttributes(DatasetConfig):
             "standard_inchi": molecule.to_inchi(fixed_hydrogens=False),
             "inchi_key": molecule.to_inchikey(fixed_hydrogens=False),
             "fixed_hydrogen_inchi": molecule.to_inchi(fixed_hydrogens=True),
-            "fixed_hydrogen_inchi_key": molecule.to_inchikey(fixed_hydrogens=True)
+            "fixed_hydrogen_inchi_key": molecule.to_inchikey(fixed_hydrogens=True),
         }
 
         return MoleculeAttributes(**cmiles)
+
+    def to_openff_molecule(self) -> Molecule:
+        """
+        Create an openff molecule from the CMILES information.
+        """
+        return Molecule.from_mapped_smiles(
+            mapped_smiles=self.canonical_isomeric_explicit_hydrogen_mapped_smiles,
+            allow_undefined_stereo=True,
+        )
 
 
 class SCFProperties(str, Enum):
