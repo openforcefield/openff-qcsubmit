@@ -28,7 +28,7 @@ from qcportal.models.common_models import DriverEnum, ObjectId
 from qcportal.models.records import RecordBase
 from typing_extensions import Literal
 
-from openff.qcsubmit.common_structures import Metadata
+from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results.caching import (
@@ -486,7 +486,48 @@ class OptimizationResultCollection(_BaseResultCollection):
         Returns:
             The created basic dataset.
         """
-        raise NotImplementedError()
+
+        records = self.to_records()
+
+        dataset = BasicDataset(
+            dataset_name=dataset_name,
+            description=description,
+            dataset_tagline=tagline,
+            driver=driver,
+            metadata={} if metadata is None else metadata,
+        )
+
+        qc_specs = set()
+
+        for record, molecule in records:
+
+            qc_specs.add(
+                (record.qc_spec.method, record.qc_spec.basis, record.qc_spec.program)
+            )
+
+            dataset.add_molecule(
+                index=molecule.to_smiles(
+                    isomeric=True, explicit_hydrogens=False, mapped=False
+                ),
+                molecule=molecule,
+                attributes=MoleculeAttributes.from_openff_molecule(molecule),
+                extras=record.extras,
+                keywords=record.keywords,
+            )
+
+        dataset.clear_qcspecs()
+
+        for i, (method, basis, program) in enumerate(qc_specs):
+
+            dataset.add_qc_spec(
+                method=method,
+                basis=basis,
+                program=program,
+                spec_name="default" + ("" if i == 0 else f"-{i + 1}"),
+                spec_description="A QC specification",
+            )
+
+        return dataset
 
 
 class TorsionDriveResult(_BaseResult):
@@ -592,27 +633,27 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
-    def create_optimization_dataset(
-        self,
-        dataset_name: str,
-        description: str,
-        tagline: str,
-        metadata: Optional[Metadata] = None,
-    ) -> OptimizationDataset:
-        """Create an optimization dataset from the results of the current torsion drive
-        dataset. This will result in many constrained optimizations for each molecule.
-
-        Note:
-            The final geometry of each torsiondrive constrained optimization is supplied
-            as a starting geometry.
-
-        Parameters:
-            dataset_name: The name that will be given to the new dataset.
-            tagline: The tagline that should be given to the new dataset.
-            description: The description that should be given to the new dataset.
-            metadata: The metadata for the new dataset.
-
-        Returns:
-            The created optimization dataset.
-        """
-        raise NotImplementedError()
+    # def create_optimization_dataset(
+    #     self,
+    #     dataset_name: str,
+    #     description: str,
+    #     tagline: str,
+    #     metadata: Optional[Metadata] = None,
+    # ) -> OptimizationDataset:
+    #     """Create an optimization dataset from the results of the current torsion drive
+    #     dataset. This will result in many constrained optimizations for each molecule.
+    #
+    #     Note:
+    #         The final geometry of each torsiondrive constrained optimization is supplied
+    #         as a starting geometry.
+    #
+    #     Parameters:
+    #         dataset_name: The name that will be given to the new dataset.
+    #         tagline: The tagline that should be given to the new dataset.
+    #         description: The description that should be given to the new dataset.
+    #         metadata: The metadata for the new dataset.
+    #
+    #     Returns:
+    #         The created optimization dataset.
+    #     """
+    #     raise NotImplementedError()
