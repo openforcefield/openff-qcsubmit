@@ -357,8 +357,18 @@ class QCSpec(ResultsConfig):
             from openmmforcefields.generators.template_generators import (
                 GAFFTemplateGenerator,
             )
+
+            gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
+
         except ModuleNotFoundError:
-            GAFFTemplateGenerator = None
+
+            gaff_forcefields = [
+                "gaff-1.4",
+                "gaff-1.8",
+                "gaff-1.81",
+                "gaff-2.1",
+                "gaff-2.11",
+            ]
 
         # set up the valid method basis and program combinations
         ani_methods = {"ani1x", "ani1ccx", "ani2x"}
@@ -366,11 +376,10 @@ class QCSpec(ResultsConfig):
             ff.split(".offxml")[0].lower() for ff in get_available_force_fields()
         )
 
-        openmm_forcefields = {"smirnoff": openff_forcefields}
-
-        if GAFFTemplateGenerator is not None:
-            gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
-            openmm_forcefields["antechamber"] = gaff_forcefields
+        openmm_forcefields = {
+            "smirnoff": openff_forcefields,
+            "antechamber": gaff_forcefields,
+        }
 
         xtb_methods = {
             "gfn0-xtb",
