@@ -450,7 +450,9 @@
         "canonical_isomeric_explicit_hydrogen_mapped_smiles": "[H:29][c:2]1[c:3]([c:10]([c:14]([c:13]([c:4]1[H:31])[Cl:27])[Cl:28])[C:17]2=[N:23][C:15]3=[C:12]([C:9](=[N:22][N:24]3[C:18](=[C:16]2[H:37])[N:25]([H:40])[C:19]([H:38])([H:39])[c:11]4[c:5]([c:7]([n:21][c:8]([c:6]4[H:33])[H:35])[H:34])[H:32])[H:36])[S:26][C:1]#[N:20])[H:30]",
         "molecular_formula": "C19H12Cl2N6S",
         "standard_inchi": "InChI=1S/C19H12Cl2N6S/c20-14-3-1-2-13(18(14)21)15-8-17(24-9-12-4-6-23-7-5-12)27-19(26-15)16(10-25-27)28-11-22/h1-8,10,24H,9H2",
-        "inchi_key": "AHPKUZJCNHGFQA-UHFFFAOYSA-N"
+        "inchi_key": "AHPKUZJCNHGFQA-UHFFFAOYSA-N",
+        "fixed_hydrogen_inchi": "InChI=1/C19H12Cl2N6S/c20-14-3-1-2-13(18(14)21)15-8-17(24-9-12-4-6-23-7-5-12)27-19(26-15)16(10-25-27)28-11-22/h1-8,10,24H,9H2",
+        "fixed_hydrogen_inchi_key": "AHPKUZJCNHGFQA-UHFFFAOYNA-N"
       },
       "dihedrals": [
         [
