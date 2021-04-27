@@ -12,6 +12,7 @@ from openff.qcsubmit.results.filters import (
     CMILESResultFilter,
     ConnectivityFilter,
     HydrogenBondFilter,
+    RecordStatusFilter,
     ResultFilter,
     ResultRecordFilter,
     SMARTSFilter,
@@ -218,3 +219,22 @@ def test_connectivity_filter():
 
     connectivity_filter.tolerance = 12.01  # default * 10.0 + 0.01
     assert connectivity_filter._filter_function(result, record, molecule)
+
+
+def test_record_status_filter():
+
+    record = ResultRecord(
+        id=ObjectId("1"),
+        program="psi4",
+        driver=DriverEnum.gradient,
+        method="scf",
+        basis="sto-3g",
+        molecule=ObjectId("1"),
+        status=RecordStatusEnum.complete,
+    )
+
+    status_filter = RecordStatusFilter(status=RecordStatusEnum.complete)
+    assert status_filter._filter_function(None, record, None) is True
+
+    status_filter = RecordStatusFilter(status=RecordStatusEnum.incomplete)
+    assert status_filter._filter_function(None, record, None) is False
