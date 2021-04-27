@@ -9,6 +9,7 @@ from qcportal.models.records import RecordStatusEnum
 
 from openff.qcsubmit.results import BasicResult
 from openff.qcsubmit.results.filters import (
+    CMILESResultFilter,
     ConnectivityFilter,
     HydrogenBondFilter,
     ResultFilter,
@@ -38,6 +39,25 @@ def test_apply_filter(basic_result_collection, caplog):
 
     assert "applied-filters" in filtered_collection.provenance
     assert "DummyFilter-0" in filtered_collection.provenance["applied-filters"]
+
+
+def test_apply_cmiles_filter(basic_result_collection):
+
+    class DummyFilter(CMILESResultFilter):
+        def _filter_function(self, result) -> bool:
+            return result.record_id == "1"
+
+    filtered_collection = DummyFilter().apply(basic_result_collection)
+
+    assert filtered_collection.n_results == 2
+
+    for port in [442, 443]:
+
+        address = f"http://localhost:{port}"
+
+        assert address in filtered_collection.entries
+        assert len(filtered_collection.entries[address]) == 1
+        assert filtered_collection.entries[address][0].record_id == "1"
 
 
 def test_apply_record_filter(basic_result_collection):

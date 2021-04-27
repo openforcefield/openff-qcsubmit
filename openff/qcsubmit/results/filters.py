@@ -1,11 +1,11 @@
 import abc
 import logging
 from collections import defaultdict
-from typing import List, Optional, TypeVar
+from typing import List, Optional, Set, TypeVar
 
 import numpy
 from openff.toolkit.topology import Molecule
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, PrivateAttr, root_validator
 from qcelemental.molutil import guess_connectivity
 from qcportal.models.records import RecordBase
 from simtk import unit
@@ -76,6 +76,34 @@ class ResultFilter(BaseModel, abc.ABC):
         return filtered_collection
 
 
+class CMILESResultFilter(ResultFilter, abc.ABC):
+    """The base class for a filter which will retain selection of QC records based
+    solely on the CMILES ( / InChI key) associated with the record itself, and not
+    the actual record.
+
+    If the filter needs to access information from the QC record itself the
+    ``ResultRecordFilter`` class should be used instead as it more efficiently
+    retrieves the records and associated molecule objects from the QCFractal
+    instances.
+    """
+
+    @abc.abstractmethod
+    def _filter_function(self, result: "_BaseResult") -> bool:
+        """A method which should return whether to retain a particular result based
+        on some property of the result object.
+        """
+        raise NotImplementedError()
+
+    def _apply(self, result_collection: "T") -> "T":
+
+        result_collection.entries = {
+            address: [*filter(self._filter_function, entries)]
+            for address, entries in result_collection.entries.items()
+        }
+
+        return result_collection
+
+
 class ResultRecordFilter(ResultFilter, abc.ABC):
     """The base class for filters which will operate on QC records and their
     corresponding molecules directly."""
@@ -119,10 +147,13 @@ class ResultRecordFilter(ResultFilter, abc.ABC):
         return result_collection
 
 
-class SMILESFilter(ResultFilter):
+class SMILESFilter(CMILESResultFilter):
     """A filter which will remove or retain records which were computed for molecules
     described by specific SMILES patterns.
     """
+
+    _inchi_keys_to_include: Optional[Set[str]] = PrivateAttr(None)
+    _inchi_keys_to_exclude: Optional[Set[str]] = PrivateAttr(None)
 
     smiles_to_include: Optional[List[str]] = Field(
         None,
@@ -157,16 +188,24 @@ class SMILESFilter(ResultFilter):
     def _smiles_to_inchi_key(smiles: str) -> str:
         return Molecule.from_smiles(smiles).to_inchikey(fixed_hydrogens=False)
 
+    def _filter_function(self, entry: "_BaseResult") -> bool:
+
+        return (
+            entry.inchi_key in self._inchi_keys_to_include
+            if self._inchi_keys_to_include is not None
+            else entry.inchi_key not in self._inchi_keys_to_exclude
+        )
+
     def _apply(self, result_collection: "T") -> "T":
 
-        keys_to_include = (
+        self._inchi_keys_to_include = (
             None
             if self.smiles_to_include is None
             else {
                 self._smiles_to_inchi_key(smiles) for smiles in self.smiles_to_include
             }
         )
-        keys_to_exclude = (
+        self._inchi_keys_to_exclude = (
             None
             if self.smiles_to_exclude is None
             else {
@@ -174,23 +213,10 @@ class SMILESFilter(ResultFilter):
             }
         )
 
-        def _filter_function(entry: "_BaseResult") -> bool:
-
-            return (
-                entry.inchi_key in keys_to_include
-                if keys_to_include is not None
-                else entry.inchi_key not in keys_to_exclude
-            )
-
-        result_collection.entries = {
-            address: [*filter(_filter_function, entries)]
-            for address, entries in result_collection.entries.items()
-        }
-
-        return result_collection
+        return super(SMILESFilter, self)._apply(result_collection)
 
 
-class SMARTSFilter(ResultFilter):
+class SMARTSFilter(CMILESResultFilter):
     """A filter which will remove or retain records which were computed for molecules
     which match specific SMARTS patterns.
     """
@@ -224,29 +250,21 @@ class SMARTSFilter(ResultFilter):
 
         return values
 
-    def _apply(self, result_collection: "T") -> "T":
-        def _filter_function(entry: "_BaseResult") -> bool:
+    def _filter_function(self, entry: "_BaseResult") -> bool:
 
-            molecule: Molecule = Molecule.from_mapped_smiles(entry.cmiles)
+        molecule: Molecule = Molecule.from_mapped_smiles(entry.cmiles)
 
-            if self.smarts_to_include is not None:
+        if self.smarts_to_include is not None:
 
-                return any(
-                    len(molecule.chemical_environment_matches(smarts)) > 0
-                    for smarts in self.smarts_to_include
-                )
-
-            return all(
-                len(molecule.chemical_environment_matches(smarts)) == 0
-                for smarts in self.smarts_to_exclude
+            return any(
+                len(molecule.chemical_environment_matches(smarts)) > 0
+                for smarts in self.smarts_to_include
             )
 
-        result_collection.entries = {
-            address: [*filter(_filter_function, entries)]
-            for address, entries in result_collection.entries.items()
-        }
-
-        return result_collection
+        return all(
+            len(molecule.chemical_environment_matches(smarts)) == 0
+            for smarts in self.smarts_to_exclude
+        )
 
 
 class HydrogenBondFilter(ResultRecordFilter):
