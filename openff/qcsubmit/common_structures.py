@@ -1056,6 +1056,13 @@ class MoleculeAttributes(DatasetConfig):
     inchi_key: str = Field(
         ..., description="The standard inchi key given by the inchi program."
     )
+    fixed_hydrogen_inchi: str = Field(
+        ...,
+        description="The non-standard inchi with a fixed hydrogen layer to distinguish tautomers.",
+    )
+    fixed_hydrogen_inchi_key: str = Field(
+        ..., description="The non-standard inchikey with a fixed hydrogen layer."
+    )
 
     @classmethod
     def from_openff_molecule(cls, molecule) -> "MoleculeAttributes":
@@ -1078,6 +1085,8 @@ class MoleculeAttributes(DatasetConfig):
             - `molecular_formula`
             - `standard_inchi`
             - `inchi_key`
+            - `fixed_hydrogen_inchi`
+            - `fixed_hydrogen_inchi_key`
         """
 
         cmiles = {
@@ -1099,6 +1108,8 @@ class MoleculeAttributes(DatasetConfig):
             "molecular_formula": molecule.hill_formula,
             "standard_inchi": molecule.to_inchi(fixed_hydrogens=False),
             "inchi_key": molecule.to_inchikey(fixed_hydrogens=False),
+            "fixed_hydrogen_inchi": molecule.to_inchi(fixed_hydrogens=True),
+            "fixed_hydrogen_inchi_key": molecule.to_inchikey(fixed_hydrogens=True)
         }
 
         return MoleculeAttributes(**cmiles)

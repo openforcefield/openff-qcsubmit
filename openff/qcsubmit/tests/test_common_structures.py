@@ -23,5 +23,7 @@ def test_attributes_from_openff_molecule():
         "molecular_formula": mol.hill_formula,
         "standard_inchi": mol.to_inchi(fixed_hydrogens=False),
         "inchi_key": mol.to_inchikey(fixed_hydrogens=False),
+        "fixed_hydrogen_inchi": mol.to_inchi(fixed_hydrogens=True),
+        "fixed_hydrogen_inchi_key": mol.to_inchikey(fixed_hydrogens=True)
     }
     assert test_cmiles == attributes
