@@ -146,7 +146,9 @@
         "canonical_isomeric_explicit_hydrogen_mapped_smiles": "[H:4][C:1]([H:5])([H:6])[C:2]([H:7])([H:8])[O:3][H:9]",
         "molecular_formula": "C2H6O",
         "standard_inchi": "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3",
-        "inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"
+        "inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
+        "fixed_hydrogen_inchi": "InChI=1/C2H6O/c1-2-3/h3H,2H2,1H3",
+        "fixed_hydrogen_inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYNA-N"
       },
       "dihedrals": [
         [
