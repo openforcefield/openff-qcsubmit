@@ -7,7 +7,7 @@ import numpy
 from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, PrivateAttr, root_validator
 from qcelemental.molutil import guess_connectivity
-from qcportal.models.records import RecordBase
+from qcportal.models.records import RecordBase, RecordStatusEnum
 from simtk import unit
 from typing_extensions import Literal
 
@@ -360,3 +360,20 @@ class ConnectivityFilter(ResultRecordFilter):
             return False
 
         return True
+
+
+class RecordStatusFilter(ResultRecordFilter):
+    """A filter which will only retain records if their status matches a specified
+    value.
+    """
+
+    status: RecordStatusEnum = Field(
+        RecordStatusEnum.complete,
+        description="Records whose status match this value will be retained.",
+    )
+
+    def _filter_function(
+        self, result: "_BaseResult", record: RecordBase, molecule: Molecule
+    ) -> bool:
+
+        return record.status.value.upper() == self.status.value.upper()
