@@ -352,16 +352,35 @@ class QCSpec(ResultsConfig):
         Validate the combination of method, basis and program.
         """
         from openff.toolkit.typing.engines.smirnoff import get_available_force_fields
-        from openmmforcefields.generators.template_generators import (
-            GAFFTemplateGenerator,
-        )
+
+        try:
+            from openmmforcefields.generators.template_generators import (
+                GAFFTemplateGenerator,
+            )
+
+            gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
+
+        except ModuleNotFoundError:
+
+            gaff_forcefields = [
+                "gaff-1.4",
+                "gaff-1.8",
+                "gaff-1.81",
+                "gaff-2.1",
+                "gaff-2.11",
+            ]
 
         # set up the valid method basis and program combinations
         ani_methods = {"ani1x", "ani1ccx", "ani2x"}
         openff_forcefields = list(
             ff.split(".offxml")[0].lower() for ff in get_available_force_fields()
         )
-        gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
+
+        openmm_forcefields = {
+            "smirnoff": openff_forcefields,
+            "antechamber": gaff_forcefields,
+        }
+
         xtb_methods = {
             "gfn0-xtb",
             "gfn0xtb",
@@ -374,7 +393,7 @@ class QCSpec(ResultsConfig):
         }
         rdkit_methods = {"uff", "mmff94", "mmff94s"}
         settings = {
-            "openmm": {"antechamber": gaff_forcefields, "smirnoff": openff_forcefields},
+            "openmm": openmm_forcefields,
             "torchani": {None: ani_methods},
             "xtb": {None: xtb_methods},
             "rdkit": {None: rdkit_methods},
