@@ -72,7 +72,7 @@ class _BaseResult(BaseModel, abc.ABC):
         """Returns an OpenFF molecule object created from this records
         CMILES which is in the correct order to align with the QCArchive records.
         """
-        return Molecule.from_mapped_smiles(self.cmiles)
+        return Molecule.from_mapped_smiles(self.cmiles, allow_undefined_stereo=True)
 
 
 class _BaseResultCollection(BaseModel, abc.ABC):
