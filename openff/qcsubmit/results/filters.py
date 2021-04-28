@@ -186,7 +186,9 @@ class SMILESFilter(CMILESResultFilter):
 
     @staticmethod
     def _smiles_to_inchi_key(smiles: str) -> str:
-        return Molecule.from_smiles(smiles).to_inchikey(fixed_hydrogens=False)
+        return Molecule.from_smiles(smiles, allow_undefined_stereo=True).to_inchikey(
+            fixed_hydrogens=False
+        )
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
 
@@ -252,7 +254,9 @@ class SMARTSFilter(CMILESResultFilter):
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
 
-        molecule: Molecule = Molecule.from_mapped_smiles(entry.cmiles)
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
 
         if self.smarts_to_include is not None:
 
