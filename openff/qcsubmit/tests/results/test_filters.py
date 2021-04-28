@@ -9,6 +9,7 @@ from qcportal.models.records import RecordStatusEnum
 
 from openff.qcsubmit.results import BasicResult
 from openff.qcsubmit.results.filters import (
+    ChargeFilter,
     CMILESResultFilter,
     ConnectivityFilter,
     HydrogenBondFilter,
@@ -17,7 +18,6 @@ from openff.qcsubmit.results.filters import (
     ResultRecordFilter,
     SMARTSFilter,
     SMILESFilter,
-    ChargeFilter,
 )
 
 
