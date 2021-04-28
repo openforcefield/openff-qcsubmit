@@ -19,11 +19,11 @@ from openff.qcsubmit.exceptions import (
 )
 
 
-def literal_lower(liertal: str) -> str:
+def literal_lower(literal: str) -> str:
     """
     Take a string and lower it for a literal type check.
     """
-    return liertal.lower()
+    return literal.lower()
 
 
 def literal_upper(literal: str) -> str:
@@ -41,7 +41,7 @@ def check_improper_connection(
     central atom.
 
     Parameters:
-        improper: The imporper torsion that should be checked.
+        improper: The improper torsion that should be checked.
         molecule: The molecule which we want to check the improper in.
 
     Returns:
