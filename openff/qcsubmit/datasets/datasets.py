@@ -1,6 +1,6 @@
+import abc
 import json
 import os
-import abc
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -18,10 +18,7 @@ import qcportal as ptl
 import tqdm
 from openff.toolkit import topology as off
 from pydantic import Field, constr, validator
-from qcportal.models.common_models import (
-    DriverEnum,
-    QCSpecification,
-)
+from qcportal.models.common_models import DriverEnum, QCSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import (
@@ -51,8 +48,8 @@ from openff.qcsubmit.utils import chunk_generator
 
 if TYPE_CHECKING:  # pragma: no cover
     from qcportal import FractalClient
-    from qcportal.models.common_models import OptimizationSpecification
     from qcportal.collections.collection import Collection
+    from qcportal.models.common_models import OptimizationSpecification
 
 
 class ComponentResult:
