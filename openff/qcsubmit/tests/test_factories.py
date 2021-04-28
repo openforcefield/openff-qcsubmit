@@ -403,17 +403,12 @@ def test_torsiondrive_factory_index():
     assert index == mol.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
 
 
-@pytest.mark.parametrize("factory_type", [
-    pytest.param(BasicDatasetFactory, id="BasicDatasetFactory"),
-    pytest.param(OptimizationDatasetFactory, id="OptimizationDatasetFactory"),
-    pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDatasetFactory")
-])
-def test_factory_cmiles(factory_type):
+def test_factory_cmiles():
     """
     Test the basic factories ability to make cmiles attributes for the molecules.
     """
 
-    factory = factory_type()
+    factory = BasicDatasetFactory()
     mol = Molecule.from_smiles("CC")
 
     cmiles_factory = factory.create_cmiles_metadata(mol)
@@ -432,6 +427,8 @@ def test_factory_cmiles(factory_type):
         "molecular_formula": mol.hill_formula,
         "standard_inchi": mol.to_inchi(fixed_hydrogens=False),
         "inchi_key": mol.to_inchikey(fixed_hydrogens=False),
+        "fixed_hydrogen_inchi": mol.to_inchi(fixed_hydrogens=True),
+        "fixed_hydrogen_inchi_key": mol.to_inchikey(fixed_hydrogens=True),
     }
     assert test_cmiles == cmiles_factory
 

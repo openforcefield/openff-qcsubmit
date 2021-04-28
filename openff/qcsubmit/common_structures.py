@@ -9,10 +9,10 @@ from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import qcportal as ptl
+from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, HttpUrl, PositiveInt, constr, validator
 from qcelemental import constants
 from qcelemental.models.results import WavefunctionProtocolEnum
-from qcfractal.interface import FractalClient
 from qcportal.models.common_models import DriverEnum
 
 from openff.qcsubmit.exceptions import (
@@ -352,16 +352,35 @@ class QCSpec(ResultsConfig):
         Validate the combination of method, basis and program.
         """
         from openff.toolkit.typing.engines.smirnoff import get_available_force_fields
-        from openmmforcefields.generators.template_generators import (
-            GAFFTemplateGenerator,
-        )
+
+        try:
+            from openmmforcefields.generators.template_generators import (
+                GAFFTemplateGenerator,
+            )
+
+            gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
+
+        except ModuleNotFoundError:
+
+            gaff_forcefields = [
+                "gaff-1.4",
+                "gaff-1.8",
+                "gaff-1.81",
+                "gaff-2.1",
+                "gaff-2.11",
+            ]
 
         # set up the valid method basis and program combinations
         ani_methods = {"ani1x", "ani1ccx", "ani2x"}
         openff_forcefields = list(
             ff.split(".offxml")[0].lower() for ff in get_available_force_fields()
         )
-        gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
+
+        openmm_forcefields = {
+            "smirnoff": openff_forcefields,
+            "antechamber": gaff_forcefields,
+        }
+
         xtb_methods = {
             "gfn0-xtb",
             "gfn0xtb",
@@ -374,7 +393,7 @@ class QCSpec(ResultsConfig):
         }
         rdkit_methods = {"uff", "mmff94", "mmff94s"}
         settings = {
-            "openmm": {"antechamber": gaff_forcefields, "smirnoff": openff_forcefields},
+            "openmm": openmm_forcefields,
             "torchani": {None: ani_methods},
             "xtb": {None: xtb_methods},
             "rdkit": {None: rdkit_methods},
@@ -942,9 +961,14 @@ class ClientHandler:
             A qcportal.FractalClient instance.
         """
 
+        try:
+            from qcfractal.interface import FractalClient as QCFractalClient
+        except ModuleNotFoundError:
+            QCFractalClient = None
+
         if isinstance(client, ptl.FractalClient):
             return client
-        elif isinstance(client, FractalClient):
+        elif QCFractalClient is not None and isinstance(client, QCFractalClient):
             return client
         elif client == "public":
             return ptl.FractalClient()
@@ -1038,9 +1062,16 @@ class MoleculeAttributes(DatasetConfig):
     inchi_key: str = Field(
         ..., description="The standard inchi key given by the inchi program."
     )
+    fixed_hydrogen_inchi: str = Field(
+        ...,
+        description="The non-standard inchi with a fixed hydrogen layer to distinguish tautomers.",
+    )
+    fixed_hydrogen_inchi_key: str = Field(
+        ..., description="The non-standard inchikey with a fixed hydrogen layer."
+    )
 
     @classmethod
-    def from_openff_molecule(cls, molecule) -> "MoleculeAttributes":
+    def from_openff_molecule(cls, molecule: Molecule) -> "MoleculeAttributes":
         """Create the Cmiles metadata for an OpenFF molecule object.
 
         Parameters:
@@ -1060,6 +1091,8 @@ class MoleculeAttributes(DatasetConfig):
             - `molecular_formula`
             - `standard_inchi`
             - `inchi_key`
+            - `fixed_hydrogen_inchi`
+            - `fixed_hydrogen_inchi_key`
         """
 
         cmiles = {
@@ -1081,9 +1114,20 @@ class MoleculeAttributes(DatasetConfig):
             "molecular_formula": molecule.hill_formula,
             "standard_inchi": molecule.to_inchi(fixed_hydrogens=False),
             "inchi_key": molecule.to_inchikey(fixed_hydrogens=False),
+            "fixed_hydrogen_inchi": molecule.to_inchi(fixed_hydrogens=True),
+            "fixed_hydrogen_inchi_key": molecule.to_inchikey(fixed_hydrogens=True),
         }
 
         return MoleculeAttributes(**cmiles)
+
+    def to_openff_molecule(self) -> Molecule:
+        """
+        Create an openff molecule from the CMILES information.
+        """
+        return Molecule.from_mapped_smiles(
+            mapped_smiles=self.canonical_isomeric_explicit_hydrogen_mapped_smiles,
+            allow_undefined_stereo=True,
+        )
 
 
 class SCFProperties(str, Enum):

@@ -209,3 +209,13 @@ class DatasetRegisterError(QCSubmitException):
 
     error_type = "dataset_register_error"
     header = "Dataset Register Error"
+
+
+class RecordTypeError(QCSubmitException):
+    """
+    A record was not of the expected type (e.g. a torsion drive result record while an
+    optimization record was expected).
+    """
+
+    error_type = "record_type_error"
+    header = "Record Type Error"

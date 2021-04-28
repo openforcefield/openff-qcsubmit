@@ -1,33 +1,40 @@
 name: test
 
 channels:
+  - openeye
   - conda-forge
   - omnia
-  - openeye
   - defaults
 
 dependencies:
-    # Base depends
+
+  # Base depends
   - python
   - pip
 
-    # Testing
+  # Testing
   - pytest
   - pytest-cov
-  - openff-toolkit
-  - openff-forcefields
-  - smirnoff99Frosst
-  - openmmforcefields >=0.9.0
-  - qcengine >=0.18.0
-  - pyyaml
   - codecov
-  - qcportal
+  - requests-mock
+
+  - qcengine >=0.18.0
   - qcfractal
+
+  - openeye-toolkits
+
+  ### Core dependencies.
+
+  - openff-toolkit-base
+  - rdkit
+  - pydantic
+  - pyyaml
+  - qcportal
   - torsiondrive
-  - fragmenter ==0.0.7
   - basis_set_exchange
   - typing-extensions
+  - cachetools
 
-    # Pip-only installs
-#  - pip:
-#    - basis_set_exchange
+  # Optional
+  - openmmforcefields >=0.9.0
+  - fragmenter ==0.0.7
