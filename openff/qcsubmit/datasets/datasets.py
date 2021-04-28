@@ -1,7 +1,17 @@
 import json
 import os
 import abc
-from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import qcelemental as qcel
 import qcportal as ptl
@@ -269,7 +279,6 @@ class ComponentResult:
 
 
 class DatasetBaseMixin(abc.ABC, CommonBase):
-
     @abc.abstractmethod
     def _validate_metadata(self):
         """Validate metadata, raising exception if validation fails.
@@ -285,9 +294,7 @@ class DatasetBaseMixin(abc.ABC, CommonBase):
         pass
 
     @abc.abstractmethod
-    def _generate_collection(self, 
-        client: "FractalClient"
-        ) -> "Collection":
+    def _generate_collection(self, client: "FractalClient") -> "Collection":
         """Generate the corresponding QCFractal Collection for this Dataset.
 
         Each QCSubmit Dataset class corresponds to and wraps
@@ -324,10 +331,7 @@ class DatasetBaseMixin(abc.ABC, CommonBase):
         pass
 
     @abc.abstractmethod
-    def _get_indices(
-            self, 
-            collection: "Collection"
-            ) -> List[str]:
+    def _get_indices(self, collection: "Collection") -> List[str]:
         """Shim method to get indices from different Collection types.
 
         The mechanism for getting indices from different QCFractal Collections
@@ -348,11 +352,7 @@ class DatasetBaseMixin(abc.ABC, CommonBase):
         pass
 
     @abc.abstractmethod
-    def _compute_kwargs(
-            self, 
-            spec: QCSpec, 
-            indices: List[str]
-            ) -> Dict[str, Any]:
+    def _compute_kwargs(self, spec: QCSpec, indices: List[str]) -> Dict[str, Any]:
         """Returns a dict giving the full arguments to the Collection's
         `compute` method.
 
@@ -371,16 +371,14 @@ class DatasetBaseMixin(abc.ABC, CommonBase):
         spec_kwargs : Dict[str, Any]
             A dict giving the full arguments to the compute method of this
             Dataset's corresponding Collection.
-            
+
         """
         pass
 
     @abc.abstractmethod
     def _add_entries(
-            self,
-            collection: "Collection",
-            chunk_size: int
-            ) -> Tuple[List[str], int]:
+        self, collection: "Collection", chunk_size: int
+    ) -> Tuple[List[str], int]:
         """Add entries to the Dataset's corresponding Collection.
 
         This method allows for handling of e.g. generating the index/name for
@@ -397,7 +395,7 @@ class DatasetBaseMixin(abc.ABC, CommonBase):
             Increase this number to yield better performance.
             The maximum allowed size is set on a per-server basis as its
             `query_limit`.
-            
+
         Returns
         -------
         indices : List[str]
@@ -410,13 +408,13 @@ class DatasetBaseMixin(abc.ABC, CommonBase):
 
     @abc.abstractmethod
     def add_dataset_specification(
-            self, 
-            spec: QCSpec, 
-            procedure_spec: Optional[OptimizationSpecification], 
-            collection: "Collection"
-            ) -> bool:
+        self,
+        spec: QCSpec,
+        procedure_spec: Optional[OptimizationSpecification],
+        collection: "Collection",
+    ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
-        
+
         This will check if a spec under this name has already been added and if it should be overwritten.
 
         If a specification is already stored under this name in the collection we have options:
@@ -1042,13 +1040,13 @@ class BasicDataset(DatasetBaseMixin):
         return collection.get_index()
 
     def add_dataset_specification(
-            self, 
-            spec: QCSpec, 
-            procedure_spec: Optional[OptimizationSpecification], 
-            collection: "Collection"
-            ) -> bool:
+        self,
+        spec: QCSpec,
+        procedure_spec: Optional[OptimizationSpecification],
+        collection: "Collection",
+    ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
-        
+
         Parameters
         ----------
         spec : QCSpec
@@ -1086,7 +1084,7 @@ class BasicDataset(DatasetBaseMixin):
         spec_kwargs["protocols"] = {"wavefunction": spec.store_wavefunction.value}
 
         # NOTE: requires a PR on QCFractal to make this work for `Dataset`
-        spec_kwargs["subset"] = indices 
+        spec_kwargs["subset"] = indices
         return spec_kwargs
 
     def _add_entries(self, collection, chunk_size):
@@ -1100,7 +1098,6 @@ class BasicDataset(DatasetBaseMixin):
                 collection.save()
 
             if len(data.initial_molecules) > 1:
-
 
                 # check if the index has a number tag
                 # if so, start from this tag
@@ -1607,13 +1604,13 @@ class OptimizationDataset(BasicDataset):
         return qc_spec
 
     def add_dataset_specification(
-            self, 
-            spec: QCSpec, 
-            procedure_spec: Optional[OptimizationSpecification], 
-            collection: "Collection"
+        self,
+        spec: QCSpec,
+        procedure_spec: Optional[OptimizationSpecification],
+        collection: "Collection",
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
-        
+
         This will check if a spec under this name has already been added and if it should be overwritten.
 
         If a specification is already stored under this name in the collection we have options:
