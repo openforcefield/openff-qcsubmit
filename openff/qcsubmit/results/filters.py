@@ -25,7 +25,7 @@ class ResultFilter(BaseModel, abc.ABC):
 
     @abc.abstractmethod
     def _apply(self, result_collection: "T") -> "T":
-        """The internal implementation of thr ``apply`` method which should apply this
+        """The internal implementation of the ``apply`` method which should apply this
         filter to a results collection and return a new collection containing only the
         retained entries.
 
@@ -381,3 +381,48 @@ class RecordStatusFilter(ResultRecordFilter):
     ) -> bool:
 
         return record.status.value.upper() == self.status.value.upper()
+
+
+class ChargeFilter(CMILESResultFilter):
+    """A filter which will only retain records if their charge matches allowd values or is not in the
+    exclude list."""
+
+    charges_to_include: Optional[List[int]] = Field(
+        None,
+        description="Only molecules with a net charge in this list will be kept. "
+        "This option is mutually exclusive with ``charges_to_exclude``.",
+    )
+
+    charges_to_exclude: Optional[List[int]] = Field(
+        None,
+        description="Any molecules with a net charge which matches any of these values will be removed. "
+        "This option is mutually exclusive with ``charges_to_include``.",
+    )
+
+    @root_validator
+    def _validate_mutually_exclusive(cls, values):
+        charges_to_include = values.get("charges_to_include")
+        charges_to_exclude = values.get("charges_to_exclude")
+
+        message = (
+            "exactly one of `charges_to_include` and `charges_to_exclude` must be "
+            "specified"
+        )
+
+        assert charges_to_include is not None or charges_to_exclude is not None, message
+        assert charges_to_include is None or charges_to_exclude is None, message
+
+        return values
+
+    def _filter_function(self, entry: "_BaseResult") -> bool:
+
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
+        total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+
+        if self.charges_to_include is not None:
+
+            return total_charge in self.charges_to_include
+
+        return total_charge not in self.charges_to_exclude
