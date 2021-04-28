@@ -407,7 +407,7 @@ class DatasetBaseMixin(abc.ABC, CommonBase):
     def add_dataset_specification(
         self,
         spec: QCSpec,
-        procedure_spec: Optional[OptimizationSpecification],
+        procedure_spec: Optional["OptimizationSpecification"],
         collection: "Collection",
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
@@ -1039,7 +1039,7 @@ class BasicDataset(DatasetBaseMixin):
     def add_dataset_specification(
         self,
         spec: QCSpec,
-        procedure_spec: Optional[OptimizationSpecification],
+        procedure_spec: Optional["OptimizationSpecification"],
         collection: "Collection",
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
@@ -1603,7 +1603,7 @@ class OptimizationDataset(BasicDataset):
     def add_dataset_specification(
         self,
         spec: QCSpec,
-        procedure_spec: Optional[OptimizationSpecification],
+        procedure_spec: Optional["OptimizationSpecification"],
         collection: "Collection",
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
