@@ -1,17 +1,15 @@
 import json
 import os
 import abc
-from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 import qcelemental as qcel
 import qcportal as ptl
 import tqdm
 from openff.toolkit import topology as off
 from pydantic import Field, constr, validator
-from qcfractal.interface import FractalClient
 from qcportal.models.common_models import (
     DriverEnum,
-    OptimizationSpecification,
     QCSpecification,
 )
 from typing_extensions import Literal
@@ -40,6 +38,11 @@ from openff.qcsubmit.exceptions import (
 from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.serializers import deserialize, serialize
 from openff.qcsubmit.utils import chunk_generator
+
+if TYPE_CHECKING:  # pragma: no cover
+    from qcportal import FractalClient
+    from qcportal.models.common_models import OptimizationSpecification
+    from qcportal.collections.collection import Collection
 
 
 class ComponentResult:
@@ -265,21 +268,191 @@ class ComponentResult:
         return f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' filtered='{self.n_filtered}'>"
 
 
-class DatasetBaseMixin(abc.ABC):
+class DatasetBaseMixin(abc.ABC, CommonBase):
 
-    def _add_entries(self):
+    @abc.abstractmethod
+    def _validate_metadata(self):
+        """Validate metadata, raising exception if validation fails.
+
+        Validation approach may vary widely depending on dataset type.
+
+        Raises
+        ------
+        DatasetInputError
+            Raised if validation fails.
+
+        """
         pass
 
-    def _add_entry(self):
+    @abc.abstractmethod
+    def _generate_collection(self, 
+        client: "FractalClient"
+        ) -> "Collection":
+        """Generate the corresponding QCFractal Collection for this Dataset.
+
+        Each QCSubmit Dataset class corresponds to and wraps
+        a QCFractal Collection class. This method generates an instance
+        of that cooresponding Collection, with inputs applied from
+        Dataset attributes.
+
+        Parameters
+        ----------
+        client : FractalClient
+            Client to use for connecting to a QCFractal server instance.
+
+        Returns
+        -------
+        Collection
+            Collection instance corresponding to this Dataset.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def _get_procedure_spec(self) -> "OptimizationSpecification":
+        """Get the procedure spec, if applicable, for this Dataset.
+
+        If the dataset has no concept of procedure specs, this method
+        should return `None`.
+
+        Returns
+        -------
+        OptimizationSpecification
+            Specification for the optimization procedure to perform.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def _get_indices(
+            self, 
+            collection: "Collection"
+            ) -> List[str]:
+        """Shim method to get indices from different Collection types.
+
+        The mechanism for getting indices from different QCFractal Collections
+        is inconsistent. This method wraps the required calls to the given
+        Collection to yield these indices.
+
+        Parameters
+        ----------
+        collection : Collection
+            Collection instance corresponding to this Dataset.
+
+        Returns
+        -------
+        indices : List[str]
+            Indices from the entries in the Collection.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def _compute_kwargs(
+            self, 
+            spec: QCSpec, 
+            indices: List[str]
+            ) -> Dict[str, Any]:
+        """Returns a dict giving the full arguments to the Collection's
+        `compute` method.
+
+        This requires the compute spec defining the compute operations,
+        as well as the set of indices to operate on.
+
+        Parameters
+        ----------
+        spec : QCSpec
+            The method, basis, program, and other parameters for compute execution.
+        indices : List[str]
+            List of entry indices to apply the compute spec to.
+
+        Returns
+        -------
+        spec_kwargs : Dict[str, Any]
+            A dict giving the full arguments to the compute method of this
+            Dataset's corresponding Collection.
+            
+        """
+        pass
+
+    @abc.abstractmethod
+    def _add_entries(
+            self,
+            collection: "Collection",
+            chunk_size: int
+            ) -> Tuple[List[str], int]:
+        """Add entries to the Dataset's corresponding Collection.
+
+        This method allows for handling of e.g. generating the index/name for
+        the corresponding Collection from each item in `self.dataset`. Since
+        each item may feature more than one conformer, appropriate handling
+        differs between e.g. `OptimizationDataset` and `TorsiondriveDataset`
+
+        Parameters
+        ----------
+        collection : Collection
+            Collection instance corresponding to this Dataset.
+        chunk_size : int
+            The max number of entries to submit to the QCFractal Server at a time.
+            Increase this number to yield better performance.
+            The maximum allowed size is set on a per-server basis as its
+            `query_limit`.
+            
+        Returns
+        -------
+        indices : List[str]
+            A list of the entry indices added.
+        new_entries : int
+            The number of new entries added.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def add_dataset_specification(
+            self, 
+            spec: QCSpec, 
+            procedure_spec: Optional[OptimizationSpecification], 
+            collection: "Collection"
+            ) -> bool:
+        """Add the given compute spec to this Datasets's corresponding Collection.
+        
+        This will check if a spec under this name has already been added and if it should be overwritten.
+
+        If a specification is already stored under this name in the collection we have options:
+            - If a spec with the same name but different details has been added and used we must raise an error to change the name of the new spec
+            - If the spec has been added and has not been used then overwrite it.
+
+        Parameters
+        ----------
+        spec : QCSpec
+            The QCSpec we are trying to add to the Collection.
+        procedure_spec : OptimizationSpecification
+            The procedure spec to add, in this case an `OptimizationSpecification`.
+        collection : Collection
+            The Collection to add this compute spec to.
+
+
+        Returns
+        -------
+        bool
+            `True` if the specification is present in the collection
+            and is exactly the same as what we are trying to add.
+
+        Raises
+        ------
+        QCSpecificationError
+            If a specification with the same name is already added to the collection but has different settings.
+        """
         pass
 
     def submit(
         self,
-        client: Union[str, ptl.FractalClient, FractalClient],
+        client: Union[str, "FractalClient"],
         processes: Optional[int] = None,
         ignore_errors: bool = False,
         verbose: bool = False,
-        chunk_size: int = 100,
+        chunk_size: Optional[int] = None,
     ) -> Dict:
         """
         Submit the dataset to a QCFractal server.
@@ -293,8 +466,9 @@ class DatasetBaseMixin(abc.ABC):
         ignore_errors : bool, default=False
             If the user wants to submit the compute regardless of errors set this to True.
             Mainly to override basis coverage.
-        chunk_size : int, default = 100
+        chunk_size : int, default = None
             Max number of molecules or molecules+specs to include in individual server calls.
+            If `None`, will use `query_limit` from `client`.
 
         Returns
         -------
@@ -307,6 +481,9 @@ class DatasetBaseMixin(abc.ABC):
 
         """
         from concurrent.futures import ProcessPoolExecutor, as_completed
+
+        if chunk_size is None:
+            chunk_size = client.query_limit
 
         # pre submission checks
         # make sure we have some QCSpec to submit
@@ -386,7 +563,7 @@ class DatasetBaseMixin(abc.ABC):
         return responses
 
 
-class BasicDataset(DatasetBaseMixin, CommonBase):
+class BasicDataset(DatasetBaseMixin):
     """
     The general qcfractal dataset class which contains all of the molecules and information about them prior to
     submission.
@@ -864,11 +1041,33 @@ class BasicDataset(DatasetBaseMixin, CommonBase):
     def _get_indices(self, collection):
         return collection.get_index()
 
-    def add_dataset_specification(self, spec, procedure_spec, collection):
+    def add_dataset_specification(
+            self, 
+            spec: QCSpec, 
+            procedure_spec: Optional[OptimizationSpecification], 
+            collection: "Collection"
+            ) -> bool:
+        """Add the given compute spec to this Datasets's corresponding Collection.
+        
+        Parameters
+        ----------
+        spec : QCSpec
+            The QCSpec we are trying to add to the Collection.
+        procedure_spec : OptimizationSpecification
+            The procedure spec to add; ignored for `BasicDataset`.
+        collection : Collection
+            The Collection to add this compute spec to.
+
+        Returns
+        -------
+        bool
+            `True` if the specification successfully added, `False` otherwise.
+
+        """
         # generate the keyword set
         kw = self._get_spec_keywords(spec=spec)
         try:
-            # try and add the keywords if present then continue
+            # try and add the keywords; if present then continue
             collection.add_keywords(
                 alias=spec.spec_name,
                 program=spec.program,
@@ -876,17 +1075,18 @@ class BasicDataset(DatasetBaseMixin, CommonBase):
                 default=False,
             )
             collection.save()
+            return True
         except (KeyError, AttributeError):
-            pass
+            return False
 
-    def _compute_kwargs(self, spec, mol_chunk):
+    def _compute_kwargs(self, spec, indices):
         spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
         spec_kwargs.update(spec.dict(include={"method", "basis", "program"}))
         spec_kwargs["keywords"] = spec.spec_name
         spec_kwargs["protocols"] = {"wavefunction": spec.store_wavefunction.value}
 
         # NOTE: requires a PR on QCFractal to make this work for `Dataset`
-        spec_kwargs["subset"] = mol_chunk
+        spec_kwargs["subset"] = indices 
         return spec_kwargs
 
     def _add_entries(self, collection, chunk_size):
@@ -911,7 +1111,7 @@ class BasicDataset(DatasetBaseMixin, CommonBase):
                     new_entries += self._add_entry(
                         dataset=collection, name=name, molecule=molecule, data=data
                     )
-                    indices.append(index)
+                    indices.append(name)
             else:
                 new_entries += self._add_entry(
                     dataset=collection,
@@ -928,7 +1128,7 @@ class BasicDataset(DatasetBaseMixin, CommonBase):
 
     def _add_entry(
         self,
-        dataset: ptl.collections.Dataset,
+        dataset: "Collection",
         name: str,
         molecule: qcel.models.Molecule,
         data: dict,
@@ -1407,32 +1607,39 @@ class OptimizationDataset(BasicDataset):
         return qc_spec
 
     def add_dataset_specification(
-        self,
-        spec: QCSpec,
-        procedure_spec: OptimizationSpecification,
-        collection: Union[
-            ptl.collections.OptimizationDataset, ptl.collections.TorsionDriveDataset
-        ],
+            self, 
+            spec: QCSpec, 
+            procedure_spec: Optional[OptimizationSpecification], 
+            collection: "Collection"
     ) -> bool:
-        """
-        Try to add the local qc specification to the given collection, this will check if a spec under this name has already been added and if it should be overwritten.
+        """Add the given compute spec to this Datasets's corresponding Collection.
+        
+        This will check if a spec under this name has already been added and if it should be overwritten.
 
-        Parameters:
-            spec: The QCSpec we are trying to add to the collection
-            opt_spec: The qcportal style optimization spec
-            collection: The collection we are trying to add this compute specification to
-
-        Notes:
-            If a specification is already stored under this name in the collection we have options:
+        If a specification is already stored under this name in the collection we have options:
             - If a spec with the same name but different details has been added and used we must raise an error to change the name of the new spec
             - If the spec has been added and has not been used then overwrite it.
 
-        Returns:
-            `True` if the specification is present in the collection and is exactly the same as what we are trying to add.
-            `False` if no specification can be found in the collection with the given name.
+        Parameters
+        ----------
+        spec : QCSpec
+            The QCSpec we are trying to add to the Collection.
+        procedure_spec : OptimizationSpecification
+            The procedure spec to add, in this case an `OptimizationSpecification`.
+        collection : Collection
+            The Collection to add this compute spec to.
 
-        Raises:
-             QCSpecificationError: If a specification with the same name is already added to the collection but has different settings.
+
+        Returns
+        -------
+        bool
+            `True` if the specification is present in the collection
+            and is exactly the same as what we are trying to add.
+
+        Raises
+        ------
+        QCSpecificationError
+            If a specification with the same name is already added to the collection but has different settings.
         """
         # build the qcportal version of our spec
         kw_id = self._add_keywords(client=collection.client, spec=spec)
@@ -1490,9 +1697,9 @@ class OptimizationDataset(BasicDataset):
     def _get_indices(self, collection):
         return collection.df.index.tolist()
 
-    def _compute_kwargs(self, spec, mol_chunk):
+    def _compute_kwargs(self, spec, indices):
         spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
-        spec_kwargs["subset"] = mol_chunk
+        spec_kwargs["subset"] = indices
         spec_kwargs["specification"] = spec.spec_name
         return spec_kwargs
 
