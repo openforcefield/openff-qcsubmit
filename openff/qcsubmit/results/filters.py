@@ -384,18 +384,18 @@ class RecordStatusFilter(ResultRecordFilter):
 
 
 class ChargeFilter(CMILESResultFilter):
-    """A filter which will only retain records if their charge matches allowd values or is not in the
+    """A filter which will only retain records if their formal charge matches allowed values or is not in the
     exclude list."""
 
     charges_to_include: Optional[List[int]] = Field(
         None,
-        description="Only molecules with a net charge in this list will be kept. "
+        description="Only molecules with a net formal charge in this list will be kept. "
         "This option is mutually exclusive with ``charges_to_exclude``.",
     )
 
     charges_to_exclude: Optional[List[int]] = Field(
         None,
-        description="Any molecules with a net charge which matches any of these values will be removed. "
+        description="Any molecules with a net formal charge which matches any of these values will be removed. "
         "This option is mutually exclusive with ``charges_to_include``.",
     )
 
