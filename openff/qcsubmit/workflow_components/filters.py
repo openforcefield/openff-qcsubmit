@@ -15,6 +15,7 @@ from rdkit.Chem.rdMolAlign import AlignMol
 
 from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
 from openff.qcsubmit.datasets import ComponentResult
+from openff.qcsubmit.validators import check_allowed_elements
 from openff.qcsubmit.workflow_components.base_component import (
     BasicSettings,
     CustomWorkflowComponent,
@@ -135,29 +136,9 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
     )
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
 
-    @validator("allowed_elements", each_item=True)
-    def check_allowed_elements(cls, element: Union[str, int]) -> Union[str, int]:
-        """
-        Check that each item can be cast to a valid element.
-
-        Parameters:
-            element: The element that should be checked.
-
-        Raises:
-            ValueError: If the element number or symbol passed could not be converted into a valid element.
-        """
-        from simtk.openmm.app import Element
-
-        if isinstance(element, int):
-            return element
-        else:
-            try:
-                _ = Element.getBySymbol(element)
-                return element
-            except KeyError:
-                raise KeyError(
-                    f"An element could not be determined from symbol {element}, please enter symbols only."
-                )
+    _check_elements = validator("allowed_elements", each_item=True, allow_reuse=True)(
+        check_allowed_elements
+    )
 
     def _apply_init(self, result: ComponentResult) -> None:
 

@@ -12,6 +12,7 @@ from openff.qcsubmit.results.filters import (
     ChargeFilter,
     CMILESResultFilter,
     ConnectivityFilter,
+    ElementFilter,
     HydrogenBondFilter,
     RecordStatusFilter,
     ResultFilter,
@@ -259,3 +260,18 @@ def test_charge_filter():
     assert charge_filter._filter_function(entry=record) is False
 
 
+def test_element_filter(basic_result_collection):
+
+    # use mixed ints and str
+    element_filter = ElementFilter(allowed_elements=[1, 6, "O"])
+
+    result = element_filter.apply(result_collection=basic_result_collection)
+    # no molecules are filtered
+    assert result.n_results == 8
+
+    # no hydrogen should filter everything
+    element_filter.allowed_elements = [6, 8]
+
+    result = element_filter.apply(result_collection=basic_result_collection)
+    assert result.n_results == 0
+    assert result.n_molecules == 0

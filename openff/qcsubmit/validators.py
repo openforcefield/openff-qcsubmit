@@ -2,7 +2,7 @@
 Centralise the validators for easy reuse between factories and datasets.
 """
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import qcelemental as qcel
 from openff.toolkit import topology as off
@@ -259,3 +259,27 @@ def check_valence_connectivity(molecule: qcel.models.Molecule) -> qcel.models.Mo
         )
 
     return molecule
+
+
+def check_allowed_elements(element: Union[str, int]) -> Union[str, int]:
+    """
+    Check that each item can be cast to a valid element.
+
+    Parameters:
+        element: The element that should be checked.
+
+    Raises:
+        ValueError: If the element number or symbol passed could not be converted into a valid element.
+    """
+    from simtk.openmm.app import Element
+
+    if isinstance(element, int):
+        return element
+    else:
+        try:
+            _ = Element.getBySymbol(element)
+            return element
+        except KeyError:
+            raise ValueError(
+                f"An element could not be determined from symbol {element}, please enter symbols only."
+            )
