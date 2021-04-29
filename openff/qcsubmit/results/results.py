@@ -411,7 +411,8 @@ class OptimizationResultCollection(_BaseResultCollection):
                         inchi_key=entry.attributes["inchi_key"],
                     )
                     for entry in dataset.data.records.values()
-                    if query[entry.name].status.value.upper() == "COMPLETE"
+                    if entry.name in query
+                    and query[entry.name].status.value.upper() == "COMPLETE"
                 }
             )
 
