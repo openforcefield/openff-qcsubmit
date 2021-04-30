@@ -38,6 +38,18 @@ from openff.qcsubmit.results.results import (
 from openff.qcsubmit.tests import does_not_raise
 
 
+class MockServerInfo:
+
+    def dict(self):
+        return {
+            "name": "Mock",
+            "query_limit": 2000,
+            "version": "0.0.0",
+            "client_lower_version_limit": "0.0.0",
+            "client_upper_version_limit": "10.0.0",
+        }
+
+
 def test_base_molecule_property():
 
     record = BasicResult(
@@ -341,6 +353,34 @@ def test_to_records(collection, record, monkeypatch):
 
     if not isinstance(record, TorsionDriveRecord):
         assert molecule.n_conformers == 1
+
+
+def test_to_optimization_to_basic_dataset(optimization_result_collection, monkeypatch):
+
+    def mock_automodel_request(*args, **kwargs):
+        return MockServerInfo()
+
+    def mock_query_results(*args, **kwargs):
+
+        return [
+            ResultRecord(
+                id=ObjectId("1"),
+                program="psi4",
+                driver=getattr(DriverEnum, kwargs["driver"]),
+                method="scf",
+                basis="sto-3g",
+                molecule=kwargs["molecule"][0],
+                status=RecordStatusEnum.complete,
+            )
+        ]
+
+    monkeypatch.setattr(FractalClient, "_automodel_request", mock_automodel_request)
+    monkeypatch.setattr(FractalClient, "query_results", mock_query_results)
+
+    basic_collection = optimization_result_collection.to_basic_collection("hessian")
+
+    assert basic_collection.n_results == 2
+    assert basic_collection.n_molecules == 2
 
 
 # def test_optimization_create_basic_dataset(public_client):

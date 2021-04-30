@@ -120,6 +120,7 @@ def mock_optimization_result_collection(
                         program="psi4",
                     ),
                     initial_molecule=ObjectId(entry.record_id),
+                    final_molecule=ObjectId(entry.record_id),
                     status=RecordStatusEnum.complete,
                     client=_FractalClient(address=address),
                 ),

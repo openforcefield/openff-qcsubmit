@@ -45,7 +45,7 @@ def clear_results_caches():
     _grid_id_cache.clear()
 
 
-def _batched_indices(indices: List[T], batch_size: int) -> List[List[T]]:
+def batched_indices(indices: List[T], batch_size: int) -> List[List[T]]:
     """Split a list of indices into batches.
 
     Args:
@@ -59,7 +59,7 @@ def _batched_indices(indices: List[T], batch_size: int) -> List[List[T]]:
 
 
 @lru_cache()
-def _cached_fractal_client(address: str) -> FractalClient:
+def cached_fractal_client(address: str) -> FractalClient:
     """Returns a cached copy of a fractal client."""
     return FractalClient(address)
 
@@ -102,11 +102,11 @@ def _cached_client_query(
         if (client_address, query_id) in query_cache
     ]
 
-    client = _cached_fractal_client(client_address)
+    client = cached_fractal_client(client_address)
 
     logger.debug(f"starting {query_name} to {client_address}")
 
-    batch_query_ids = _batched_indices(missing_query_ids, client.query_limit)
+    batch_query_ids = batched_indices(missing_query_ids, client.query_limit)
     logger.debug(f"query split into {len(batch_query_ids)} batches")
 
     for i, batch_ids in enumerate(batch_query_ids):
@@ -290,9 +290,9 @@ def _cached_torsion_drive_molecule_ids(
         if (client_address, *grid_tuple) not in _grid_id_cache
     }
 
-    client = _cached_fractal_client(client_address)
+    client = cached_fractal_client(client_address)
 
-    batched_missing_ids = _batched_indices(
+    batched_missing_ids = batched_indices(
         [*missing_optimization_ids.values()], client.query_limit
     )
 

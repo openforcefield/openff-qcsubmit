@@ -26,12 +26,15 @@ from qcportal.collections.dataset import Dataset, MoleculeEntry
 from qcportal.models import OptimizationRecord, ResultRecord, TorsionDriveRecord
 from qcportal.models.common_models import DriverEnum, ObjectId
 from qcportal.models.records import RecordBase
+from qcportal.models.rest_models import QueryStr
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import Metadata
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results.caching import (
+    batched_indices,
+    cached_fractal_client,
     cached_query_basic_results,
     cached_query_molecules,
     cached_query_optimization_results,
@@ -462,6 +465,61 @@ class OptimizationResultCollection(_BaseResultCollection):
         self._validate_record_types(records, OptimizationRecord)
 
         return records_and_molecules
+
+    def to_basic_collection(
+        self, driver: Optional[QueryStr] = None
+    ) -> BasicResultCollection:
+        """Returns a basic results collection which references results records which
+        were created from the *final* structure of one of the optimizations in this
+        collection.
+
+        Args:
+            driver: Optionally specify the driver to filter by.
+
+        Returns:
+            The results collection referencing records created from the final optimized
+            structures referenced by this collection.
+        """
+
+        records_and_molecules = self.to_records()
+
+        final_molecule_ids = defaultdict(list)
+        final_molecules = defaultdict(dict)
+
+        for record, molecule in records_and_molecules:
+
+            final_molecule_ids[record.client.address].append(record.final_molecule)
+            final_molecules[record.client.address][record.final_molecule] = molecule
+
+        result_entries = defaultdict(list)
+
+        for client_address in final_molecule_ids:
+
+            client = cached_fractal_client(client_address)
+
+            molecules_ids = [*final_molecule_ids[client_address]]
+
+            result_records = [
+                record
+                for batch_ids in batched_indices(molecules_ids, client.query_limit)
+                for record in client.query_results(molecule=batch_ids, driver=driver)
+            ]
+
+            for record in result_records:
+
+                molecule = final_molecules[client_address][record.molecule]
+
+                result_entries[client_address].append(
+                    BasicResult(
+                        record_id=record.id,
+                        cmiles=molecule.to_smiles(
+                            isomeric=True, explicit_hydrogens=True, mapped=True
+                        ),
+                        inchi_key=molecule.to_inchikey(),
+                    )
+                )
+
+        return BasicResultCollection(entries=result_entries)
 
     def create_basic_dataset(
         self,
