@@ -22,6 +22,7 @@ from qcportal.models.records import RecordStatusEnum
 from qcportal.models.torsiondrive import TDKeywords
 from simtk import unit
 
+from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results import (
     BasicResult,
@@ -352,12 +353,13 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
         dataset_name="new basicdataset",
         description="test new optimizationdataset",
         tagline='new optimization dataset',
-        driver="energy"
+        driver="energy",
+        qc_specs=[QCSpec(spec_name="some-name", basis="6-31G")]
     )
 
     assert len(dataset.qc_specifications) == 1
-    assert "default" in dataset.qc_specifications
-    assert dataset.qc_specifications["default"].method == "scf"
+    assert {*dataset.qc_specifications} == {"some-name"}
+    assert dataset.qc_specifications["some-name"].basis == "6-31G"
 
     assert dataset.dataset_name == "new basicdataset"
     assert dataset.n_molecules == 4

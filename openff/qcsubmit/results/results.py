@@ -469,6 +469,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         tagline: str,
         driver: DriverEnum,
         metadata: Optional[Metadata] = None,
+        qc_specs: Optional[List[QCSpec]] = None,
     ) -> BasicDataset:
         """Create a basic dataset from the results of the current dataset.
 
@@ -480,8 +481,10 @@ class OptimizationResultCollection(_BaseResultCollection):
             dataset_name: The name that will be given to the new dataset.
             tagline: The tagline that should be given to the new dataset.
             description: The description that should be given to the new dataset.
-            metadata: The metadata for the new dataset.
             driver: The driver to be used on the basic dataset.
+            metadata: The metadata for the new dataset.
+            qc_specs: The QC specifications to be used on the new dataset. If no value
+                is provided, the default OpenFF QCSpec will be added.
 
         Returns:
             The created basic dataset.
@@ -495,15 +498,12 @@ class OptimizationResultCollection(_BaseResultCollection):
             dataset_tagline=tagline,
             driver=driver,
             metadata={} if metadata is None else metadata,
+            qc_specifications={"default": QCSpec()}
+            if qc_specs is None
+            else {qc_spec.spec_name: qc_spec for qc_spec in qc_specs},
         )
 
-        qc_specs = set()
-
         for record, molecule in records:
-
-            qc_specs.add(
-                (record.qc_spec.method, record.qc_spec.basis, record.qc_spec.program)
-            )
 
             dataset.add_molecule(
                 index=molecule.to_smiles(
@@ -513,18 +513,6 @@ class OptimizationResultCollection(_BaseResultCollection):
                 attributes=MoleculeAttributes.from_openff_molecule(molecule),
                 extras=record.extras,
                 keywords=record.keywords,
-            )
-
-        dataset.clear_qcspecs()
-
-        for i, (method, basis, program) in enumerate(qc_specs):
-
-            dataset.add_qc_spec(
-                method=method,
-                basis=basis,
-                program=program,
-                spec_name="default" + ("" if i == 0 else f"-{i + 1}"),
-                spec_description="A QC specification",
             )
 
         return dataset
