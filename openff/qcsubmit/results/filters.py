@@ -1,17 +1,18 @@
 import abc
 import logging
 from collections import defaultdict
-from typing import List, Optional, Set, TypeVar
+from typing import List, Optional, Set, TypeVar, Union
 
 import numpy
 from openff.toolkit.topology import Molecule
-from pydantic import BaseModel, Field, PrivateAttr, root_validator
+from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
 from qcportal.models.records import RecordBase, RecordStatusEnum
 from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.results.results import _BaseResult, _BaseResultCollection
+from openff.qcsubmit.validators import check_allowed_elements
 
 T = TypeVar("T", bound=_BaseResultCollection)
 
@@ -426,3 +427,37 @@ class ChargeFilter(CMILESResultFilter):
             return total_charge in self.charges_to_include
 
         return total_charge not in self.charges_to_exclude
+
+
+class ElementFilter(CMILESResultFilter):
+    """A filter which will only retain records that contain the requested elements."""
+
+    _allowed_atomic_numbers: Optional[Set[int]] = PrivateAttr(None)
+
+    allowed_elements: List[Union[int, str]] = Field(
+        ...,
+        description="The list of allowed elements as symbols or atomic number ints.",
+    )
+
+    _check_elements = validator("allowed_elements", each_item=True, allow_reuse=True)(
+        check_allowed_elements
+    )
+
+    def _filter_function(self, entry: "_BaseResult") -> bool:
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
+        # get a set of atomic numbers
+        mol_atoms = {atom.atomic_number for atom in molecule.atoms}
+        # get the difference between mol atoms and allowed atoms
+        return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
+
+    def _apply(self, result_collection: "T") -> "T":
+        from simtk.openmm.app import Element
+
+        self._allowed_atomic_numbers = {
+            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
+            for ele in self.allowed_elements
+        }
+
+        return super(ElementFilter, self)._apply(result_collection)

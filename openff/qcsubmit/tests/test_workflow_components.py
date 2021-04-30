@@ -6,6 +6,7 @@ from typing import Dict, List
 import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
+from pydantic import ValidationError
 
 from openff.qcsubmit import workflow_components
 from openff.qcsubmit.datasets import ComponentResult
@@ -250,7 +251,7 @@ def test_element_filter_validators():
 
     elem_filter = workflow_components.ElementFilter()
 
-    with pytest.raises(KeyError):
+    with pytest.raises(ValidationError):
         elem_filter.allowed_elements = ["carbon", "hydrogen"]
 
     elem_filter.allowed_elements = [1.02, 2.02, 3.03]
