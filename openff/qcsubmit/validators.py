@@ -275,11 +275,10 @@ def check_allowed_elements(element: Union[str, int]) -> Union[str, int]:
 
     if isinstance(element, int):
         return element
-    else:
-        try:
-            _ = Element.getBySymbol(element)
-            return element
-        except KeyError:
-            raise ValueError(
-                f"An element could not be determined from symbol {element}, please enter symbols only."
-            )
+    try:
+        _ = Element.getBySymbol(element)
+        return element
+    except KeyError:
+        raise ValueError(
+            f"An element could not be determined from symbol {element}, please enter symbols only."
+        )

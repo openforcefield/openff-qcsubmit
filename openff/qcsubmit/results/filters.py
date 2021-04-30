@@ -448,18 +448,16 @@ class ElementFilter(CMILESResultFilter):
             entry.cmiles, allow_undefined_stereo=True
         )
         # get a set of atomic numbers
-        mol_atoms = set([atom.atomic_number for atom in molecule.atoms])
+        mol_atoms = {atom.atomic_number for atom in molecule.atoms}
         # get the difference between mol atoms and allowed atoms
         return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
 
     def _apply(self, result_collection: "T") -> "T":
         from simtk.openmm.app import Element
 
-        self._allowed_atomic_numbers = set(
-            [
-                Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
-                for ele in self.allowed_elements
-            ]
-        )
+        self._allowed_atomic_numbers = {
+            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
+            for ele in self.allowed_elements
+        }
 
         return super(ElementFilter, self)._apply(result_collection)
