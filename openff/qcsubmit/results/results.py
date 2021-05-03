@@ -466,7 +466,7 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
-    def to_basic_collection(
+    def to_basic_result_collection(
         self, driver: Optional[QueryStr] = None
     ) -> BasicResultCollection:
         """Returns a basic results collection which references results records which
@@ -483,12 +483,16 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         records_and_molecules = self.to_records()
 
-        final_molecule_ids = defaultdict(list)
+        final_molecule_ids = defaultdict(lambda: defaultdict(list))
         final_molecules = defaultdict(dict)
 
         for record, molecule in records_and_molecules:
 
-            final_molecule_ids[record.client.address].append(record.final_molecule)
+            spec = (record.qc_spec.program, record.qc_spec.method, record.qc_spec.basis)
+
+            final_molecule_ids[record.client.address][spec].append(
+                record.final_molecule
+            )
             final_molecules[record.client.address][record.final_molecule] = molecule
 
         result_entries = defaultdict(list)
@@ -497,12 +501,19 @@ class OptimizationResultCollection(_BaseResultCollection):
 
             client = cached_fractal_client(client_address)
 
-            molecules_ids = [*final_molecule_ids[client_address]]
-
             result_records = [
                 record
+                for (program, method, basis), molecules_ids in final_molecule_ids[
+                    client_address
+                ].items()
                 for batch_ids in batched_indices(molecules_ids, client.query_limit)
-                for record in client.query_results(molecule=batch_ids, driver=driver)
+                for record in client.query_results(
+                    molecule=batch_ids,
+                    driver=driver,
+                    program=program,
+                    method=method,
+                    basis=basis,
+                )
             ]
 
             for record in result_records:

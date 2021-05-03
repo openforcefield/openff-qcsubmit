@@ -355,20 +355,27 @@ def test_to_records(collection, record, monkeypatch):
         assert molecule.n_conformers == 1
 
 
-def test_to_optimization_to_basic_dataset(optimization_result_collection, monkeypatch):
+def test_optimization_to_basic_result_collection(
+    optimization_result_collection, monkeypatch
+):
 
     def mock_automodel_request(*args, **kwargs):
         return MockServerInfo()
 
     def mock_query_results(*args, **kwargs):
 
+        assert "program" in kwargs and kwargs["program"] == "psi4"
+        assert "method" in kwargs and kwargs["method"] == "scf"
+        assert "basis" in kwargs and kwargs["basis"] == "sto-3g"
+        assert "driver" in kwargs and kwargs["driver"] == "hessian"
+
         return [
             ResultRecord(
                 id=ObjectId("1"),
-                program="psi4",
+                program=kwargs["program"],
                 driver=getattr(DriverEnum, kwargs["driver"]),
-                method="scf",
-                basis="sto-3g",
+                method=kwargs["method"],
+                basis=kwargs["basis"],
                 molecule=kwargs["molecule"][0],
                 status=RecordStatusEnum.complete,
             )
@@ -377,7 +384,9 @@ def test_to_optimization_to_basic_dataset(optimization_result_collection, monkey
     monkeypatch.setattr(FractalClient, "_automodel_request", mock_automodel_request)
     monkeypatch.setattr(FractalClient, "query_results", mock_query_results)
 
-    basic_collection = optimization_result_collection.to_basic_collection("hessian")
+    basic_collection = optimization_result_collection.to_basic_result_collection(
+        "hessian"
+    )
 
     assert basic_collection.n_results == 2
     assert basic_collection.n_molecules == 2
