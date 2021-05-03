@@ -471,7 +471,8 @@ class OptimizationResultCollection(_BaseResultCollection):
     ) -> BasicResultCollection:
         """Returns a basic results collection which references results records which
         were created from the *final* structure of one of the optimizations in this
-        collection.
+        collection, and used the same program, method, and basis as the parent
+        optimization record.
 
         Args:
             driver: Optionally specify the driver to filter by.
