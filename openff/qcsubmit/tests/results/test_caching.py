@@ -9,10 +9,10 @@ from simtk import unit
 
 from openff.qcsubmit.results import BasicResult, OptimizationResult, TorsionDriveResult
 from openff.qcsubmit.results.caching import (
-    _batched_indices,
     _grid_id_cache,
     _molecule_cache,
     _record_cache,
+    batched_indices,
     cached_query_basic_results,
     cached_query_molecules,
     cached_query_optimization_results,
@@ -22,7 +22,7 @@ from openff.qcsubmit.results.caching import (
 
 
 def test_batched_indices():
-    assert _batched_indices([1, 2, 3, 4], 3) == [[1, 2, 3], [4]]
+    assert batched_indices([1, 2, 3, 4], 3) == [[1, 2, 3], [4]]
 
 
 def test_cached_query_procedures(public_client):
