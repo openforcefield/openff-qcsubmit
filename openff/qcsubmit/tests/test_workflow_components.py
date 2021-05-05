@@ -765,6 +765,22 @@ def test_rotor_filter_minimum():
         assert len(molecule.find_rotatable_bonds()) < rotor_filter.minimum_rotors
 
 
+def test_rotor_filter_validation():
+    """
+    Make sure that the maximum number of rotors is >= the minimum if defined.
+    """
+
+    rotor_filter = workflow_components.RotorFilter()
+    rotor_filter.maximum_rotors = 4
+    rotor_filter.minimum_rotors = 4
+    mols = get_tautomers()
+    mol_container = get_container(mols)
+    rotor_filter.apply(mol_container.molecules, processors=1)
+    rotor_filter.minimum_rotors = 5
+    with pytest.raises(ValueError):
+        rotor_filter.apply(mol_container.molecules, processors=1)
+
+
 def test_rotor_filter_fail():
     """
     Test filtering out molecules with too many rotatable bonds.

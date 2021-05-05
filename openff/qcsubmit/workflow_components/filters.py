@@ -348,6 +348,16 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
         description="The minimum number of rotatble bonds allowed in the molecule, if `None` the molecule has no limit to the minimum number of rotatble bonds.",
     )
 
+    def _apply_init(self, result: ComponentResult) -> None:
+        """
+        Validate the choice of minimum and maximum rotators.
+        """
+        if self.maximum_rotors and self.minimum_rotors:
+            if self.maximum_rotors < self.minimum_rotors:
+                raise ValueError(
+                    "The maximum number of rotors should >= the minimum to ensure some molecules pass."
+                )
+
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Apply the filter to the list of molecules to remove any molecules with more rotors then the maximum allowed
