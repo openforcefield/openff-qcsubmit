@@ -3,6 +3,7 @@ from typing import List, Optional
 import simtk.unit as unit
 from openff.toolkit.topology import Molecule
 from pydantic import Field
+from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.datasets import ComponentResult
@@ -21,13 +22,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    # standard components which must be defined
-    component_name = "StandardConformerGenerator"
-    component_description = "Generate conformations for the given molecules"
-    component_fail_message = "Conformers could not be generated"
-
-    # custom components for this class
-    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
+    component_name: Literal["StandardConformerGenerator"] = "StandardConformerGenerator"
 
     rms_cutoff: Optional[float] = Field(
         None,
@@ -39,6 +34,18 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     clear_existing: bool = Field(
         True, description="If any pre-existing conformers should be kept."
     )
+
+    @classmethod
+    def description(cls) -> str:
+        return "Generate conformations for the given molecules."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "Conformers could not be generated."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply_init(self, result: ComponentResult) -> None:
         """
