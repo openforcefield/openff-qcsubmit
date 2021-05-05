@@ -730,9 +730,9 @@ def test_fragmentation_apply():
         assert "dihedrals" in molecule.properties
 
 
-def test_rotor_filter_pass():
+def test_rotor_filter_maximum():
     """
-    Make sure the rotor filter removes the correct molecules.
+    Remove molecules with too many rotatable bonds.
     """
 
     rotor_filter = workflow_components.RotorFilter()
@@ -745,6 +745,24 @@ def test_rotor_filter_pass():
     result = rotor_filter.apply(molecule_container.molecules, processors=1)
     for molecule in result.molecules:
         assert len(molecule.find_rotatable_bonds()) <= rotor_filter.maximum_rotors
+
+
+def test_rotor_filter_minimum():
+    """
+    Remove molecules with too few rotatable bonds.
+    """
+    rotor_filter = workflow_components.RotorFilter()
+    rotor_filter.minimum_rotors = 3
+    # not capped
+    rotor_filter.maximum_rotors = None
+
+    mols = get_tautomers()
+    mol_container = get_container(mols)
+    result = rotor_filter.apply(mol_container.molecules, processors=1)
+    for molecule in result.molecules:
+        assert len(molecule.find_rotatable_bonds()) >= rotor_filter.minimum_rotors
+    for molecule in result.filtered:
+        assert len(molecule.find_rotatable_bonds()) < rotor_filter.minimum_rotors
 
 
 def test_rotor_filter_fail():
