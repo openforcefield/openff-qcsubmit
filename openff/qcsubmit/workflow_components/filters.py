@@ -337,17 +337,23 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
     )
     component_fail_message = "The molecule has too many rotatable bonds."
 
-    maximum_rotors: int = Field(
-        4, description="The maximum number of rotatable bonds allowed in the molecule."
-    )
     _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
+
+    maximum_rotors: Optional[int] = Field(
+        4,
+        description="The maximum number of rotatable bonds allowed in the molecule, if `None` the molecule has no maximum limit on rotatable bonds.",
+    )
+    minimum_rotors: Optional[int] = Field(
+        None,
+        description="The minimum number of rotatble bonds allowed in the molecule, if `None` the molecule has no limit to the minimum number of rotatble bonds.",
+    )
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Apply the filter to the list of molecules to remove any molecules with more rotors then the maximum allowed
         number.
 
-        Parameters:
+        Args:
             molecules: The list of molecules the component should be applied on.
 
         Returns:
@@ -358,11 +364,13 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
         # create the return
         result = self._create_result()
 
-        # run the the molecules and calculate the number of rotatable bonds
         for molecule in molecules:
-            if len(molecule.find_rotatable_bonds()) > self.maximum_rotors:
+            # cache the rotatable bonds calc and only check fail conditions
+            rotatable_bonds = molecule.find_rotatable_bonds()
+            if self.maximum_rotors and len(rotatable_bonds) > self.maximum_rotors:
                 result.filter_molecule(molecule)
-
+            elif self.minimum_rotors and len(rotatable_bonds) < self.minimum_rotors:
+                result.filter_molecule(molecule)
             else:
                 result.add_molecule(molecule)
 
