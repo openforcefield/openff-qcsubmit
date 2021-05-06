@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Union
 from openff.toolkit.topology import Molecule
 from pydantic import Field, validator
 from qcelemental.util import which_import
+from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
 from openff.qcsubmit.datasets import ComponentResult
@@ -22,12 +23,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
     For more information see <https://github.com/openforcefield/fragmenter>.
     """
 
-    component_name = "WBOFragmenter"
-    component_description = (
-        "Fragment a molecule across all rotatble bonds using the WBO fragmenter."
-    )
-    component_fail_message = "The molecule could not be fragmented correctly."
-    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
+    component_name: Literal["WBOFragmenter"] = "WBOFragmenter"
     threshold: float = Field(
         0.03,
         description="The WBO error threshold between the parent and the fragment value, the fragmentation will stop when the difference between the fragment and parent is less than this value.",
@@ -45,6 +41,20 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
         False,
         description="If the parent molecule should also be included in the output.",
     )
+
+    @classmethod
+    def description(cls) -> str:
+        return (
+            "Fragment a molecule across all rotatable bonds using the WBO fragmenter."
+        )
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecule could not be fragmented correctly."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     @validator("functional_groups")
     def check_functional_groups(cls, functional_group):

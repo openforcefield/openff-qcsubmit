@@ -58,8 +58,14 @@ class ComponentProperties(BaseModel):
     produces duplicates.
     """
 
-    process_parallel: bool = True
-    produces_duplicates: bool = True
+    process_parallel: bool = Field(
+        ...,
+        description="If the component can safely be ran in parallel `True` or not `False`.",
+    )
+    produces_duplicates: bool = Field(
+        ...,
+        description="If the component is expected to produce duplicate molecules `True` or not `False`.",
+    )
 
     class Config:
         allow_mutation: bool = False

@@ -6,6 +6,7 @@ from typing import List
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper
 from pydantic import Field
+from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.datasets import ComponentResult
@@ -25,15 +26,23 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    component_name = "EnumerateTautomers"
-    component_description = "Enumerate the tautomers of a molecule if possible, if none are found return the input."
-    component_fail_message = "The molecule tautomers could not be enumerated."
-
+    component_name: Literal["EnumerateTautomers"] = "EnumerateTautomers"
     # custom settings for the class
     max_tautomers: int = Field(
         20, description="The maximum number of tautomers that should be generated."
     )
-    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
+
+    @classmethod
+    def description(cls) -> str:
+        return "Enumerate the tautomers of a molecule if possible, returning the input plus any new molecules."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecule tautomers could not be enumerated."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     def _apply_init(self, result: ComponentResult) -> None:
         """
@@ -85,14 +94,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    component_name = "EnumerateStereoisomers"
-    component_description = (
-        "Enumerate the stereo centers and bonds of the molecule if possible."
-    )
-    component_fail_message = (
-        "The molecules stereo centers or bonds could not be enumerated"
-    )
-    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
+    component_name: Literal["EnumerateStereoisomers"] = "EnumerateStereoisomers"
     undefined_only: bool = Field(
         False,
         description="If we should only enumerate parts of the molecule with undefined stereochemistry or all stereochemistry.",
@@ -105,14 +107,25 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
         description="If we should check that the resulting molecules are physically possible by attempting to generate conformers for them.",
     )
 
+    @classmethod
+    def description(cls) -> str:
+        return "Enumerate the stereo centers and bonds of the molecule, returing the input molecule if valid and any new molecules."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecules stereo centers or bonds could not be enumerated."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=True)
+
     def _apply_init(self, result: ComponentResult) -> None:
 
         self._cache["toolkit"] = self._toolkits[self.toolkit]()
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
-        Enumerate stereo centers and bonds of the input molecule if no isomers are found only the input molecule is
-        returned.
+        Enumerate stereo centers and bonds of the input molecule
 
         Parameters:
             molecules: The list of molecules the component should be applied on.
@@ -161,18 +174,26 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
         Only Openeye is supported so far.
     """
 
-    component_name = "EnumerateProtomers"
-    component_description = "Enumerate the protomers of the molecule if possible."
-    component_fail_message = "The molecules formal charges could not be enumerated possibly due to a missing toolkit."
-
+    component_name: Literal["EnumerateProtomers"] = "EnumerateProtomers"
     # restrict the allowed toolkits for this module
     toolkit = "openeye"
     _toolkits = {"openeye": OpenEyeToolkitWrapper}
-    _properties = ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     max_states: int = Field(
         10, description="The maximum number of states that should be generated."
     )
+
+    @classmethod
+    def description(cls) -> str:
+        return "Enumerate the protomers of the molecule, returning the input molecule and any new molecules."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecules formal charges could not be enumerated possibly due to a missing toolkit."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
     def _apply_init(self, result: ComponentResult) -> None:
 
@@ -180,7 +201,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
-        Enumerate the formal charges of the molecule if possible if not only the input molecule is returned.
+        Enumerate the formal charges of the molecule.
 
         Parameters:
             molecules: The list of molecules the component should be applied on.

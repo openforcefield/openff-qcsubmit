@@ -7,8 +7,10 @@ import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
 from pydantic import ValidationError
+from typing_extensions import Literal
 
 from openff.qcsubmit import workflow_components
+from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.datasets import ComponentResult
 from openff.qcsubmit.exceptions import (
     ComponentRegisterError,
@@ -148,9 +150,19 @@ def test_custom_component():
 
     class TestComponent(CustomWorkflowComponent):
 
-        component_name = "Test component"
-        component_description = "Test component"
-        component_fail_message = "Test fail"
+        component_name: Literal["TestComponent"] = "TestComponent"
+
+        @classmethod
+        def description(cls) -> str:
+            return "Test component"
+
+        @classmethod
+        def fail_reason(cls) -> str:
+            return "Test fail"
+
+        @classmethod
+        def properties(cls) -> ComponentProperties:
+            return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
         def _apply(self, molecules: List[Molecule]) -> ComponentResult:
             pass
@@ -158,15 +170,16 @@ def test_custom_component():
         def provenance(self) -> Dict:
             return {"test": "version1"}
 
-        @staticmethod
-        def is_available() -> bool:
+        @classmethod
+        def is_available(cls) -> bool:
             return True
 
     test = TestComponent()
-    assert test.component_name == "Test component"
-    assert test.component_description == "Test component"
-    assert test.component_fail_message == "Test fail"
+    assert test.component_name == "TestComponent"
+    assert test.description() == "Test component"
+    assert test.fail_reason() == "Test fail"
     assert {"test": "version1"} == test.provenance()
+    assert TestComponent.inifo() == {"name": "TestComponent", "description": "Test component", "fail_reason": "Test fail"}
 
 
 @pytest.mark.parametrize(
@@ -188,15 +201,25 @@ def test_toolkit_mixin(toolkit):
         class TestClass(ToolkitValidator, CustomWorkflowComponent):
             """Should not need to implement the provenance."""
 
-            component_name = "ToolkitValidator"
-            component_description = "ToolkitValidator test class."
-            component_fail_message = "Test fail"
+            component_name: Literal["TestClass"] = "TestClass"
+
+            @classmethod
+            def description(cls) -> str:
+                return "ToolkitValidator test class."
+
+            @classmethod
+            def fail_reason(cls) -> str:
+                return "Test fail"
+
+            @classmethod
+            def properties(cls) -> ComponentProperties:
+                return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
             def _apply(self, molecules: List[Molecule]) -> ComponentResult:
                 pass
 
         test = TestClass()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             test.toolkit = "ambertools"
 
         test.toolkit = toolkit_name
