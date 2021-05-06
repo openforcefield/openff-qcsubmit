@@ -263,3 +263,11 @@ class FilterEntry(DatasetConfig):
             kwargs["molecules"] = molecules
 
         super().__init__(**kwargs)
+
+    def add_molecule(self, molecule: off.Molecule) -> None:
+        """
+        Add a molecule to this filter.
+        """
+        self.molecules.append(
+            molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
+        )

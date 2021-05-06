@@ -82,7 +82,7 @@ def test_adding_workflow_components(factory_type):
     # add element filter again and make sure the component name has been incremented
     factory.add_workflow_component(efilter)
     assert len(factory.workflow) == 3
-    assert efilter.component_name in factory.workflow
+    assert efilter in factory.workflow
 
     # try to add a non component
     with pytest.raises(InvalidWorkflowComponentError):
@@ -91,7 +91,7 @@ def test_adding_workflow_components(factory_type):
     with pytest.raises(ValidationError):
         factory.workflow = {"first component": 3}
 
-    factory.workflow = {"test_conformer": conformer_gen}
+    factory.workflow = [conformer_gen, ]
 
     assert len(factory.workflow) == 1
 
@@ -118,7 +118,7 @@ def test_adding_multipule_workflow_components(factory_type):
 
     assert len(factory.workflow) == 3
     for component in components:
-        assert component.component_name in factory.workflow
+        assert component in factory.workflow
 
 
 @pytest.mark.parametrize("factory_type", [
@@ -145,7 +145,7 @@ def test_remove_workflow_componet(factory_type):
     for component in components:
         factory.remove_workflow_component(component.component_name)
 
-    assert factory.workflow == {}
+    assert factory.workflow == []
 
 
 @pytest.mark.parametrize("factory_type", [
@@ -169,7 +169,7 @@ def test_get_wrokflow_component(factory_type):
     factory.add_workflow_component(components)
 
     for component in components:
-        assert factory.get_workflow_component(component.component_name) == component
+        assert factory.get_workflow_component(component.component_name) == [component, ]
 
 
 @pytest.mark.parametrize("factory_type", [
@@ -194,13 +194,13 @@ def test_clear_workflow(factory_type):
 
     factory.clear_workflow()
 
-    assert factory.workflow == {}
+    assert factory.workflow == []
 
     factory.add_workflow_component(components)
 
-    factory.workflow = {}
+    factory.workflow = []
 
-    assert factory.workflow == {}
+    assert factory.workflow == []
 
 
 @pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
@@ -313,9 +313,8 @@ def test_importing_settings_workflow(file_type, factory_type):
         assert getattr(factory, attr) == value
 
     assert len(factory.workflow) == 1
-    assert "StandardConformerGenerator" in factory.workflow
-    component = factory.get_workflow_component("StandardConformerGenerator")
-    assert component.component_description == "loaded component"
+    component = factory.get_workflow_component("StandardConformerGenerator")[0]
+    assert component.description() == "Generate conformations for the given molecules."
     assert isinstance(component, workflow_components.StandardConformerGenerator) is True
 
 
