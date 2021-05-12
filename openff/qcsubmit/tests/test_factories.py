@@ -68,30 +68,30 @@ def test_adding_workflow_components(factory_type):
 
     # element filter
     efilter = workflow_components.ElementFilter()
-    factory.add_workflow_component(efilter)
+    factory.add_workflow_components(efilter)
 
     assert len(factory.workflow) == 1
 
     # conformer generator
     conformer_gen = workflow_components.StandardConformerGenerator()
     conformer_gen.max_conformers = 200
-    factory.add_workflow_component(conformer_gen)
+    factory.add_workflow_components(conformer_gen)
 
     assert len(factory.workflow) == 2
 
     # add element filter again and make sure the component name has been incremented
-    factory.add_workflow_component(efilter)
+    factory.add_workflow_components(efilter)
     assert len(factory.workflow) == 3
-    assert efilter.component_name in factory.workflow
+    assert efilter in factory.workflow
 
     # try to add a non component
     with pytest.raises(InvalidWorkflowComponentError):
-        factory.add_workflow_component(3)
+        factory.add_workflow_components(3)
 
     with pytest.raises(ValidationError):
         factory.workflow = {"first component": 3}
 
-    factory.workflow = {"test_conformer": conformer_gen}
+    factory.workflow = [conformer_gen]
 
     assert len(factory.workflow) == 1
 
@@ -101,7 +101,7 @@ def test_adding_workflow_components(factory_type):
     pytest.param(OptimizationDatasetFactory, id="OptimizationDatasetFactory"),
     pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDatasetFactory")
 ])
-def test_adding_multipule_workflow_components(factory_type):
+def test_adding_multiple_workflow_components(factory_type):
     """
     Test adding a list of workflow components.
     """
@@ -114,11 +114,11 @@ def test_adding_multipule_workflow_components(factory_type):
 
     components = [efilter, weight, conformer]
 
-    factory.add_workflow_component(components)
+    factory.add_workflow_components(*components)
 
     assert len(factory.workflow) == 3
     for component in components:
-        assert component.component_name in factory.workflow
+        assert component in factory.workflow
 
 
 @pytest.mark.parametrize("factory_type", [
@@ -126,7 +126,7 @@ def test_adding_multipule_workflow_components(factory_type):
     pytest.param(OptimizationDatasetFactory, id="OptimizationDatasetFactory"),
     pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDatasetFactory")
 ])
-def test_remove_workflow_componet(factory_type):
+def test_remove_workflow_component(factory_type):
     """
     Test removing a workflow component through the API.
     """
@@ -138,14 +138,14 @@ def test_remove_workflow_componet(factory_type):
 
     components = [efilter, weight, conformer]
 
-    factory.add_workflow_component(components)
+    factory.add_workflow_components(*components)
 
     assert len(factory.workflow) == 3
 
     for component in components:
-        factory.remove_workflow_component(component.component_name)
+        factory.remove_workflow_component(component.type)
 
-    assert factory.workflow == {}
+    assert factory.workflow == []
 
 
 @pytest.mark.parametrize("factory_type", [
@@ -166,10 +166,10 @@ def test_get_wrokflow_component(factory_type):
 
     components = [efilter, weight, conformer]
 
-    factory.add_workflow_component(components)
+    factory.add_workflow_components(*components)
 
     for component in components:
-        assert factory.get_workflow_component(component.component_name) == component
+        assert factory.get_workflow_components(component.type) == [component]
 
 
 @pytest.mark.parametrize("factory_type", [
@@ -190,17 +190,37 @@ def test_clear_workflow(factory_type):
 
     components = [efilter, weight, conformer]
 
-    factory.add_workflow_component(components)
+    factory.add_workflow_components(*components)
 
     factory.clear_workflow()
 
-    assert factory.workflow == {}
+    assert factory.workflow == []
 
-    factory.add_workflow_component(components)
+    factory.add_workflow_components(*components)
 
-    factory.workflow = {}
+    factory.workflow = []
 
-    assert factory.workflow == {}
+    assert factory.workflow == []
+
+
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
+def test_factory_round_trip(file_type, tmpdir):
+    """
+    Test round tripping a factory to file with a workflow.
+    """
+    with tmpdir.as_cwd():
+        factory = BasicDatasetFactory(driver="energy", maxiter=1)
+        efilter = workflow_components.ElementFilter()
+        weight = workflow_components.MolecularWeightFilter()
+        conformer = workflow_components.StandardConformerGenerator()
+        factory.add_workflow_components(efilter, weight, conformer)
+        file_name = "test." + file_type
+        factory.export(file_name)
+
+        factory2 = BasicDatasetFactory.from_file(file_name)
+        assert factory2.driver == factory.driver
+        assert factory2.maxiter == factory.maxiter
+        assert factory2.workflow == factory.workflow
 
 
 @pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
@@ -251,7 +271,7 @@ def test_exporting_settings_workflow(file_type, factory_type):
 
         conformer_gen = workflow_components.StandardConformerGenerator()
         conformer_gen.max_conformers = 100
-        factory.add_workflow_component(conformer_gen)
+        factory.add_workflow_components(conformer_gen)
 
         file_name = "test." + file_type
 
@@ -259,7 +279,7 @@ def test_exporting_settings_workflow(file_type, factory_type):
 
         with open(file_name) as f:
             data = f.read()
-            assert conformer_gen.component_name in data
+            assert conformer_gen.type in data
             assert str(conformer_gen.max_conformers) in data
 
 
@@ -313,9 +333,8 @@ def test_importing_settings_workflow(file_type, factory_type):
         assert getattr(factory, attr) == value
 
     assert len(factory.workflow) == 1
-    assert "StandardConformerGenerator" in factory.workflow
-    component = factory.get_workflow_component("StandardConformerGenerator")
-    assert component.component_description == "loaded component"
+    component = factory.get_workflow_components("StandardConformerGenerator")[0]
+    assert component.description() == "Generate conformations for the given molecules."
     assert isinstance(component, workflow_components.StandardConformerGenerator) is True
 
 
@@ -360,7 +379,7 @@ def test_export_workflow_only(file_type, factory_type):
         conformer_gen = workflow_components.StandardConformerGenerator()
         conformer_gen.max_conformers = 100
 
-        factory.add_workflow_component(conformer_gen)
+        factory.add_workflow_components(conformer_gen)
 
         file_name = "workflow." + file_type
         factory.export_workflow(file_name)
@@ -515,9 +534,9 @@ def test_create_dataset(factory_dataset_type):
     factory = factory_dataset_type[0]()
     element_filter = workflow_components.ElementFilter()
     element_filter.allowed_elements = [1, 6, 8, 7]
-    factory.add_workflow_component(element_filter)
+    factory.add_workflow_components(element_filter)
     conformer_generator = workflow_components.StandardConformerGenerator(max_conformers=1)
-    factory.add_workflow_component(conformer_generator)
+    factory.add_workflow_components(conformer_generator)
 
     mols = Molecule.from_file(get_data("tautomers_small.smi"), "smi", allow_undefined_stereo=True)
 
@@ -541,4 +560,4 @@ def test_create_dataset(factory_dataset_type):
     # make sure molecules we filtered and passed
     assert dataset.dataset != {}
     assert dataset.filtered != {}
-    assert element_filter.component_name in dataset.filtered_molecules
+    assert element_filter.type in dataset.filtered_molecules

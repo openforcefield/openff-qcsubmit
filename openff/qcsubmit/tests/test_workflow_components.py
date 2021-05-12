@@ -7,8 +7,10 @@ import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
 from pydantic import ValidationError
+from typing_extensions import Literal
 
 from openff.qcsubmit import workflow_components
+from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.datasets import ComponentResult
 from openff.qcsubmit.exceptions import (
     ComponentRegisterError,
@@ -61,7 +63,7 @@ def test_list_components():
     """
     components = list_components()
     for component in components:
-        assert component.component_name == component.__class__.__name__
+        assert component.type == component.__class__.__name__
 
 
 def test_register_component_replace():
@@ -77,7 +79,7 @@ def test_register_component_replace():
     # now register using replace with a new default
     register_component(component=gen, replace=True)
 
-    gen2 = get_component(gen.component_name)
+    gen2 = get_component(gen.type)
     assert gen2.max_conformers == gen.max_conformers
 
     # now return th list back to normal
@@ -89,7 +91,7 @@ def test_register_component_error():
     Make sure an error is raised if we try and register a component that is not a sub class of CustomWorkflowComponent.
     """
     # fake component
-    charge_filter = {"component_name": "charge_filter"}
+    charge_filter = {"type": "charge_filter"}
 
     with pytest.raises(InvalidWorkflowComponentError):
         register_component(component=charge_filter)
@@ -148,9 +150,19 @@ def test_custom_component():
 
     class TestComponent(CustomWorkflowComponent):
 
-        component_name = "Test component"
-        component_description = "Test component"
-        component_fail_message = "Test fail"
+        component_name: Literal["TestComponent"] = "TestComponent"
+
+        @classmethod
+        def description(cls) -> str:
+            return "Test component"
+
+        @classmethod
+        def fail_reason(cls) -> str:
+            return "Test fail"
+
+        @classmethod
+        def properties(cls) -> ComponentProperties:
+            return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
         def _apply(self, molecules: List[Molecule]) -> ComponentResult:
             pass
@@ -158,15 +170,16 @@ def test_custom_component():
         def provenance(self) -> Dict:
             return {"test": "version1"}
 
-        @staticmethod
-        def is_available() -> bool:
+        @classmethod
+        def is_available(cls) -> bool:
             return True
 
     test = TestComponent()
-    assert test.component_name == "Test component"
-    assert test.component_description == "Test component"
-    assert test.component_fail_message == "Test fail"
+    assert test.component_name == "TestComponent"
+    assert test.description() == "Test component"
+    assert test.fail_reason() == "Test fail"
     assert {"test": "version1"} == test.provenance()
+    assert TestComponent.info() == {"name": "TestComponent", "description": "Test component", "fail_reason": "Test fail"}
 
 
 @pytest.mark.parametrize(
@@ -188,15 +201,25 @@ def test_toolkit_mixin(toolkit):
         class TestClass(ToolkitValidator, CustomWorkflowComponent):
             """Should not need to implement the provenance."""
 
-            component_name = "ToolkitValidator"
-            component_description = "ToolkitValidator test class."
-            component_fail_message = "Test fail"
+            component_name: Literal["TestClass"] = "TestClass"
+
+            @classmethod
+            def description(cls) -> str:
+                return "ToolkitValidator test class."
+
+            @classmethod
+            def fail_reason(cls) -> str:
+                return "Test fail"
+
+            @classmethod
+            def properties(cls) -> ComponentProperties:
+                return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
             def _apply(self, molecules: List[Molecule]) -> ComponentResult:
                 pass
 
         test = TestClass()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             test.toolkit = "ambertools"
 
         test.toolkit = toolkit_name
@@ -378,7 +401,7 @@ def test_conformer_apply(toolkit):
 
         result = conf_gen.apply(molecule_container.molecules, processors=1)
 
-        assert result.component_name == conf_gen.component_name
+        assert result.component_name == conf_gen.type
         assert result.component_description == conf_gen.dict()
         # make sure each molecule has a conformer that passed
         for molecule in result.molecules:
@@ -403,7 +426,7 @@ def test_elementfilter_apply():
 
     result = elem_filter.apply(mols, processors=1)
 
-    assert result.component_name == elem_filter.component_name
+    assert result.component_name == elem_filter.type
     assert result.component_description == elem_filter.dict()
     # make sure there are no unwanted elements in the pass set
     for molecue in result.molecules:
@@ -844,7 +867,7 @@ def test_smarts_filter_apply_parameters():
 
     result = filter.apply(molecules, processors=1)
 
-    assert result.component_name == filter.component_name
+    assert result.component_name == filter.type
     assert result.component_description == filter.dict()
     # make sure there are no unwanted elements in the pass set
     for molecule in result.molecules:

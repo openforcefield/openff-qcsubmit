@@ -1132,7 +1132,7 @@ def test_componentresult_filter_molecules():
     result = ComponentResult(
         component_name="Test filtering",
         component_description={
-            "component_name": "TestFiltering",
+            "type": "TestFiltering",
             "component_description": "TestFiltering",
             "component_fail_message": "TestFiltering",
         },
@@ -1163,13 +1163,13 @@ def test_dataset_add_filter_molecules():
     methane = Molecule.from_smiles("C")
     ethanol = Molecule.from_smiles("CC")
     dataset.filter_molecules(molecules=methane,
-                             component_name="test",
-                             component_description={},
+                             component="test",
+                             component_settings={},
                              component_provenance={})
     # now we want to add this extra molecule to this group
     dataset.filter_molecules(molecules=ethanol,
-                             component_name="test",
-                             component_description={},
+                             component="test",
+                             component_settings={},
                              component_provenance={})
     filtered = dataset.filtered_molecules["test"]
     assert len(filtered.molecules) == 2
@@ -1575,8 +1575,8 @@ def test_dataset_export_dict(dataset_type):
     # add one failure
     fail = Molecule.from_smiles("C")
     dataset.filter_molecules(molecules=[fail, ],
-                             component_name="TestFailure",
-                             component_description={"name": "TestFailure"},
+                             component="TestFailure",
+                             component_settings={},
                              component_provenance={"test": "v1.0"})
 
     dataset2 = dataset_type(**dataset.dict())
@@ -1609,8 +1609,8 @@ def test_dataset_export_json(dataset_type):
     # add one failure
     fail = Molecule.from_smiles("C")
     dataset.filter_molecules(molecules=[fail, ],
-                             component_name="TestFailure",
-                             component_description={"name": "TestFailure"},
+                             component="TestFailure",
+                             component_settings={},
                              component_provenance={"test": "v1.0"})
 
     # try parse the json string to build the dataset
@@ -1648,8 +1648,8 @@ def test_dataset_roundtrip_compression(dataset_type, compression):
     # add one failure
     fail = Molecule.from_smiles("C")
     dataset.filter_molecules(molecules=[fail, ],
-                             component_name="TestFailure",
-                             component_description={"name": "TestFailure"},
+                             component="TestFailure",
+                             component_settings={},
                              component_provenance={"test": "v1.0"})
 
     with temp_directory():
@@ -1865,12 +1865,10 @@ def test_basicdataset_filtering():
     dataset = BasicDataset()
     molecules = duplicated_molecules(include_conformers=False, duplicates=1)
     # create a filtered result
-    component_description = {"component_name": "TestFilter",
-                             "component_description": "Test component for filtering molecules"}
     component_provenance = {"test_provenance": "version_1"}
     dataset.filter_molecules(molecules=molecules,
-                             component_name="TestFilter",
-                             component_description=component_description,
+                             component="TestFilter",
+                             component_settings={},
                              component_provenance=component_provenance)
 
     assert len(molecules) == dataset.n_filtered
@@ -1879,7 +1877,7 @@ def test_basicdataset_filtering():
     components = dataset.components
     assert len(components) == 1
     component = components[0]
-    assert "TestFilter" == component["component_name"]
+    assert "TestFilter" == component["component"]
     assert "version_1" == component["component_provenance"]["test_provenance"]
 
     # now loop through the molecules to make sure they match

@@ -12,6 +12,7 @@ from openff.toolkit.typing.chemistry.environment import (
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import Field, validator
 from rdkit.Chem.rdMolAlign import AlignMol
+from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
 from openff.qcsubmit.datasets import ComponentResult
@@ -27,12 +28,7 @@ class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
     Filters molecules based on the minimum and maximum allowed molecular weights.
     """
 
-    component_name = "MolecularWeightFilter"
-    component_description = (
-        "Molecules are filtered based on the allowed molecular weights."
-    )
-    component_fail_message = "Molecule weight was not in the specified region."
-
+    type: Literal["MolecularWeightFilter"] = "MolecularWeightFilter"
     minimum_weight: int = Field(
         130,
         description="The minimum allowed molecule weight  default value taken from the openeye blockbuster filter",
@@ -41,9 +37,18 @@ class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
         781,
         description="The maximum allow molecule weight, default taken from the openeye blockbuster filter.",
     )
-    _properties: ComponentProperties = ComponentProperties(
-        process_parallel=True, produces_duplicates=False
-    )
+
+    @classmethod
+    def description(cls) -> str:
+        return "Molecules are filtered based on the allowed molecular weights."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "Molecule weight was not in the specified region."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -111,14 +116,7 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
         ```
     """
 
-    component_name = "ElementFilter"
-    component_description = (
-        "Filter out molecules who contain elements not in the allowed element list"
-    )
-    component_fail_message = (
-        "Molecule contained elements not in the allowed elements list"
-    )
-
+    type: Literal["ElementFilter"] = "ElementFilter"
     allowed_elements: List[Union[int, str]] = Field(
         [
             "H",
@@ -134,11 +132,23 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
         ],
         description="The list of allowed elements as symbols or atomic number ints.",
     )
-    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
-
     _check_elements = validator("allowed_elements", each_item=True, allow_reuse=True)(
         check_allowed_elements
     )
+
+    @classmethod
+    def description(cls) -> str:
+        return (
+            "Filter out molecules who contain elements not in the allowed element list."
+        )
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "Molecules contained elements not in the allowed elements list."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply_init(self, result: ComponentResult) -> None:
 
@@ -213,12 +223,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
         A value of None in a list will let all molecules through.
     """
 
-    component_name = "CoverageFilter"
-    component_description = (
-        "Filter the molecules based on the requested FF allowed parameters."
-    )
-    component_fail_message = "The molecule was typed with disallowed parameters."
-
+    type: Literal["CoverageFilter"] = "CoverageFilter"
     allowed_ids: Optional[Set[str]] = Field(
         None,
         description="The SMIRKS parameter ids of the parameters which are allowed to be exercised by the molecules. Molecules should use atleast one of these ids to be passed by the component.",
@@ -235,7 +240,18 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
         False,
         description="If we should tag any dihedral ids exercised for torsion driving.",
     )
-    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
+
+    @classmethod
+    def description(cls) -> str:
+        return "Filter the molecules based on the requested FF allowed parameters."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecule was typed with disallowed parameters."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply_init(self, result: ComponentResult) -> None:
 
@@ -327,18 +343,11 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
     Filters molecules based on the maximum allowed number of rotatable bonds.
 
     Note:
-        Rotatable bonds are non terminal torsions found using the `find_rotatable_bonds` method of the
+        Rotatable bonds are torsions found using the `find_rotatable_bonds` method of the
         openforcefield.topology.Molecule class.
     """
 
-    component_name = "RotorFilter"
-    component_description = (
-        "Filter the molecules based on the maximum number of allowed rotatable bonds."
-    )
-    component_fail_message = "The molecule has too many rotatable bonds."
-
-    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
-
+    type: Literal["RotorFilter"] = "RotorFilter"
     maximum_rotors: Optional[int] = Field(
         4,
         description="The maximum number of rotatable bonds allowed in the molecule, if `None` the molecule has no maximum limit on rotatable bonds.",
@@ -347,6 +356,18 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
         None,
         description="The minimum number of rotatble bonds allowed in the molecule, if `None` the molecule has no limit to the minimum number of rotatble bonds.",
     )
+
+    @classmethod
+    def description(cls) -> str:
+        return "Filter the molecules based on the maximum number of allowed rotatable bonds."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecule has too many rotatable bonds."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply_init(self, result: ComponentResult) -> None:
         """
@@ -397,13 +418,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
         * If tag_dihedrals is set to true any smarts pattern tagging 4 atoms in a torsion will be prepared for a torsiondrive.
     """
 
-    component_name = "SmartsFilter"
-    component_description = "Filter molecules based on the given smarts patterns."
-    component_fail_message = (
-        "The molecule did/didn't contain the given smarts patterns."
-    )
-    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
-
+    type: Literal["SmartsFilter"] = "SmartsFilter"
     allowed_substructures: Optional[List[str]] = Field(
         None,
         description="The list of allowed substructures which should be tagged with indicies.",
@@ -415,6 +430,18 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
         False,
         description="If any dihedrals included in the allowed smarts should also be tagged for torsion driving.",
     )
+
+    @classmethod
+    def description(cls) -> str:
+        return "Filter molecules based on the given smarts patterns."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecule did/didn't contain the given smarts patterns."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     @validator("allowed_substructures", "filtered_substructures", each_item=True)
     def _check_environments(cls, environment):
@@ -502,15 +529,21 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
     """
 
     # standard components which must be defined
-    component_name = "RMSDCutoffConformerFilter"
-    component_description = (
-        "Filter conformations for the given molecules using a RMSD cutoff"
-    )
-    component_fail_message = "Could not filter the conformers using RMSD"
-
+    type: Literal["RMSDCutoffConformerFilter"] = "RMSDCutoffConformerFilter"
     # custom components for this class
     cutoff: float = Field(-1.0, description="The RMSD cut off in angstroms.")
-    _properties = ComponentProperties(process_parallel=True, produces_duplicates=False)
+
+    @classmethod
+    def description(cls) -> str:
+        return "Filter conformations for the given molecules using a RMSD cutoff."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "Could not filter the conformers using RMSD."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _prune_conformers(self, molecule: Molecule) -> None:
 

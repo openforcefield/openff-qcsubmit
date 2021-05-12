@@ -1,4 +1,5 @@
 from openff.qcsubmit.workflow_components.base import (
+    Components,
     deregister_component,
     get_component,
     list_components,
