@@ -249,6 +249,9 @@ class ComponentResult:
                 return True
 
         else:
+            if molecule.n_conformers == 0:
+                # make sure this is a list to avoid errors
+                molecule._conformers = []
             self._molecules[molecule_hash] = molecule
             return False
 
