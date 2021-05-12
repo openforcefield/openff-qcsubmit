@@ -1067,12 +1067,12 @@ class MoleculeAttributes(DatasetConfig):
     inchi_key: str = Field(
         ..., description="The standard inchi key given by the inchi program."
     )
-    fixed_hydrogen_inchi: str = Field(
-        ...,
+    fixed_hydrogen_inchi: Optional[str] = Field(
+        None,
         description="The non-standard inchi with a fixed hydrogen layer to distinguish tautomers.",
     )
-    fixed_hydrogen_inchi_key: str = Field(
-        ..., description="The non-standard inchikey with a fixed hydrogen layer."
+    fixed_hydrogen_inchi_key: Optional[str] = Field(
+        None, description="The non-standard inchikey with a fixed hydrogen layer."
     )
 
     @classmethod
