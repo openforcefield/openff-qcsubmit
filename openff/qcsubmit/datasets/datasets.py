@@ -541,8 +541,8 @@ class BasicDataset(CommonBase):
     def filter_molecules(
         self,
         molecules: Union[off.Molecule, List[off.Molecule]],
-        component_name: str,
-        component_description: Dict[str, Any],
+        component: str,
+        component_settings: Dict[str, Any],
         component_provenance: Dict[str, str],
     ) -> None:
         """
@@ -551,9 +551,9 @@ class BasicDataset(CommonBase):
         Parameters:
         molecules:
             A molecule or list of molecules to be filtered.
-        component_description:
+        component_settings:
             The dictionary representation of the component that filtered this set of molecules.
-        component_name:
+        component:
             The name of the component.
         component_provenance:
             The dictionary representation of the component provenance.
@@ -563,22 +563,22 @@ class BasicDataset(CommonBase):
             # make into a list
             molecules = [molecules]
 
-        if component_name in self.filtered_molecules:
+        if component in self.filtered_molecules:
             filter_mols = [
                 molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
                 for molecule in molecules
             ]
-            self.filtered_molecules[component_name].molecules.extend(filter_mols)
+            self.filtered_molecules[component].molecules.extend(filter_mols)
         else:
 
             filter_data = FilterEntry(
                 off_molecules=molecules,
-                component_name=component_name,
+                component=component,
                 component_provenance=component_provenance,
-                component_description=component_description,
+                component_settings=component_settings,
             )
 
-            self.filtered_molecules[filter_data.component_name] = filter_data
+            self.filtered_molecules[filter_data.component] = filter_data
 
     def add_molecule(
         self,
@@ -630,7 +630,7 @@ class BasicDataset(CommonBase):
                 component_name="QCSchemaIssues",
                 component_description={
                     "component_description": "The molecule was removed as a valid QCSchema could not be made",
-                    "component_name": "QCSchemaIssues",
+                    "type": "QCSchemaIssues",
                 },
                 component_provenance=self.provenance,
             )

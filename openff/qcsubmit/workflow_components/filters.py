@@ -28,7 +28,7 @@ class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
     Filters molecules based on the minimum and maximum allowed molecular weights.
     """
 
-    component_name: Literal["MolecularWeightFilter"] = "MolecularWeightFilter"
+    type: Literal["MolecularWeightFilter"] = "MolecularWeightFilter"
     minimum_weight: int = Field(
         130,
         description="The minimum allowed molecule weight  default value taken from the openeye blockbuster filter",
@@ -116,7 +116,7 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
         ```
     """
 
-    component_name: Literal["ElementFilter"] = "ElementFilter"
+    type: Literal["ElementFilter"] = "ElementFilter"
     allowed_elements: List[Union[int, str]] = Field(
         [
             "H",
@@ -223,7 +223,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
         A value of None in a list will let all molecules through.
     """
 
-    component_name: Literal["CoverageFilter"] = "CoverageFilter"
+    type: Literal["CoverageFilter"] = "CoverageFilter"
     allowed_ids: Optional[Set[str]] = Field(
         None,
         description="The SMIRKS parameter ids of the parameters which are allowed to be exercised by the molecules. Molecules should use atleast one of these ids to be passed by the component.",
@@ -347,7 +347,7 @@ class RotorFilter(BasicSettings, CustomWorkflowComponent):
         openforcefield.topology.Molecule class.
     """
 
-    component_name: Literal["RotorFilter"] = "RotorFilter"
+    type: Literal["RotorFilter"] = "RotorFilter"
     maximum_rotors: Optional[int] = Field(
         4,
         description="The maximum number of rotatable bonds allowed in the molecule, if `None` the molecule has no maximum limit on rotatable bonds.",
@@ -418,7 +418,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
         * If tag_dihedrals is set to true any smarts pattern tagging 4 atoms in a torsion will be prepared for a torsiondrive.
     """
 
-    component_name: Literal["SmartsFilter"] = "SmartsFilter"
+    type: Literal["SmartsFilter"] = "SmartsFilter"
     allowed_substructures: Optional[List[str]] = Field(
         None,
         description="The list of allowed substructures which should be tagged with indicies.",
@@ -529,7 +529,7 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
     """
 
     # standard components which must be defined
-    component_name: Literal["RMSDCutoffConformerFilter"] = "RMSDCutoffConformerFilter"
+    type: Literal["RMSDCutoffConformerFilter"] = "RMSDCutoffConformerFilter"
     # custom components for this class
     cutoff: float = Field(-1.0, description="The RMSD cut off in angstroms.")
 

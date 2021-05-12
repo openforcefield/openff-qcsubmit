@@ -842,7 +842,7 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test ignore_error for {factory.factory_type}",
+    dataset = factory.create_dataset(dataset_name=f"Test ignore_error for {factory.type}",
                                      molecules=molecule,
                                      description="Test ignore errors dataset",
                                      tagline="Testing ignore errors datasets",
@@ -880,7 +880,7 @@ def test_index_not_changed(fractal_compute_server, factory_type):
     molecule = Molecule.from_smiles("C")
     # make sure we only have one conformer
     molecule.generate_conformers(n_conformers=1)
-    dataset = factory.create_dataset(dataset_name=f"Test index change for {factory.factory_type}",
+    dataset = factory.create_dataset(dataset_name=f"Test index change for {factory.type}",
                                      molecules=molecule,
                                      description="Test index change dataset",
                                      tagline="Testing index changes datasets",
@@ -920,7 +920,7 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test index clash for {factory.factory_type}",
+    dataset = factory.create_dataset(dataset_name=f"Test index clash for {factory.type}",
                                      molecules=molecule,
                                      description="Test ignore errors dataset",
                                      tagline="Testing ignore errors datasets",
@@ -957,7 +957,7 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default",
                         spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.factory_type}",
+    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.type}",
                                      molecules=molecule,
                                      description="Test compute expansion",
                                      tagline="Testing compute expansion",
@@ -976,7 +976,7 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     # add only mm specs
     factory.add_qc_spec(method="openff-1.2.0", basis="smirnoff", program="openmm", spec_name="parsley2",
                         spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.factory_type}",
+    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.type}",
                                      molecules=[],
                                      description="Test compute expansion",
                                      tagline="Testing compute expansion",

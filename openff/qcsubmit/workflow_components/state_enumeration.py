@@ -26,7 +26,7 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    component_name: Literal["EnumerateTautomers"] = "EnumerateTautomers"
+    type: Literal["EnumerateTautomers"] = "EnumerateTautomers"
     # custom settings for the class
     max_tautomers: int = Field(
         20, description="The maximum number of tautomers that should be generated."
@@ -94,7 +94,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    component_name: Literal["EnumerateStereoisomers"] = "EnumerateStereoisomers"
+    type: Literal["EnumerateStereoisomers"] = "EnumerateStereoisomers"
     undefined_only: bool = Field(
         False,
         description="If we should only enumerate parts of the molecule with undefined stereochemistry or all stereochemistry.",
@@ -174,7 +174,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
         Only Openeye is supported so far.
     """
 
-    component_name: Literal["EnumerateProtomers"] = "EnumerateProtomers"
+    type: Literal["EnumerateProtomers"] = "EnumerateProtomers"
     # restrict the allowed toolkits for this module
     toolkit = "openeye"
     _toolkits = {"openeye": OpenEyeToolkitWrapper}

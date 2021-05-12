@@ -22,7 +22,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    component_name: Literal["StandardConformerGenerator"] = "StandardConformerGenerator"
+    type: Literal["StandardConformerGenerator"] = "StandardConformerGenerator"
 
     rms_cutoff: Optional[float] = Field(
         None,

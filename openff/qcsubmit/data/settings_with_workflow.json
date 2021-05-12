@@ -21,7 +21,8 @@
       "component_fail_message": "Conformers could not be generated",
       "toolkit": "openeye",
       "max_conformers": 20,
-      "clear_existing": true
+      "clear_existing": true,
+      "type": "StandardConformerGenerator"
     }
   }
 }

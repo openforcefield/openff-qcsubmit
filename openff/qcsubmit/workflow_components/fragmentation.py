@@ -23,7 +23,7 @@ class WBOFragmenter(ToolkitValidator, CustomWorkflowComponent):
     For more information see <https://github.com/openforcefield/fragmenter>.
     """
 
-    component_name: Literal["WBOFragmenter"] = "WBOFragmenter"
+    type: Literal["WBOFragmenter"] = "WBOFragmenter"
     threshold: float = Field(
         0.03,
         description="The WBO error threshold between the parent and the fragment value, the fragmentation will stop when the difference between the fragment and parent is less than this value.",

@@ -23,7 +23,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         allow_mutation = True
         validate_assignment = True
 
-    component_name: Literal["CustomWorkflowComponent"] = Field(
+    type: Literal["CustomWorkflowComponent"] = Field(
         "CustomWorkflowComponent",
         description="The name of the component which should match the class name.",
     )
@@ -49,7 +49,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         ...
 
     @classmethod
-    def inifo(cls) -> Dict[str, str]:
+    def info(cls) -> Dict[str, str]:
         """Returns a dictionary of the friendly descriptions of the class."""
         return dict(
             name=cls.__name__,
@@ -141,7 +141,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
                     work_list,
                     total=len(work_list),
                     ncols=80,
-                    desc="{:30s}".format(self.component_name),
+                    desc="{:30s}".format(self.type),
                     disable=not verbose,
                 ):
                     work = work.get()
@@ -155,7 +155,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
                 molecules,
                 total=len(molecules),
                 ncols=80,
-                desc="{:30s}".format(self.component_name),
+                desc="{:30s}".format(self.type),
                 disable=not verbose,
             ):
                 work = self._apply([molecule])
@@ -188,7 +188,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         """
 
         result = ComponentResult(
-            component_name=self.component_name,
+            component_name=self.type,
             component_description=self.dict(),
             component_provenance=self.provenance(),
             skip_unique_check=not self.properties().produces_duplicates,

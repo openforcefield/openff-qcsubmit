@@ -1,6 +1,6 @@
 import abc
 import os
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import tqdm
 from openff.toolkit import topology as off
@@ -26,9 +26,12 @@ from openff.qcsubmit.exceptions import (
 )
 from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.serializers import deserialize, serialize
-from openff.qcsubmit.workflow_components import CustomWorkflowComponent, get_component
+from openff.qcsubmit.workflow_components import (
+    Components,
+    CustomWorkflowComponent,
+    get_component,
+)
 
-C = TypeVar("C", bound=CustomWorkflowComponent)
 T = TypeVar("T", bound=BasicDataset)
 
 
@@ -37,14 +40,20 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
     The Base factory which all other dataset factories should inherit from.
     """
 
-    factory_type: Literal["BaseDatasetFactory"] = Field(
+    type: Literal["BaseDatasetFactory"] = Field(
         "BaseDatasetFactory",
         description="The type of dataset factory which corresponds to the dataset made.",
     )
-    workflow: List[C] = Field(
+    workflow: List[Components] = Field(
         [],
         description="The set of workflow components and their settings which will be executed in order on the input molecules to make the dataset.",
     )
+
+    @classmethod
+    def from_file(cls, file_name: str):
+        """Create a factory from the serialised model file."""
+        data = deserialize(file_name=file_name)
+        return cls(**data)
 
     @classmethod
     @abc.abstractmethod
@@ -65,10 +74,8 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                 molecules=[
                     molecule,
                 ],
-                component_name="MolecularComplexRemoval",
-                component_description={
-                    "component_description": "Remove any molecules which are complexes."
-                },
+                component="MolecularComplexRemoval",
+                component_settings={},
                 component_provenance=self.provenance(),
             )
 
@@ -106,13 +113,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """
         self.workflow = []
 
-    def add_workflow_component(
-        self,
-        components: Union[
-            List[C],
-            C,
-        ],
-    ) -> None:
+    def add_workflow_components(self, *components: Components) -> None:
         """
         Take the workflow components validate them then insert them into the workflow.
 
@@ -125,10 +126,6 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
         """
 
-        if not isinstance(components, list):
-            # we have one component make it into a list
-            components = [components]
-
         for component in components:
             if issubclass(type(component), CustomWorkflowComponent):
                 try:
@@ -136,7 +133,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                     self.workflow.append(component)
                 except ModuleNotFoundError as e:
                     raise ComponentRequirementError(
-                        f"The component {component.component_name} could not be added to "
+                        f"The component {component.type} could not be added to "
                         f"the workflow due to missing requirements"
                     ) from e
 
@@ -146,7 +143,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                     f"class of CustomWorkflowComponent."
                 )
 
-    def get_workflow_component(self, component_name: str) -> List[C]:
+    def get_workflow_components(self, component_name: str) -> List[Components]:
         """
         Find any workflow components with this component name.
 
@@ -163,7 +160,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         components = [
             component
             for component in self.workflow
-            if component.component_name.lower() == component_name.lower()
+            if component.type.lower() == component_name.lower()
         ]
         if not components:
             raise MissingWorkflowComponentError(
@@ -175,7 +172,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
     def remove_workflow_component(self, component_name: str) -> None:
         """
-        Find and remove any components via its component_name attribute.
+        Find and remove any components via its type attribute.
 
         Parameters:
             component_name: The name of the component to be gathered from the workflow.
@@ -184,15 +181,15 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
             MissingWorkflowComponentError: If the component could not be found by its component name in the workflow.
         """
 
-        components = self.get_workflow_component(component_name=component_name)
-        if components:
-            for component in components:
-                self.workflow.remove(component)
-        else:
+        components = self.get_workflow_components(component_name=component_name)
+        if not components:
             raise MissingWorkflowComponentError(
                 f"The requested component {component_name} "
                 f"could not be removed as it was not registered."
             )
+
+        for component in components:
+            self.workflow.remove(component)
 
     def import_workflow(
         self, workflow: Union[str, Dict], clear_existing: bool = True
@@ -219,8 +216,8 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         # load in the workflow
         for value in workflow.values():
             # check if this is not the first instance of the component
-            component = get_component(value["component_name"])
-            self.add_workflow_component(component.parse_obj(value))
+            component = get_component(value["type"])
+            self.add_workflow_components(component.parse_obj(value))
 
     def export_workflow(self, file_name: str) -> None:
         """
@@ -236,6 +233,12 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         # grab only the workflow
         workflow = self.dict(include={"workflow"})
         serialize(serializable=workflow, file_name=file_name)
+
+    def export(self, file_name: str) -> None:
+        """
+        Export the whole factory to file including settings and workflow.
+        """
+        serialize(serializable=self.dict(), file_name=file_name)
 
     def export_settings(self, file_name: str) -> None:
         """
@@ -303,24 +306,24 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         if isinstance(molecules, str):
             if os.path.isfile(molecules):
                 workflow_molecules = ComponentResult(
-                    component_name=self.factory_type,
-                    component_description={"component_name": self.factory_type},
+                    component_name=self.type,
+                    component_description={"type": self.type},
                     component_provenance=self.provenance(),
                     input_file=molecules,
                 )
 
             elif os.path.isdir(molecules):
                 workflow_molecules = ComponentResult(
-                    component_name=self.factory_type,
-                    component_description={"component_name": self.factory_type},
+                    component_name=self.type,
+                    component_description={"type": self.type},
                     component_provenance=self.provenance(),
                     input_directory=molecules,
                 )
 
         elif isinstance(molecules, off.Molecule):
             workflow_molecules = ComponentResult(
-                component_name=self.factory_type,
-                component_description={"component_name": self.factory_type},
+                component_name=self.type,
+                component_description={"type": self.type},
                 component_provenance=self.provenance(),
                 molecules=[
                     molecules,
@@ -329,8 +332,8 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
         else:
             workflow_molecules = ComponentResult(
-                component_name=self.factory_type,
-                component_description={"component_name": self.factory_type},
+                component_name=self.type,
+                component_description={"type": self.type},
                 component_provenance=self.provenance(),
                 molecules=molecules,
             )
@@ -381,7 +384,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
             >>> gen = get_component("StandardConformerGenerator")
             >>> gen.clear_exsiting = True
             >>> gen.max_conformers = 1
-            >>> factory.add_workflow_component(gen)
+            >>> factory.add_workflow_components(gen)
             >>> smiles = ['C', 'CC', 'CCO']
             >>> mols = [Molecule.from_smiles(smile) for smile in smiles]
             >>> dataset = factory.create_dataset(dataset_name='My collection', molecules=mols)
@@ -423,8 +426,8 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
                 dataset.filter_molecules(
                     molecules=workflow_molecules.filtered,
-                    component_name=workflow_molecules.component_name,
-                    component_description=workflow_molecules.component_description,
+                    component=workflow_molecules.component_name,
+                    component_settings=workflow_molecules.component_description,
                     component_provenance=workflow_molecules.component_provenance,
                 )
 
@@ -496,7 +499,7 @@ class BasicDatasetFactory(BaseDatasetFactory):
     hessian drivers.
     """
 
-    factory_type: Literal["BasicDatasetFactory"] = "BasicDatasetFactory"
+    type: Literal["BasicDatasetFactory"] = "BasicDatasetFactory"
 
     @classmethod
     def _dataset_type(cls) -> Type[BasicDataset]:
@@ -532,7 +535,7 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
     optimisation.
     """
 
-    factory_type: Literal["OptimizationDatasetFactory"] = Field(
+    type: Literal["OptimizationDatasetFactory"] = Field(
         "OptimizationDatasetFactory",
         description="The type of dataset factory which corresponds to the dataset made.",
     )
@@ -567,7 +570,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     the optimisation.
     """
 
-    factory_type: Literal["TorsiondriveDatasetFactory"] = Field(
+    type: Literal["TorsiondriveDatasetFactory"] = Field(
         "TorsiondriveDatasetFactory",
         description="The type of dataset factory which corresponds to the dataset made.",
     )
@@ -610,10 +613,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 molecules=[
                     molecule,
                 ],
-                component_name="LinearTorsionRemoval",
-                component_description={
-                    "component_description": "Remove any molecules with a linear torsions selected to drive."
-                },
+                component="LinearTorsionRemoval",
+                component_settings={},
                 component_provenance=self.provenance(),
             )
 
@@ -629,10 +630,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 molecules=[
                     molecule,
                 ],
-                component_name="UnconnectedTorsionRemoval",
-                component_description={
-                    "component_description": "Remove any molecules with unconnected torsion indices highlighted to drive."
-                },
+                component="UnconnectedTorsionRemoval",
+                component_settings={},
                 component_provenance=self.provenance(),
             )
 
