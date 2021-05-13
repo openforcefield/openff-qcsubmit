@@ -177,20 +177,23 @@ def test_componetresult_deduplication_standard():
     assert result.component_name == "Test deduplication"
 
     # test deduplication with no conformers
-    duplicates = 2
-    molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)
+    molecules = duplicated_molecules(include_conformers=False, duplicates=1)
 
     for molecule in molecules:
         result.add_molecule(molecule)
 
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    for molecule in molecules:
+        result.add_molecule(molecule)
+
     # make sure only 1 copy of each molecule is added
-    assert len(result.molecules) == len(molecules) / duplicates
+    assert len(result.molecules) == len(molecules)
     assert len(result.filtered) == 0
 
 
 def test_componetresult_directory():
     """
-    Test loading up some molecules from a driectory of files.
+    Test loading up some molecules from a directory of files.
     """
     butane_conformers = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
     butane = condense_molecules(butane_conformers)
