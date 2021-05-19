@@ -12,6 +12,7 @@ from typing import (
     Union,
 )
 
+import numpy as np
 import qcelemental as qcel
 import qcportal as ptl
 import tqdm
@@ -22,6 +23,7 @@ from qcportal.models.common_models import (
     OptimizationSpecification,
     QCSpecification,
 )
+from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import (
@@ -189,9 +191,9 @@ class ComponentResult:
         Add a molecule to the molecule list after checking that it is not present already. If it is de-duplicate the
         record and condense the conformers and metadata.
         """
-
-        import numpy as np
-        from simtk import unit
+        # always strip the atom map as it is not preserved in a workflow
+        if "atom_map" in molecule.properties:
+            del molecule.properties["atom_map"]
 
         # make a unique molecule hash independent of atom order or conformers
         molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
