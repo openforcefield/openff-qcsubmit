@@ -41,4 +41,5 @@ dependencies:
 
   # Optional
   - openmmforcefields >=0.9.0
-  - fragmenter ==0.0.7
+  - pip:
+      - git+https://github.com/openforcefield/openff-fragmenter.git@master
