@@ -20,7 +20,10 @@ from openff.qcsubmit.workflow_components.filters import (
     RotorFilter,
     SmartsFilter,
 )
-from openff.qcsubmit.workflow_components.fragmentation import WBOFragmenter
+from openff.qcsubmit.workflow_components.fragmentation import (
+    PfizerFragmenter,
+    WBOFragmenter,
+)
 from openff.qcsubmit.workflow_components.state_enumeration import (
     EnumerateProtomers,
     EnumerateStereoisomers,
@@ -47,6 +50,7 @@ Components = Union[
     EnumerateProtomers,
     EnumerateStereoisomers,
     WBOFragmenter,
+    PfizerFragmenter,
 ]
 
 workflow_components: Dict[str, Components] = {}
@@ -145,6 +149,7 @@ register_component(StandardConformerGenerator())
 
 # fragmentation
 register_component(WBOFragmenter())
+register_component(PfizerFragmenter())
 
 # filters
 register_component(RotorFilter())

@@ -26,6 +26,7 @@ from openff.qcsubmit.exceptions import (
 )
 from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.serializers import deserialize, serialize
+from openff.qcsubmit.utils import get_torsion
 from openff.qcsubmit.workflow_components import (
     Components,
     CustomWorkflowComponent,
@@ -679,7 +680,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
             attributes = self.create_cmiles_metadata(molecule=order_mol)
             for bond in rotatble_bonds:
                 # create a torsion to hold as fixed using non-hydrogen atoms
-                torsion_index = self._get_torsion_string(bond)
+                torsion_index = get_torsion(bond)
                 order_mol.properties["atom_map"] = dict(
                     (atom, index) for index, atom in enumerate(torsion_index)
                 )
@@ -698,38 +699,6 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                     self._linear_torsion_filter(dataset=dataset, molecule=molecule)
                 except MolecularComplexError:
                     self._molecular_complex_filter(dataset=dataset, molecule=molecule)
-
-    def _get_torsion_string(self, bond: off.Bond) -> Tuple[int, int, int, int]:
-        """
-        Create a torsion tuple which will be restrained in the torsiondrive.
-
-        Parameters:
-            bond: The tuple of the atom indexes for the central bond.
-
-        Returns:
-            The tuple of the four atom indices which should be restrained.
-
-        Note:
-            If there is more than one possible combination of atoms the heaviest set are selected to be restrained.
-        """
-
-        atoms = [bond.atom1, bond.atom2]
-        terminal_atoms = {}
-
-        for atom in atoms:
-            for neighbour in atom.bonded_atoms:
-                if neighbour not in atoms:
-                    if (
-                        neighbour.atomic_number
-                        > terminal_atoms.get(atom, off.Atom(0, 0, False)).atomic_number
-                    ):
-                        terminal_atoms[atom] = neighbour
-        # build out the torsion
-        torsion = [atom.molecule_atom_index for atom in terminal_atoms.values()]
-        for i, atom in enumerate(atoms, 1):
-            torsion.insert(i, atom.molecule_atom_index)
-
-        return tuple(torsion)
 
     def create_index(self, molecule: off.Molecule) -> str:
         """
