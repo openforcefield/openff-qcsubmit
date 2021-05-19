@@ -191,8 +191,11 @@ def get_torsion(bond: off.Bond) -> Tuple[int, int, int, int]:
                 ):
                     terminal_atoms[atom] = neighbour
     # build out the torsion
-    torsion = [atom.molecule_atom_index for atom in terminal_atoms.values()]
-    for i, atom in enumerate(atoms, 1):
-        torsion.insert(i, atom.molecule_atom_index)
-
-    return tuple(torsion)
+    return tuple(
+        [
+            terminal_atoms[atoms[0]].molecule_atom_index,
+            atoms[0].molecule_atom_index,
+            atoms[1].molecule_atom_index,
+            terminal_atoms[atoms[1]].molecule_atom_index,
+        ]
+    )

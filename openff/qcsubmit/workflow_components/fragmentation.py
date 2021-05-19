@@ -120,7 +120,7 @@ class WBOFragmenter(FragmenterBase):
             molecules: The list of molecules which should be processed by this component.
 
         Note:
-            * If the input molecule fails fragmentation it will be fail this component and be removed.
+            * If the input molecule fails fragmentation it will fail this component and be removed.
             * When a molecule can not be fragmented to meet the wbo threshold the parent is likely to be included in the
             dataset.
         """
