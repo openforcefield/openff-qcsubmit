@@ -545,7 +545,8 @@ def test_create_dataset(factory_dataset_type):
     for attr, value in changed_attrs.items():
         setattr(factory, attr, value)
 
-    dataset = factory.create_dataset(dataset_name="test name", molecules=mols, description="Force field test", tagline="A test dataset")
+    dataset = factory.create_dataset(dataset_name="test name", molecules=mols, description="Force field test",
+                                     tagline="A test dataset")
 
     # check the attributes were changed
     for attr, value in changed_attrs.items():
@@ -559,3 +560,13 @@ def test_create_dataset(factory_dataset_type):
     assert dataset.dataset != {}
     assert dataset.filtered != {}
     assert element_filter.type in dataset.filtered_molecules
+
+
+def test_create_dataset_atom_map():
+    """Test creating a dataset with molecules with atom maps."""
+
+    factory = OptimizationDatasetFactory()
+    mol = Molecule.from_smiles("CCCC([O-])=O")
+    mol.properties['atom_map'] = {1: 1, 2: 2, 3: 3, 4: 4}
+    _ = factory.create_dataset(dataset_name="test name", molecules=mol, description="Force field test",
+                               tagline="A test dataset")
