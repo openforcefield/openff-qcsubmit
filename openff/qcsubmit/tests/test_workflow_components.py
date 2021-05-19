@@ -713,23 +713,9 @@ def test_coverage_filter_tag_dihedrals():
         assert torsion_indexer.n_impropers == 0
 
 
-def test_fragmentation_settings():
+def test_wbo_fragmentation_apply():
     """
-    Make sure the settings are correctly handled.
-    """
-
-    fragmenter = workflow_components.WBOFragmenter()
-    with pytest.raises(ValueError):
-        fragmenter.functional_groups = get_data("functional_groups_error.yaml")
-
-    fragmenter.functional_groups = get_data("functional_groups.yaml")
-
-    assert fragmenter.functional_groups is not None
-
-
-def test_fragmentation_apply():
-    """
-    Make sure that fragmentation is working.
+    Make sure that wbo fragmentation is working.
     """
     fragmenter = workflow_components.WBOFragmenter()
     assert fragmenter.is_available()
@@ -738,15 +724,21 @@ def test_fragmentation_apply():
     result = fragmenter.apply([benzene, ], processors=1)
     assert result.n_molecules == 0
 
-    # now try ethanol
-    ethanol = Molecule.from_file(get_data("methanol.sdf"), "sdf")
-    fragmenter.include_parent = True
-    result = fragmenter.apply([ethanol, ], processors=1)
-    assert result.n_molecules == 1
-
     # now try a molecule which should give fragments
     diphenhydramine = Molecule.from_smiles("O(CCN(C)C)C(c1ccccc1)c2ccccc2")
-    fragmenter.include_parent = False
+    result = fragmenter.apply([diphenhydramine, ], processors=1)
+    assert result.n_molecules == 4
+    for molecule in result.molecules:
+        assert "dihedrals" in molecule.properties
+
+
+def test_pfizer_fragmentation_apply():
+    """Make sure that the pfizer fragmentation is working and correctly tagging bonds."""
+
+    fragmenter = workflow_components.PfizerFragmenter()
+    assert fragmenter.is_available()
+    # now try a molecule which should give fragments
+    diphenhydramine = Molecule.from_smiles("O(CCN(C)C)C(c1ccccc1)c2ccccc2")
     result = fragmenter.apply([diphenhydramine, ], processors=1)
     assert result.n_molecules == 4
     for molecule in result.molecules:
