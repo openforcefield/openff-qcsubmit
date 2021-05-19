@@ -724,11 +724,6 @@ def test_wbo_fragmentation_apply():
     result = fragmenter.apply([benzene, ], processors=1)
     assert result.n_molecules == 0
 
-    # now try ethanol
-    ethanol = Molecule.from_file(get_data("methanol.sdf"), "sdf")
-    result = fragmenter.apply([ethanol, ], processors=1)
-    assert result.n_molecules == 1
-
     # now try a molecule which should give fragments
     diphenhydramine = Molecule.from_smiles("O(CCN(C)C)C(c1ccccc1)c2ccccc2")
     result = fragmenter.apply([diphenhydramine, ], processors=1)

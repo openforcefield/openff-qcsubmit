@@ -23,7 +23,7 @@ from openff.qcsubmit.factories import (
     TorsiondriveDatasetFactory,
 )
 from openff.qcsubmit.testing import temp_directory
-from openff.qcsubmit.utils import get_data
+from openff.qcsubmit.utils import get_data, get_torsion
 
 
 def test_scf_properties_assignment():
@@ -500,15 +500,13 @@ def test_torsiondrive_torsion_string():
     Test the torsiondrive factories ability to create a torsion string for a given bond.
     """
 
-    factory = TorsiondriveDatasetFactory()
-
     methanol = Molecule.from_file(get_data("methanol.sdf"), "sdf")
 
     rotatable = methanol.find_rotatable_bonds()
     assert len(rotatable) == 1
 
     bond = rotatable[0]
-    torsion = factory._get_torsion_string(bond=bond)
+    torsion = get_torsion(bond=bond)
 
     # now make sure this torsion is in the propers list
     reference_torsions = []
