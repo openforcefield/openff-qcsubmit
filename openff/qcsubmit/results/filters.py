@@ -158,7 +158,12 @@ class ResultRecordFilter(ResultFilter, abc.ABC):
 
 
 class ResultRecordGroupFilter(ResultFilter, abc.ABC):
-    """The base class for filters which reduces repeated molecule entries down to a single entry."""
+    """The base class for filters which reduces repeated molecule entries down to a single entry.
+
+    Notes:
+        * This filter will only be applied to basic and optimization datasets.
+        Torsion drive datasets / entries will be skipped.
+    """
 
     @abc.abstractmethod
     def _filter_function(
@@ -203,7 +208,12 @@ class ResultRecordGroupFilter(ResultFilter, abc.ABC):
 
 
 class LowestEnergyFilter(ResultRecordGroupFilter):
-    """Filter the results collection and only keep the lowest energy entries."""
+    """Filter the results collection and only keep the lowest energy entries.
+
+    Notes:
+        * This filter will only be applied to basic and optimization datasets.
+        Torsion drive datasets / entries will be skipped.
+    """
 
     def _filter_function(
         self,
