@@ -1,17 +1,26 @@
 import abc
 import logging
 from collections import defaultdict
-from typing import List, Optional, Set, TypeVar, Union
+from typing import List, Optional, Set, Tuple, TypeVar, Union
 
 import numpy
 from openff.toolkit.topology import Molecule
 from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
-from qcportal.models.records import RecordBase, RecordStatusEnum
+from qcportal.models.records import (
+    OptimizationRecord,
+    RecordBase,
+    RecordStatusEnum,
+    ResultRecord,
+)
 from simtk import unit
 from typing_extensions import Literal
 
-from openff.qcsubmit.results.results import _BaseResult, _BaseResultCollection
+from openff.qcsubmit.results.results import (
+    TorsionDriveResultCollection,
+    _BaseResult,
+    _BaseResultCollection,
+)
 from openff.qcsubmit.validators import check_allowed_elements
 
 T = TypeVar("T", bound=_BaseResultCollection)
@@ -146,6 +155,75 @@ class ResultRecordFilter(ResultFilter, abc.ABC):
         result_collection.entries = filtered_results
 
         return result_collection
+
+
+class ResultRecordGroupFilter(ResultFilter, abc.ABC):
+    """The base class for filters which reduces repeated molecule entries down to a single entry."""
+
+    @abc.abstractmethod
+    def _filter_function(
+        self, entries: List[Tuple["_BaseResult", RecordBase, Molecule, str]]
+    ) -> Tuple["_BaseResult", str]:
+        """A method which should reduce a set of results down to a single entry based on some property of the QC
+        calculation.
+        """
+        raise NotImplementedError()
+
+    def _apply(self, result_collection: "T") -> "T":
+
+        # do nothing for torsiondrives
+        if isinstance(result_collection, TorsionDriveResultCollection):
+            return result_collection
+
+        all_records_and_molecules = {
+            record.id: [record, molecule, record.client.address]
+            for record, molecule in result_collection.to_records()
+        }
+
+        entries_by_inchikey = defaultdict(list)
+
+        for entries in result_collection.entries.values():
+            for entry in entries:
+                entries_by_inchikey[entry.inchi_key].append(entry)
+
+        filtered_results = defaultdict(list)
+
+        for entries in entries_by_inchikey.values():
+            result, address = self._filter_function(
+                [
+                    (entry, *all_records_and_molecules[entry.record_id])
+                    for entry in entries
+                ]
+            )
+            filtered_results[address].append(result)
+
+        result_collection.entries = filtered_results
+
+        return result_collection
+
+
+class LowestEnergyFilter(ResultRecordGroupFilter):
+    """Filter the results collection and only keep the lowest energy entries."""
+
+    def _filter_function(
+        self,
+        entries: List[
+            Tuple["_BaseResult", Union[ResultRecord, OptimizationRecord], Molecule, str]
+        ],
+    ) -> Tuple["_BaseResult", str]:
+        """Only return the lowest energy entry or final molecule."""
+        low_entry, low_energy, low_address = None, 99999999999, ""
+        for entry, rec, _, address in entries:
+            try:
+                energy = rec.get_final_energy()
+            except AttributeError:
+                energy = rec.properties.return_energy
+            if energy < low_energy:
+                low_entry = entry
+                low_energy = energy
+                low_address = address
+
+        return low_entry, low_address
 
 
 class SMILESFilter(CMILESResultFilter):
