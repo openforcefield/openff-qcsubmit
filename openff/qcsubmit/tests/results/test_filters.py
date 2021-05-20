@@ -14,6 +14,7 @@ from openff.qcsubmit.results.filters import (
     ConnectivityFilter,
     ElementFilter,
     HydrogenBondFilter,
+    LowestEnergyFilter,
     RecordStatusFilter,
     ResultFilter,
     ResultRecordFilter,
@@ -275,3 +276,18 @@ def test_element_filter(basic_result_collection):
     result = element_filter.apply(result_collection=basic_result_collection)
     assert result.n_results == 0
     assert result.n_molecules == 0
+
+
+def test_lowest_energy_filter(optimization_result_collection_duplicates):
+
+    energy_filter = LowestEnergyFilter()
+
+    # should have 2 results
+    assert optimization_result_collection_duplicates.n_results == 2
+    result = energy_filter.apply(result_collection=optimization_result_collection_duplicates)
+
+    # make sure we only have one result
+    assert result.n_molecules == 1
+    assert result.n_results == 1
+
+

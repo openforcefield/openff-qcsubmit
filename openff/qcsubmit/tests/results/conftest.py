@@ -104,6 +104,21 @@ def optimization_result_collection(monkeypatch) -> OptimizationResultCollection:
 
 
 @pytest.fixture()
+def optimization_result_collection_duplicates(monkeypatch) -> OptimizationResultCollection:
+    """Create a collection with duplicate enetries accross different addresses which can be reduced to a single entry."""
+
+    smiles = {
+        "http://localhost:442": [
+            _smiles_to_molecule(smiles="CCCO")
+        ],
+        "http://localhost:443": [
+            _smiles_to_molecule(smiles="CCCO")
+        ]
+    }
+    return mock_optimization_result_collection(smiles, monkeypatch)
+
+
+@pytest.fixture()
 def torsion_drive_result_collection(monkeypatch) -> TorsionDriveResultCollection:
     """Create a basic collection which can be filtered."""
 

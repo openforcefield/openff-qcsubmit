@@ -122,6 +122,7 @@ def mock_optimization_result_collection(
                     initial_molecule=ObjectId(entry.record_id),
                     final_molecule=ObjectId(entry.record_id),
                     status=RecordStatusEnum.complete,
+                    energies=[numpy.random.random()],
                     client=_FractalClient(address=address),
                 ),
                 molecules[address][int(entry.record_id) - 1],
