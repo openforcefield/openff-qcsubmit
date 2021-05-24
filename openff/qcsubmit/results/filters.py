@@ -1,17 +1,27 @@
 import abc
 import logging
 from collections import defaultdict
-from typing import List, Optional, Set, TypeVar
+from typing import List, Optional, Set, Tuple, TypeVar, Union
 
 import numpy
 from openff.toolkit.topology import Molecule
-from pydantic import BaseModel, Field, PrivateAttr, root_validator
+from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
-from qcportal.models.records import RecordBase
+from qcportal.models.records import (
+    OptimizationRecord,
+    RecordBase,
+    RecordStatusEnum,
+    ResultRecord,
+)
 from simtk import unit
 from typing_extensions import Literal
 
-from openff.qcsubmit.results.results import _BaseResult, _BaseResultCollection
+from openff.qcsubmit.results.results import (
+    TorsionDriveResultCollection,
+    _BaseResult,
+    _BaseResultCollection,
+)
+from openff.qcsubmit.validators import check_allowed_elements
 
 T = TypeVar("T", bound=_BaseResultCollection)
 
@@ -25,7 +35,7 @@ class ResultFilter(BaseModel, abc.ABC):
 
     @abc.abstractmethod
     def _apply(self, result_collection: "T") -> "T":
-        """The internal implementation of thr ``apply`` method which should apply this
+        """The internal implementation of the ``apply`` method which should apply this
         filter to a results collection and return a new collection containing only the
         retained entries.
 
@@ -147,6 +157,85 @@ class ResultRecordFilter(ResultFilter, abc.ABC):
         return result_collection
 
 
+class ResultRecordGroupFilter(ResultFilter, abc.ABC):
+    """The base class for filters which reduces repeated molecule entries down to a single entry.
+
+    Notes:
+        * This filter will only be applied to basic and optimization datasets.
+        Torsion drive datasets / entries will be skipped.
+    """
+
+    @abc.abstractmethod
+    def _filter_function(
+        self, entries: List[Tuple["_BaseResult", RecordBase, Molecule, str]]
+    ) -> Tuple["_BaseResult", str]:
+        """A method which should reduce a set of results down to a single entry based on some property of the QC
+        calculation.
+        """
+        raise NotImplementedError()
+
+    def _apply(self, result_collection: "T") -> "T":
+
+        # do nothing for torsiondrives
+        if isinstance(result_collection, TorsionDriveResultCollection):
+            return result_collection
+
+        all_records_and_molecules = {
+            record.id: [record, molecule, record.client.address]
+            for record, molecule in result_collection.to_records()
+        }
+
+        entries_by_inchikey = defaultdict(list)
+
+        for entries in result_collection.entries.values():
+            for entry in entries:
+                entries_by_inchikey[entry.inchi_key].append(entry)
+
+        filtered_results = defaultdict(list)
+
+        for entries in entries_by_inchikey.values():
+            result, address = self._filter_function(
+                [
+                    (entry, *all_records_and_molecules[entry.record_id])
+                    for entry in entries
+                ]
+            )
+            filtered_results[address].append(result)
+
+        result_collection.entries = filtered_results
+
+        return result_collection
+
+
+class LowestEnergyFilter(ResultRecordGroupFilter):
+    """Filter the results collection and only keep the lowest energy entries.
+
+    Notes:
+        * This filter will only be applied to basic and optimization datasets.
+        Torsion drive datasets / entries will be skipped.
+    """
+
+    def _filter_function(
+        self,
+        entries: List[
+            Tuple["_BaseResult", Union[ResultRecord, OptimizationRecord], Molecule, str]
+        ],
+    ) -> Tuple["_BaseResult", str]:
+        """Only return the lowest energy entry or final molecule."""
+        low_entry, low_energy, low_address = None, 99999999999, ""
+        for entry, rec, _, address in entries:
+            try:
+                energy = rec.get_final_energy()
+            except AttributeError:
+                energy = rec.properties.return_energy
+            if energy < low_energy:
+                low_entry = entry
+                low_energy = energy
+                low_address = address
+
+        return low_entry, low_address
+
+
 class SMILESFilter(CMILESResultFilter):
     """A filter which will remove or retain records which were computed for molecules
     described by specific SMILES patterns.
@@ -186,7 +275,9 @@ class SMILESFilter(CMILESResultFilter):
 
     @staticmethod
     def _smiles_to_inchi_key(smiles: str) -> str:
-        return Molecule.from_smiles(smiles).to_inchikey(fixed_hydrogens=False)
+        return Molecule.from_smiles(smiles, allow_undefined_stereo=True).to_inchikey(
+            fixed_hydrogens=False
+        )
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
 
@@ -252,7 +343,9 @@ class SMARTSFilter(CMILESResultFilter):
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
 
-        molecule: Molecule = Molecule.from_mapped_smiles(entry.cmiles)
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
 
         if self.smarts_to_include is not None:
 
@@ -360,3 +453,99 @@ class ConnectivityFilter(ResultRecordFilter):
             return False
 
         return True
+
+
+class RecordStatusFilter(ResultRecordFilter):
+    """A filter which will only retain records if their status matches a specified
+    value.
+    """
+
+    status: RecordStatusEnum = Field(
+        RecordStatusEnum.complete,
+        description="Records whose status match this value will be retained.",
+    )
+
+    def _filter_function(
+        self, result: "_BaseResult", record: RecordBase, molecule: Molecule
+    ) -> bool:
+
+        return record.status.value.upper() == self.status.value.upper()
+
+
+class ChargeFilter(CMILESResultFilter):
+    """A filter which will only retain records if their formal charge matches allowed values or is not in the
+    exclude list."""
+
+    charges_to_include: Optional[List[int]] = Field(
+        None,
+        description="Only molecules with a net formal charge in this list will be kept. "
+        "This option is mutually exclusive with ``charges_to_exclude``.",
+    )
+
+    charges_to_exclude: Optional[List[int]] = Field(
+        None,
+        description="Any molecules with a net formal charge which matches any of these values will be removed. "
+        "This option is mutually exclusive with ``charges_to_include``.",
+    )
+
+    @root_validator
+    def _validate_mutually_exclusive(cls, values):
+        charges_to_include = values.get("charges_to_include")
+        charges_to_exclude = values.get("charges_to_exclude")
+
+        message = (
+            "exactly one of `charges_to_include` and `charges_to_exclude` must be "
+            "specified"
+        )
+
+        assert charges_to_include is not None or charges_to_exclude is not None, message
+        assert charges_to_include is None or charges_to_exclude is None, message
+
+        return values
+
+    def _filter_function(self, entry: "_BaseResult") -> bool:
+
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
+        total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+
+        if self.charges_to_include is not None:
+
+            return total_charge in self.charges_to_include
+
+        return total_charge not in self.charges_to_exclude
+
+
+class ElementFilter(CMILESResultFilter):
+    """A filter which will only retain records that contain the requested elements."""
+
+    _allowed_atomic_numbers: Optional[Set[int]] = PrivateAttr(None)
+
+    allowed_elements: List[Union[int, str]] = Field(
+        ...,
+        description="The list of allowed elements as symbols or atomic number ints.",
+    )
+
+    _check_elements = validator("allowed_elements", each_item=True, allow_reuse=True)(
+        check_allowed_elements
+    )
+
+    def _filter_function(self, entry: "_BaseResult") -> bool:
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
+        # get a set of atomic numbers
+        mol_atoms = {atom.atomic_number for atom in molecule.atoms}
+        # get the difference between mol atoms and allowed atoms
+        return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
+
+    def _apply(self, result_collection: "T") -> "T":
+        from simtk.openmm.app import Element
+
+        self._allowed_atomic_numbers = {
+            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
+            for ele in self.allowed_elements
+        }
+
+        return super(ElementFilter, self)._apply(result_collection)

@@ -103,10 +103,7 @@ class DatasetEntry(DatasetConfig):
             include_conformers: If `True` all of the input conformers are included else they are dropped.
         """
 
-        molecule = off.Molecule.from_mapped_smiles(
-            mapped_smiles=self.attributes.canonical_isomeric_explicit_hydrogen_mapped_smiles,
-            allow_undefined_stereo=True,
-        )
+        molecule = self.attributes.to_openff_molecule()
         molecule.name = self.index
         if include_conformers:
             for conformer in self.initial_molecules:
@@ -240,13 +237,13 @@ class FilterEntry(DatasetConfig):
     removed by it.
     """
 
-    component_name: str = Field(
+    component: str = Field(
         ...,
         description="The name of the component ran, this should be one of the components registered with qcsubmit.",
     )
-    component_description: Dict[str, Any] = Field(
+    component_settings: Dict[str, Any] = Field(
         ...,
-        description="A dictionary which captures information about what the component does including why a molecule might fail the step and the run time settings of any configurable attributes.",
+        description="The run time settings of the component used to filter the molecules.",
     )
     component_provenance: Dict[str, str] = Field(
         ...,
@@ -266,3 +263,11 @@ class FilterEntry(DatasetConfig):
             kwargs["molecules"] = molecules
 
         super().__init__(**kwargs)
+
+    def add_molecule(self, molecule: off.Molecule) -> None:
+        """
+        Add a molecule to this filter.
+        """
+        self.molecules.append(
+            molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
+        )

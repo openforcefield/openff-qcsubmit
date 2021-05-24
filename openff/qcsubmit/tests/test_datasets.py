@@ -41,6 +41,7 @@ from openff.qcsubmit.testing import temp_directory
 from openff.qcsubmit.utils import (
     condense_molecules,
     get_data,
+    get_torsion,
     update_specification_and_metadata,
 )
 from openff.qcsubmit.validators import (
@@ -177,20 +178,23 @@ def test_componetresult_deduplication_standard():
     assert result.component_name == "Test deduplication"
 
     # test deduplication with no conformers
-    duplicates = 2
-    molecules = duplicated_molecules(include_conformers=False, duplicates=duplicates)
+    molecules = duplicated_molecules(include_conformers=False, duplicates=1)
 
     for molecule in molecules:
         result.add_molecule(molecule)
 
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    for molecule in molecules:
+        result.add_molecule(molecule)
+
     # make sure only 1 copy of each molecule is added
-    assert len(result.molecules) == len(molecules) / duplicates
+    assert len(result.molecules) == len(molecules)
     assert len(result.filtered) == 0
 
 
 def test_componetresult_directory():
     """
-    Test loading up some molecules from a driectory of files.
+    Test loading up some molecules from a directory of files.
     """
     butane_conformers = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
     butane = condense_molecules(butane_conformers)
@@ -400,18 +404,15 @@ def test_dataset_linear_dihedral_validator():
     """
     Make sure that dataset rejects molecules with tagged linear bonds.
     """
-
-    from openff.qcsubmit.factories import TorsiondriveDatasetFactory
     dataset = TorsiondriveDataset()
     molecules = Molecule.from_file(get_data("linear_molecules.sdf"), allow_undefined_stereo=True)
-    factory = TorsiondriveDatasetFactory()
     linear_smarts = "[*!D1:1]~[$(*#*)&D2,$(C=*)&D2:2]"
 
     # for each molecule we want to tag each linear dihedral
     for molecule in molecules:
         matches = molecule.chemical_environment_matches(linear_smarts)
         bond = molecule.get_bond_between(*matches[0])
-        dihedral = factory._get_torsion_string(bond)
+        dihedral = get_torsion(bond)
         attributes = get_cmiles(molecule)
         with pytest.raises(LinearTorsionError):
             dataset.add_molecule(index="linear test", molecule=molecule, attributes=attributes, dihedrals=[dihedral, ])
@@ -421,12 +422,10 @@ def test_torsiondrive_unqiue_settings():
     """
     Test adding unqiue settings to a torsiondrive entry.
     """
-    from openff.qcsubmit.factories import TorsiondriveDatasetFactory
     dataset = TorsiondriveDataset()
     molecule = Molecule.from_smiles("CO")
     bond = molecule.find_rotatable_bonds()[0]
-    factory = TorsiondriveDatasetFactory()
-    dataset.add_molecule(index="test", molecule=molecule, attributes=get_cmiles(molecule), dihedrals=[factory._get_torsion_string(bond), ], keywords={"grid_spacing": [5], "dihedral_ranges": [(-50, 50),]})
+    dataset.add_molecule(index="test", molecule=molecule, attributes=get_cmiles(molecule), dihedrals=[get_torsion(bond), ], keywords={"grid_spacing": [5], "dihedral_ranges": [(-50, 50),]})
     # make sure the object was made and the values are set
     assert dataset.dataset["test"].keywords.grid_spacing == [5, ]
     assert dataset.dataset["test"].keywords.dihedral_ranges == [(-50, 50), ]
@@ -1132,7 +1131,7 @@ def test_componentresult_filter_molecules():
     result = ComponentResult(
         component_name="Test filtering",
         component_description={
-            "component_name": "TestFiltering",
+            "type": "TestFiltering",
             "component_description": "TestFiltering",
             "component_fail_message": "TestFiltering",
         },
@@ -1163,13 +1162,13 @@ def test_dataset_add_filter_molecules():
     methane = Molecule.from_smiles("C")
     ethanol = Molecule.from_smiles("CC")
     dataset.filter_molecules(molecules=methane,
-                             component_name="test",
-                             component_description={},
+                             component="test",
+                             component_settings={},
                              component_provenance={})
     # now we want to add this extra molecule to this group
     dataset.filter_molecules(molecules=ethanol,
-                             component_name="test",
-                             component_description={},
+                             component="test",
+                             component_settings={},
                              component_provenance={})
     filtered = dataset.filtered_molecules["test"]
     assert len(filtered.molecules) == 2
@@ -1575,8 +1574,8 @@ def test_dataset_export_dict(dataset_type):
     # add one failure
     fail = Molecule.from_smiles("C")
     dataset.filter_molecules(molecules=[fail, ],
-                             component_name="TestFailure",
-                             component_description={"name": "TestFailure"},
+                             component="TestFailure",
+                             component_settings={},
                              component_provenance={"test": "v1.0"})
 
     dataset2 = dataset_type(**dataset.dict())
@@ -1609,8 +1608,8 @@ def test_dataset_export_json(dataset_type):
     # add one failure
     fail = Molecule.from_smiles("C")
     dataset.filter_molecules(molecules=[fail, ],
-                             component_name="TestFailure",
-                             component_description={"name": "TestFailure"},
+                             component="TestFailure",
+                             component_settings={},
                              component_provenance={"test": "v1.0"})
 
     # try parse the json string to build the dataset
@@ -1648,8 +1647,8 @@ def test_dataset_roundtrip_compression(dataset_type, compression):
     # add one failure
     fail = Molecule.from_smiles("C")
     dataset.filter_molecules(molecules=[fail, ],
-                             component_name="TestFailure",
-                             component_description={"name": "TestFailure"},
+                             component="TestFailure",
+                             component_settings={},
                              component_provenance={"test": "v1.0"})
 
     with temp_directory():
@@ -1865,12 +1864,10 @@ def test_basicdataset_filtering():
     dataset = BasicDataset()
     molecules = duplicated_molecules(include_conformers=False, duplicates=1)
     # create a filtered result
-    component_description = {"component_name": "TestFilter",
-                             "component_description": "Test component for filtering molecules"}
     component_provenance = {"test_provenance": "version_1"}
     dataset.filter_molecules(molecules=molecules,
-                             component_name="TestFilter",
-                             component_description=component_description,
+                             component="TestFilter",
+                             component_settings={},
                              component_provenance=component_provenance)
 
     assert len(molecules) == dataset.n_filtered
@@ -1879,7 +1876,7 @@ def test_basicdataset_filtering():
     components = dataset.components
     assert len(components) == 1
     component = components[0]
-    assert "TestFilter" == component["component_name"]
+    assert "TestFilter" == component["component"]
     assert "version_1" == component["component_provenance"]["test_provenance"]
 
     # now loop through the molecules to make sure they match

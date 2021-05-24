@@ -1,4 +1,4 @@
-from typing import Dict, Generator, List, Union
+from typing import Dict, Generator, List, Tuple, Union
 
 from openff.toolkit import topology as off
 from openff.toolkit.utils.toolkits import (
@@ -163,3 +163,39 @@ def update_specification_and_metadata(
             )
 
     return dataset
+
+
+def get_torsion(bond: off.Bond) -> Tuple[int, int, int, int]:
+    """
+    Create a torsion tuple which will be restrained in the torsiondrive.
+
+    Parameters:
+        bond: The tuple of the atom indexes for the central bond.
+
+    Returns:
+        The tuple of the four atom indices which should be restrained.
+
+    Note:
+        If there is more than one possible combination of atoms the heaviest set are selected to be restrained.
+    """
+
+    atoms = [bond.atom1, bond.atom2]
+    terminal_atoms = {}
+
+    for atom in atoms:
+        for neighbour in atom.bonded_atoms:
+            if neighbour not in atoms:
+                if (
+                    neighbour.atomic_number
+                    > terminal_atoms.get(atom, off.Atom(0, 0, False)).atomic_number
+                ):
+                    terminal_atoms[atom] = neighbour
+    # build out the torsion
+    return tuple(
+        [
+            terminal_atoms[atoms[0]].molecule_atom_index,
+            atoms[0].molecule_atom_index,
+            atoms[1].molecule_atom_index,
+            terminal_atoms[atoms[1]].molecule_atom_index,
+        ]
+    )

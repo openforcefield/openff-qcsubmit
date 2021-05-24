@@ -1,97 +1,61 @@
 import abc
-from typing import Any, Dict, List, Optional
+from typing import ClassVar, Dict, List, Optional
 
 import tqdm
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
-from pydantic import BaseModel, Field, validator
-from pydantic.main import ModelMetaclass
+from pydantic import BaseModel, Field, PrivateAttr, validator
 from qcelemental.util import which_import
+from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.datasets import ComponentResult
 
 
-class InheritSlots(ModelMetaclass):
-
-    # This allows subclasses of CustomWorkFlowComponentto inherit __slots__
-    def __new__(mcs, name, bases, namespace):
-
-        slots = set(namespace.pop("__slots__", tuple()))
-
-        for base in bases:
-            if hasattr(base, "__slots__"):
-                slots.update(base.__slots__)
-
-        if "__dict__" in slots:
-            slots.remove("__dict__")
-
-        namespace["__slots__"] = tuple(slots)
-
-        return ModelMetaclass.__new__(mcs, name, bases, namespace)
-
-
-class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=InheritSlots):
+class CustomWorkflowComponent(BaseModel, abc.ABC):
     """
     This is an abstract base class which should be used to create all workflow components, following the design of this
     class should allow users to easily create new work flow components with out needing to change much of the dataset
     factory code
     """
 
-    component_name: str = Field(
-        ..., description="The name of the component which should match the class name."
-    )
-    component_description: str = Field(
-        ...,
-        description="A short description of what the component will do to the molecules.",
-    )
-    component_fail_message: str = Field(
-        ...,
-        description="A short description with hints on why the molecule may have caused an error in this workflow component.",
-    )
-    _properties: ComponentProperties = Field(
-        ...,
-        description="The internal runtime properties of the component which can not be changed, these indecate if the component can be ran in parallel and if it may produce duplicate molecules.",
-    )
-    _cache: Dict
-
     class Config:
+        allow_mutation = True
         validate_assignment = True
-        arbitrary_types_allowed = True
 
-    # this is a pydantic workaround to add private variables taken from
-    # https://github.com/samuelcolvin/pydantic/issues/655
-    __slots__ = [
-        "_cache",
-    ]
+    type: Literal["CustomWorkflowComponent"] = Field(
+        "CustomWorkflowComponent",
+        description="The name of the component which should match the class name.",
+    )
+    # new pydantic private attr is loaded into slots
+    _cache: Dict = PrivateAttr(default={})
 
-    def __init__(self, *args, **kwargs):
-        super(CustomWorkflowComponent, self).__init__(*args, **kwargs)
-        self._cache = {}
+    @classmethod
+    @abc.abstractmethod
+    def description(cls) -> str:
+        """Returns a friendly description of the workflow component."""
+        ...
 
-    def __setattr__(self, attr: str, value: Any) -> None:
-        """
-        Overwrite the Pydantic setattr to configure the handling of our __slots___
-        """
-        if attr in self.__slots__:
-            object.__setattr__(self, attr, value)
-        else:
-            super(CustomWorkflowComponent, self).__setattr__(attr, value)
+    @classmethod
+    @abc.abstractmethod
+    def fail_reason(cls) -> str:
+        """Returns a friendly description of why a molecule would fail to pass the component."""
+        ...
 
-    # getstate and setstate are needed since private instance members (_*)
-    # are not included in pickles by Pydantic at the current moment. Force them
-    # to be added here. This is needed for multiprocessing support.
-    def __getstate__(self):
-        return (
-            super().__getstate__(),
-            {slot: getattr(self, slot) for slot in self.__slots__},
+    @classmethod
+    @abc.abstractmethod
+    def properties(cls) -> ComponentProperties:
+        """Returns the runtime properties of the component such as parallel safe."""
+        ...
+
+    @classmethod
+    def info(cls) -> Dict[str, str]:
+        """Returns a dictionary of the friendly descriptions of the class."""
+        return dict(
+            name=cls.__name__,
+            description=cls.description(),
+            fail_reason=cls.fail_reason(),
         )
-
-    def __setstate__(self, state):
-        super().__setstate__(state[0])
-        d = state[1]
-        for slot in d:
-            setattr(self, slot, d[slot])
 
     @classmethod
     @abc.abstractmethod
@@ -160,7 +124,9 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=InheritSlots):
         # Use a Pool to get around the GIL. As long as self does not contain
         # too much data, this should be efficient.
 
-        if (processors is None or processors > 1) and self._properties.process_parallel:
+        if (
+            processors is None or processors > 1
+        ) and self.properties().process_parallel:
 
             from multiprocessing.pool import Pool
 
@@ -175,7 +141,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=InheritSlots):
                     work_list,
                     total=len(work_list),
                     ncols=80,
-                    desc="{:30s}".format(self.component_name),
+                    desc="{:30s}".format(self.type),
                     disable=not verbose,
                 ):
                     work = work.get()
@@ -189,7 +155,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=InheritSlots):
                 molecules,
                 total=len(molecules),
                 ncols=80,
-                desc="{:30s}".format(self.component_name),
+                desc="{:30s}".format(self.type),
                 disable=not verbose,
             ):
                 work = self._apply([molecule])
@@ -222,10 +188,10 @@ class CustomWorkflowComponent(BaseModel, abc.ABC, metaclass=InheritSlots):
         """
 
         result = ComponentResult(
-            component_name=self.component_name,
+            component_name=self.type,
             component_description=self.dict(),
             component_provenance=self.provenance(),
-            skip_unique_check=not self._properties.produces_duplicates,
+            skip_unique_check=not self.properties().produces_duplicates,
             **kwargs,
         )
 
@@ -245,10 +211,13 @@ class ToolkitValidator(BaseModel):
         "openeye",
         description="The name of the toolkit which should be used in this component.",
     )
-    _toolkits: Dict = {"rdkit": RDKitToolkitWrapper, "openeye": OpenEyeToolkitWrapper}
+    _toolkits: ClassVar[Dict] = {
+        "rdkit": RDKitToolkitWrapper,
+        "openeye": OpenEyeToolkitWrapper,
+    }
 
     @validator("toolkit")
-    def _check_toolkit(cls, toolkit):
+    def _check_toolkit(cls, toolkit: str) -> str:
         """
         Make sure that toolkit is one of the supported types in the OFFTK.
         """

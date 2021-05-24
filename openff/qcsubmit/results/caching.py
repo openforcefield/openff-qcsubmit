@@ -1,5 +1,6 @@
 """A module which contains helpers for retrieving data from QCA and caching the
 results in memory for future requests."""
+import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
@@ -33,6 +34,8 @@ _molecule_cache = LRUCache(maxsize=240000)
 
 _grid_id_cache = LRUCache(maxsize=240000)
 
+logger = logging.getLogger(__name__)
+
 
 def clear_results_caches():
     """Clear the internal results caches."""
@@ -42,7 +45,7 @@ def clear_results_caches():
     _grid_id_cache.clear()
 
 
-def _batched_indices(indices: List[T], batch_size: int) -> List[List[T]]:
+def batched_indices(indices: List[T], batch_size: int) -> List[List[T]]:
     """Split a list of indices into batches.
 
     Args:
@@ -56,7 +59,7 @@ def _batched_indices(indices: List[T], batch_size: int) -> List[List[T]]:
 
 
 @lru_cache()
-def _cached_fractal_client(address: str) -> FractalClient:
+def cached_fractal_client(address: str) -> FractalClient:
     """Returns a cached copy of a fractal client."""
     return FractalClient(address)
 
@@ -99,9 +102,17 @@ def _cached_client_query(
         if (client_address, query_id) in query_cache
     ]
 
-    client = _cached_fractal_client(client_address)
+    client = cached_fractal_client(client_address)
 
-    for batch_ids in _batched_indices(missing_query_ids, client.query_limit):
+    logger.debug(f"starting {query_name} to {client_address}")
+
+    batch_query_ids = batched_indices(missing_query_ids, client.query_limit)
+    logger.debug(f"query split into {len(batch_query_ids)} batches")
+
+    for i, batch_ids in enumerate(batch_query_ids):
+
+        logger.debug(f"starting batch query {i}")
+
         for query in getattr(client, query_name)(batch_ids):
 
             found_queries.append(query)
@@ -110,6 +121,10 @@ def _cached_client_query(
                 continue
 
             query_cache[(client_address, query.id)] = query
+
+        logger.debug(f"finished batch query {i}")
+
+    logger.debug(f"finished {query_name} to {client_address}")
 
     return found_queries
 
@@ -171,12 +186,17 @@ def _cached_query_single_structure_results(
         A list of tuples of the returned records and molecules.
     """
 
+    logger.debug(f"retrieving records from {client_address}")
+
     qc_records: Dict[str, S] = {
         qc_record.id: qc_record
         for qc_record in cached_query_procedures(
             client_address, [result.record_id for result in results]
         )
     }
+
+    logger.debug(f"finished retrieving records from {client_address}")
+    logger.debug("retrieving corresponding molecules")
 
     qc_record_to_molecule_id = {
         qc_record.id: getattr(qc_record, molecule_attribute)
@@ -189,6 +209,8 @@ def _cached_query_single_structure_results(
             client_address, [*qc_record_to_molecule_id.values()]
         )
     }
+
+    logger.debug("finished retrieving corresponding molecules")
 
     return_values = []
 
@@ -268,15 +290,30 @@ def _cached_torsion_drive_molecule_ids(
         if (client_address, *grid_tuple) not in _grid_id_cache
     }
 
-    client = _cached_fractal_client(client_address)
+    client = cached_fractal_client(client_address)
 
-    qc_optimizations = {
-        record.id: record
-        for batch_ids in _batched_indices(
-            [*missing_optimization_ids.values()], client.query_limit
+    batched_missing_ids = batched_indices(
+        [*missing_optimization_ids.values()], client.query_limit
+    )
+
+    logger.debug(
+        f"retrieving associated optimizations from {client_address} in "
+        f"{len(batched_missing_ids)} batches"
+    )
+
+    qc_optimizations = {}
+
+    for i, batch_ids in enumerate(batched_missing_ids):
+
+        logger.debug(f"starting batch query {i}")
+
+        qc_optimizations.update(
+            {record.id: record for record in client.query_procedures(batch_ids)}
         )
-        for record in client.query_procedures(batch_ids)
-    }
+
+        logger.debug(f"finished batch query {i}")
+
+    logger.debug("finished retrieving associated optimizations")
 
     found_molecule_ids = {
         grid_tuple: _grid_id_cache[(client_address, *grid_tuple)]
@@ -314,6 +351,8 @@ def cached_query_torsion_drive_results(
         results: The results to retrieve.
     """
 
+    logger.debug(f"retrieving records from {client_address}")
+
     qc_records: Dict[str, TorsionDriveRecord] = {
         qc_record.id: qc_record
         for qc_record in cached_query_procedures(
@@ -321,14 +360,23 @@ def cached_query_torsion_drive_results(
         )
     }
 
+    logger.debug(f"finished retrieving records from {client_address}")
+
+    logger.debug("retrieving associated grid molecule ids")
+
     molecule_ids = _cached_torsion_drive_molecule_ids(
         client_address, [*qc_records.values()]
     )
+
+    logger.debug("finished retrieving associated grid molecule ids")
+    logger.debug("retrieving associated grid molecules")
 
     qc_molecules = {
         molecule.id: molecule
         for molecule in cached_query_molecules(client_address, [*molecule_ids.values()])
     }
+
+    logger.debug("finished retrieving associated grid molecules")
 
     return_values = []
 

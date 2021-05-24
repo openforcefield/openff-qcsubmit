@@ -6,8 +6,11 @@ from typing import Dict, List
 import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
+from pydantic import ValidationError
+from typing_extensions import Literal
 
 from openff.qcsubmit import workflow_components
+from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.datasets import ComponentResult
 from openff.qcsubmit.exceptions import (
     ComponentRegisterError,
@@ -60,7 +63,7 @@ def test_list_components():
     """
     components = list_components()
     for component in components:
-        assert component.component_name == component.__class__.__name__
+        assert component.type == component.__class__.__name__
 
 
 def test_register_component_replace():
@@ -76,7 +79,7 @@ def test_register_component_replace():
     # now register using replace with a new default
     register_component(component=gen, replace=True)
 
-    gen2 = get_component(gen.component_name)
+    gen2 = get_component(gen.type)
     assert gen2.max_conformers == gen.max_conformers
 
     # now return th list back to normal
@@ -88,7 +91,7 @@ def test_register_component_error():
     Make sure an error is raised if we try and register a component that is not a sub class of CustomWorkflowComponent.
     """
     # fake component
-    charge_filter = {"component_name": "charge_filter"}
+    charge_filter = {"type": "charge_filter"}
 
     with pytest.raises(InvalidWorkflowComponentError):
         register_component(component=charge_filter)
@@ -147,9 +150,19 @@ def test_custom_component():
 
     class TestComponent(CustomWorkflowComponent):
 
-        component_name = "Test component"
-        component_description = "Test component"
-        component_fail_message = "Test fail"
+        component_name: Literal["TestComponent"] = "TestComponent"
+
+        @classmethod
+        def description(cls) -> str:
+            return "Test component"
+
+        @classmethod
+        def fail_reason(cls) -> str:
+            return "Test fail"
+
+        @classmethod
+        def properties(cls) -> ComponentProperties:
+            return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
         def _apply(self, molecules: List[Molecule]) -> ComponentResult:
             pass
@@ -157,15 +170,16 @@ def test_custom_component():
         def provenance(self) -> Dict:
             return {"test": "version1"}
 
-        @staticmethod
-        def is_available() -> bool:
+        @classmethod
+        def is_available(cls) -> bool:
             return True
 
     test = TestComponent()
-    assert test.component_name == "Test component"
-    assert test.component_description == "Test component"
-    assert test.component_fail_message == "Test fail"
+    assert test.component_name == "TestComponent"
+    assert test.description() == "Test component"
+    assert test.fail_reason() == "Test fail"
     assert {"test": "version1"} == test.provenance()
+    assert TestComponent.info() == {"name": "TestComponent", "description": "Test component", "fail_reason": "Test fail"}
 
 
 @pytest.mark.parametrize(
@@ -187,15 +201,25 @@ def test_toolkit_mixin(toolkit):
         class TestClass(ToolkitValidator, CustomWorkflowComponent):
             """Should not need to implement the provenance."""
 
-            component_name = "ToolkitValidator"
-            component_description = "ToolkitValidator test class."
-            component_fail_message = "Test fail"
+            component_name: Literal["TestClass"] = "TestClass"
+
+            @classmethod
+            def description(cls) -> str:
+                return "ToolkitValidator test class."
+
+            @classmethod
+            def fail_reason(cls) -> str:
+                return "Test fail"
+
+            @classmethod
+            def properties(cls) -> ComponentProperties:
+                return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
             def _apply(self, molecules: List[Molecule]) -> ComponentResult:
                 pass
 
         test = TestClass()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             test.toolkit = "ambertools"
 
         test.toolkit = toolkit_name
@@ -250,7 +274,7 @@ def test_element_filter_validators():
 
     elem_filter = workflow_components.ElementFilter()
 
-    with pytest.raises(KeyError):
+    with pytest.raises(ValidationError):
         elem_filter.allowed_elements = ["carbon", "hydrogen"]
 
     elem_filter.allowed_elements = [1.02, 2.02, 3.03]
@@ -377,7 +401,7 @@ def test_conformer_apply(toolkit):
 
         result = conf_gen.apply(molecule_container.molecules, processors=1)
 
-        assert result.component_name == conf_gen.component_name
+        assert result.component_name == conf_gen.type
         assert result.component_description == conf_gen.dict()
         # make sure each molecule has a conformer that passed
         for molecule in result.molecules:
@@ -402,7 +426,7 @@ def test_elementfilter_apply():
 
     result = elem_filter.apply(mols, processors=1)
 
-    assert result.component_name == elem_filter.component_name
+    assert result.component_name == elem_filter.type
     assert result.component_description == elem_filter.dict()
     # make sure there are no unwanted elements in the pass set
     for molecue in result.molecules:
@@ -689,23 +713,9 @@ def test_coverage_filter_tag_dihedrals():
         assert torsion_indexer.n_impropers == 0
 
 
-def test_fragmentation_settings():
+def test_wbo_fragmentation_apply():
     """
-    Make sure the settings are correctly handled.
-    """
-
-    fragmenter = workflow_components.WBOFragmenter()
-    with pytest.raises(ValueError):
-        fragmenter.functional_groups = get_data("functional_groups_error.yaml")
-
-    fragmenter.functional_groups = get_data("functional_groups.yaml")
-
-    assert fragmenter.functional_groups is not None
-
-
-def test_fragmentation_apply():
-    """
-    Make sure that fragmentation is working.
+    Make sure that wbo fragmentation is working.
     """
     fragmenter = workflow_components.WBOFragmenter()
     assert fragmenter.is_available()
@@ -714,24 +724,30 @@ def test_fragmentation_apply():
     result = fragmenter.apply([benzene, ], processors=1)
     assert result.n_molecules == 0
 
-    # now try ethanol
-    ethanol = Molecule.from_file(get_data("methanol.sdf"), "sdf")
-    fragmenter.include_parent = True
-    result = fragmenter.apply([ethanol, ], processors=1)
-    assert result.n_molecules == 1
-
     # now try a molecule which should give fragments
     diphenhydramine = Molecule.from_smiles("O(CCN(C)C)C(c1ccccc1)c2ccccc2")
-    fragmenter.include_parent = False
     result = fragmenter.apply([diphenhydramine, ], processors=1)
     assert result.n_molecules == 4
     for molecule in result.molecules:
         assert "dihedrals" in molecule.properties
 
 
-def test_rotor_filter_pass():
+def test_pfizer_fragmentation_apply():
+    """Make sure that the pfizer fragmentation is working and correctly tagging bonds."""
+
+    fragmenter = workflow_components.PfizerFragmenter()
+    assert fragmenter.is_available()
+    # now try a molecule which should give fragments
+    diphenhydramine = Molecule.from_smiles("O(CCN(C)C)C(c1ccccc1)c2ccccc2")
+    result = fragmenter.apply([diphenhydramine, ], processors=1)
+    assert result.n_molecules == 4
+    for molecule in result.molecules:
+        assert "dihedrals" in molecule.properties
+
+
+def test_rotor_filter_maximum():
     """
-    Make sure the rotor filter removes the correct molecules.
+    Remove molecules with too many rotatable bonds.
     """
 
     rotor_filter = workflow_components.RotorFilter()
@@ -744,6 +760,40 @@ def test_rotor_filter_pass():
     result = rotor_filter.apply(molecule_container.molecules, processors=1)
     for molecule in result.molecules:
         assert len(molecule.find_rotatable_bonds()) <= rotor_filter.maximum_rotors
+
+
+def test_rotor_filter_minimum():
+    """
+    Remove molecules with too few rotatable bonds.
+    """
+    rotor_filter = workflow_components.RotorFilter()
+    rotor_filter.minimum_rotors = 3
+    # not capped
+    rotor_filter.maximum_rotors = None
+
+    mols = get_tautomers()
+    mol_container = get_container(mols)
+    result = rotor_filter.apply(mol_container.molecules, processors=1)
+    for molecule in result.molecules:
+        assert len(molecule.find_rotatable_bonds()) >= rotor_filter.minimum_rotors
+    for molecule in result.filtered:
+        assert len(molecule.find_rotatable_bonds()) < rotor_filter.minimum_rotors
+
+
+def test_rotor_filter_validation():
+    """
+    Make sure that the maximum number of rotors is >= the minimum if defined.
+    """
+
+    rotor_filter = workflow_components.RotorFilter()
+    rotor_filter.maximum_rotors = 4
+    rotor_filter.minimum_rotors = 4
+    mols = get_tautomers()
+    mol_container = get_container(mols)
+    rotor_filter.apply(mol_container.molecules, processors=1)
+    rotor_filter.minimum_rotors = 5
+    with pytest.raises(ValueError):
+        rotor_filter.apply(mol_container.molecules, processors=1)
 
 
 def test_rotor_filter_fail():
@@ -809,7 +859,7 @@ def test_smarts_filter_apply_parameters():
 
     result = filter.apply(molecules, processors=1)
 
-    assert result.component_name == filter.component_name
+    assert result.component_name == filter.type
     assert result.component_description == filter.dict()
     # make sure there are no unwanted elements in the pass set
     for molecule in result.molecules:

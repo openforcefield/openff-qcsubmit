@@ -20,7 +20,10 @@ from openff.qcsubmit.workflow_components.filters import (
     RotorFilter,
     SmartsFilter,
 )
-from openff.qcsubmit.workflow_components.fragmentation import WBOFragmenter
+from openff.qcsubmit.workflow_components.fragmentation import (
+    PfizerFragmenter,
+    WBOFragmenter,
+)
 from openff.qcsubmit.workflow_components.state_enumeration import (
     EnumerateProtomers,
     EnumerateStereoisomers,
@@ -34,12 +37,26 @@ __all__ = [
     "list_components",
 ]
 
-workflow_components: Dict[str, CustomWorkflowComponent] = {}
+# make a components type
+Components = Union[
+    StandardConformerGenerator,
+    RMSDCutoffConformerFilter,
+    CoverageFilter,
+    ElementFilter,
+    MolecularWeightFilter,
+    RotorFilter,
+    SmartsFilter,
+    EnumerateTautomers,
+    EnumerateProtomers,
+    EnumerateStereoisomers,
+    WBOFragmenter,
+    PfizerFragmenter,
+]
+
+workflow_components: Dict[str, Components] = {}
 
 
-def register_component(
-    component: CustomWorkflowComponent, replace: bool = False
-) -> None:
+def register_component(component: Components, replace: bool = False) -> None:
     """
     Register a valid workflow component with qcsubmit.
 
@@ -53,14 +70,14 @@ def register_component(
     """
 
     if issubclass(type(component), CustomWorkflowComponent):
-        component_name = component.component_name.lower()
+        component_name = component.type.lower()
         if component_name not in workflow_components or (
             component_name in workflow_components and replace
         ):
             workflow_components[component_name] = component
         else:
             raise ComponentRegisterError(
-                f"There is already a component registered with QCSubmit with the name {component.component_name}, to replace this use the `replace=True` flag."
+                f"There is already a component registered with QCSubmit with the name {component.type}, to replace this use the `replace=True` flag."
             )
     else:
         raise InvalidWorkflowComponentError(
@@ -68,7 +85,7 @@ def register_component(
         )
 
 
-def get_component(component_name: str) -> CustomWorkflowComponent:
+def get_component(component_name: str) -> Components:
     """
     Get the registered workflow component by component name.
 
@@ -91,7 +108,7 @@ def get_component(component_name: str) -> CustomWorkflowComponent:
     return component
 
 
-def deregister_component(component: Union[CustomWorkflowComponent, str]) -> None:
+def deregister_component(component: Union[Components, str]) -> None:
     """
     Deregister the workflow component from QCSubmit.
 
@@ -103,7 +120,7 @@ def deregister_component(component: Union[CustomWorkflowComponent, str]) -> None
     """
 
     if issubclass(type(component), CustomWorkflowComponent):
-        component_name = component.component_name.lower()
+        component_name = component.type.lower()
 
     else:
         component_name = component.lower()
@@ -115,7 +132,7 @@ def deregister_component(component: Union[CustomWorkflowComponent, str]) -> None
         )
 
 
-def list_components() -> List[CustomWorkflowComponent]:
+def list_components() -> List[Components]:
     """
     Get a list of all of the currently registered workflow components.
 
@@ -132,6 +149,7 @@ register_component(StandardConformerGenerator())
 
 # fragmentation
 register_component(WBOFragmenter())
+register_component(PfizerFragmenter())
 
 # filters
 register_component(RotorFilter())

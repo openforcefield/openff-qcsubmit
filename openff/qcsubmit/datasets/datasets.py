@@ -1,18 +1,29 @@
 import json
 import os
-from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
+import numpy as np
 import qcelemental as qcel
 import qcportal as ptl
 import tqdm
 from openff.toolkit import topology as off
 from pydantic import Field, constr, validator
-from qcfractal.interface import FractalClient
 from qcportal.models.common_models import (
     DriverEnum,
     OptimizationSpecification,
     QCSpecification,
 )
+from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import (
@@ -39,6 +50,9 @@ from openff.qcsubmit.exceptions import (
 from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.serializers import deserialize, serialize
 from openff.qcsubmit.utils import chunk_generator
+
+if TYPE_CHECKING:
+    from qcfractal.interface import FractalClient
 
 
 class ComponentResult:
@@ -177,9 +191,9 @@ class ComponentResult:
         Add a molecule to the molecule list after checking that it is not present already. If it is de-duplicate the
         record and condense the conformers and metadata.
         """
-
-        import numpy as np
-        from simtk import unit
+        # always strip the atom map as it is not preserved in a workflow
+        if "atom_map" in molecule.properties:
+            del molecule.properties["atom_map"]
 
         # make a unique molecule hash independent of atom order or conformers
         molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
@@ -237,6 +251,9 @@ class ComponentResult:
                 return True
 
         else:
+            if molecule.n_conformers == 0:
+                # make sure this is a list to avoid errors
+                molecule._conformers = []
             self._molecules[molecule_hash] = molecule
             return False
 
@@ -529,8 +546,8 @@ class BasicDataset(CommonBase):
     def filter_molecules(
         self,
         molecules: Union[off.Molecule, List[off.Molecule]],
-        component_name: str,
-        component_description: Dict[str, Any],
+        component: str,
+        component_settings: Dict[str, Any],
         component_provenance: Dict[str, str],
     ) -> None:
         """
@@ -539,9 +556,9 @@ class BasicDataset(CommonBase):
         Parameters:
         molecules:
             A molecule or list of molecules to be filtered.
-        component_description:
+        component_settings:
             The dictionary representation of the component that filtered this set of molecules.
-        component_name:
+        component:
             The name of the component.
         component_provenance:
             The dictionary representation of the component provenance.
@@ -551,22 +568,22 @@ class BasicDataset(CommonBase):
             # make into a list
             molecules = [molecules]
 
-        if component_name in self.filtered_molecules:
+        if component in self.filtered_molecules:
             filter_mols = [
                 molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
                 for molecule in molecules
             ]
-            self.filtered_molecules[component_name].molecules.extend(filter_mols)
+            self.filtered_molecules[component].molecules.extend(filter_mols)
         else:
 
             filter_data = FilterEntry(
                 off_molecules=molecules,
-                component_name=component_name,
+                component=component,
                 component_provenance=component_provenance,
-                component_description=component_description,
+                component_settings=component_settings,
             )
 
-            self.filtered_molecules[filter_data.component_name] = filter_data
+            self.filtered_molecules[filter_data.component] = filter_data
 
     def add_molecule(
         self,
@@ -618,7 +635,7 @@ class BasicDataset(CommonBase):
                 component_name="QCSchemaIssues",
                 component_description={
                     "component_description": "The molecule was removed as a valid QCSchema could not be made",
-                    "component_name": "QCSchemaIssues",
+                    "type": "QCSchemaIssues",
                 },
                 component_provenance=self.provenance,
             )
@@ -719,7 +736,7 @@ class BasicDataset(CommonBase):
 
     def submit(
         self,
-        client: Union[str, ptl.FractalClient, FractalClient],
+        client: Union[str, ptl.FractalClient, "FractalClient"],
         threads: Optional[int] = None,
         ignore_errors: bool = False,
         verbose: bool = False,
@@ -1367,7 +1384,7 @@ class OptimizationDataset(BasicDataset):
 
     def submit(
         self,
-        client: Union[str, ptl.FractalClient, FractalClient],
+        client: Union[str, ptl.FractalClient, "FractalClient"],
         threads: Optional[int] = None,
         ignore_errors: bool = False,
         verbose: bool = False,
@@ -1625,7 +1642,7 @@ class TorsiondriveDataset(OptimizationDataset):
 
     def submit(
         self,
-        client: Union[str, ptl.FractalClient, FractalClient],
+        client: Union[str, ptl.FractalClient, "FractalClient"],
         threads: Optional[int] = None,
         ignore_errors: bool = False,
         verbose: bool = False,

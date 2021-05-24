@@ -9,9 +9,13 @@ from qcportal.models.records import RecordStatusEnum
 
 from openff.qcsubmit.results import BasicResult
 from openff.qcsubmit.results.filters import (
+    ChargeFilter,
     CMILESResultFilter,
     ConnectivityFilter,
+    ElementFilter,
     HydrogenBondFilter,
+    LowestEnergyFilter,
+    RecordStatusFilter,
     ResultFilter,
     ResultRecordFilter,
     SMARTSFilter,
@@ -83,6 +87,12 @@ def test_smarts_filter_mutual_inputs():
 
     with pytest.raises(ValidationError, match="exactly one of `smarts_to_include`"):
         SMARTSFilter(smarts_to_include=["C"], smarts_to_exclude=["CC"])
+
+
+def test_charge_filter_mutual_inputs():
+
+    with pytest.raises(ValidationError, match="exactly one of `charges_to_include`"):
+        ChargeFilter(charges_to_include=[0], charges_to_exclude=[1, 2])
 
 
 @pytest.mark.parametrize(
@@ -218,3 +228,66 @@ def test_connectivity_filter():
 
     connectivity_filter.tolerance = 12.01  # default * 10.0 + 0.01
     assert connectivity_filter._filter_function(result, record, molecule)
+
+
+def test_record_status_filter():
+
+    record = ResultRecord(
+        id=ObjectId("1"),
+        program="psi4",
+        driver=DriverEnum.gradient,
+        method="scf",
+        basis="sto-3g",
+        molecule=ObjectId("1"),
+        status=RecordStatusEnum.complete,
+    )
+
+    status_filter = RecordStatusFilter(status=RecordStatusEnum.complete)
+    assert status_filter._filter_function(None, record, None) is True
+
+    status_filter = RecordStatusFilter(status=RecordStatusEnum.incomplete)
+    assert status_filter._filter_function(None, record, None) is False
+
+
+def test_charge_filter():
+
+    record = BasicResult(record_id=ObjectId("1"), cmiles="[N+:1](=[O:2])([O-:3])[O-:4]", inchi_key="NHNBFGGVMKEFGY-UHFFFAOYSA-N")
+    charge_filter = ChargeFilter(charges_to_include=[-1, 0])
+
+    assert charge_filter._filter_function(entry=record) is True
+
+    charge_filter = ChargeFilter(charges_to_exclude=[-1])
+
+    assert charge_filter._filter_function(entry=record) is False
+
+
+def test_element_filter(basic_result_collection):
+
+    # use mixed ints and str
+    element_filter = ElementFilter(allowed_elements=[1, 6, "O"])
+
+    result = element_filter.apply(result_collection=basic_result_collection)
+    # no molecules are filtered
+    assert result.n_results == 8
+
+    # no hydrogen should filter everything
+    element_filter.allowed_elements = [6, 8]
+
+    result = element_filter.apply(result_collection=basic_result_collection)
+    assert result.n_results == 0
+    assert result.n_molecules == 0
+
+
+def test_lowest_energy_filter(optimization_result_collection_duplicates):
+
+    energy_filter = LowestEnergyFilter()
+
+    # should have 2 results
+    assert optimization_result_collection_duplicates.n_results == 2
+    result = energy_filter.apply(result_collection=optimization_result_collection_duplicates)
+
+    # make sure we only have one result
+    assert result.n_molecules == 1
+    assert result.n_results == 1
+
+

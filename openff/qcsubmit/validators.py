@@ -2,7 +2,7 @@
 Centralise the validators for easy reuse between factories and datasets.
 """
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import qcelemental as qcel
 from openff.toolkit import topology as off
@@ -19,11 +19,11 @@ from openff.qcsubmit.exceptions import (
 )
 
 
-def literal_lower(liertal: str) -> str:
+def literal_lower(literal: str) -> str:
     """
     Take a string and lower it for a literal type check.
     """
-    return liertal.lower()
+    return literal.lower()
 
 
 def literal_upper(literal: str) -> str:
@@ -41,7 +41,7 @@ def check_improper_connection(
     central atom.
 
     Parameters:
-        improper: The imporper torsion that should be checked.
+        improper: The improper torsion that should be checked.
         molecule: The molecule which we want to check the improper in.
 
     Returns:
@@ -259,3 +259,26 @@ def check_valence_connectivity(molecule: qcel.models.Molecule) -> qcel.models.Mo
         )
 
     return molecule
+
+
+def check_allowed_elements(element: Union[str, int]) -> Union[str, int]:
+    """
+    Check that each item can be cast to a valid element.
+
+    Parameters:
+        element: The element that should be checked.
+
+    Raises:
+        ValueError: If the element number or symbol passed could not be converted into a valid element.
+    """
+    from simtk.openmm.app import Element
+
+    if isinstance(element, int):
+        return element
+    try:
+        _ = Element.getBySymbol(element)
+        return element
+    except KeyError:
+        raise ValueError(
+            f"An element could not be determined from symbol {element}, please enter symbols only."
+        )

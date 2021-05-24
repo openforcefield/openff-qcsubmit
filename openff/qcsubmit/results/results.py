@@ -26,12 +26,15 @@ from qcportal.collections.dataset import Dataset, MoleculeEntry
 from qcportal.models import OptimizationRecord, ResultRecord, TorsionDriveRecord
 from qcportal.models.common_models import DriverEnum, ObjectId
 from qcportal.models.records import RecordBase
+from qcportal.models.rest_models import QueryStr
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results.caching import (
+    batched_indices,
+    cached_fractal_client,
     cached_query_basic_results,
     cached_query_molecules,
     cached_query_optimization_results,
@@ -72,7 +75,7 @@ class _BaseResult(BaseModel, abc.ABC):
         """Returns an OpenFF molecule object created from this records
         CMILES which is in the correct order to align with the QCArchive records.
         """
-        return Molecule.from_mapped_smiles(self.cmiles)
+        return Molecule.from_mapped_smiles(self.cmiles, allow_undefined_stereo=True)
 
 
 class _BaseResultCollection(BaseModel, abc.ABC):
@@ -411,7 +414,8 @@ class OptimizationResultCollection(_BaseResultCollection):
                         inchi_key=entry.attributes["inchi_key"],
                     )
                     for entry in dataset.data.records.values()
-                    if query[entry.name].status.value.upper() == "COMPLETE"
+                    if entry.name in query
+                    and query[entry.name].status.value.upper() == "COMPLETE"
                 }
             )
 
@@ -461,6 +465,73 @@ class OptimizationResultCollection(_BaseResultCollection):
         self._validate_record_types(records, OptimizationRecord)
 
         return records_and_molecules
+
+    def to_basic_result_collection(
+        self, driver: Optional[QueryStr] = None
+    ) -> BasicResultCollection:
+        """Returns a basic results collection which references results records which
+        were created from the *final* structure of one of the optimizations in this
+        collection, and used the same program, method, and basis as the parent
+        optimization record.
+
+        Args:
+            driver: Optionally specify the driver to filter by.
+
+        Returns:
+            The results collection referencing records created from the final optimized
+            structures referenced by this collection.
+        """
+
+        records_and_molecules = self.to_records()
+
+        final_molecule_ids = defaultdict(lambda: defaultdict(list))
+        final_molecules = defaultdict(dict)
+
+        for record, molecule in records_and_molecules:
+
+            spec = (record.qc_spec.program, record.qc_spec.method, record.qc_spec.basis)
+
+            final_molecule_ids[record.client.address][spec].append(
+                record.final_molecule
+            )
+            final_molecules[record.client.address][record.final_molecule] = molecule
+
+        result_entries = defaultdict(list)
+
+        for client_address in final_molecule_ids:
+
+            client = cached_fractal_client(client_address)
+
+            result_records = [
+                record
+                for (program, method, basis), molecules_ids in final_molecule_ids[
+                    client_address
+                ].items()
+                for batch_ids in batched_indices(molecules_ids, client.query_limit)
+                for record in client.query_results(
+                    molecule=batch_ids,
+                    driver=driver,
+                    program=program,
+                    method=method,
+                    basis=basis,
+                )
+            ]
+
+            for record in result_records:
+
+                molecule = final_molecules[client_address][record.molecule]
+
+                result_entries[client_address].append(
+                    BasicResult(
+                        record_id=record.id,
+                        cmiles=molecule.to_smiles(
+                            isomeric=True, explicit_hydrogens=True, mapped=True
+                        ),
+                        inchi_key=molecule.to_inchikey(),
+                    )
+                )
+
+        return BasicResultCollection(entries=result_entries)
 
     def create_basic_dataset(
         self,
@@ -569,7 +640,8 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                         inchi_key=entry.attributes["inchi_key"],
                     )
                     for entry in dataset.data.records.values()
-                    if query[entry.name].status.value.upper() == "COMPLETE"
+                    if entry.name in query
+                    and query[entry.name].status.value.upper() == "COMPLETE"
                 }
             )
 
