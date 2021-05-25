@@ -165,7 +165,7 @@ class ResultRecordGroupFilter(ResultFilter, abc.ABC):
 
     Notes:
         * This filter will only be applied to basic and optimization datasets.
-        Torsion drive datasets / entries will be skipped.
+          Torsion drive datasets / entries will be skipped.
     """
 
     @abc.abstractmethod
@@ -218,7 +218,7 @@ class LowestEnergyFilter(ResultRecordGroupFilter):
 
     Notes:
         * This filter will only be applied to basic and optimization datasets.
-        Torsion drive datasets / entries will be skipped.
+          Torsion drive datasets / entries will be skipped.
     """
 
     def _filter_function(
@@ -248,10 +248,10 @@ class ConformerRMSDFilter(ResultRecordGroupFilter):
     specified RMSD tolerance.
 
     Notes:
-        * The RMSD
-
         * This filter will only be applied to basic and optimization datasets.
-        Torsion drive datasets / entries will be skipped.
+          Torsion drive datasets / entries will be skipped.
+        * A greedy selection algorithm is used to select conformers which are most
+          distinct in terms of their RMSD values.
     """
 
     max_conformers: int = Field(
