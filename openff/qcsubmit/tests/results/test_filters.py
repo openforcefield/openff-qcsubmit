@@ -347,6 +347,27 @@ def test_rmsd_conformer_filter(
     assert found_entry_ids == expected_record_ids
 
 
+def test_rmsd_conformer_filter_canonical_order(monkeypatch):
+
+    molecule_a = Molecule.from_mapped_smiles("[Cl:1][H:2]")
+    molecule_a._conformers = [
+        numpy.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]) * unit.angstrom
+    ]
+    molecule_b = Molecule.from_mapped_smiles("[Cl:2][H:1]")
+    molecule_b._conformers = [
+        numpy.array([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]) * unit.angstrom
+    ]
+
+    result_collection = mock_optimization_result_collection(
+        {"http://localhost:442": [molecule_a, molecule_b]}, monkeypatch
+    )
+
+    filtered_collection = result_collection.filter(ConformerRMSDFilter())
+
+    assert filtered_collection.n_molecules == 1
+    assert filtered_collection.n_results == 1
+
+
 @pytest.mark.parametrize(
     "rmsd_function_name",
     [

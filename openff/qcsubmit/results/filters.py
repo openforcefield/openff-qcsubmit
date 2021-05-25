@@ -364,7 +364,10 @@ class ConformerRMSDFilter(ResultRecordGroupFilter):
         assert all(molecule.n_conformers == 1 for _, _, molecule, _ in entries)
 
         # Condense the conformers into a single molecule.
-        conformers = [molecule.conformers[0] for _, _, molecule, _ in entries]
+        conformers = [
+            molecule.canonical_order_atoms().conformers[0]
+            for _, _, molecule, _ in entries
+        ]
 
         [_, _, molecule, _] = entries[0]
 
