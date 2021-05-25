@@ -1,16 +1,19 @@
 import logging
 
+import numpy
 import pytest
 from openff.toolkit.topology import Molecule
 from pydantic import ValidationError
 from qcelemental.models import DriverEnum
 from qcportal.models import ObjectId, ResultRecord
 from qcportal.models.records import RecordStatusEnum
+from simtk import unit
 
 from openff.qcsubmit.results import BasicResult
 from openff.qcsubmit.results.filters import (
     ChargeFilter,
     CMILESResultFilter,
+    ConformerRMSDFilter,
     ConnectivityFilter,
     ElementFilter,
     HydrogenBondFilter,
@@ -21,6 +24,7 @@ from openff.qcsubmit.results.filters import (
     SMARTSFilter,
     SMILESFilter,
 )
+from openff.qcsubmit.tests.results import mock_optimization_result_collection
 
 
 def test_apply_filter(basic_result_collection, caplog):
@@ -291,3 +295,172 @@ def test_lowest_energy_filter(optimization_result_collection_duplicates):
     assert result.n_results == 1
 
 
+@pytest.mark.parametrize(
+    ("max_conformers, rmsd_tolerance, heavy_atoms_only, expected_record_ids"),
+    [
+        # max_conformers
+        (1, 0.1, False, {"1"}),
+        (2, 0.1, False, {"1", "3"}),
+        (3, 0.1, False, {"1", "2", "3"}),
+        # rmsd_tolerance
+        (3, 0.75, False, {"1", "3"}),
+        # heavy_atoms_only
+        (1, 0.1, True, {"1"}),
+    ],
+)
+def test_rmsd_conformer_filter(
+    max_conformers, rmsd_tolerance, heavy_atoms_only, expected_record_ids, monkeypatch
+):
+
+    molecules = []
+
+    for conformer in [
+        numpy.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]) * unit.angstrom,
+        numpy.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]]) * unit.angstrom,
+        numpy.array([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]]) * unit.angstrom,
+    ]:
+
+        molecule = Molecule.from_smiles(smiles="Cl[H]")
+        molecule._conformers = [conformer]
+
+        molecules.append(molecule)
+
+    result_collection = mock_optimization_result_collection(
+        {"http://localhost:442": molecules}, monkeypatch
+    )
+
+    filtered_collection = result_collection.filter(
+        ConformerRMSDFilter(
+            max_conformers=max_conformers,
+            rmsd_tolerance=rmsd_tolerance,
+            heavy_atoms_only=heavy_atoms_only,
+            check_automorphs=False,
+        )
+    )
+
+    found_entry_ids = {
+        entry.record_id
+        for entries in filtered_collection.entries.values()
+        for entry in entries
+    }
+
+    assert found_entry_ids == expected_record_ids
+
+
+@pytest.mark.parametrize(
+    "rmsd_function_name",
+    [
+        "_compute_rmsd_matrix_rd",
+        "_compute_rmsd_matrix_oe",
+        "_compute_rmsd_matrix",
+    ],
+)
+def test_rmsd_conformer_filter_rmsd_matrix(rmsd_function_name):
+
+    molecule = Molecule.from_mapped_smiles("[O:1]=[C:2]=[O:3]")
+    molecule._conformers = [
+        numpy.array([[-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
+        * unit.angstrom,
+        numpy.array([[-2.0, 0.0, 0.0], [0.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+        * unit.angstrom,
+    ]
+
+    rmsd_filter = ConformerRMSDFilter(check_automorphs=True, heavy_atoms_only=False)
+    rmsd_function = getattr(rmsd_filter, rmsd_function_name)
+
+    actual_rmsd_matrix = rmsd_function(molecule)
+    expected_rmsd_matrix = numpy.array(
+        [[0.0, numpy.sqrt(2.0 / 3)], [numpy.sqrt(2.0 / 3), 0.0]]
+    )
+
+    assert numpy.allclose(actual_rmsd_matrix, expected_rmsd_matrix)
+
+
+@pytest.mark.parametrize(
+    "rmsd_function_name",
+    [
+        "_compute_rmsd_matrix_rd",
+        "_compute_rmsd_matrix_oe",
+        "_compute_rmsd_matrix",
+    ],
+)
+@pytest.mark.parametrize(
+    "heavy_atoms_only, expected_rmsd_matrix",
+    [
+        (False, numpy.array([[0.0, 0.5], [0.5, 0.0]])),
+        (True, numpy.array([[0.0, 0.0], [0.0, 0.0]])),
+    ],
+)
+def test_rmsd_conformer_filter_rmsd_matrix_heavy_only(
+    rmsd_function_name, heavy_atoms_only, expected_rmsd_matrix
+):
+
+    molecule = Molecule.from_smiles("Cl[H]")
+    molecule._conformers = [
+        numpy.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]) * unit.angstrom,
+        numpy.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]]) * unit.angstrom,
+    ]
+
+    rmsd_filter = ConformerRMSDFilter(
+        check_automorphs=True, heavy_atoms_only=heavy_atoms_only
+    )
+    rmsd_function = getattr(rmsd_filter, rmsd_function_name)
+
+    actual_rmsd_matrix = rmsd_function(molecule)
+
+    assert numpy.allclose(actual_rmsd_matrix, expected_rmsd_matrix)
+
+
+@pytest.mark.parametrize(
+    "rmsd_function_name",
+    [
+        "_compute_rmsd_matrix_rd",
+        "_compute_rmsd_matrix_oe",
+        "_compute_rmsd_matrix",
+    ],
+)
+@pytest.mark.parametrize(
+    "check_automorphs, expected_rmsd_matrix",
+    [
+        (False, numpy.array([[0.0, numpy.sqrt(8 / 6)], [numpy.sqrt(8 / 6), 0.0]])),
+        (True, numpy.array([[0.0, 0.0], [0.0, 0.0]])),
+    ],
+)
+def test_rmsd_conformer_filter_rmsd_matrix_automorphs(
+    rmsd_function_name, check_automorphs, expected_rmsd_matrix
+):
+
+    molecule = Molecule.from_mapped_smiles("[Br:3][C:1]([Cl:4])=[C:2]([Cl:6])[Cl:5]")
+    molecule._conformers = [
+        numpy.array(
+            [
+                [-1.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [-2.0, 1.0, 0.0],
+                [-2.0, -1.0, 0.0],
+                [2.0, 1.0, 0.0],
+                [2.0, -1.0, 0.0],
+            ]
+        )
+        * unit.angstrom,
+        numpy.array(
+            [
+                [-1.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [-2.0, 1.0, 0.0],
+                [-2.0, -1.0, 0.0],
+                [2.0, -1.0, 0.0],
+                [2.0, 1.0, 0.0],
+            ]
+        )
+        * unit.angstrom,
+    ]
+
+    rmsd_filter = ConformerRMSDFilter(
+        check_automorphs=check_automorphs, heavy_atoms_only=False
+    )
+    rmsd_function = getattr(rmsd_filter, rmsd_function_name)
+
+    actual_rmsd_matrix = rmsd_function(molecule)
+
+    assert numpy.allclose(actual_rmsd_matrix, expected_rmsd_matrix)
