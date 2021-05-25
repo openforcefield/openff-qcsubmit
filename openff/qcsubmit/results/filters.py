@@ -1,4 +1,6 @@
 import abc
+import copy
+import itertools
 import logging
 from collections import defaultdict
 from typing import List, Optional, Set, Tuple, TypeVar, Union
@@ -158,19 +160,20 @@ class ResultRecordFilter(ResultFilter, abc.ABC):
 
 
 class ResultRecordGroupFilter(ResultFilter, abc.ABC):
-    """The base class for filters which reduces repeated molecule entries down to a single entry.
+    """The base class for filters which reduces repeated molecule entries down to a single
+    entry.
 
     Notes:
         * This filter will only be applied to basic and optimization datasets.
-        Torsion drive datasets / entries will be skipped.
+          Torsion drive datasets / entries will be skipped.
     """
 
     @abc.abstractmethod
     def _filter_function(
         self, entries: List[Tuple["_BaseResult", RecordBase, Molecule, str]]
-    ) -> Tuple["_BaseResult", str]:
-        """A method which should reduce a set of results down to a single entry based on some property of the QC
-        calculation.
+    ) -> List[Tuple["_BaseResult", str]]:
+        """A method which should reduce a set of results down to a single entry based on
+        some property of the QC calculation.
         """
         raise NotImplementedError()
 
@@ -194,13 +197,16 @@ class ResultRecordGroupFilter(ResultFilter, abc.ABC):
         filtered_results = defaultdict(list)
 
         for entries in entries_by_inchikey.values():
-            result, address = self._filter_function(
+
+            results_and_addresses = self._filter_function(
                 [
                     (entry, *all_records_and_molecules[entry.record_id])
                     for entry in entries
                 ]
             )
-            filtered_results[address].append(result)
+
+            for result, address in results_and_addresses:
+                filtered_results[address].append(result)
 
         result_collection.entries = filtered_results
 
@@ -212,7 +218,7 @@ class LowestEnergyFilter(ResultRecordGroupFilter):
 
     Notes:
         * This filter will only be applied to basic and optimization datasets.
-        Torsion drive datasets / entries will be skipped.
+          Torsion drive datasets / entries will be skipped.
     """
 
     def _filter_function(
@@ -220,7 +226,7 @@ class LowestEnergyFilter(ResultRecordGroupFilter):
         entries: List[
             Tuple["_BaseResult", Union[ResultRecord, OptimizationRecord], Molecule, str]
         ],
-    ) -> Tuple["_BaseResult", str]:
+    ) -> List[Tuple["_BaseResult", str]]:
         """Only return the lowest energy entry or final molecule."""
         low_entry, low_energy, low_address = None, 99999999999, ""
         for entry, rec, _, address in entries:
@@ -233,7 +239,177 @@ class LowestEnergyFilter(ResultRecordGroupFilter):
                 low_energy = energy
                 low_address = address
 
-        return low_entry, low_address
+        return [(low_entry, low_address)]
+
+
+class ConformerRMSDFilter(ResultRecordGroupFilter):
+    """A filter which will retain up to a maximum number of conformers for each unique
+    molecule (as determined by an entries InChI key) which are distinct to within a
+    specified RMSD tolerance.
+
+    Notes:
+        * This filter will only be applied to basic and optimization datasets.
+          Torsion drive datasets / entries will be skipped.
+        * A greedy selection algorithm is used to select conformers which are most
+          distinct in terms of their RMSD values.
+    """
+
+    max_conformers: int = Field(
+        10,
+        description="The maximum number of conformers to retain for each unique molecule.",
+    )
+
+    rmsd_tolerance: float = Field(
+        0.5,
+        description="The minimum RMSD [A] between two conformers for them to be "
+        "considered distinct.",
+    )
+    heavy_atoms_only: bool = Field(
+        True,
+        description="Whether to only consider heavy atoms when computing the RMSD "
+        "between two conformers.",
+    )
+    check_automorphs: bool = Field(
+        True,
+        description="Whether to consider automorphs when computing the RMSD between two "
+        "conformers. Setting this option to ``True`` may slow down the filter "
+        "considerably if ``heavy_atoms_only`` is set to ``False``.",
+    )
+
+    def _compute_rmsd_matrix_rd(self, molecule: Molecule) -> numpy.ndarray:
+        """Computes the RMSD between all conformers stored on a molecule using an RDKit
+        backend."""
+
+        from rdkit import Chem
+        from rdkit.Chem import AllChem
+
+        rdkit_molecule: Chem.RWMol = molecule.to_rdkit()
+
+        if self.heavy_atoms_only:
+            rdkit_molecule = Chem.RemoveHs(rdkit_molecule)
+
+        n_conformers = len(molecule.conformers)
+        conformer_ids = [conf.GetId() for conf in rdkit_molecule.GetConformers()]
+
+        rmsd_matrix = numpy.zeros((n_conformers, n_conformers))
+
+        for i, j in itertools.combinations(conformer_ids, 2):
+
+            if self.check_automorphs:
+
+                rmsd_matrix[i, j] = AllChem.GetBestRMS(
+                    rdkit_molecule,
+                    rdkit_molecule,
+                    conformer_ids[i],
+                    conformer_ids[j],
+                )
+
+            else:
+
+                rmsd_matrix[i, j] = AllChem.GetConformerRMS(
+                    rdkit_molecule,
+                    conformer_ids[i],
+                    conformer_ids[j],
+                )
+
+        rmsd_matrix += rmsd_matrix.T
+        return rmsd_matrix
+
+    def _compute_rmsd_matrix_oe(self, molecule: Molecule) -> numpy.ndarray:
+        """Computes the RMSD between all conformers stored on a molecule using an OpenEye
+        backend."""
+
+        from openeye import oechem
+
+        oe_molecule: oechem.OEMol = molecule.to_openeye()
+        oe_conformers = {
+            i: oe_conformer for i, oe_conformer in enumerate(oe_molecule.GetConfs())
+        }
+
+        n_conformers = len(molecule.conformers)
+
+        rmsd_matrix = numpy.zeros((n_conformers, n_conformers))
+
+        for i, j in itertools.combinations([*oe_conformers], 2):
+
+            rmsd_matrix[i, j] = oechem.OERMSD(
+                oe_conformers[i],
+                oe_conformers[j],
+                self.check_automorphs,
+                self.heavy_atoms_only,
+                True,
+            )
+
+        rmsd_matrix += rmsd_matrix.T
+        return rmsd_matrix
+
+    def _compute_rmsd_matrix(self, molecule: Molecule) -> numpy.ndarray:
+        """Computes the RMSD between all conformers stored on a molecule."""
+
+        try:
+            rmsd_matrix = self._compute_rmsd_matrix_rd(molecule)
+        except ModuleNotFoundError:
+            rmsd_matrix = self._compute_rmsd_matrix_oe(molecule)
+
+        return rmsd_matrix
+
+    def _filter_function(
+        self,
+        entries: List[
+            Tuple["_BaseResult", Union[ResultRecord, OptimizationRecord], Molecule, str]
+        ],
+    ) -> List[Tuple["_BaseResult", str]]:
+
+        # Sanity check that all molecules look as we expect.
+        assert all(molecule.n_conformers == 1 for _, _, molecule, _ in entries)
+
+        # Condense the conformers into a single molecule.
+        conformers = [
+            molecule.canonical_order_atoms().conformers[0]
+            for _, _, molecule, _ in entries
+        ]
+
+        [_, _, molecule, _] = entries[0]
+
+        molecule = copy.deepcopy(molecule)
+        molecule._conformers = conformers
+
+        rmsd_matrix = self._compute_rmsd_matrix(molecule)
+
+        # Select a set N maximally diverse conformers which are distinct in terms
+        # of the RMSD tolerance.
+
+        # Apply the greedy selection process.
+        closed_list = numpy.zeros(self.max_conformers).astype(int)
+        closed_mask = numpy.zeros(rmsd_matrix.shape[0], dtype=bool)
+
+        n_selected = 1
+
+        for i in range(min(molecule.n_conformers, self.max_conformers - 1)):
+
+            distances = rmsd_matrix[closed_list[: i + 1], :].sum(axis=0)
+
+            # Exclude already selected conformers or conformers which are too similar
+            # to those already selected.
+            closed_mask[
+                numpy.any(
+                    rmsd_matrix[closed_list[: i + 1], :] < self.rmsd_tolerance, axis=0
+                )
+            ] = True
+
+            if numpy.all(closed_mask):
+                # Stop of there are no more distinct conformers to select from.
+                break
+
+            distant_index = numpy.ma.array(distances, mask=closed_mask).argmax()
+            closed_list[i + 1] = distant_index
+
+            n_selected += 1
+
+        return [
+            (entries[i.item()][0], entries[i.item()][-1])
+            for i in closed_list[:n_selected]
+        ]
 
 
 class SMILESFilter(CMILESResultFilter):
