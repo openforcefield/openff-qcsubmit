@@ -549,6 +549,9 @@ class DatasetBaseMixin(abc.ABC, CommonBase):
                 )
                 for result in work_list:
                     spec_tasks += result.result()
+            else:
+                for result in work:
+                    spec_tasks += result.result()
 
             responses[spec_name] = spec_tasks
 
