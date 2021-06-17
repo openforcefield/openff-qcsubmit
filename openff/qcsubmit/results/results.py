@@ -763,6 +763,9 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             driven_only: Whether to only include parameters that are applied (at least
                 partially) across a central torsion bond that was driven.
 
+                This option is still experimental and may in cases not count parameters
+                that are actually applied or double count certain applied parameters.
+
         Returns:
             A dictionary of the form ``coverage[handler_name][parameter_smirks] = count``
             which stores the number of unique molecules within this collection that
@@ -818,19 +821,30 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             }
             tagged_smiles = tagged_molecule.to_smiles(isomeric=False, mapped=True)
 
+            dihedral_indices = {*record.keywords.dihedrals[0][1:3]}
+
             for handler_name, parameter_labels in full_labels.items():
                 for indices, parameter in parameter_labels.items():
 
-                    if len(indices) < 2:
+                    if handler_name not in {
+                        "Bonds",
+                        "Angles",
+                        "ProperTorsions",
+                        "ImproperTorsions",
+                    }:
                         continue
 
-                    index_pairs = {
-                        pair
-                        for pair in zip(indices, indices[1:])
-                        if {*pair} == {*record.keywords.dihedrals[0][1:3]}
-                    }
+                    consecutive_pairs = [{*pair} for pair in zip(indices, indices[1:])]
 
-                    if len(index_pairs) == 0:
+                    # Only count angles and bonds involving the central dihedral bond or
+                    # dihedrals involving the central dihedral bond.
+                    if (
+                        handler_name in {"Bonds", "Angles", "ImproperTorsions"}
+                        and all(pair != dihedral_indices for pair in consecutive_pairs)
+                    ) or (
+                        handler_name == "ProperTorsions"
+                        and consecutive_pairs[1] != dihedral_indices
+                    ):
                         continue
 
                     coverage[handler_name][parameter.smirks].add(tagged_smiles)

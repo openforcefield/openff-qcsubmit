@@ -535,4 +535,8 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
     )
 
     assert {*coverage} == {"Bonds", "Angles", "ProperTorsions"}
-    assert all(count == 3 for counts in coverage.values() for count in counts.values())
+
+    assert {*coverage["Bonds"].values()} == {3}
+    assert {*coverage["Angles"].values()} == {3}
+
+    assert {*coverage["ProperTorsions"].values()} == {1, 3}
