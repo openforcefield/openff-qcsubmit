@@ -1,6 +1,8 @@
 """
 Test the results packages when collecting from the public qcarchive.
 """
+import os.path
+
 import numpy
 import pytest
 from openff.toolkit.topology import Molecule
@@ -444,3 +446,24 @@ def test_optimization_to_basic_result_collection(
 #     dihs = sorted(dihedrals)
 #     refs = [x for x in range(-165, 195, 15)]
 #     assert dihs == refs
+
+
+def test_visualize(tmpdir):
+
+    collection = BasicResultCollection(
+        entries={
+            "https://api.qcarchive.molssi.org:443/": [
+                BasicResult(
+                    record_id=ObjectId("1"),
+                    cmiles="[Cl:1][Cl:2]",
+                    inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
+                )
+            ]
+        }
+    )
+
+    output_path = os.path.join(tmpdir, "output.pdf")
+    collection.visualize(output_path)
+
+    assert os.path.isfile(output_path)
+    assert os.path.getsize(output_path) > 0
