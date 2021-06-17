@@ -3,6 +3,7 @@ A module which contains convenience classes for referencing, retrieving and filt
 results from a QCFractal instance.
 """
 import abc
+import copy
 from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
@@ -19,6 +20,7 @@ from typing import (
 
 import qcportal
 from openff.toolkit.topology import Molecule
+from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import BaseModel, Field, validator
 from qcportal.collections import OptimizationDataset, TorsionDriveDataset
 from qcportal.collections.collection import Collection as QCCollection
@@ -27,6 +29,7 @@ from qcportal.models import OptimizationRecord, ResultRecord, TorsionDriveRecord
 from qcportal.models.common_models import DriverEnum, ObjectId
 from qcportal.models.records import RecordBase
 from qcportal.models.rest_models import QueryStr
+from tqdm import tqdm
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import Metadata
@@ -217,6 +220,61 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             filtered_collection = collection_filter.apply(filtered_collection)
 
         return filtered_collection
+
+    def smirnoff_coverage(self, force_field: ForceField, verbose: bool = False):
+        """Returns a summary of how many unique molecules within this collection
+        would be assigned each of the parameters in a force field.
+
+        Notes:
+            * Parameters which would not be assigned to any molecules in the collection
+              will not be included in the returned summary.
+
+        Args:
+            force_field: The force field containing the parameters to summarize.
+            verbose: If true a progress bar will be shown on screen.
+
+        Returns:
+            A dictionary of the form ``coverage[handler_name][parameter_smirks] = count``
+            which stores the number of unique molecules within this collection that
+            would be assigned to each parameter.
+        """
+
+        # We filter by inchi key to make sure that we don't double count molecules
+        # with different orderings.
+        unique_smiles = set(
+            {
+                entry.inchi_key: entry.cmiles
+                for entries in self.entries.values()
+                for entry in entries
+            }.values()
+        )
+
+        coverage = defaultdict(lambda: defaultdict(set))
+
+        for smiles in tqdm(
+            unique_smiles,
+            total=len(unique_smiles),
+            ncols=80,
+            disable=not verbose,
+        ):
+
+            molecule = Molecule.from_smiles(smiles, allow_undefined_stereo=True)
+
+            full_labels = force_field.label_molecules(molecule.to_topology())[0]
+
+            for handler_name, parameter_labels in full_labels.items():
+                for parameter in parameter_labels.values():
+
+                    coverage[handler_name][parameter.smirks].add(
+                        molecule.to_smiles(mapped=False, isomeric=False)
+                    )
+
+        # Convert the defaultdict objects back into ordinary dicts so that users get
+        # KeyError exceptions when trying to access missing handlers / smirks.
+        return {
+            handler_name: {smirks: len(count) for smirks, count in counts.items()}
+            for handler_name, counts in coverage.items()
+        }
 
 
 class BasicResult(_BaseResult):
@@ -688,3 +746,96 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             The created optimization dataset.
         """
         raise NotImplementedError()
+
+    def smirnoff_coverage(
+        self, force_field: ForceField, verbose: bool = False, driven_only: bool = False
+    ):
+        """Returns a summary of how many unique molecules within this collection
+        would be assigned each of the parameters in a force field.
+
+        Notes:
+            * Parameters which would not be assigned to any molecules in the collection
+              will not be included in the returned summary.
+
+        Args:
+            force_field: The force field containing the parameters to summarize.
+            verbose: If true a progress bar will be shown on screen.
+            driven_only: Whether to only include parameters that are applied (at least
+                partially) across a central torsion bond that was driven.
+
+        Returns:
+            A dictionary of the form ``coverage[handler_name][parameter_smirks] = count``
+            which stores the number of unique molecules within this collection that
+            would be assigned to each parameter.
+
+            If ``driven_only`` is true, then ``count`` will be the number of unique
+            driven torsions, rather than unique molecules.
+        """
+
+        if not driven_only:
+            return super(TorsionDriveResultCollection, self).smirnoff_coverage(
+                force_field, verbose
+            )
+
+        records_and_molecules = self.to_records()
+
+        labelled_molecules = {}
+
+        # Only label each unique molecule once as this is a pretty slow operation.
+        for record, molecule in tqdm(
+            records_and_molecules,
+            total=len(records_and_molecules),
+            ncols=80,
+            desc="Assigning Parameters",
+            disable=not verbose,
+        ):
+
+            smiles = molecule.to_smiles(isomeric=False, mapped=False)
+
+            if smiles in labelled_molecules:
+                continue
+
+            labelled_molecules[smiles] = force_field.label_molecules(
+                molecule.to_topology()
+            )[0]
+
+        coverage = defaultdict(lambda: defaultdict(set))
+
+        for record, molecule in tqdm(
+            records_and_molecules,
+            total=len(records_and_molecules),
+            ncols=80,
+            desc="Summarising",
+            disable=not verbose,
+        ):
+
+            smiles = molecule.to_smiles(isomeric=False, mapped=False)
+            full_labels = labelled_molecules[smiles]
+
+            tagged_molecule = copy.deepcopy(molecule)
+            tagged_molecule.properties["atom_map"] = {
+                j: i + 1 for i, j in enumerate(record.keywords.dihedrals[0])
+            }
+            tagged_smiles = tagged_molecule.to_smiles(isomeric=False, mapped=True)
+
+            for handler_name, parameter_labels in full_labels.items():
+                for indices, parameter in parameter_labels.items():
+
+                    if len(indices) < 2:
+                        continue
+
+                    index_pairs = {
+                        pair
+                        for pair in zip(indices, indices[1:])
+                        if {*pair} == {*record.keywords.dihedrals[0][1:3]}
+                    }
+
+                    if len(index_pairs) == 0:
+                        continue
+
+                    coverage[handler_name][parameter.smirks].add(tagged_smiles)
+
+        return {
+            handler_name: {smirks: len(smiles) for smirks, smiles in smiles.items()}
+            for handler_name, smiles in coverage.items()
+        }

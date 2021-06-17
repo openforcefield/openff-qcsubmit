@@ -4,6 +4,7 @@ Test the results packages when collecting from the public qcarchive.
 import numpy
 import pytest
 from openff.toolkit.topology import Molecule
+from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import ValidationError
 from qcportal import FractalClient
 from qcportal.models import Molecule as QCMolecule
@@ -202,6 +203,32 @@ def test_base_filter(basic_result_collection):
     assert "applied-filters" in filtered_collection.provenance
     assert "DummyFilter-0" in filtered_collection.provenance["applied-filters"]
     assert "DummyFilter-1" in filtered_collection.provenance["applied-filters"]
+
+
+def test_base_smirnoff_coverage():
+
+    collection = TorsionDriveResultCollection(
+        entries={
+            "http://localhost:442": [
+                TorsionDriveResult(
+                    record_id=ObjectId(str(i + 1)),
+                    cmiles=smiles,
+                    inchi_key=Molecule.from_smiles(smiles).to_inchikey(),
+                )
+                for i, smiles in enumerate(
+                    [
+                        "[H:1][C:2]([H:3])([H:4])([H:5])",
+                        "[C:1]([H:2])([H:3])([H:4])([H:5])",
+                    ]
+                )
+            ]
+        }
+    )
+
+    coverage = collection.smirnoff_coverage(ForceField("openff-1.3.0.offxml"))
+
+    assert {*coverage} == {"Bonds", "Angles", "vdW", "Constraints"}
+    assert all(count == 1 for counts in coverage.values() for count in counts.values())
 
 
 @pytest.mark.parametrize(
@@ -444,3 +471,68 @@ def test_optimization_to_basic_result_collection(
 #     dihs = sorted(dihedrals)
 #     refs = [x for x in range(-165, 195, 15)]
 #     assert dihs == refs
+
+
+def test_torsion_smirnoff_coverage(public_client, monkeypatch):
+
+    molecule: Molecule = Molecule.from_mapped_smiles(
+        "[H:1][C:2]([H:7])([H:8])"
+        "[C:3]([H:9])([H:10])"
+        "[C:4]([H:11])([H:12])"
+        "[C:5]([H:13])([H:14])[H:6]"
+    )
+
+    dihedrals = [(0, 1, 2, 3), (1, 2, 3, 4), (2, 3, 4, 5)]
+
+    collection = TorsionDriveResultCollection(
+        entries={
+            "http://localhost:442": [
+                TorsionDriveResult(
+                    record_id=ObjectId(str(i + 1)),
+                    cmiles=molecule.to_smiles(mapped=True),
+                    inchi_key=molecule.to_inchikey(),
+                )
+                for i in range(len(dihedrals))
+            ]
+        }
+    )
+
+    monkeypatch.setattr(
+        TorsionDriveResultCollection,
+        "to_records",
+        lambda self: [
+            (
+                TorsionDriveRecord(
+                    id=entry.record_id,
+                    qc_spec=QCSpecification(
+                        driver=DriverEnum.gradient,
+                        method="scf",
+                        basis="sto-3g",
+                        program="psi4",
+                    ),
+                    optimization_spec=OptimizationSpecification(
+                        program="geometric", keywords={}
+                    ),
+                    initial_molecule=[ObjectId(1)],
+                    status=RecordStatusEnum.complete,
+                    client=public_client,
+                    keywords=TDKeywords(
+                        dihedrals=[dihedrals[int(entry.record_id) - 1]], grid_spacing=[]
+                    ),
+                    final_energy_dict={},
+                    optimization_history={},
+                    minimum_positions={},
+                ),
+                molecule,
+            )
+            for address, entries in self.entries.items()
+            for entry in entries
+        ],
+    )
+
+    coverage = collection.smirnoff_coverage(
+        ForceField("openff-1.3.0.offxml"), driven_only=True
+    )
+
+    assert {*coverage} == {"Bonds", "Angles", "ProperTorsions"}
+    assert all(count == 3 for counts in coverage.values() for count in counts.values())
