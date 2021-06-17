@@ -3,10 +3,16 @@ import copy
 import itertools
 import logging
 from collections import defaultdict
+from tempfile import NamedTemporaryFile
 from typing import List, Optional, Set, Tuple, TypeVar, Union
 
 import numpy
 from openff.toolkit.topology import Molecule
+from openff.toolkit.utils import (
+    OpenEyeToolkitWrapper,
+    RDKitToolkitWrapper,
+    UndefinedStereochemistryError,
+)
 from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
 from qcportal.models.records import (
@@ -536,6 +542,85 @@ class SMARTSFilter(CMILESResultFilter):
         )
 
 
+class ChargeFilter(CMILESResultFilter):
+    """A filter which will only retain records if their formal charge matches allowed values or is not in the
+    exclude list."""
+
+    charges_to_include: Optional[List[int]] = Field(
+        None,
+        description="Only molecules with a net formal charge in this list will be kept. "
+        "This option is mutually exclusive with ``charges_to_exclude``.",
+    )
+
+    charges_to_exclude: Optional[List[int]] = Field(
+        None,
+        description="Any molecules with a net formal charge which matches any of these values will be removed. "
+        "This option is mutually exclusive with ``charges_to_include``.",
+    )
+
+    @root_validator
+    def _validate_mutually_exclusive(cls, values):
+        charges_to_include = values.get("charges_to_include")
+        charges_to_exclude = values.get("charges_to_exclude")
+
+        message = (
+            "exactly one of `charges_to_include` and `charges_to_exclude` must be "
+            "specified"
+        )
+
+        assert charges_to_include is not None or charges_to_exclude is not None, message
+        assert charges_to_include is None or charges_to_exclude is None, message
+
+        return values
+
+    def _filter_function(self, entry: "_BaseResult") -> bool:
+
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
+        total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+
+        if self.charges_to_include is not None:
+
+            return total_charge in self.charges_to_include
+
+        return total_charge not in self.charges_to_exclude
+
+
+class ElementFilter(CMILESResultFilter):
+    """A filter which will only retain records that contain the requested elements."""
+
+    _allowed_atomic_numbers: Optional[Set[int]] = PrivateAttr(None)
+
+    allowed_elements: List[Union[int, str]] = Field(
+        ...,
+        description="The list of allowed elements as symbols or atomic number ints.",
+    )
+
+    _check_elements = validator("allowed_elements", each_item=True, allow_reuse=True)(
+        check_allowed_elements
+    )
+
+    def _filter_function(self, entry: "_BaseResult") -> bool:
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
+        # get a set of atomic numbers
+        mol_atoms = {atom.atomic_number for atom in molecule.atoms}
+        # get the difference between mol atoms and allowed atoms
+        return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
+
+    def _apply(self, result_collection: "T") -> "T":
+        from simtk.openmm.app import Element
+
+        self._allowed_atomic_numbers = {
+            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
+            for ele in self.allowed_elements
+        }
+
+        return super(ElementFilter, self)._apply(result_collection)
+
+
 class HydrogenBondFilter(ResultRecordFilter):
     """A filter which will remove or retain records which were computed for molecules
     which match specific SMARTS patterns.
@@ -648,80 +733,50 @@ class RecordStatusFilter(ResultRecordFilter):
         return record.status.value.upper() == self.status.value.upper()
 
 
-class ChargeFilter(CMILESResultFilter):
-    """A filter which will only retain records if their formal charge matches allowed values or is not in the
-    exclude list."""
+class UnperceivableStereoFilter(ResultRecordFilter):
+    """A filter which will drop any records computed for molecules whose stereochemistry
+    cannot be perceived from the associated 3D conformers when re-loading the molecule
+    from an SDF file using the OpenFF toolkit.
 
-    charges_to_include: Optional[List[int]] = Field(
-        None,
-        description="Only molecules with a net formal charge in this list will be kept. "
-        "This option is mutually exclusive with ``charges_to_exclude``.",
+    This filter is mainly useful for catching edge cases whereby the stereochemistry
+    perceived by an underlying cheminformatics toolkit does not match what the OpenFF
+    toolkit expects.
+    """
+
+    toolkits: List[Literal["openeye", "rdkit"]] = Field(
+        ["openeye", "rdkit"],
+        description="The OpenFF toolkit registries that should be able to perceive "
+        "the stereochemistry of each conformer.",
     )
 
-    charges_to_exclude: Optional[List[int]] = Field(
-        None,
-        description="Any molecules with a net formal charge which matches any of these values will be removed. "
-        "This option is mutually exclusive with ``charges_to_include``.",
-    )
+    def _filter_function(self, result, record, molecule) -> bool:
 
-    @root_validator
-    def _validate_mutually_exclusive(cls, values):
-        charges_to_include = values.get("charges_to_include")
-        charges_to_exclude = values.get("charges_to_exclude")
+        has_stereochemistry = True
 
-        message = (
-            "exactly one of `charges_to_include` and `charges_to_exclude` must be "
-            "specified"
-        )
+        try:
 
-        assert charges_to_include is not None or charges_to_exclude is not None, message
-        assert charges_to_include is None or charges_to_exclude is None, message
+            for toolkit_name in self.toolkits:
 
-        return values
+                if toolkit_name == "openeye":
+                    toolkit_registry = OpenEyeToolkitWrapper()
+                elif toolkit_name == "rdkit":
+                    toolkit_registry = RDKitToolkitWrapper()
+                else:
+                    raise NotImplementedError()
 
-    def _filter_function(self, entry: "_BaseResult") -> bool:
+                for conformer in molecule.conformers:
 
-        molecule: Molecule = Molecule.from_mapped_smiles(
-            entry.cmiles, allow_undefined_stereo=True
-        )
-        total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+                    stereo_molecule = copy.deepcopy(molecule)
+                    stereo_molecule._conformers = [conformer]
 
-        if self.charges_to_include is not None:
+                    with NamedTemporaryFile(suffix=".sdf") as file:
 
-            return total_charge in self.charges_to_include
+                        stereo_molecule.to_file(file.name, "SDF")
+                        stereo_molecule.from_file(
+                            file.name, toolkit_registry=toolkit_registry
+                        )
 
-        return total_charge not in self.charges_to_exclude
+        except UndefinedStereochemistryError:
+            has_stereochemistry = False
 
-
-class ElementFilter(CMILESResultFilter):
-    """A filter which will only retain records that contain the requested elements."""
-
-    _allowed_atomic_numbers: Optional[Set[int]] = PrivateAttr(None)
-
-    allowed_elements: List[Union[int, str]] = Field(
-        ...,
-        description="The list of allowed elements as symbols or atomic number ints.",
-    )
-
-    _check_elements = validator("allowed_elements", each_item=True, allow_reuse=True)(
-        check_allowed_elements
-    )
-
-    def _filter_function(self, entry: "_BaseResult") -> bool:
-        molecule: Molecule = Molecule.from_mapped_smiles(
-            entry.cmiles, allow_undefined_stereo=True
-        )
-        # get a set of atomic numbers
-        mol_atoms = {atom.atomic_number for atom in molecule.atoms}
-        # get the difference between mol atoms and allowed atoms
-        return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
-
-    def _apply(self, result_collection: "T") -> "T":
-        from simtk.openmm.app import Element
-
-        self._allowed_atomic_numbers = {
-            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
-            for ele in self.allowed_elements
-        }
-
-        return super(ElementFilter, self)._apply(result_collection)
+        return has_stereochemistry
