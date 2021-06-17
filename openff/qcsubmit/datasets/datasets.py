@@ -986,6 +986,8 @@ class BasicDataset(CommonBase):
             if hasattr(data, "dihedrals"):
                 off_mol.properties["dihedrals"] = data.dihedrals
 
+            molecules.append(off_mol)
+
         molecules_to_pdf(molecules, file_name, columns, toolkit)
 
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
