@@ -31,3 +31,11 @@ instance), as well as to retrieve already computed datasets.
    :caption: Reference
 
    api
+
+.. toctree::
+  :maxdepth: 2
+  :hidden:
+  :caption: Developer Documentation
+
+  developer/builddocs
+  releasehistory
