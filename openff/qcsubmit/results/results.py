@@ -43,7 +43,7 @@ from openff.qcsubmit.results.caching import (
     cached_query_optimization_results,
     cached_query_torsion_drive_results,
 )
-from openff.qcsubmit.utils.visualize import molecules_to_pdf
+from openff.qcsubmit.utils.smirnoff import smirnoff_coverage, smirnoff_torsion_coverage
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.filters import ResultFilter
@@ -242,40 +242,15 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
         # We filter by inchi key to make sure that we don't double count molecules
         # with different orderings.
-        unique_smiles = set(
+        unique_molecules = set(
             {
-                entry.inchi_key: entry.cmiles
+                entry.molecule.to_smiles(isomeric=False, mapped=False): entry.molecule
                 for entries in self.entries.values()
                 for entry in entries
             }.values()
         )
 
-        coverage = defaultdict(lambda: defaultdict(set))
-
-        for smiles in tqdm(
-            unique_smiles,
-            total=len(unique_smiles),
-            ncols=80,
-            disable=not verbose,
-        ):
-
-            molecule = Molecule.from_smiles(smiles, allow_undefined_stereo=True)
-
-            full_labels = force_field.label_molecules(molecule.to_topology())[0]
-
-            for handler_name, parameter_labels in full_labels.items():
-                for parameter in parameter_labels.values():
-
-                    coverage[handler_name][parameter.smirks].add(
-                        molecule.to_smiles(mapped=False, isomeric=False)
-                    )
-
-        # Convert the defaultdict objects back into ordinary dicts so that users get
-        # KeyError exceptions when trying to access missing handlers / smirks.
-        return {
-            handler_name: {smirks: len(count) for smirks, count in counts.items()}
-            for handler_name, counts in coverage.items()
-        }
+        return smirnoff_coverage(unique_molecules, force_field, verbose)
 
 
 class BasicResult(_BaseResult):
@@ -812,74 +787,9 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
         records_and_molecules = self.to_records()
 
-        labelled_molecules = {}
+        molecules = [
+            (molecule, tuple(record.keywords.dihedrals[0]))
+            for record, molecule in records_and_molecules
+        ]
 
-        # Only label each unique molecule once as this is a pretty slow operation.
-        for record, molecule in tqdm(
-            records_and_molecules,
-            total=len(records_and_molecules),
-            ncols=80,
-            desc="Assigning Parameters",
-            disable=not verbose,
-        ):
-
-            smiles = molecule.to_smiles(isomeric=False, mapped=False)
-
-            if smiles in labelled_molecules:
-                continue
-
-            labelled_molecules[smiles] = force_field.label_molecules(
-                molecule.to_topology()
-            )[0]
-
-        coverage = defaultdict(lambda: defaultdict(set))
-
-        for record, molecule in tqdm(
-            records_and_molecules,
-            total=len(records_and_molecules),
-            ncols=80,
-            desc="Summarising",
-            disable=not verbose,
-        ):
-
-            smiles = molecule.to_smiles(isomeric=False, mapped=False)
-            full_labels = labelled_molecules[smiles]
-
-            tagged_molecule = copy.deepcopy(molecule)
-            tagged_molecule.properties["atom_map"] = {
-                j: i + 1 for i, j in enumerate(record.keywords.dihedrals[0])
-            }
-            tagged_smiles = tagged_molecule.to_smiles(isomeric=False, mapped=True)
-
-            dihedral_indices = {*record.keywords.dihedrals[0][1:3]}
-
-            for handler_name, parameter_labels in full_labels.items():
-                for indices, parameter in parameter_labels.items():
-
-                    if handler_name not in {
-                        "Bonds",
-                        "Angles",
-                        "ProperTorsions",
-                        "ImproperTorsions",
-                    }:
-                        continue
-
-                    consecutive_pairs = [{*pair} for pair in zip(indices, indices[1:])]
-
-                    # Only count angles and bonds involving the central dihedral bond or
-                    # dihedrals involving the central dihedral bond.
-                    if (
-                        handler_name in {"Bonds", "Angles", "ImproperTorsions"}
-                        and all(pair != dihedral_indices for pair in consecutive_pairs)
-                    ) or (
-                        handler_name == "ProperTorsions"
-                        and consecutive_pairs[1] != dihedral_indices
-                    ):
-                        continue
-
-                    coverage[handler_name][parameter.smirks].add(tagged_smiles)
-
-        return {
-            handler_name: {smirks: len(smiles) for smirks, smiles in smiles.items()}
-            for handler_name, smiles in coverage.items()
-        }
+        return smirnoff_torsion_coverage(molecules, force_field, verbose)
