@@ -3,7 +3,6 @@ A module which contains convenience classes for referencing, retrieving and filt
 results from a QCFractal instance.
 """
 import abc
-import copy
 from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
@@ -29,7 +28,6 @@ from qcportal.models import OptimizationRecord, ResultRecord, TorsionDriveRecord
 from qcportal.models.common_models import DriverEnum, ObjectId
 from qcportal.models.records import RecordBase
 from qcportal.models.rest_models import QueryStr
-from tqdm import tqdm
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
