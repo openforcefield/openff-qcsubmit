@@ -15,8 +15,8 @@ from openff.qcsubmit.datasets import ComponentResult
 class CustomWorkflowComponent(BaseModel, abc.ABC):
     """
     This is an abstract base class which should be used to create all workflow components, following the design of this
-    class should allow users to easily create new work flow components with out needing to change much of the dataset
-    factory code
+    class should allow users to easily create new work flow components with out needing to change any of the dataset
+    factory code.
     """
 
     class Config:
@@ -64,7 +64,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         This method should identify if the component can be used by checking if the requirements are available.
 
         Returns:
-            `True` if the component can be used else `False`
+            `True` if the component can be used else `False`.
         """
         ...
 
@@ -74,12 +74,11 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         This is the main feature of the workflow component which should accept a molecule, perform the component action
         and then return the result.
 
-        Parameters:
+        Args:
             molecules: The list of molecules to be processed by this component.
 
         Returns:
-            An instance of the [ComponentResult][qcsubmit.datasets.ComponentResult]
-            class which handles collecting together molecules that pass and fail
+            A component result class which handles collecting together molecules that pass and fail
             the component
         """
         ...
@@ -105,16 +104,19 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
     ) -> ComponentResult:
         """
         This is the main feature of the workflow component which should accept a molecule, perform the component action
-        and then return the
+        and then return any resulting molecules.
 
-        Parameters:
-            molecules: The list of molecules to be processed by this component.
-            processors: The number of processor the component can use to run the job in parallel across molecules, None will default to all cores.
-            verbose: If true a progress bar will be shown on screen.
+        Args:
+            molecules:
+                The list of molecules to be processed by this component.
+            processors:
+                The number of processor the component can use to run the job in parallel across molecules,
+                None will default to all cores.
+            verbose:
+                If true a progress bar should be shown on screen.
 
         Returns:
-            An instance of the [ComponentResult][qcsubmit.datasets.ComponentResult]
-            class which handles collecting together molecules that pass and fail
+            A component result class which handles collecting together molecules that pass and fail
             the component
         """
         result: ComponentResult = self._create_result()

@@ -16,10 +16,6 @@ from openff.qcsubmit.workflow_components.base_component import (
 class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
     """
     Standard conformer generator using the OFFTK and the back end toolkits.
-
-    Note:
-        The provenance information and toolkit settings are handled by the
-        [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
     type: Literal["StandardConformerGenerator"] = "StandardConformerGenerator"
@@ -60,7 +56,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         """
         Generate conformers for the molecules using the selected toolkit backend.
 
-        Parameters:
+        Args:
             molecules: The list of molecules the component should be applied on.
 
         Returns:
