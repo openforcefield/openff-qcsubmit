@@ -1,0 +1,32 @@
+name: fragmenter
+channels:
+  - conda-forge
+
+dependencies:
+
+  # Base depends
+  - python
+  - pip
+  - setuptools
+
+  # Sphinx specific
+  - nbsphinx
+  - nbsphinx-link
+  - sphinx_rtd_theme
+  - sphinxcontrib-bibtex
+  - pandoc
+  - ipython
+
+    # Standard dependencies
+#  - openff-toolkit-base  MOCKED
+#  - rdkit                MOCKED
+  - pydantic
+  - pyyaml
+  - qcportal
+  - torsiondrive
+  - basis_set_exchange
+  - typing-extensions
+  - cachetools
+
+  - pip:
+      - autodoc_pydantic
