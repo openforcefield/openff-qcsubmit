@@ -79,24 +79,23 @@ class ComponentResult:
     ):
         """Register the list of molecules to process.
 
-        Parameters
-        ----------
-        component_name: str
-            The name of the component that produced this result.
-        component_description: Dict[str, str]
-            The dictionary representation of the component which details the function and running parameters.
-        component_provenance: Dict[str, str]
-            The dictionary of the modules used and there version number when running the component.
-        molecules:  Optional[Union[List[off.Molecule], off.Molecule]], default=None,
-            The list of molecules that have been possessed by a component and returned as a result.
-        input_file: Optional[str], default=None
-            The name of the input file used to produce the result if not from a component.
-        input_directory: Optional[str], default=None
-            The name of the input directory which contains input molecule files.
-        verbose: bool, default=False
-            If the timing information and progress bar should be shown while doing deduplication.
-        skip_unique_check: bool. default=False
-            Set to True if it is sure that all molecules will be unique in this result
+        Args:
+            component_name:
+                The name of the component that produced this result.
+            component_description:
+                The dictionary representation of the component which details the function and running parameters.
+            component_provenance:
+                The dictionary of the modules used and there version number when running the component.
+            molecules:
+                The list of molecules that have been possessed by a component and returned as a result.
+            input_file:
+                The name of the input file used to produce the result if not from a component.
+            input_directory:
+                The name of the input directory which contains input molecule files.
+            verbose:
+                If the timing information and progress bar should be shown while doing deduplication.
+            skip_unique_check:
+                Set to True if it is sure that all molecules will be unique in this result
         """
 
         self._molecules: Dict[str, off.Molecule] = {}
@@ -161,8 +160,7 @@ class ComponentResult:
     @property
     def n_molecules(self) -> int:
         """
-        Returns:
-             The number of molecules saved in the result.
+        The number of molecules saved in the result.
         """
 
         return len(self._molecules)
@@ -170,8 +168,7 @@ class ComponentResult:
     @property
     def n_conformers(self) -> int:
         """
-        Returns:
-             The number of conformers stored in the molecules.
+        The number of conformers stored in the molecules.
         """
 
         conformers = sum(
@@ -182,8 +179,7 @@ class ComponentResult:
     @property
     def n_filtered(self) -> int:
         """
-        Returns:
-             The number of filtered molecules.
+        The number of filtered molecules.
         """
         return len(self._filtered)
 
@@ -191,6 +187,13 @@ class ComponentResult:
         """
         Add a molecule to the molecule list after checking that it is not present already. If it is de-duplicate the
         record and condense the conformers and metadata.
+
+        Args:
+            molecule:
+                The molecule and its conformers which we should try and add to the result.
+
+        Returns:
+            `True` if the molecule is already present and `False` if not.
         """
         # always strip the atom map as it is not preserved in a workflow
         if "atom_map" in molecule.properties:
@@ -262,6 +265,10 @@ class ComponentResult:
         """
         Filter out a molecule that has not passed this workflow component. If the molecule is already in the pass list
         remove it and ensure it is only in the filtered list.
+
+        Args:
+            molecule:
+                The molecule which should be filtered.
         """
 
         molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
