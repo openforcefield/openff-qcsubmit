@@ -40,6 +40,7 @@ from openff.qcsubmit.results.caching import (
     cached_query_optimization_results,
     cached_query_torsion_drive_results,
 )
+from openff.qcsubmit.utils.visualize import molecules_to_pdf
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.filters import ResultFilter
@@ -217,6 +218,39 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             filtered_collection = collection_filter.apply(filtered_collection)
 
         return filtered_collection
+
+    def visualize(
+        self,
+        file_name: str,
+        columns: int = 4,
+        toolkit: Optional[Literal["openeye", "rdkit"]] = None,
+    ) -> None:
+        """
+        Create a pdf file of the molecules referenced by this collection using either
+        OpenEye or RDKit.
+
+        Parameters:
+            file_name: The name of the pdf file which will be produced.
+            columns: The number of molecules per row.
+            toolkit: The backend toolkit to use when producing the pdf file.
+        """
+
+        # We filter by inchi key to make sure that we don't double count molecules
+        # with different orderings.
+        unique_smiles = set(
+            {
+                entry.inchi_key: entry.cmiles
+                for entries in self.entries.values()
+                for entry in entries
+            }.values()
+        )
+
+        molecules = [
+            Molecule.from_smiles(smiles, allow_undefined_stereo=True)
+            for smiles in unique_smiles
+        ]
+
+        molecules_to_pdf(molecules, file_name, columns, toolkit)
 
 
 class BasicResult(_BaseResult):

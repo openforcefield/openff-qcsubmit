@@ -9,7 +9,11 @@ from qcportal.models import ObjectId, ResultRecord
 from qcportal.models.records import RecordStatusEnum
 from simtk import unit
 
-from openff.qcsubmit.results import BasicResult
+from openff.qcsubmit.results import (
+    BasicResult,
+    OptimizationResult,
+    OptimizationResultCollection,
+)
 from openff.qcsubmit.results.filters import (
     ChargeFilter,
     CMILESResultFilter,
@@ -23,6 +27,7 @@ from openff.qcsubmit.results.filters import (
     ResultRecordFilter,
     SMARTSFilter,
     SMILESFilter,
+    UnperceivableStereoFilter,
 )
 from openff.qcsubmit.tests.results import mock_optimization_result_collection
 
@@ -485,3 +490,40 @@ def test_rmsd_conformer_filter_rmsd_matrix_automorphs(
     actual_rmsd_matrix = rmsd_function(molecule)
 
     assert numpy.allclose(actual_rmsd_matrix, expected_rmsd_matrix)
+
+
+@pytest.mark.parametrize(
+    "toolkits, n_expected",
+    [
+        (["rdkit"], 1),
+        (["openeye"], 0),
+        (["openeye", "rdkit"], 0),
+    ]
+)
+def test_unperceivable_stereo_filter(toolkits, n_expected, public_client):
+
+    collection = OptimizationResultCollection(
+        entries={
+            "https://api.qcarchive.molssi.org:443/": [
+                OptimizationResult(
+                    record_id=ObjectId("19095884"),
+                    cmiles=(
+                        "[H:37][c:1]1[c:3]([c:8]([c:6]([c:9]([c:4]1[H:40])[S:36]"
+                        "(=[O:32])(=[O:33])[N:29]2[C:17]([C:21]([C:18]2([H:53])[H:54])"
+                        "([F:34])[F:35])([H:51])[H:52])[H:42])[N:30]([H:66])[c:11]3"
+                        "[c:5]([c:2]([c:7]4[c:10]([n:25]3)[N@@:27]([C@:19]([C:12]"
+                        "(=[O:31])[N:26]4[C:23]([H:60])([H:61])[H:62])([H:55])[C:22]"
+                        "([H:57])([H:58])[H:59])[C:20]5([C:13]([C:15]([N:28]([C:16]"
+                        "([C:14]5([H:45])[H:46])([H:49])[H:50])[C:24]([H:63])([H:64])"
+                        "[H:65])([H:47])[H:48])([H:43])[H:44])[H:56])[H:38])[H:41])"
+                        "[H:39]"
+                    ),
+                    inchi_key="GMRICROFHKBHBU-MRXNPFEDSA-N"
+                )
+            ]
+        }
+    )
+    assert collection.n_results == 1
+
+    filtered = collection.filter(UnperceivableStereoFilter(toolkits=toolkits))
+    assert filtered.n_results == n_expected
