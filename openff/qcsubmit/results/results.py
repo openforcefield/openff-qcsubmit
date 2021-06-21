@@ -32,7 +32,7 @@ from qcportal.models.rest_models import QueryStr
 from tqdm import tqdm
 from typing_extensions import Literal
 
-from openff.qcsubmit.common_structures import Metadata
+from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results.caching import (
@@ -43,6 +43,7 @@ from openff.qcsubmit.results.caching import (
     cached_query_optimization_results,
     cached_query_torsion_drive_results,
 )
+from openff.qcsubmit.utils.visualize import molecules_to_pdf
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.filters import ResultFilter
@@ -598,6 +599,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         tagline: str,
         driver: DriverEnum,
         metadata: Optional[Metadata] = None,
+        qc_specs: Optional[List[QCSpec]] = None,
     ) -> BasicDataset:
         """Create a basic dataset from the results of the current dataset.
 
@@ -609,13 +611,41 @@ class OptimizationResultCollection(_BaseResultCollection):
             dataset_name: The name that will be given to the new dataset.
             tagline: The tagline that should be given to the new dataset.
             description: The description that should be given to the new dataset.
-            metadata: The metadata for the new dataset.
             driver: The driver to be used on the basic dataset.
+            metadata: The metadata for the new dataset.
+            qc_specs: The QC specifications to be used on the new dataset. If no value
+                is provided, the default OpenFF QCSpec will be added.
 
         Returns:
             The created basic dataset.
         """
-        raise NotImplementedError()
+
+        records = self.to_records()
+
+        dataset = BasicDataset(
+            dataset_name=dataset_name,
+            description=description,
+            dataset_tagline=tagline,
+            driver=driver,
+            metadata={} if metadata is None else metadata,
+            qc_specifications={"default": QCSpec()}
+            if qc_specs is None
+            else {qc_spec.spec_name: qc_spec for qc_spec in qc_specs},
+        )
+
+        for record, molecule in records:
+
+            dataset.add_molecule(
+                index=molecule.to_smiles(
+                    isomeric=True, explicit_hydrogens=False, mapped=False
+                ),
+                molecule=molecule,
+                attributes=MoleculeAttributes.from_openff_molecule(molecule),
+                extras=record.extras,
+                keywords=record.keywords,
+            )
+
+        return dataset
 
 
 class TorsionDriveResult(_BaseResult):

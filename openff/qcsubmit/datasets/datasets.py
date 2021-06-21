@@ -50,6 +50,7 @@ from openff.qcsubmit.exceptions import (
 from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.serializers import deserialize, serialize
 from openff.qcsubmit.utils import chunk_generator
+from openff.qcsubmit.utils.visualize import molecules_to_pdf
 
 if TYPE_CHECKING:
     from qcfractal.interface import FractalClient
@@ -960,166 +961,34 @@ class BasicDataset(CommonBase):
 
         return coverage
 
-    def visualize(self, file_name: str, columns: int = 4, toolkit: str = None) -> None:
+    def visualize(
+        self,
+        file_name: str,
+        columns: int = 4,
+        toolkit: Optional[Literal["openeye", "rdkit"]] = None,
+    ) -> None:
         """
         Create a pdf file of the molecules with any torsions highlighted using either openeye or rdkit.
 
         Parameters:
             file_name: The name of the pdf file which will be produced.
             columns: The number of molecules per row.
-            toolkit: The option to specify the backend toolkit used to produce the pdf file.
+            toolkit: The backend toolkit to use when producing the pdf file.
         """
-        from openff.toolkit.utils.toolkits import OPENEYE_AVAILABLE, RDKIT_AVAILABLE
-
-        toolkits = {
-            "openeye": (OPENEYE_AVAILABLE, self._create_openeye_pdf),
-            "rdkit": (RDKIT_AVAILABLE, self._create_rdkit_pdf),
-        }
-
-        if toolkit:
-            try:
-                _, pdf_func = toolkits[toolkit.lower()]
-                return pdf_func(file_name, columns)
-            except KeyError:
-                raise ValueError(
-                    f"The requested toolkit backend: {toolkit} is not supported, chose from {toolkits.keys()}"
-                )
-
-        else:
-            for toolkit in toolkits:
-                available, pdf_func = toolkits[toolkit]
-                if available:
-                    return pdf_func(file_name, columns)
-            raise ImportError(
-                f"No backend toolkit was found to generate the pdf please install openeye and/or rdkit."
-            )
-
-    def _create_openeye_pdf(self, file_name: str, columns: int) -> None:
-        """
-        Make the pdf of the molecules use openeye.
-        """
-
-        from openeye import oechem, oedepict
-
-        itf = oechem.OEInterface()
-        suppress_h = True
-        rows = 10
-        cols = columns
-        ropts = oedepict.OEReportOptions(rows, cols)
-        ropts.SetHeaderHeight(25)
-        ropts.SetFooterHeight(25)
-        ropts.SetCellGap(2)
-        ropts.SetPageMargins(10)
-        report = oedepict.OEReport(ropts)
-        cellwidth, cellheight = report.GetCellWidth(), report.GetCellHeight()
-        opts = oedepict.OE2DMolDisplayOptions(
-            cellwidth, cellheight, oedepict.OEScale_Default * 0.5
-        )
-        opts.SetAromaticStyle(oedepict.OEAromaticStyle_Circle)
-        pen = oedepict.OEPen(oechem.OEBlack, oechem.OEBlack, oedepict.OEFill_On, 1.0)
-        opts.SetDefaultBondPen(pen)
-        oedepict.OESetup2DMolDisplayOptions(opts, itf)
-
-        # now we load the molecules
-        for data in self.dataset.values():
-            off_mol = data.get_off_molecule(include_conformers=False)
-            off_mol.name = None
-            cell = report.NewCell()
-            mol = off_mol.to_openeye()
-            oedepict.OEPrepareDepiction(mol, False, suppress_h)
-            disp = oedepict.OE2DMolDisplay(mol, opts)
-
-            if hasattr(data, "dihedrals"):
-                # work out if we have a double or single torsion
-                if len(data.dihedrals) == 1:
-                    dihedrals = data.dihedrals[0]
-                    center_bonds = dihedrals[1:3]
-                else:
-                    # double torsion case
-                    dihedrals = [*data.dihedrals[0], *data.dihedrals[1]]
-                    center_bonds = [*data.dihedrals[0][1:3], *data.dihedrals[1][1:3]]
-
-                # Highlight element of interest
-                class NoAtom(oechem.OEUnaryAtomPred):
-                    def __call__(self, atom):
-                        return False
-
-                class AtomInTorsion(oechem.OEUnaryAtomPred):
-                    def __call__(self, atom):
-                        return atom.GetIdx() in dihedrals
-
-                class NoBond(oechem.OEUnaryBondPred):
-                    def __call__(self, bond):
-                        return False
-
-                class CentralBondInTorsion(oechem.OEUnaryBondPred):
-                    def __call__(self, bond):
-                        return (bond.GetBgn().GetIdx() in center_bonds) and (
-                            bond.GetEnd().GetIdx() in center_bonds
-                        )
-
-                atoms = mol.GetAtoms(AtomInTorsion())
-                bonds = mol.GetBonds(NoBond())
-                abset = oechem.OEAtomBondSet(atoms, bonds)
-                oedepict.OEAddHighlighting(
-                    disp,
-                    oechem.OEColor(oechem.OEYellow),
-                    oedepict.OEHighlightStyle_BallAndStick,
-                    abset,
-                )
-
-                atoms = mol.GetAtoms(NoAtom())
-                bonds = mol.GetBonds(CentralBondInTorsion())
-                abset = oechem.OEAtomBondSet(atoms, bonds)
-                oedepict.OEAddHighlighting(
-                    disp,
-                    oechem.OEColor(oechem.OEOrange),
-                    oedepict.OEHighlightStyle_BallAndStick,
-                    abset,
-                )
-
-            oedepict.OERenderMolecule(cell, disp)
-
-        oedepict.OEWriteReport(file_name, report)
-
-    def _create_rdkit_pdf(self, file_name: str, columns: int) -> None:
-        """
-        Make the pdf of the molecules using rdkit.
-        """
-        from rdkit.Chem import AllChem, Draw
 
         molecules = []
-        tagged_atoms = []
-        images = []
+
         for data in self.dataset.values():
-            rdkit_mol = data.get_off_molecule(include_conformers=False).to_rdkit()
-            AllChem.Compute2DCoords(rdkit_mol)
-            molecules.append(rdkit_mol)
+
+            off_mol = data.get_off_molecule(include_conformers=False)
+            off_mol.name = None
+
             if hasattr(data, "dihedrals"):
-                tagged_atoms.extend(data.dihedrals)
-        # if no atoms are to be tagged set to None
-        if not tagged_atoms:
-            tagged_atoms = None
+                off_mol.properties["dihedrals"] = data.dihedrals
 
-        # evey 24 molecules split the page
-        for i in range(0, len(molecules), 24):
-            mol_chunk = molecules[i : i + 24]
-            if tagged_atoms is not None:
-                tag_chunk = tagged_atoms[i : i + 24]
-            else:
-                tag_chunk = None
+            molecules.append(off_mol)
 
-            # now make the image
-            image = Draw.MolsToGridImage(
-                mol_chunk,
-                molsPerRow=columns,
-                subImgSize=(500, 500),
-                highlightAtomLists=tag_chunk,
-            )
-            # write the pdf to bytes and pass straight to the pdf merger
-            images.append(image)
-
-        images[0].save(file_name, append_images=images[1:], save_all=True)
+        molecules_to_pdf(molecules, file_name, columns, toolkit)
 
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
         """
