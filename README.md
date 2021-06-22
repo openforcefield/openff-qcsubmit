@@ -1,4 +1,5 @@
-# QCSubmit
+OpenFF QCSubmit
+===============
 
 [//]: # (Badges)
 [![CI](https://github.com/openforcefield/openff-qcsubmit/workflows/CI/badge.svg?branch=master)](https://github.com/openforcefield/openff-qcsubmit/actions)
@@ -7,28 +8,28 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+The OpenFF QCSubmit framework aims to facilitate curating and contributing new quantum chemical (QC)
+datasets to the [QCArchive](https://qcarchive.molssi.org/) (or any other [QCFractal](http://docs.qcarchive.molssi.org/projects/qcfractal/en/latest/)
+instance), as well as to retrieve already computed datasets.
 
-Automated tools for submitting molecules to QCArchive instances.
+#### Installation
 
+The latest version of OpenFF QCSubmit can be installed via conda:
 
-## Installation
+    conda install -c conda-forge openff-qcsubmit
 
-A development version of QCSubmit can be installed via conda:
+#### Getting Started
 
-    conda install -c conda-forge -c omnia/label/rc -c omnia openff-qcsubmit
+The best place to get acquainted with the framework is through the examples provided
+with the [documentation](https://openff-qcsubmit.readthedocs.io).
 
-If you want the OpenEye Toolkit and Fragmenter, do instead:
+#### License
 
-    conda install -c conda-forge -c omnia/label/rc -c omnia -c openeye openff-qcsubmit fragmenter
+MIT. See the [License File](LICENSE) for more information.
 
-Note that the OpenEye Toolkit is required to use fragmenter and protomer enumeration.
-All other features can be used with RDKit.
-
-
-### Copyright
+#### Copyright
 
 Copyright (c) 2019-2021, Open Force Field Initiative
-
 
 #### Acknowledgements
 

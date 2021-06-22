@@ -27,15 +27,23 @@ class GeometricProcedure(BaseModel):
     Important:
         Geometric currently accepts the following convergence criteria sets:
 
-            | Set  | Set Name  | Energy  | GRMS  | GMAX  | DRMS  | DMAX  |
-            |---|---|---|---|---|---|---|
-            | `GAU` | Gaussian default  | 1e-6  | 3e-4  | 4.5e-4  | 1.2e-3  | 1.8e-3  |
-            | `NWCHEM_LOOSE` | NW-Chem loose  | 1e-6  | 3e-3  | 4.5e-3  | 3.6e-3  | 5.4e-3  |
-            | `GAU_LOOSE` | Gaussian loose  | 1e-6  | 1.7e-3  | 2.5e-3  | 6.7e-3  | 1e-2  |
-            | `TURBOMOLE` | Turbomole default | 1e-6 | 5e-4 | 1e-3 | 5.0e-4 | 1e-3 |
-            | `INTERFRAG_TIGHT` | Interfrag tight | 1e-6 | 1e-5 | 1.5e-5 | 4.0e-4 | 6.0e-4 |
-            | `GAU_TIGHT` | Gaussian tight | 1e-6 | 1e-5 | 1.5e-5 | 4e-5 | 6e-5 |
-            | `GAU_VERYTIGHT` | Gaussian very tight | 1e-6 | 1e-6 | 2e-6 | 4e-6 | 6e-6 |
+            +-------------------+---------------------+--------+---------+--------+--------+-------+
+            |  Set              | Set Name            | Energy |  GRMS   | GMAX   | DRMS   | DMAX  |
+            +-------------------+---------------------+--------+---------+--------+--------+-------+
+            | `GAU`             | Gaussian default    | 1e-6   | 3e-4    | 4.5e-4 | 1.2e-3 | 1.8e-3|
+            +-------------------+---------------------+--------+---------+--------+--------+-------+
+            | `NWCHEM_LOOSE`    | NW-Chem loose       | 1e-6   | 3e-3    | 4.5e-3 | 3.6e-3 | 5.4e-3|
+            +-------------------+---------------------+--------+---------+--------+--------+-------+
+            | `GAU_LOOSE`       | Gaussian loose      | 1e-6   | 1.7e-3  | 2.5e-3 | 6.7e-3 | 1e-2  |
+            +-------------------+---------------------+--------+---------+--------+--------+-------+
+            | `TURBOMOLE`       | Turbomole default   | 1e-6   | 5e-4    | 1e-3   | 5.0e-4 | 1e-3  |
+            +-------------------+---------------------+--------+---------+--------+--------+-------+
+            | `INTERFRAG_TIGHT` | Interfrag tight     | 1e-6   | 1e-5    | 1.5e-5 | 4.0e-4 | 6.0e-4|
+            +-------------------+---------------------+--------+---------+--------+--------+-------+
+            | `GAU_TIGHT`       | Gaussian tight      | 1e-6   | 1e-5    | 1.5e-5 | 4e-5   | 6e-5  |
+            +-------------------+---------------------+--------+---------+--------+--------+-------+
+            | `GAU_VERYTIGHT`   | Gaussian very tight | 1e-6   | 1e-6    | 2e-6   | 4e-6   | 6e-6  |
+            +-------------------+---------------------+--------+---------+--------+--------+-------+
     """
 
     program: Literal["geometric"] = Field(
