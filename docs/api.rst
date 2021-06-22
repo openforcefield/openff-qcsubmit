@@ -77,6 +77,46 @@ Results
     TorsionDriveResult
     TorsionDriveResultCollection
 
+Filters
+"""""""
+
+.. currentmodule:: openff.qcsubmit.results.filters
+.. autosummary::
+    :nosignatures:
+    :toctree: api/generated/
+
+    ResultFilter
+    CMILESResultFilter
+    ResultRecordFilter
+    ResultRecordGroupFilter
+    SMILESFilter
+    SMARTSFilter
+    ChargeFilter
+    ElementFilter
+    HydrogenBondFilter
+    ConnectivityFilter
+    RecordStatusFilter
+    UnperceivableStereoFilter
+    LowestEnergyFilter
+    ConformerRMSDFilter
+
+Caching
+"""""""
+
+.. currentmodule:: openff.qcsubmit.results.caching
+.. autosummary::
+    :nosignatures:
+    :toctree: api/generated/
+
+    clear_results_caches
+    batched_indices
+    cached_fractal_client
+    cached_query_procedures
+    cached_query_molecules
+    cached_query_basic_results
+    cached_query_optimization_results
+    cached_query_torsion_drive_results
+
 Workflow Components
 -------------------
 
