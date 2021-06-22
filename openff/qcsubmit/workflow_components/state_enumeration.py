@@ -20,10 +20,6 @@ from openff.qcsubmit.workflow_components.base_component import (
 class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
     """
     Enumerate the tautomers of a molecule using the backend toolkits through the OFFTK.
-
-    Note:
-        The provenance information and toolkit settings are handled by the
-        [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
     type: Literal["EnumerateTautomers"] = "EnumerateTautomers"
@@ -88,10 +84,6 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     """
     Enumerate the stereo centers and bonds of a molecule using the backend toolkits through the OFFTK, only well defined
     molecules are returned by this component, this is check via a OFFTK round trip.
-
-    Note:
-        The provenance information and toolkit settings are handled by the
-        [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
     type: Literal["EnumerateStereoisomers"] = "EnumerateStereoisomers"
@@ -170,7 +162,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     """
     Enumerate the formal charges of the input molecule using the backend toolkits through the OFFTK.
 
-    Note:
+    Important:
         Only Openeye is supported so far.
     """
 

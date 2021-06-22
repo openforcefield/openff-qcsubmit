@@ -82,12 +82,13 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
     def provenance(self) -> Dict[str, str]:
         """
-        Create the provenance of qcsubmit that created that molecule input data.
+        Create the provenance of openff-qcsubmit that created the molecule input data.
+
         Returns:
             A dict of the provenance information.
 
         Important:
-            We can not check which toolkit was used to generate the Cmiles data be we know that openeye will always be
+            We can not check which toolkit was used to generate the Cmiles data but we know that openeye will always be
             used first when available.
         """
 
@@ -110,7 +111,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
     def clear_workflow(self) -> None:
         """
-        Reset the workflow to by empty.
+        Reset the workflow to be empty.
         """
         self.workflow = []
 
@@ -118,9 +119,10 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """
         Take the workflow components validate them then insert them into the workflow.
 
-        Parameters:
-            components: A list of or an individual qcsubmit.workflow_compoents.CustomWokflowComponent which are to be
-                validated and added to the current workflow.
+        Args:
+            components:
+                A list of or an individual workflow component which is to be validated
+                and added to the current workflow.
 
         Raises:
             InvalidWorkflowComponentError: If an invalid workflow component is attempted to be added to the workflow.
@@ -148,8 +150,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """
         Find any workflow components with this component name.
 
-        Parameters:
-            component_name: The name of the component to be gathered from the workflow.
+        Args:
+            component_name:
+                The name of the component to be gathered from the workflow.
 
         Returns:
             A list of instances of the requested component from the workflow.
@@ -175,8 +178,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """
         Find and remove any components via its type attribute.
 
-        Parameters:
-            component_name: The name of the component to be gathered from the workflow.
+        Args:
+            component_name:
+                The name of the component to be gathered from the workflow.
 
         Raises:
             MissingWorkflowComponentError: If the component could not be found by its component name in the workflow.
@@ -198,9 +202,11 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """
         Instance the workflow from a workflow object or from an input file.
 
-        Parameters:
-            workflow: The name of the file the workflow should be created from or a workflow dictionary.
-            clear_existing: If the current workflow should be deleted and replaced or extended.
+        Args:
+            workflow:
+                The name of the file the workflow should be created from or a workflow dictionary.
+            clear_existing:
+                If the current workflow should be deleted and replaced or extended.
         """
 
         if clear_existing:
@@ -222,9 +228,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
     def export_workflow(self, file_name: str) -> None:
         """
-        Export the workflow components and their settings to file so that they can be loaded latter.
+        Export the workflow components and their settings to file so that they can be loaded later.
 
-        Parameters:
+        Args:
             file_name: The name of the file the workflow should be exported to.
 
         Raises:
@@ -238,6 +244,10 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
     def export(self, file_name: str) -> None:
         """
         Export the whole factory to file including settings and workflow.
+
+        Args:
+            file_name:
+                The name of the file the factory should be exported to.
         """
         serialize(serializable=self.dict(), file_name=file_name)
 
@@ -245,8 +255,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """
         Export the current model to file this will include the workflow as well along with each components settings.
 
-        Parameters:
-            file_name: The name of the file the settings and workflow should be exported to.
+        Args:
+            file_name:
+                The name of the file the settings and workflow should be exported to.
 
         Raises:
             UnsupportedFiletypeError: When the file type requested is not supported.
@@ -259,10 +270,11 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """
         Import settings and workflow from a file.
 
-        Parameters:
-            settings: The name of the file the settings should be extracted from or the reference to a settings
-                dictionary.
-            clear_workflow: If the current workflow should be extended or replaced.
+        Args:
+            settings:
+                The name of the file the settings should be extracted from or the reference to a settings dictionary.
+            clear_workflow:
+                If the current workflow should be extended or replaced.
         """
 
         if isinstance(settings, str):
@@ -296,8 +308,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """
         Create the initial component result which is used for de-duplication.
 
-        Parameters:
-            molecules: The input molecules which can be a file name or list of molecule instances
+        Args:
+            molecules:
+                The input molecules which can be a file name or list of molecule instances
 
         Returns:
             The initial component result used to start the workflow.
@@ -359,44 +372,31 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         verbose: bool = True,
     ) -> T:
         """
-        Process the input molecules through the given workflow then create and populate the dataset class which acts as
-        a local representation for the collection in qcarchive and has the ability to submit its self to a local or
-        public instance.
+        Process the input molecules through the given workflow then create and populate the corresponding dataset class which acts as
+        a local representation for the collection and tasks to be performed in qcarchive.
 
-        Parameters:
-             dataset_name: The name that will be given to the collection on submission to an archive instance.
-             molecules: The list of molecules which should be processed by the workflow and added to the dataset, this
+        Args:
+            dataset_name:
+                The name that will be given to the collection on submission to an archive instance.
+            molecules:
+                The list of molecules which should be processed by the workflow and added to the dataset, this
                 can also be a file name which is to be unpacked by the openforcefield toolkit.
-            description: A string describing the dataset.
-            tagline: A tagline displayed with collection name in the QCArchive.
-            metadata: Any metadata which should be associated with this dataset this can be changed from the default
+            description:
+                A string describing the dataset this should be detail the purpose of the dataset and outline the selection method of the molecules.
+            tagline:
+                A short tagline description which will be displayed with collection name in the QCArchive.
+            metadata:
+                Any metadata which should be associated with this dataset this can be changed from the default
                 after making the dataset.
-            processors: The number of processors avilable to the workflow, note None will use all avilable processors.
-            verbose: If True a progress bar for each workflow component will be shown.
+            processors:
+                The number of processors available to the workflow, note None will use all available processors.
+            verbose:
+                If True a progress bar for each workflow component will be shown.
 
-        Example:
-            How to make a dataset from a list of molecules
-
-            ```python
-            >>> from openff.qcsubmit.factories import BasicDatasetFactory
-            >>> from openff.qcsubmit.workflow_components import get_component
-            >>> from openff.toolkit.topology import Molecule
-            >>> factory = BasicDatasetFactory()
-            >>> gen = get_component("StandardConformerGenerator")
-            >>> gen.clear_exsiting = True
-            >>> gen.max_conformers = 1
-            >>> factory.add_workflow_components(gen)
-            >>> smiles = ['C', 'CC', 'CCO']
-            >>> mols = [Molecule.from_smiles(smile) for smile in smiles]
-            >>> dataset = factory.create_dataset(dataset_name='My collection', molecules=mols)
-            ```
 
         Returns:
-            A [DataSet][qcsubmit.datasets.DataSet] instance populated with the molecules that have passed through the
-                workflow.
-
-        Important:
-            The dataset once created does not allow mutation.
+            A dataset instance populated with the molecules that have passed through the
+            workflow.
         """
         # TODO set up a logging system to report the components
 
@@ -448,23 +448,12 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """
         Create the Cmiles metadata for the molecule in this dataset.
 
-        Parameters:
-            molecule: The molecule for which the cmiles data will be generated.
+        Args:
+            molecule:
+                The molecule for which the cmiles data will be generated.
 
         Returns:
             The Cmiles identifiers generated for the input molecule.
-
-        Note:
-            The Cmiles identifiers currently include:
-
-            - `canonical_smiles`
-            - `canonical_isomeric_smiles`
-            - `canonical_explicit_hydrogen_smiles`
-            - `canonical_isomeric_explicit_hydrogen_smiles`
-            - `canonical_isomeric_explicit_hydrogen_mapped_smiles`
-            - `molecular_formula`
-            - `standard_inchi`
-            - `inchi_key`
         """
 
         return MoleculeAttributes.from_openff_molecule(molecule)
@@ -473,8 +462,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """
         Create an index for the current molecule.
 
-        Parameters:
-            molecule: The molecule for which the dataset index will be generated.
+        Args:
+            molecule:
+                The molecule for which the dataset index will be generated.
 
         Returns:
             The canonical isomeric smiles for the molecule which is used as the dataset index.
@@ -704,8 +694,9 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         """
         Create a specific torsion index for the molecule, this will use the atom map on the molecule.
 
-        Parameters:
-            molecule:  The molecule for which the dataset index will be generated.
+        Args:
+            molecule:
+                The molecule for which the dataset index will be generated.
 
         Returns:
             The canonical mapped isomeric smiles, where the mapped indices are on the atoms in the torsion.

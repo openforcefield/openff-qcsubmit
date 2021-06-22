@@ -103,7 +103,7 @@ class WBOFragmenter(FragmenterBase):
     )
     keep_non_rotor_ring_substituents: bool = Field(
         False,
-        description="If any non rotor ring substituents should be kept during the fragmentation resulting in smaller fragments.",
+        description="If any non rotor ring substituents should be kept during the fragmentation resulting in smaller fragments when `False`.",
     )
 
     @classmethod
@@ -116,7 +116,7 @@ class WBOFragmenter(FragmenterBase):
         """
         Fragment the molecules using the WBOFragmenter.
 
-        Parameters:
+        Args:
             molecules: The list of molecules which should be processed by this component.
 
         Note:
@@ -163,7 +163,7 @@ class PfizerFragmenter(FragmenterBase):
         """
         Fragment the molecules using the PfizerFragmenter.
 
-        Parameters:
+        Args:
             molecules: The list of molecules which should be processed by this component.
 
         Note:

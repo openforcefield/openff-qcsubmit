@@ -297,9 +297,9 @@ def test_adding_specifications(fractal_compute_server):
     ds = client.get_collection(opt_dataset.dataset_type, opt_dataset.dataset_name)
 
     # now try and add the specification again this should return True
-    assert opt_dataset.add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
-                                                 opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                 collection=ds) is True
+    assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
+                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  collection=ds) is True
 
     # now change part of the spec but keep the name the same
     opt_dataset.clear_qcspecs()
@@ -308,24 +308,24 @@ def test_adding_specifications(fractal_compute_server):
 
     # now try and add this specification with the same name but different settings
     with pytest.raises(QCSpecificationError):
-        opt_dataset.add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
-                                              opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                              collection=ds)
+        opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
+                                               opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                               collection=ds)
 
     # now add a new specification but no compute and make sure it is overwritten
     opt_dataset.clear_qcspecs()
     opt_dataset.add_qc_spec(method="ani1x", basis=None, program="torchani", spec_name="ani", spec_description="a ani spec")
-    assert opt_dataset.add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
-                                                 opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                 collection=ds) is True
+    assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
+                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  collection=ds) is True
 
     # now change the spec slightly and add again
     opt_dataset.clear_qcspecs()
     opt_dataset.add_qc_spec(method="ani1ccx", basis=None, program="torchani", spec_name="ani",
                             spec_description="a ani spec")
-    assert opt_dataset.add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
-                                                 opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                 collection=ds) is True
+    assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
+                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  collection=ds) is True
 
 
 @pytest.mark.parametrize("dataset_data", [

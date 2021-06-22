@@ -218,15 +218,13 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
         * If a molecule has any id in the allowed_ids and not in the filtered ids it is passed. Any molecule with a
             parameter in both sets is failed.
         * If None is passed to allowed IDs and tag_dihedrals will have no effect as all dihedrals are scanned by default.
-
-    Important:
-        A value of None in a list will let all molecules through.
     """
 
     type: Literal["CoverageFilter"] = "CoverageFilter"
     allowed_ids: Optional[Set[str]] = Field(
         None,
-        description="The SMIRKS parameter ids of the parameters which are allowed to be exercised by the molecules. Molecules should use atleast one of these ids to be passed by the component.",
+        description="The SMIRKS parameter ids of the parameters which are allowed to be exercised by the molecules. "
+        "Molecules should use atleast one of these ids to be passed by the component.",
     )
     filtered_ids: Optional[Set[str]] = Field(
         None,
@@ -262,7 +260,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
         Apply the filter to the list of molecules to remove any molecules typed by an id that is not allowed, i.e. not
         included in the allowed list.
 
-        Parameters:
+        Args:
             molecules: The list of molecules the component should be applied on.
 
         Returns:
@@ -340,7 +338,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
 
 class RotorFilter(BasicSettings, CustomWorkflowComponent):
     """
-    Filters molecules based on the maximum allowed number of rotatable bonds.
+    Filters molecules based on the maximum and or minimum allowed number of rotatable bonds.
 
     Note:
         Rotatable bonds are torsions found using the `find_rotatable_bonds` method of the
@@ -467,7 +465,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
         Apply the filter to the input list of molecules removing those that match the filtered set or do not contain an
         allowed substructure.
 
-        Parameters:
+        Args:
             molecules: The list of molecules the component should be applied on.
 
         Returns:
@@ -594,7 +592,7 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
         Prunes conformers from a molecule that are less than a specified RMSD from
         all other conformers
 
-        Parameters:
+        Args:
             molecules: The list of molecules the component should be applied on.
 
         Returns:

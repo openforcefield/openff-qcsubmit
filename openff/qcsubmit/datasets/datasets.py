@@ -79,24 +79,23 @@ class ComponentResult:
     ):
         """Register the list of molecules to process.
 
-        Parameters
-        ----------
-        component_name: str
-            The name of the component that produced this result.
-        component_description: Dict[str, str]
-            The dictionary representation of the component which details the function and running parameters.
-        component_provenance: Dict[str, str]
-            The dictionary of the modules used and there version number when running the component.
-        molecules:  Optional[Union[List[off.Molecule], off.Molecule]], default=None,
-            The list of molecules that have been possessed by a component and returned as a result.
-        input_file: Optional[str], default=None
-            The name of the input file used to produce the result if not from a component.
-        input_directory: Optional[str], default=None
-            The name of the input directory which contains input molecule files.
-        verbose: bool, default=False
-            If the timing information and progress bar should be shown while doing deduplication.
-        skip_unique_check: bool. default=False
-            Set to True if it is sure that all molecules will be unique in this result
+        Args:
+            component_name:
+                The name of the component that produced this result.
+            component_description:
+                The dictionary representation of the component which details the function and running parameters.
+            component_provenance:
+                The dictionary of the modules used and there version number when running the component.
+            molecules:
+                The list of molecules that have been possessed by a component and returned as a result.
+            input_file:
+                The name of the input file used to produce the result if not from a component.
+            input_directory:
+                The name of the input directory which contains input molecule files.
+            verbose:
+                If the timing information and progress bar should be shown while doing deduplication.
+            skip_unique_check:
+                Set to True if it is sure that all molecules will be unique in this result
         """
 
         self._molecules: Dict[str, off.Molecule] = {}
@@ -161,8 +160,7 @@ class ComponentResult:
     @property
     def n_molecules(self) -> int:
         """
-        Returns:
-             The number of molecules saved in the result.
+        The number of molecules saved in the result.
         """
 
         return len(self._molecules)
@@ -170,8 +168,7 @@ class ComponentResult:
     @property
     def n_conformers(self) -> int:
         """
-        Returns:
-             The number of conformers stored in the molecules.
+        The number of conformers stored in the molecules.
         """
 
         conformers = sum(
@@ -182,8 +179,7 @@ class ComponentResult:
     @property
     def n_filtered(self) -> int:
         """
-        Returns:
-             The number of filtered molecules.
+        The number of filtered molecules.
         """
         return len(self._filtered)
 
@@ -191,6 +187,13 @@ class ComponentResult:
         """
         Add a molecule to the molecule list after checking that it is not present already. If it is de-duplicate the
         record and condense the conformers and metadata.
+
+        Args:
+            molecule:
+                The molecule and its conformers which we should try and add to the result.
+
+        Returns:
+            `True` if the molecule is already present and `False` if not.
         """
         # always strip the atom map as it is not preserved in a workflow
         if "atom_map" in molecule.properties:
@@ -262,6 +265,10 @@ class ComponentResult:
         """
         Filter out a molecule that has not passed this workflow component. If the molecule is already in the pass list
         remove it and ensure it is only in the filtered list.
+
+        Args:
+            molecule:
+                The molecule which should be filtered.
         """
 
         molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
@@ -391,7 +398,10 @@ class BasicDataset(CommonBase):
     @classmethod
     def parse_file(cls, file_name: str):
         """
-        Add decompression to the parse file method.
+        Create a Dataset object from a compressed json file.
+
+        Args:
+            file_name: The name of the file the dataset should be created from.
         """
         data = deserialize(file_name=file_name)
         return cls(**data)
@@ -400,7 +410,7 @@ class BasicDataset(CommonBase):
         """
         Search through the dataset for a molecule and return the dataset index of any exact molecule matches.
 
-        Parameters:
+        Args:
             molecule: The smiles string for the molecule or an openforcefield.topology.Molecule that is to be searched for.
 
         Returns:
@@ -424,10 +434,7 @@ class BasicDataset(CommonBase):
     @property
     def filtered(self) -> off.Molecule:
         """
-        A generator for the molecules that have been filtered.
-
-        Returns:
-            offmol: A molecule representation created from the filtered molecule lists
+        A generator which yields a openff molecule representation for each molecule filtered while creating this dataset.
 
         Note:
             Modifying the molecule will have no effect on the data stored.
@@ -442,9 +449,6 @@ class BasicDataset(CommonBase):
     def n_filtered(self) -> int:
         """
         Calculate the total number of molecules filtered by the components used in a workflow to create this dataset.
-
-        Returns:
-            filtered: The total number of molecules filtered by components.
         """
         filtered = sum(
             [len(data.molecules) for data in self.filtered_molecules.values()]
@@ -456,13 +460,9 @@ class BasicDataset(CommonBase):
         """
         Return the total number of records that will be created on submission of the dataset.
 
-        Returns:
-            The number of records that will be added to the collection.
-
         Note:
             * The number returned will be different depending on the dataset used.
-            * The amount of unqiue molecule can be found using `n_molecules`
-            * see also the [n_molecules][qcsubmit.datasets.BasicDataset.n_molecules]
+            * The amount of unique molecule can be found using `n_molecules`
         """
 
         n_records = sum([len(data.initial_molecules) for data in self.dataset.values()])
@@ -472,9 +472,6 @@ class BasicDataset(CommonBase):
     def n_molecules(self) -> int:
         """
         Calculate the number of unique molecules to be submitted.
-
-        Returns:
-            The number of unique molecules in dataset
 
         Notes:
             * This method has been improved for better performance on large datasets and has been tested on an optimization dataset of over 10500 molecules.
@@ -506,9 +503,6 @@ class BasicDataset(CommonBase):
         """
         A generator that creates an openforcefield.topology.Molecule one by one from the dataset.
 
-        Returns:
-            The instance of the molecule from the dataset.
-
         Note:
             Editing the molecule will not effect the data stored in the dataset as it is immutable.
         """
@@ -521,9 +515,6 @@ class BasicDataset(CommonBase):
     def n_components(self) -> int:
         """
         Return the amount of components that have been ran during generating the dataset.
-
-        Returns:
-            The number of components that were ran while generating the dataset.
         """
 
         n_filtered = len(self.filtered_molecules)
@@ -533,9 +524,6 @@ class BasicDataset(CommonBase):
     def components(self) -> List[Dict[str, Union[str, Dict[str, str]]]]:
         """
         Gather the details of the components that were ran during the creation of this dataset.
-
-        Returns:
-            A list of dictionaries containing information about the components ran during the generation of the dataset.
         """
 
         components = []
@@ -554,15 +542,15 @@ class BasicDataset(CommonBase):
         """
         Filter a molecule or list of molecules by the component they failed.
 
-        Parameters:
-        molecules:
-            A molecule or list of molecules to be filtered.
-        component_settings:
-            The dictionary representation of the component that filtered this set of molecules.
-        component:
-            The name of the component.
-        component_provenance:
-            The dictionary representation of the component provenance.
+        Args:
+            molecules:
+                A molecule or list of molecules to be filtered.
+            component_settings:
+                The dictionary representation of the component that filtered this set of molecules.
+            component:
+                The name of the component.
+            component_provenance:
+                The dictionary representation of the component provenance.
         """
 
         if isinstance(molecules, off.Molecule):
@@ -598,18 +586,18 @@ class BasicDataset(CommonBase):
         """
         Add a molecule to the dataset under the given index with the passed cmiles.
 
-        Parameters:
-        index : str
-            The molecule index that was generated by the factory.
-        molecule : openforcefield.topology.Molecule
-            The instance of the molecule which contains its conformer information.
-        attributes : Dict[str, str]
-            The attributes dictionary containing all of the relevant identifier tags for the molecule and
-            extra meta information on the calculation.
-        extras : Dict[str, Any], optional, default=None
-            The extras that should be supplied into the qcportal.moldels.Molecule.
-        keywords : Dict[str, Any], optional, default=None,
-            Any extra keywords which are required for the calculation.
+        Args:
+            index:
+                The index that should be associated with the molecule in QCArchive.
+            molecule:
+                The instance of the molecule which contains its conformer information.
+            attributes:
+                The attributes dictionary containing all of the relevant identifier tags for the molecule and
+                extra meta information on the calculation.
+            extras:
+                The extras that should be supplied into the qcportal.moldels.Molecule.
+            keywords:
+                Any extra keywords which are required for the calculation.
 
         Note:
             Each molecule in this basic dataset should have all of its conformers expanded out into separate entries.
@@ -633,8 +621,8 @@ class BasicDataset(CommonBase):
             # the molecule has some qcschema issue and should be removed
             self.filter_molecules(
                 molecules=molecule,
-                component_name="QCSchemaIssues",
-                component_description={
+                component="QCSchemaIssues",
+                component_settings={
                     "component_description": "The molecule was removed as a valid QCSchema could not be made",
                     "type": "QCSchemaIssues",
                 },
@@ -648,9 +636,8 @@ class BasicDataset(CommonBase):
         Work out if the selected basis set covers all of the elements in the dataset for each specification if not return the missing
         element symbols.
 
-        Parameters:
-            raise_errors: bool, default=True
-                if True the function will raise an error for missing basis coverage, else we return the missing data and just print warnings.
+        Args:
+            raise_errors: If `True` the function will raise an error for missing basis coverage, else we return the missing data and just print warnings.
         """
         import re
         import warnings
@@ -743,21 +730,24 @@ class BasicDataset(CommonBase):
         verbose: bool = False,
     ) -> Dict:
         """
-         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-         corresponding result class.
+        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
+        corresponding result class.
 
-         Parameters:
-         client : Union[str, qcportal.FractalClient]
-             The name of the file containing the client information or an actual client instance.
-         ignore_errors : bool, default=False
-             If the user wants to submit the compute regardless of errors set this to True. Mainly to override basis coverage.
+        Args:
+            client:
+                The name of the file containing the client information or an actual client instance.
+            threads:
+                The number of threads that should be used to submit the dataset in parallel.
+            ignore_errors:
+                If the user wants to submit the compute regardless of errors set this to `True`. Mainly to override basis coverage.
+            verbose:
+                If `True` display progress bars and feedback on the number of molecules added to the database.
 
+        Raises:
+            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
 
         Returns:
              A dictionary of the compute response from the client for each specification submitted.
-
-         Raises:
-             MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
         """
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -878,9 +868,15 @@ class BasicDataset(CommonBase):
         """
         Export the dataset to file so that it can be used to make another dataset quickly.
 
-        Parameters:
-            file_name: The name of the file the dataset should be wrote to.
-            compression: The type of compression that should be added to the export.
+        Args:
+            file_name:
+                The name of the file the dataset should be wrote to.
+            compression:
+                The type of compression that should be added to the export.
+
+        Raises:
+            UnsupportedFiletypeError: If the requested file type is not supported.
+
 
         Note:
             The supported file types are:
@@ -896,9 +892,6 @@ class BasicDataset(CommonBase):
 
             Check serializers.py for more details. Right now bz2 seems to
             produce the smallest files.
-
-        Raises:
-            UnsupportedFiletypeError: If the requested file type is not supported.
         """
 
         # Check here early, just to filter anything non-json for now
@@ -917,8 +910,9 @@ class BasicDataset(CommonBase):
         """
         Produce a coverage report of all of the parameters that are exercised by the molecules in the dataset.
 
-        Parameters:
-            forcefields: The name of the openforcefield force field which should be included in the coverage report.
+        Args:
+            forcefields:
+                The name of the openforcefield force field which should be included in the coverage report.
 
         Returns:
             A dictionary for each of the force fields which break down which parameters are exercised by their
@@ -970,10 +964,13 @@ class BasicDataset(CommonBase):
         """
         Create a pdf file of the molecules with any torsions highlighted using either openeye or rdkit.
 
-        Parameters:
-            file_name: The name of the pdf file which will be produced.
-            columns: The number of molecules per row.
-            toolkit: The backend toolkit to use when producing the pdf file.
+        Args:
+            file_name:
+                The name of the pdf file which will be produced.
+            columns:
+                The number of molecules per row.
+            toolkit:
+                The option to specify the backend toolkit used to produce the pdf file.
         """
 
         molecules = []
@@ -993,6 +990,12 @@ class BasicDataset(CommonBase):
     def molecules_to_file(self, file_name: str, file_type: str) -> None:
         """
         Write the molecules to the requested file type.
+
+        Args:
+            file_name:
+                The name of the file the molecules should be stored in.
+            file_type:
+                The file format that should be used to store the molecules.
 
         Important:
             The supported file types are:
@@ -1173,7 +1176,7 @@ class OptimizationDataset(BasicDataset):
         """
         Create the QC specification for the computation.
 
-        Parameters:
+        Args:
             spec_name: The name of the spec we want to convert to a QCSpecification
             keyword_id: The string of the keyword set id number.
 
@@ -1192,7 +1195,7 @@ class OptimizationDataset(BasicDataset):
 
         return qc_spec
 
-    def add_dataset_specification(
+    def _add_dataset_specification(
         self,
         spec: QCSpec,
         opt_spec: OptimizationSpecification,
@@ -1203,22 +1206,22 @@ class OptimizationDataset(BasicDataset):
         """
         Try to add the local qc specification to the given collection, this will check if a spec under this name has already been added and if it should be overwritten.
 
-        Parameters:
+        Args:
             spec: The QCSpec we are trying to add to the collection
             opt_spec: The qcportal style optimization spec
             collection: The collection we are trying to add this compute specification to
 
-        Notes:
-            If a specification is already stored under this name in the collection we have options:
-            - If a spec with the same name but different details has been added and used we must raise an error to change the name of the new spec
-            - If the spec has been added and has not been used then overwrite it.
+        Raises:
+            QCSpecificationError: If a specification with the same name is already added to the collection but has different settings.
 
         Returns:
             `True` if the specification is present in the collection and is exactly the same as what we are trying to add.
             `False` if no specification can be found in the collection with the given name.
 
-        Raises:
-             QCSpecificationError: If a specification with the same name is already added to the collection but has different settings.
+        Note:
+            If a specification is already stored under this name in the collection we have options:
+            - If a spec with the same name but different details has been added and used we must raise an error to change the name of the new spec
+            - If the spec has been added and has not been used then overwrite it.
         """
         # build the qcportal version of our spec
         kw_id = self._add_keywords(client=collection.client, spec=spec)
@@ -1259,20 +1262,23 @@ class OptimizationDataset(BasicDataset):
         verbose: bool = False,
     ) -> Dict:
         """
-         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-         corresponding result class.
+        Submit the dataset to the chosen QCArchive instance.
 
-         Parameters:
-             client: The name of the file containing the client information or the client instance.
-             threads: The number of threads used to contact the client.
-             ignore_errors: If the user wants to ignore basis coverage errors and submit the dataset.
-             verbose: If we should print out useful information during the submission or not.
+        Args:
+            client:
+                The name of the file containing the client information or the client instance.
+            threads:
+                The number of threads used to contact the client.
+            ignore_errors:
+                If the user wants to ignore basis coverage errors and submit the dataset.
+            verbose:
+                If we should print out useful information during the submission or not.
+
+        Raises:
+            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
 
         Returns:
-             A dictionary of the compute response from the client for each specification submitted.
-
-         Raises:
-             MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
+            A dictionary of the compute response from the client for each specification submitted.
         """
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -1309,7 +1315,7 @@ class OptimizationDataset(BasicDataset):
         opt_spec = self.optimization_procedure.get_optimzation_spec()
         # create the qc specification and add them all
         for spec in self.qc_specifications.values():
-            self.add_dataset_specification(
+            self._add_dataset_specification(
                 spec=spec, opt_spec=opt_spec, collection=collection
             )
 
@@ -1404,7 +1410,7 @@ class TorsiondriveDataset(OptimizationDataset):
 
     Important:
         The dihedral_ranges for the whole dataset can be defined here or if different scan ranges are required on a case
-         by case basis they can be defined for each torsion in a molecule separately in the keywords of the torsiondrive entry.
+        by case basis they can be defined for each torsion in a molecule separately in the keywords of the torsiondrive entry.
     """
 
     dataset_name = "TorsionDriveDataset"
@@ -1520,11 +1526,15 @@ class TorsiondriveDataset(OptimizationDataset):
         Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
         corresponding result class.
 
-        Parameters:
-            client: The name of the file containing the client information or the client instance.
-            threads: The number of threads used to connect with the client.
-            ignore_errors: If the user wants to ignore basis coverage issues and submit the dataset.
-            verbose: If help messages should be printed while submitting the dataset.
+        Args:
+            client:
+                The name of the file containing the client information or the client instance.
+            threads:
+                The number of threads used to connect with the client.
+            ignore_errors:
+                If the user wants to ignore basis coverage issues and submit the dataset.
+            verbose:
+                If help messages should be printed while submitting the dataset.
 
 
         Returns:
@@ -1564,7 +1574,7 @@ class TorsiondriveDataset(OptimizationDataset):
         opt_spec = self.optimization_procedure.get_optimzation_spec()
         # create the qc specification for each spec
         for spec in self.qc_specifications.values():
-            self.add_dataset_specification(
+            self._add_dataset_specification(
                 spec=spec, opt_spec=opt_spec, collection=collection
             )
 
