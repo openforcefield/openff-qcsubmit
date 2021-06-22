@@ -24,6 +24,7 @@ instance), as well as to retrieve already computed datasets.
    :caption: Examples
 
    Creating Datasets <examples/creating-datasets.ipynb>
+   Retrieving Results <examples/retrieving-results.ipynb>
 
 .. toctree::
    :maxdepth: 2
