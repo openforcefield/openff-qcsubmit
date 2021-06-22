@@ -18,7 +18,7 @@ dependencies:
   - ipython
 
     # Standard dependencies
-#  - openff-toolkit-base  MOCKED
+  - openff-toolkit-base
 #  - rdkit                MOCKED
   - pydantic
   - pyyaml
