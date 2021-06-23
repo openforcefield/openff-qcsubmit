@@ -1,17 +1,35 @@
 import abc
+import copy
+import itertools
 import logging
 from collections import defaultdict
-from typing import List, Optional, Set, TypeVar
+from tempfile import NamedTemporaryFile
+from typing import List, Optional, Set, Tuple, TypeVar, Union
 
 import numpy
 from openff.toolkit.topology import Molecule
-from pydantic import BaseModel, Field, PrivateAttr, root_validator
+from openff.toolkit.utils import (
+    OpenEyeToolkitWrapper,
+    RDKitToolkitWrapper,
+    UndefinedStereochemistryError,
+)
+from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
-from qcportal.models.records import RecordBase, RecordStatusEnum
+from qcportal.models.records import (
+    OptimizationRecord,
+    RecordBase,
+    RecordStatusEnum,
+    ResultRecord,
+)
 from simtk import unit
 from typing_extensions import Literal
 
-from openff.qcsubmit.results.results import _BaseResult, _BaseResultCollection
+from openff.qcsubmit.results.results import (
+    TorsionDriveResultCollection,
+    _BaseResult,
+    _BaseResultCollection,
+)
+from openff.qcsubmit.validators import check_allowed_elements
 
 T = TypeVar("T", bound=_BaseResultCollection)
 
@@ -25,7 +43,7 @@ class ResultFilter(BaseModel, abc.ABC):
 
     @abc.abstractmethod
     def _apply(self, result_collection: "T") -> "T":
-        """The internal implementation of thr ``apply`` method which should apply this
+        """The internal implementation of the ``apply`` method which should apply this
         filter to a results collection and return a new collection containing only the
         retained entries.
 
@@ -147,6 +165,259 @@ class ResultRecordFilter(ResultFilter, abc.ABC):
         return result_collection
 
 
+class ResultRecordGroupFilter(ResultFilter, abc.ABC):
+    """The base class for filters which reduces repeated molecule entries down to a single
+    entry.
+
+    Notes:
+        * This filter will only be applied to basic and optimization datasets.
+          Torsion drive datasets / entries will be skipped.
+    """
+
+    @abc.abstractmethod
+    def _filter_function(
+        self, entries: List[Tuple["_BaseResult", RecordBase, Molecule, str]]
+    ) -> List[Tuple["_BaseResult", str]]:
+        """A method which should reduce a set of results down to a single entry based on
+        some property of the QC calculation.
+        """
+        raise NotImplementedError()
+
+    def _apply(self, result_collection: "T") -> "T":
+
+        # do nothing for torsiondrives
+        if isinstance(result_collection, TorsionDriveResultCollection):
+            return result_collection
+
+        all_records_and_molecules = {
+            record.id: [record, molecule, record.client.address]
+            for record, molecule in result_collection.to_records()
+        }
+
+        entries_by_inchikey = defaultdict(list)
+
+        for entries in result_collection.entries.values():
+            for entry in entries:
+                entries_by_inchikey[entry.inchi_key].append(entry)
+
+        filtered_results = defaultdict(list)
+
+        for entries in entries_by_inchikey.values():
+
+            results_and_addresses = self._filter_function(
+                [
+                    (entry, *all_records_and_molecules[entry.record_id])
+                    for entry in entries
+                ]
+            )
+
+            for result, address in results_and_addresses:
+                filtered_results[address].append(result)
+
+        result_collection.entries = filtered_results
+
+        return result_collection
+
+
+class LowestEnergyFilter(ResultRecordGroupFilter):
+    """Filter the results collection and only keep the lowest energy entries.
+
+    Notes:
+        * This filter will only be applied to basic and optimization datasets.
+          Torsion drive datasets / entries will be skipped.
+    """
+
+    def _filter_function(
+        self,
+        entries: List[
+            Tuple["_BaseResult", Union[ResultRecord, OptimizationRecord], Molecule, str]
+        ],
+    ) -> List[Tuple["_BaseResult", str]]:
+        """Only return the lowest energy entry or final molecule."""
+        low_entry, low_energy, low_address = None, 99999999999, ""
+        for entry, rec, _, address in entries:
+            try:
+                energy = rec.get_final_energy()
+            except AttributeError:
+                energy = rec.properties.return_energy
+            if energy < low_energy:
+                low_entry = entry
+                low_energy = energy
+                low_address = address
+
+        return [(low_entry, low_address)]
+
+
+class ConformerRMSDFilter(ResultRecordGroupFilter):
+    """A filter which will retain up to a maximum number of conformers for each unique
+    molecule (as determined by an entries InChI key) which are distinct to within a
+    specified RMSD tolerance.
+
+    Notes:
+        * This filter will only be applied to basic and optimization datasets.
+          Torsion drive datasets / entries will be skipped.
+        * A greedy selection algorithm is used to select conformers which are most
+          distinct in terms of their RMSD values.
+    """
+
+    max_conformers: int = Field(
+        10,
+        description="The maximum number of conformers to retain for each unique molecule.",
+    )
+
+    rmsd_tolerance: float = Field(
+        0.5,
+        description="The minimum RMSD [A] between two conformers for them to be "
+        "considered distinct.",
+    )
+    heavy_atoms_only: bool = Field(
+        True,
+        description="Whether to only consider heavy atoms when computing the RMSD "
+        "between two conformers.",
+    )
+    check_automorphs: bool = Field(
+        True,
+        description="Whether to consider automorphs when computing the RMSD between two "
+        "conformers. Setting this option to ``True`` may slow down the filter "
+        "considerably if ``heavy_atoms_only`` is set to ``False``.",
+    )
+
+    def _compute_rmsd_matrix_rd(self, molecule: Molecule) -> numpy.ndarray:
+        """Computes the RMSD between all conformers stored on a molecule using an RDKit
+        backend."""
+
+        from rdkit import Chem
+        from rdkit.Chem import AllChem
+
+        rdkit_molecule: Chem.RWMol = molecule.to_rdkit()
+
+        if self.heavy_atoms_only:
+            rdkit_molecule = Chem.RemoveHs(rdkit_molecule)
+
+        n_conformers = len(molecule.conformers)
+        conformer_ids = [conf.GetId() for conf in rdkit_molecule.GetConformers()]
+
+        rmsd_matrix = numpy.zeros((n_conformers, n_conformers))
+
+        for i, j in itertools.combinations(conformer_ids, 2):
+
+            if self.check_automorphs:
+
+                rmsd_matrix[i, j] = AllChem.GetBestRMS(
+                    rdkit_molecule,
+                    rdkit_molecule,
+                    conformer_ids[i],
+                    conformer_ids[j],
+                )
+
+            else:
+
+                rmsd_matrix[i, j] = AllChem.GetConformerRMS(
+                    rdkit_molecule,
+                    conformer_ids[i],
+                    conformer_ids[j],
+                )
+
+        rmsd_matrix += rmsd_matrix.T
+        return rmsd_matrix
+
+    def _compute_rmsd_matrix_oe(self, molecule: Molecule) -> numpy.ndarray:
+        """Computes the RMSD between all conformers stored on a molecule using an OpenEye
+        backend."""
+
+        from openeye import oechem
+
+        oe_molecule: oechem.OEMol = molecule.to_openeye()
+        oe_conformers = {
+            i: oe_conformer for i, oe_conformer in enumerate(oe_molecule.GetConfs())
+        }
+
+        n_conformers = len(molecule.conformers)
+
+        rmsd_matrix = numpy.zeros((n_conformers, n_conformers))
+
+        for i, j in itertools.combinations([*oe_conformers], 2):
+
+            rmsd_matrix[i, j] = oechem.OERMSD(
+                oe_conformers[i],
+                oe_conformers[j],
+                self.check_automorphs,
+                self.heavy_atoms_only,
+                True,
+            )
+
+        rmsd_matrix += rmsd_matrix.T
+        return rmsd_matrix
+
+    def _compute_rmsd_matrix(self, molecule: Molecule) -> numpy.ndarray:
+        """Computes the RMSD between all conformers stored on a molecule."""
+
+        try:
+            rmsd_matrix = self._compute_rmsd_matrix_rd(molecule)
+        except ModuleNotFoundError:
+            rmsd_matrix = self._compute_rmsd_matrix_oe(molecule)
+
+        return rmsd_matrix
+
+    def _filter_function(
+        self,
+        entries: List[
+            Tuple["_BaseResult", Union[ResultRecord, OptimizationRecord], Molecule, str]
+        ],
+    ) -> List[Tuple["_BaseResult", str]]:
+
+        # Sanity check that all molecules look as we expect.
+        assert all(molecule.n_conformers == 1 for _, _, molecule, _ in entries)
+
+        # Condense the conformers into a single molecule.
+        conformers = [
+            molecule.canonical_order_atoms().conformers[0]
+            for _, _, molecule, _ in entries
+        ]
+
+        [_, _, molecule, _] = entries[0]
+
+        molecule = copy.deepcopy(molecule)
+        molecule._conformers = conformers
+
+        rmsd_matrix = self._compute_rmsd_matrix(molecule)
+
+        # Select a set N maximally diverse conformers which are distinct in terms
+        # of the RMSD tolerance.
+
+        # Apply the greedy selection process.
+        closed_list = numpy.zeros(self.max_conformers).astype(int)
+        closed_mask = numpy.zeros(rmsd_matrix.shape[0], dtype=bool)
+
+        n_selected = 1
+
+        for i in range(min(molecule.n_conformers, self.max_conformers - 1)):
+
+            distances = rmsd_matrix[closed_list[: i + 1], :].sum(axis=0)
+
+            # Exclude already selected conformers or conformers which are too similar
+            # to those already selected.
+            closed_mask[
+                numpy.any(
+                    rmsd_matrix[closed_list[: i + 1], :] < self.rmsd_tolerance, axis=0
+                )
+            ] = True
+
+            if numpy.all(closed_mask):
+                # Stop of there are no more distinct conformers to select from.
+                break
+
+            distant_index = numpy.ma.array(distances, mask=closed_mask).argmax()
+            closed_list[i + 1] = distant_index
+
+            n_selected += 1
+
+        return [
+            (entries[i.item()][0], entries[i.item()][-1])
+            for i in closed_list[:n_selected]
+        ]
+
+
 class SMILESFilter(CMILESResultFilter):
     """A filter which will remove or retain records which were computed for molecules
     described by specific SMILES patterns.
@@ -186,7 +457,9 @@ class SMILESFilter(CMILESResultFilter):
 
     @staticmethod
     def _smiles_to_inchi_key(smiles: str) -> str:
-        return Molecule.from_smiles(smiles).to_inchikey(fixed_hydrogens=False)
+        return Molecule.from_smiles(smiles, allow_undefined_stereo=True).to_inchikey(
+            fixed_hydrogens=False
+        )
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
 
@@ -252,7 +525,9 @@ class SMARTSFilter(CMILESResultFilter):
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
 
-        molecule: Molecule = Molecule.from_mapped_smiles(entry.cmiles)
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
 
         if self.smarts_to_include is not None:
 
@@ -265,6 +540,85 @@ class SMARTSFilter(CMILESResultFilter):
             len(molecule.chemical_environment_matches(smarts)) == 0
             for smarts in self.smarts_to_exclude
         )
+
+
+class ChargeFilter(CMILESResultFilter):
+    """A filter which will only retain records if their formal charge matches allowed values or is not in the
+    exclude list."""
+
+    charges_to_include: Optional[List[int]] = Field(
+        None,
+        description="Only molecules with a net formal charge in this list will be kept. "
+        "This option is mutually exclusive with ``charges_to_exclude``.",
+    )
+
+    charges_to_exclude: Optional[List[int]] = Field(
+        None,
+        description="Any molecules with a net formal charge which matches any of these values will be removed. "
+        "This option is mutually exclusive with ``charges_to_include``.",
+    )
+
+    @root_validator
+    def _validate_mutually_exclusive(cls, values):
+        charges_to_include = values.get("charges_to_include")
+        charges_to_exclude = values.get("charges_to_exclude")
+
+        message = (
+            "exactly one of `charges_to_include` and `charges_to_exclude` must be "
+            "specified"
+        )
+
+        assert charges_to_include is not None or charges_to_exclude is not None, message
+        assert charges_to_include is None or charges_to_exclude is None, message
+
+        return values
+
+    def _filter_function(self, entry: "_BaseResult") -> bool:
+
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
+        total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+
+        if self.charges_to_include is not None:
+
+            return total_charge in self.charges_to_include
+
+        return total_charge not in self.charges_to_exclude
+
+
+class ElementFilter(CMILESResultFilter):
+    """A filter which will only retain records that contain the requested elements."""
+
+    _allowed_atomic_numbers: Optional[Set[int]] = PrivateAttr(None)
+
+    allowed_elements: List[Union[int, str]] = Field(
+        ...,
+        description="The list of allowed elements as symbols or atomic number ints.",
+    )
+
+    _check_elements = validator("allowed_elements", each_item=True, allow_reuse=True)(
+        check_allowed_elements
+    )
+
+    def _filter_function(self, entry: "_BaseResult") -> bool:
+        molecule: Molecule = Molecule.from_mapped_smiles(
+            entry.cmiles, allow_undefined_stereo=True
+        )
+        # get a set of atomic numbers
+        mol_atoms = {atom.atomic_number for atom in molecule.atoms}
+        # get the difference between mol atoms and allowed atoms
+        return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
+
+    def _apply(self, result_collection: "T") -> "T":
+        from simtk.openmm.app import Element
+
+        self._allowed_atomic_numbers = {
+            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
+            for ele in self.allowed_elements
+        }
+
+        return super(ElementFilter, self)._apply(result_collection)
 
 
 class HydrogenBondFilter(ResultRecordFilter):
@@ -377,3 +731,52 @@ class RecordStatusFilter(ResultRecordFilter):
     ) -> bool:
 
         return record.status.value.upper() == self.status.value.upper()
+
+
+class UnperceivableStereoFilter(ResultRecordFilter):
+    """A filter which will drop any records computed for molecules whose stereochemistry
+    cannot be perceived from the associated 3D conformers when re-loading the molecule
+    from an SDF file using the OpenFF toolkit.
+
+    This filter is mainly useful for catching edge cases whereby the stereochemistry
+    perceived by an underlying cheminformatics toolkit does not match what the OpenFF
+    toolkit expects.
+    """
+
+    toolkits: List[Literal["openeye", "rdkit"]] = Field(
+        ["openeye", "rdkit"],
+        description="The OpenFF toolkit registries that should be able to perceive "
+        "the stereochemistry of each conformer.",
+    )
+
+    def _filter_function(self, result, record, molecule) -> bool:
+
+        has_stereochemistry = True
+
+        try:
+
+            for toolkit_name in self.toolkits:
+
+                if toolkit_name == "openeye":
+                    toolkit_registry = OpenEyeToolkitWrapper()
+                elif toolkit_name == "rdkit":
+                    toolkit_registry = RDKitToolkitWrapper()
+                else:
+                    raise NotImplementedError()
+
+                for conformer in molecule.conformers:
+
+                    stereo_molecule = copy.deepcopy(molecule)
+                    stereo_molecule._conformers = [conformer]
+
+                    with NamedTemporaryFile(suffix=".sdf") as file:
+
+                        stereo_molecule.to_file(file.name, "SDF")
+                        stereo_molecule.from_file(
+                            file.name, toolkit_registry=toolkit_registry
+                        )
+
+        except UndefinedStereochemistryError:
+            has_stereochemistry = False
+
+        return has_stereochemistry

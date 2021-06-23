@@ -1,6 +1,8 @@
 """
 Test the results packages when collecting from the public qcarchive.
 """
+import os.path
+
 import numpy
 import pytest
 from openff.toolkit.topology import Molecule
@@ -22,6 +24,7 @@ from qcportal.models.records import RecordStatusEnum
 from qcportal.models.torsiondrive import TDKeywords
 from simtk import unit
 
+from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results import (
     BasicResult,
@@ -36,6 +39,18 @@ from openff.qcsubmit.results.results import (
     _BaseResultCollection,
 )
 from openff.qcsubmit.tests import does_not_raise
+
+
+class MockServerInfo:
+
+    def dict(self):
+        return {
+            "name": "Mock",
+            "query_limit": 2000,
+            "version": "0.0.0",
+            "client_lower_version_limit": "0.0.0",
+            "client_upper_version_limit": "10.0.0",
+        }
 
 
 def test_base_molecule_property():
@@ -343,29 +358,65 @@ def test_to_records(collection, record, monkeypatch):
         assert molecule.n_conformers == 1
 
 
-# def test_optimization_create_basic_dataset(public_client):
-#     """
-#     Test creating a new basicdataset from the result of an optimization dataset.
-#     """
-#     result = OptimizationCollectionResult.from_server(
-#         client=public_client,
-#         spec_name="default",
-#         dataset_name="OpenFF Gen 2 Opt Set 1 Roche",
-#         include_trajectory=True,
-#         final_molecule_only=False,
-#         subset=["cn1c(cccc1=o)c2ccccc2oc-0"])
-#     new_dataset = result.create_basic_dataset(dataset_name="new basicdataset",
-#                                               description="test new optimizationdataset",
-#                                               tagline='new optimization dataset',
-#                                               driver="energy")
-#     assert new_dataset.dataset_name == "new basicdataset"
-#     assert new_dataset.n_molecules == 1
-#     assert new_dataset.n_records == 1
-#     result_geom = result.collection["Cn1c(cccc1=O)c2ccccc2OC"].entries[0].final_molecule.molecule.geometry
-#     # make sure the geometry is correct
-#     assert new_dataset.dataset["cn1c(cccc1=o)c2ccccc2oc-0"].initial_molecules[0].geometry.all() == result_geom.all()
-#
-#
+def test_optimization_create_basic_dataset(optimization_result_collection):
+    """
+    Test creating a new ``BasicDataset`` from the result of an optimization dataset.
+    """
+
+    dataset = optimization_result_collection.create_basic_dataset(
+        dataset_name="new basicdataset",
+        description="test new optimizationdataset",
+        tagline='new optimization dataset',
+        driver="energy",
+        qc_specs=[QCSpec(spec_name="some-name", basis="6-31G")]
+    )
+
+    assert len(dataset.qc_specifications) == 1
+    assert {*dataset.qc_specifications} == {"some-name"}
+    assert dataset.qc_specifications["some-name"].basis == "6-31G"
+
+    assert dataset.dataset_name == "new basicdataset"
+    assert dataset.n_molecules == 4
+    assert dataset.n_records == 4  # the collection contains 1 duplicate so not 4 not 5.
+
+    
+def test_optimization_to_basic_result_collection(
+    optimization_result_collection, monkeypatch
+):
+
+    def mock_automodel_request(*args, **kwargs):
+        return MockServerInfo()
+
+    def mock_query_results(*args, **kwargs):
+
+        assert "program" in kwargs and kwargs["program"] == "psi4"
+        assert "method" in kwargs and kwargs["method"] == "scf"
+        assert "basis" in kwargs and kwargs["basis"] == "sto-3g"
+        assert "driver" in kwargs and kwargs["driver"] == "hessian"
+
+        return [
+            ResultRecord(
+                id=ObjectId("1"),
+                program=kwargs["program"],
+                driver=getattr(DriverEnum, kwargs["driver"]),
+                method=kwargs["method"],
+                basis=kwargs["basis"],
+                molecule=kwargs["molecule"][0],
+                status=RecordStatusEnum.complete,
+            )
+        ]
+
+    monkeypatch.setattr(FractalClient, "_automodel_request", mock_automodel_request)
+    monkeypatch.setattr(FractalClient, "query_results", mock_query_results)
+
+    basic_collection = optimization_result_collection.to_basic_result_collection(
+        "hessian"
+    )
+
+    assert basic_collection.n_results == 2
+    assert basic_collection.n_molecules == 2
+
+
 # def test_torsion_drive_create_optimization_dataset(public_client):
 #     """
 #     Tast making a new optimization dataset of constrained optimizations from the results of a torsiondrive dataset.
@@ -395,3 +446,24 @@ def test_to_records(collection, record, monkeypatch):
 #     dihs = sorted(dihedrals)
 #     refs = [x for x in range(-165, 195, 15)]
 #     assert dihs == refs
+
+
+def test_visualize(tmpdir):
+
+    collection = BasicResultCollection(
+        entries={
+            "https://api.qcarchive.molssi.org:443/": [
+                BasicResult(
+                    record_id=ObjectId("1"),
+                    cmiles="[Cl:1][Cl:2]",
+                    inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
+                )
+            ]
+        }
+    )
+
+    output_path = os.path.join(tmpdir, "output.pdf")
+    collection.visualize(output_path)
+
+    assert os.path.isfile(output_path)
+    assert os.path.getsize(output_path) > 0

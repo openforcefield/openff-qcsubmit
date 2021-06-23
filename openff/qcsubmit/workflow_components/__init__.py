@@ -1,4 +1,5 @@
 from openff.qcsubmit.workflow_components.base import (
+    Components,
     deregister_component,
     get_component,
     list_components,
@@ -20,7 +21,10 @@ from openff.qcsubmit.workflow_components.filters import (
     RotorFilter,
     SmartsFilter,
 )
-from openff.qcsubmit.workflow_components.fragmentation import WBOFragmenter
+from openff.qcsubmit.workflow_components.fragmentation import (
+    PfizerFragmenter,
+    WBOFragmenter,
+)
 from openff.qcsubmit.workflow_components.state_enumeration import (
     EnumerateProtomers,
     EnumerateStereoisomers,

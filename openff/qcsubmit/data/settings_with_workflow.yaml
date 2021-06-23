@@ -20,3 +20,4 @@ workflow:
     component_name: StandardConformerGenerator
     max_conformers: 20
     toolkit: openeye
+    type: StandardConformerGenerator

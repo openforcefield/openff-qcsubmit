@@ -26,17 +26,21 @@ from qcportal.collections.dataset import Dataset, MoleculeEntry
 from qcportal.models import OptimizationRecord, ResultRecord, TorsionDriveRecord
 from qcportal.models.common_models import DriverEnum, ObjectId
 from qcportal.models.records import RecordBase
+from qcportal.models.rest_models import QueryStr
 from typing_extensions import Literal
 
-from openff.qcsubmit.common_structures import Metadata
+from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results.caching import (
+    batched_indices,
+    cached_fractal_client,
     cached_query_basic_results,
     cached_query_molecules,
     cached_query_optimization_results,
     cached_query_torsion_drive_results,
 )
+from openff.qcsubmit.utils.visualize import molecules_to_pdf
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.filters import ResultFilter
@@ -72,7 +76,7 @@ class _BaseResult(BaseModel, abc.ABC):
         """Returns an OpenFF molecule object created from this records
         CMILES which is in the correct order to align with the QCArchive records.
         """
-        return Molecule.from_mapped_smiles(self.cmiles)
+        return Molecule.from_mapped_smiles(self.cmiles, allow_undefined_stereo=True)
 
 
 class _BaseResultCollection(BaseModel, abc.ABC):
@@ -214,6 +218,39 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             filtered_collection = collection_filter.apply(filtered_collection)
 
         return filtered_collection
+
+    def visualize(
+        self,
+        file_name: str,
+        columns: int = 4,
+        toolkit: Optional[Literal["openeye", "rdkit"]] = None,
+    ) -> None:
+        """
+        Create a pdf file of the molecules referenced by this collection using either
+        OpenEye or RDKit.
+
+        Parameters:
+            file_name: The name of the pdf file which will be produced.
+            columns: The number of molecules per row.
+            toolkit: The backend toolkit to use when producing the pdf file.
+        """
+
+        # We filter by inchi key to make sure that we don't double count molecules
+        # with different orderings.
+        unique_smiles = set(
+            {
+                entry.inchi_key: entry.cmiles
+                for entries in self.entries.values()
+                for entry in entries
+            }.values()
+        )
+
+        molecules = [
+            Molecule.from_smiles(smiles, allow_undefined_stereo=True)
+            for smiles in unique_smiles
+        ]
+
+        molecules_to_pdf(molecules, file_name, columns, toolkit)
 
 
 class BasicResult(_BaseResult):
@@ -362,14 +399,14 @@ class BasicResultCollection(_BaseResultCollection):
 
 class OptimizationResult(_BaseResult):
     """A class which stores a reference to, and allows the retrieval of, data from
-    a single result record stored in a QCFractal instance."""
+    a single optimization result record stored in a QCFractal instance."""
 
     type: Literal["optimization"] = "optimization"
 
 
 class OptimizationResultCollection(_BaseResultCollection):
     """A class which stores a reference to, and allows the retrieval of, data from
-    a single result record stored in a QCFractal instance."""
+    a single optimization result record stored in a QCFractal instance."""
 
     entries: Dict[str, List[OptimizationResult]] = Field(
         ...,
@@ -411,7 +448,8 @@ class OptimizationResultCollection(_BaseResultCollection):
                         inchi_key=entry.attributes["inchi_key"],
                     )
                     for entry in dataset.data.records.values()
-                    if query[entry.name].status.value.upper() == "COMPLETE"
+                    if entry.name in query
+                    and query[entry.name].status.value.upper() == "COMPLETE"
                 }
             )
 
@@ -462,6 +500,73 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
+    def to_basic_result_collection(
+        self, driver: Optional[QueryStr] = None
+    ) -> BasicResultCollection:
+        """Returns a basic results collection which references results records which
+        were created from the *final* structure of one of the optimizations in this
+        collection, and used the same program, method, and basis as the parent
+        optimization record.
+
+        Args:
+            driver: Optionally specify the driver to filter by.
+
+        Returns:
+            The results collection referencing records created from the final optimized
+            structures referenced by this collection.
+        """
+
+        records_and_molecules = self.to_records()
+
+        final_molecule_ids = defaultdict(lambda: defaultdict(list))
+        final_molecules = defaultdict(dict)
+
+        for record, molecule in records_and_molecules:
+
+            spec = (record.qc_spec.program, record.qc_spec.method, record.qc_spec.basis)
+
+            final_molecule_ids[record.client.address][spec].append(
+                record.final_molecule
+            )
+            final_molecules[record.client.address][record.final_molecule] = molecule
+
+        result_entries = defaultdict(list)
+
+        for client_address in final_molecule_ids:
+
+            client = cached_fractal_client(client_address)
+
+            result_records = [
+                record
+                for (program, method, basis), molecules_ids in final_molecule_ids[
+                    client_address
+                ].items()
+                for batch_ids in batched_indices(molecules_ids, client.query_limit)
+                for record in client.query_results(
+                    molecule=batch_ids,
+                    driver=driver,
+                    program=program,
+                    method=method,
+                    basis=basis,
+                )
+            ]
+
+            for record in result_records:
+
+                molecule = final_molecules[client_address][record.molecule]
+
+                result_entries[client_address].append(
+                    BasicResult(
+                        record_id=record.id,
+                        cmiles=molecule.to_smiles(
+                            isomeric=True, explicit_hydrogens=True, mapped=True
+                        ),
+                        inchi_key=molecule.to_inchikey(),
+                    )
+                )
+
+        return BasicResultCollection(entries=result_entries)
+
     def create_basic_dataset(
         self,
         dataset_name: str,
@@ -469,6 +574,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         tagline: str,
         driver: DriverEnum,
         metadata: Optional[Metadata] = None,
+        qc_specs: Optional[List[QCSpec]] = None,
     ) -> BasicDataset:
         """Create a basic dataset from the results of the current dataset.
 
@@ -480,25 +586,53 @@ class OptimizationResultCollection(_BaseResultCollection):
             dataset_name: The name that will be given to the new dataset.
             tagline: The tagline that should be given to the new dataset.
             description: The description that should be given to the new dataset.
-            metadata: The metadata for the new dataset.
             driver: The driver to be used on the basic dataset.
+            metadata: The metadata for the new dataset.
+            qc_specs: The QC specifications to be used on the new dataset. If no value
+                is provided, the default OpenFF QCSpec will be added.
 
         Returns:
             The created basic dataset.
         """
-        raise NotImplementedError()
+
+        records = self.to_records()
+
+        dataset = BasicDataset(
+            dataset_name=dataset_name,
+            description=description,
+            dataset_tagline=tagline,
+            driver=driver,
+            metadata={} if metadata is None else metadata,
+            qc_specifications={"default": QCSpec()}
+            if qc_specs is None
+            else {qc_spec.spec_name: qc_spec for qc_spec in qc_specs},
+        )
+
+        for record, molecule in records:
+
+            dataset.add_molecule(
+                index=molecule.to_smiles(
+                    isomeric=True, explicit_hydrogens=False, mapped=False
+                ),
+                molecule=molecule,
+                attributes=MoleculeAttributes.from_openff_molecule(molecule),
+                extras=record.extras,
+                keywords=record.keywords,
+            )
+
+        return dataset
 
 
 class TorsionDriveResult(_BaseResult):
     """A class which stores a reference to, and allows the retrieval of, data from
-    a single result record stored in a QCFractal instance."""
+    a single torsion drive result record stored in a QCFractal instance."""
 
     type: Literal["torsion"] = "torsion"
 
 
 class TorsionDriveResultCollection(_BaseResultCollection):
     """A class which stores a reference to, and allows the retrieval of, data from
-    a single result record stored in a QCFractal instance."""
+    a single torsion drive result record stored in a QCFractal instance."""
 
     entries: Dict[str, List[TorsionDriveResult]] = Field(
         ...,
@@ -540,7 +674,8 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                         inchi_key=entry.attributes["inchi_key"],
                     )
                     for entry in dataset.data.records.values()
-                    if query[entry.name].status.value.upper() == "COMPLETE"
+                    if entry.name in query
+                    and query[entry.name].status.value.upper() == "COMPLETE"
                 }
             )
 
@@ -592,27 +727,27 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
-    def create_optimization_dataset(
-        self,
-        dataset_name: str,
-        description: str,
-        tagline: str,
-        metadata: Optional[Metadata] = None,
-    ) -> OptimizationDataset:
-        """Create an optimization dataset from the results of the current torsion drive
-        dataset. This will result in many constrained optimizations for each molecule.
-
-        Note:
-            The final geometry of each torsiondrive constrained optimization is supplied
-            as a starting geometry.
-
-        Parameters:
-            dataset_name: The name that will be given to the new dataset.
-            tagline: The tagline that should be given to the new dataset.
-            description: The description that should be given to the new dataset.
-            metadata: The metadata for the new dataset.
-
-        Returns:
-            The created optimization dataset.
-        """
-        raise NotImplementedError()
+    # def create_optimization_dataset(
+    #     self,
+    #     dataset_name: str,
+    #     description: str,
+    #     tagline: str,
+    #     metadata: Optional[Metadata] = None,
+    # ) -> OptimizationDataset:
+    #     """Create an optimization dataset from the results of the current torsion drive
+    #     dataset. This will result in many constrained optimizations for each molecule.
+    #
+    #     Note:
+    #         The final geometry of each torsiondrive constrained optimization is supplied
+    #         as a starting geometry.
+    #
+    #     Parameters:
+    #         dataset_name: The name that will be given to the new dataset.
+    #         tagline: The tagline that should be given to the new dataset.
+    #         description: The description that should be given to the new dataset.
+    #         metadata: The metadata for the new dataset.
+    #
+    #     Returns:
+    #         The created optimization dataset.
+    #     """
+    #     raise NotImplementedError()

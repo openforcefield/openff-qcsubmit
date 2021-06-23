@@ -297,9 +297,9 @@ def test_adding_specifications(fractal_compute_server):
     ds = client.get_collection(opt_dataset.dataset_type, opt_dataset.dataset_name)
 
     # now try and add the specification again this should return True
-    assert opt_dataset.add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
-                                                 opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                 collection=ds) is True
+    assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
+                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  collection=ds) is True
 
     # now change part of the spec but keep the name the same
     opt_dataset.clear_qcspecs()
@@ -308,24 +308,24 @@ def test_adding_specifications(fractal_compute_server):
 
     # now try and add this specification with the same name but different settings
     with pytest.raises(QCSpecificationError):
-        opt_dataset.add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
-                                              opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                              collection=ds)
+        opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
+                                               opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                               collection=ds)
 
     # now add a new specification but no compute and make sure it is overwritten
     opt_dataset.clear_qcspecs()
     opt_dataset.add_qc_spec(method="ani1x", basis=None, program="torchani", spec_name="ani", spec_description="a ani spec")
-    assert opt_dataset.add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
-                                                 opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                 collection=ds) is True
+    assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
+                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  collection=ds) is True
 
     # now change the spec slightly and add again
     opt_dataset.clear_qcspecs()
     opt_dataset.add_qc_spec(method="ani1ccx", basis=None, program="torchani", spec_name="ani",
                             spec_description="a ani spec")
-    assert opt_dataset.add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
-                                                 opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                 collection=ds) is True
+    assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
+                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  collection=ds) is True
 
 
 @pytest.mark.parametrize("dataset_data", [
@@ -842,7 +842,7 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test ignore_error for {factory.factory_type}",
+    dataset = factory.create_dataset(dataset_name=f"Test ignore_error for {factory.type}",
                                      molecules=molecule,
                                      description="Test ignore errors dataset",
                                      tagline="Testing ignore errors datasets",
@@ -880,7 +880,7 @@ def test_index_not_changed(fractal_compute_server, factory_type):
     molecule = Molecule.from_smiles("C")
     # make sure we only have one conformer
     molecule.generate_conformers(n_conformers=1)
-    dataset = factory.create_dataset(dataset_name=f"Test index change for {factory.factory_type}",
+    dataset = factory.create_dataset(dataset_name=f"Test index change for {factory.type}",
                                      molecules=molecule,
                                      description="Test index change dataset",
                                      tagline="Testing index changes datasets",
@@ -920,7 +920,7 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test index clash for {factory.factory_type}",
+    dataset = factory.create_dataset(dataset_name=f"Test index clash for {factory.type}",
                                      molecules=molecule,
                                      description="Test ignore errors dataset",
                                      tagline="Testing ignore errors datasets",
@@ -957,7 +957,7 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default",
                         spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.factory_type}",
+    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.type}",
                                      molecules=molecule,
                                      description="Test compute expansion",
                                      tagline="Testing compute expansion",
@@ -976,7 +976,7 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     # add only mm specs
     factory.add_qc_spec(method="openff-1.2.0", basis="smirnoff", program="openmm", spec_name="parsley2",
                         spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.factory_type}",
+    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.type}",
                                      molecules=[],
                                      description="Test compute expansion",
                                      tagline="Testing compute expansion",
