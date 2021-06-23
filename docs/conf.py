@@ -44,6 +44,7 @@ extensions = [
     'nbsphinx_link',
     'sphinxcontrib.bibtex',
     'sphinxcontrib.autodoc_pydantic',
+    'openff_sphinx_theme',
 ]
 
 source_suffix = '.rst'
@@ -103,11 +104,29 @@ mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
 
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'openff_sphinx_theme'
+html_sidebars = {"**": ["globaltoc.html", "localtoc.html", "searchbox.html"]}
 
 html_theme_options = {
-    'prev_next_buttons_location': None,
-    'sticky_navigation': False
+    # Repository integration
+    # Set the repo url for the link to appear
+    "repo_url": "https://github.com/openforcefield/openff-qcsubmit",
+    # The name of the repo. If must be set if repo_url is set
+    "repo_name": "openff-qcsubmit",
+    # Must be one of github, gitlab or bitbucket
+    "repo_type": "github",
+    # Colour for sidebar captions and other accents. One of
+    # openff-blue, openff-toolkit-blue, openff-dataset-yellow,
+    # openff-evaluator-orange, aquamarine, lilac, amaranth, grape,
+    # violet, pink, pale-green, green, crimson, eggplant, turquoise,
+    # or a tuple of three ints in the range [0, 255] corresponding to
+    # a position in RGB space.
+    "color_accent": "openff-dataset-yellow",
+    # Content Minification for deployment, prettification for debugging
+    "html_minify": True,
+    "html_prettify": False,
+    "css_minify": True,
+    "globaltoc_includehidden": True,
 }
 
 html_static_path = ['_static']
@@ -117,6 +136,7 @@ html_context = {
         '_static/css/theme_overrides.css',  # override wide tables in RTD theme
     ],
 }
+
 
 # -- Options for HTMLHelp output ---------------------------------------------
 

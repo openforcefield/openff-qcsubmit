@@ -12,7 +12,6 @@ dependencies:
   # Sphinx specific
   - nbsphinx
   - nbsphinx-link
-  - sphinx_rtd_theme
   - sphinxcontrib-bibtex
   - pandoc
   - ipython
@@ -30,3 +29,4 @@ dependencies:
 
   - pip:
       - autodoc_pydantic
+      - git+https://github.com/openforcefield/openff-sphinx-theme.git@main
