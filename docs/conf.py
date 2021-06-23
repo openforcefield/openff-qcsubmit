@@ -124,7 +124,6 @@ html_theme_options = {
     "color_accent": "openff-dataset-yellow",
     # Content Minification for deployment, prettification for debugging
     "html_minify": True,
-    "html_prettify": False,
     "css_minify": True,
     "globaltoc_includehidden": True,
 }
