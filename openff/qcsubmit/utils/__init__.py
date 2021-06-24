@@ -6,7 +6,6 @@ from openff.qcsubmit.utils.utils import (
     get_data,
     get_torsion,
     remap_list,
-    update_specification_and_metadata,
 )
 
 __all__ = [
@@ -17,5 +16,4 @@ __all__ = [
     get_data,
     get_torsion,
     remap_list,
-    update_specification_and_metadata,
 ]
