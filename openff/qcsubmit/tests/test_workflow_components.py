@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from typing_extensions import Literal
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit.common_structures import ComponentProperties
+from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
 from openff.qcsubmit.datasets import ComponentResult
 from openff.qcsubmit.exceptions import (
     ComponentRegisterError,
@@ -71,20 +71,13 @@ def test_register_component_replace():
     Test registering a component that is already registered with and without using replace.
     """
     # get the standard conformer generator
-    gen = workflow_components.StandardConformerGenerator(max_conformers=1)
+    gen = workflow_components.StandardConformerGenerator
 
     with pytest.raises(ComponentRegisterError):
-        register_component(component=gen, replace=False)
+        register_component(component=workflow_components.StandardConformerGenerator, replace=False)
 
     # now register using replace with a new default
     register_component(component=gen, replace=True)
-
-    gen2 = get_component(gen.type)
-    assert gen2.max_conformers == gen.max_conformers
-
-    # now return th list back to normal
-    register_component(component=workflow_components.StandardConformerGenerator(), replace=True)
-
 
 def test_register_component_error():
     """
@@ -98,7 +91,7 @@ def test_register_component_error():
 
 
 @pytest.mark.parametrize("component", [
-    pytest.param(workflow_components.SmartsFilter(), id="Class instance"),
+    pytest.param(workflow_components.SmartsFilter, id="Class instance"),
     pytest.param("SmartsFilter", id="Class name")
 ])
 def test_deregister_component(component):
@@ -111,7 +104,7 @@ def test_deregister_component(component):
     assert workflow_components.SmartsFilter() not in list_components()
 
     # now add it back
-    register_component(component=workflow_components.SmartsFilter())
+    register_component(component=workflow_components.SmartsFilter)
 
 
 def test_deregister_component_error():
@@ -129,7 +122,7 @@ def test_get_component():
     """
     gen = get_component("standardconformergenerator")
 
-    assert gen == workflow_components.StandardConformerGenerator()
+    assert gen == workflow_components.StandardConformerGenerator
 
 
 def test_get_component_error():
@@ -920,3 +913,66 @@ def test_smarts_filter_apply_tag_torsions(tag_dihedrals):
                 _ = check_torsion_connection(torsion=torsion.torsion1, molecule=molecule)
         else:
             assert "dihedrals" not in molecule.properties
+
+
+def test_scan_filter_mutually_exclusive():
+    """
+    Make sure an error is raised when both options are passed.
+    """
+    with pytest.raises(ValidationError):
+        workflow_components.ScanFilter(scans_to_include=["[*:1]~[*:2]:[*:3]~[*:4]"], scans_to_exclude=["[*:1]~[*:2]-[CH3:3]-[H:4]"])
+
+
+def test_scan_filter_no_torsions():
+    """
+    Filter all molecules which do not have any torsions tagged for scanning.
+    """
+
+    molecule = Molecule.from_smiles("CC")
+
+    filter = workflow_components.ScanFilter(scans_to_include=["[*:1]~[*:2]-[CH3:3]-[H:4]"])
+
+    result = filter.apply(molecules=[molecule], processors=1)
+    assert result.n_molecules == 0
+
+
+def test_scan_filter_include():
+    """
+    Make sure only torsion scans we want to include are kept when more than one is defined.
+    """
+    ethanol = Molecule.from_file(get_data("ethanol.sdf"))
+    t_indexer = TorsionIndexer()
+    # C-C torsion
+    t_indexer.add_torsion(torsion=(3, 0, 1, 2))
+    # O-C torsion
+    t_indexer.add_torsion(torsion=(0, 1, 2, 8))
+    ethanol.properties["dihedrals"] = t_indexer
+
+    # only keep the C-C scan
+    filter = workflow_components.ScanFilter(scans_to_include=["[#1:1]~[#6:2]-[#6:3]-[#1:4]"])
+
+    result = filter.apply(molecules=[ethanol], processors=1)
+
+    assert result.n_molecules == 1
+    assert (0, 1) in ethanol.properties["dihedrals"].torsions
+
+
+def test_scan_filter_exclude():
+    """
+    Make sure only exclude torsion scans we do not want and keep any other defined scans.
+    """
+    ethanol = Molecule.from_file(get_data("ethanol.sdf"))
+    t_indexer = TorsionIndexer()
+    # C-C torsion
+    t_indexer.add_torsion(torsion=(3, 0, 1, 2))
+    # O-C torsion
+    t_indexer.add_torsion(torsion=(0, 1, 2, 8))
+    ethanol.properties["dihedrals"] = t_indexer
+
+    # only keep the C-C scan
+    filter = workflow_components.ScanFilter(scans_to_exclude=["[#1:1]~[#6:2]-[#6:3]-[#1:4]"])
+
+    result = filter.apply(molecules=[ethanol], processors=1)
+
+    assert result.n_molecules == 1
+    assert (1, 2) in ethanol.properties["dihedrals"].torsions

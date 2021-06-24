@@ -2,7 +2,7 @@
 The base file with functions to register and de register new workflow components.
 """
 
-from typing import Dict, List, Union
+from typing import Dict, List, Type, Union
 
 from openff.qcsubmit.exceptions import (
     ComponentRegisterError,
@@ -18,6 +18,7 @@ from openff.qcsubmit.workflow_components.filters import (
     MolecularWeightFilter,
     RMSDCutoffConformerFilter,
     RotorFilter,
+    ScanFilter,
     SmartsFilter,
 )
 from openff.qcsubmit.workflow_components.fragmentation import (
@@ -51,12 +52,16 @@ Components = Union[
     EnumerateStereoisomers,
     WBOFragmenter,
     PfizerFragmenter,
+    ScanFilter,
 ]
 
-workflow_components: Dict[str, Components] = {}
+
+workflow_components: Dict[str, Type[CustomWorkflowComponent]] = {}
 
 
-def register_component(component: Components, replace: bool = False) -> None:
+def register_component(
+    component: Type[CustomWorkflowComponent], replace: bool = False
+) -> None:
     """
     Register a valid workflow component with qcsubmit.
 
@@ -69,8 +74,8 @@ def register_component(component: Components, replace: bool = False) -> None:
         InvalidWorkflowComponentError: If the new component is not a sub class of the bass workflow component.
     """
 
-    if issubclass(type(component), CustomWorkflowComponent):
-        component_name = component.type.lower()
+    if issubclass(component, CustomWorkflowComponent):
+        component_name = component.__fields__["type"].default.lower()
         if component_name not in workflow_components or (
             component_name in workflow_components and replace
         ):
@@ -85,7 +90,7 @@ def register_component(component: Components, replace: bool = False) -> None:
         )
 
 
-def get_component(component_name: str) -> Components:
+def get_component(component_name: str) -> Type[CustomWorkflowComponent]:
     """
     Get the registered workflow component by component name.
 
@@ -108,7 +113,7 @@ def get_component(component_name: str) -> Components:
     return component
 
 
-def deregister_component(component: Union[Components, str]) -> None:
+def deregister_component(component: Union[Type[CustomWorkflowComponent], str]) -> None:
     """
     Deregister the workflow component from QCSubmit.
 
@@ -119,8 +124,8 @@ def deregister_component(component: Union[Components, str]) -> None:
         ComponentRegisterError: If the component to be removed was not registered.
     """
 
-    if issubclass(type(component), CustomWorkflowComponent):
-        component_name = component.type.lower()
+    if issubclass(component, CustomWorkflowComponent):
+        component_name = component.__fields__["type"].default.lower()
 
     else:
         component_name = component.lower()
@@ -132,7 +137,7 @@ def deregister_component(component: Union[Components, str]) -> None:
         )
 
 
-def list_components() -> List[Components]:
+def list_components() -> List[Type[CustomWorkflowComponent]]:
     """
     Get a list of all of the currently registered workflow components.
 
@@ -145,21 +150,22 @@ def list_components() -> List[Components]:
 
 # register the current components
 # conformer generation
-register_component(StandardConformerGenerator())
+register_component(StandardConformerGenerator)
 
 # fragmentation
-register_component(WBOFragmenter())
-register_component(PfizerFragmenter())
+register_component(WBOFragmenter)
+register_component(PfizerFragmenter)
 
 # filters
-register_component(RotorFilter())
-register_component(RMSDCutoffConformerFilter())
-register_component(SmartsFilter())
-register_component(CoverageFilter())
-register_component(MolecularWeightFilter())
-register_component(ElementFilter())
+register_component(RotorFilter)
+register_component(RMSDCutoffConformerFilter)
+register_component(SmartsFilter)
+register_component(CoverageFilter)
+register_component(MolecularWeightFilter)
+register_component(ElementFilter)
+register_component(ScanFilter)
 
 # state enumeration
-register_component(EnumerateTautomers())
-register_component(EnumerateStereoisomers())
-register_component(EnumerateProtomers())
+register_component(EnumerateTautomers)
+register_component(EnumerateStereoisomers)
+register_component(EnumerateProtomers)

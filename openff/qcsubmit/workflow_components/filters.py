@@ -1,22 +1,17 @@
 """
 File containing the filters workflow components.
 """
-import re
 from typing import Dict, List, Optional, Set, Union
 
 from openff.toolkit.topology import Molecule
-from openff.toolkit.typing.chemistry.environment import (
-    ChemicalEnvironment,
-    SMIRKSParsingError,
-)
 from openff.toolkit.typing.engines.smirnoff import ForceField
-from pydantic import Field, validator
+from pydantic import Field, root_validator, validator
 from rdkit.Chem.rdMolAlign import AlignMol
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
 from openff.qcsubmit.datasets import ComponentResult
-from openff.qcsubmit.validators import check_allowed_elements
+from openff.qcsubmit.validators import check_allowed_elements, check_environments
 from openff.qcsubmit.workflow_components.base_component import (
     BasicSettings,
     CustomWorkflowComponent,
@@ -419,7 +414,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
     type: Literal["SmartsFilter"] = "SmartsFilter"
     allowed_substructures: Optional[List[str]] = Field(
         None,
-        description="The list of allowed substructures which should be tagged with indicies.",
+        description="The list of allowed substructures which should be tagged with indices.",
     )
     filtered_substructures: Optional[List[str]] = Field(
         None, description="The list of substructures which should be filtered."
@@ -441,24 +436,12 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
     def properties(cls) -> ComponentProperties:
         return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
-    @validator("allowed_substructures", "filtered_substructures", each_item=True)
-    def _check_environments(cls, environment):
-        """
-        Check the the string passed is valid by trying to create a ChemicalEnvironment in the toolkit.
-        """
-
-        # try and make a new chemical environment checking for parse errors
-        _ = ChemicalEnvironment(smirks=environment)
-
-        # check for numeric tags in the environment
-        if re.search(":[0-9]]+", environment) is not None:
-            return environment
-
-        else:
-            raise SMIRKSParsingError(
-                "The smarts pattern passed had no tagged atoms please tag the atoms in the "
-                "substructure you wish to include/exclude."
-            )
+    _check_smarts = validator(
+        "allowed_substructures",
+        "filtered_substructures",
+        each_item=True,
+        allow_reuse=True,
+    )(check_environments)
 
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
@@ -609,5 +592,105 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
             else:
                 self._prune_conformers(molecule)
                 result.add_molecule(molecule)
+
+        return result
+
+
+class ScanFilter(BasicSettings, CustomWorkflowComponent):
+    """
+    A filter to remove/include molecules from the workflow who have scans targeting the specified SMARTS.
+
+    Important:
+        Currently only checks against 1D scans.
+    """
+
+    type: Literal["ScanFilter"] = "ScanFilter"
+    scans_to_include: Optional[List[str]] = Field(
+        None,
+        description="Only molecules with SCANs covering these SMARTs"
+        "patterns should be kept. This option is mutually"
+        "exclusive with ``scans_to_exclude``.",
+    )
+
+    scans_to_exclude: Optional[List[str]] = Field(
+        None,
+        description="Any molecules with scans covering these SMARTs will"
+        "be removed from the dataset. This option is mutally"
+        "exclusive with ``scans_to_include``.",
+    )
+
+    _check_smarts = validator(
+        "scans_to_include", "scans_to_exclude", each_item=True, allow_reuse=True
+    )(check_environments)
+
+    @classmethod
+    def description(cls) -> str:
+        return "Filter molecules who have the desired/unwanted scans."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecule contained an unwanted or did not contain a desired dihedral/improper scan."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
+
+    @root_validator
+    def _validate_mutally_exclusive(cls, values):
+        scans_to_include = values.get("scans_to_include")
+        scans_to_exclude = values.get("scans_to_exclude")
+
+        message = (
+            "exactly one of `scans_to_include` and `scans_to_exclude` must be specified"
+        )
+
+        assert scans_to_include is not None or scans_to_exclude is not None, message
+        assert scans_to_include is None or scans_to_exclude is None, message
+        return values
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+        """
+        Keep or remove scans based on the list of torsions to include or remove.
+        """
+
+        result = self._create_result()
+
+        target_environments = self.scans_to_exclude or self.scans_to_include
+
+        for molecule in molecules:
+            torsion_indexer = molecule.properties.get("dihedrals", None)
+            # if no dihedrals are tagged remove the molecule
+            if torsion_indexer is None or torsion_indexer.n_torsions == 0:
+                result.filter_molecule(molecule=molecule)
+                continue
+
+            all_matches = set()
+            for env in target_environments:
+                # get all matches as a list of sorted central bonds as they are stored this way
+                matches = molecule.chemical_environment_matches(query=env)
+                for match in matches:
+                    match = match if len(match) == 2 else match[1:3]
+                    all_matches.add(tuple(sorted(match)))
+
+            # now we either remove any torsions in this list or any missing from it based on include/exclude
+            to_remove = []
+            if self.scans_to_include is not None:
+                for center_bond in torsion_indexer.torsions.keys():
+                    if center_bond not in all_matches:
+                        to_remove.append(center_bond)
+            else:
+                for center_bond in all_matches:
+                    if center_bond in torsion_indexer.torsions.keys():
+                        to_remove.append(center_bond)
+
+            # now remove
+            for bond in to_remove:
+                del torsion_indexer.torsions[bond]
+
+            # if we have no torsions left filter the molecule
+            if not torsion_indexer.get_dihedrals:
+                result.filter_molecule(molecule)
+
+            result.add_molecule(molecule)
 
         return result

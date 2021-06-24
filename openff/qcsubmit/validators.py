@@ -1,11 +1,15 @@
 """
 Centralise the validators for easy reuse between factories and datasets.
 """
-
+import re
 from typing import List, Tuple, Union
 
 import qcelemental as qcel
 from openff.toolkit import topology as off
+from openff.toolkit.typing.chemistry.environment import (
+    ChemicalEnvironment,
+    SMIRKSParsingError,
+)
 
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.exceptions import (
@@ -281,4 +285,23 @@ def check_allowed_elements(element: Union[str, int]) -> Union[str, int]:
     except KeyError:
         raise ValueError(
             f"An element could not be determined from symbol {element}, please enter symbols only."
+        )
+
+
+def check_environments(environment: str) -> str:
+    """
+    Check the the string passed is valid by trying to create a ChemicalEnvironment in the toolkit.
+    """
+
+    # try and make a new chemical environment checking for parse errors
+    _ = ChemicalEnvironment(smirks=environment)
+
+    # check for numeric tags in the environment
+    if re.search(":[0-9]]+", environment) is not None:
+        return environment
+
+    else:
+        raise SMIRKSParsingError(
+            "The smarts pattern passed had no tagged atoms please tag the atoms in the "
+            "substructure you wish to include/exclude."
         )

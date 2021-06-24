@@ -19,6 +19,7 @@ from openff.qcsubmit.workflow_components.filters import (
     MolecularWeightFilter,
     RMSDCutoffConformerFilter,
     RotorFilter,
+    ScanFilter,
     SmartsFilter,
 )
 from openff.qcsubmit.workflow_components.fragmentation import (
