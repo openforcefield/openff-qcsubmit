@@ -1083,7 +1083,6 @@ class BasicDataset(DatasetBaseMixin):
         spec_kwargs["keywords"] = spec.spec_name
         spec_kwargs["protocols"] = {"wavefunction": spec.store_wavefunction.value}
 
-        # NOTE: requires a PR on QCFractal to make this work for `Dataset`
         spec_kwargs["subset"] = indices
         return spec_kwargs
 
