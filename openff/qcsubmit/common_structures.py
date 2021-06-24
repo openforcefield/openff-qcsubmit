@@ -1025,6 +1025,12 @@ class Metadata(DatasetConfig):
 
         empty_fields = []
         for field in self.__fields__:
+
+            if field == "long_description_url":
+                # The 'long_description_url' is made optional to more easily facilitate
+                # local or private dataset submissions.
+                continue
+
             attr = getattr(self, field)
             if attr is None:
                 empty_fields.append(field)
