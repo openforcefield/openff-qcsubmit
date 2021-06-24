@@ -405,7 +405,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
         # create the dataset
         # first we need to instance the dataset and assign the metadata
-        object_meta = self.dict(exclude={"workflow"})
+        object_meta = self.dict(exclude={"workflow", "type"})
 
         # the only data missing is the collection name so add it here.
         object_meta["dataset_name"] = dataset_name

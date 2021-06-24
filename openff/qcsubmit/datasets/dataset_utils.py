@@ -33,7 +33,7 @@ def load_dataset(data: Union[str, Dict]) -> "BasicDataset":
     else:
         raw_data = data
 
-    dataset_type = registered_datasets.get(raw_data["dataset_type"].lower(), None)
+    dataset_type = registered_datasets.get(raw_data["type"].lower(), None)
     if dataset_type is not None:
         return dataset_type(**raw_data)
     else:
@@ -56,7 +56,7 @@ def register_dataset(dataset: Any, replace: bool = False) -> None:
     """
 
     if issubclass(dataset, BasicDataset):
-        dataset_type = dataset.__fields__["dataset_type"].default.lower()
+        dataset_type = dataset.__fields__["type"].default.lower()
 
         if dataset_type not in registered_datasets or (
             dataset_type in registered_datasets and replace
@@ -79,6 +79,70 @@ def list_datasets() -> List[str]:
         A list of all of the currently registered dataset classes.
     """
     return list(registered_datasets.values())
+
+
+def update_specification_and_metadata(
+    dataset: Union[BasicDataset, OptimizationDataset, TorsiondriveDataset], client
+) -> Union[BasicDataset, OptimizationDataset, TorsiondriveDataset]:
+    """
+    For the given dataset update the metadata and specifications using data from an archive instance.
+
+    Parameters:
+        dataset: The dataset which should be updated this should have no qc_specs and contain the name of the dataset
+        client: The archive client instance
+    """
+    import re
+
+    # make sure all specs are gone
+    dataset.clear_qcspecs()
+    ds = client.get_collection(dataset.type, dataset.dataset_name)
+    metadata = ds.data.metadata
+    if "elements" in metadata:
+        dataset.metadata = metadata
+
+    if dataset.type == "DataSet":
+        if not dataset.metadata.elements:
+            # now grab the elements
+            elements = set()
+            molecules = ds.get_molecules()
+            for index in molecules.index:
+                mol = molecules.loc[index].molecule
+                elements.update(mol.symbols)
+            dataset.metadata.elements = elements
+        # now we need to add each ran spec
+        for history in ds.data.history:
+            _, program, method, basis, spec = history
+            dataset.add_qc_spec(
+                method=method,
+                basis=basis,
+                program=program,
+                spec_name=spec,
+                spec_description="basic dataset spec",
+            )
+    else:
+        # we have the opt or torsiondrive
+        if not dataset.metadata.elements:
+            elements = set()
+            for record in ds.data.records.values():
+                formula = record.attributes["molecular_formula"]
+                # use regex to parse the formula
+                match = re.findall("[A-Z][a-z]?|\d+|.", formula)
+                for element in match:
+                    if not element.isnumeric():
+                        elements.add(element)
+            dataset.metadata.elements = elements
+        # now add the specs
+        for spec in ds.data.specs.values():
+            dataset.add_qc_spec(
+                method=spec.qc_spec.method,
+                basis=spec.qc_spec.basis,
+                program=spec.qc_spec.program,
+                spec_name=spec.name,
+                spec_description=spec.description,
+                store_wavefunction=spec.qc_spec.protocols.wavefunction.value,
+            )
+
+    return dataset
 
 
 register_dataset(BasicDataset)
