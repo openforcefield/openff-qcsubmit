@@ -1,4 +1,4 @@
-from typing import Dict, Generator, List, Tuple, Union
+from typing import Dict, Generator, List, Tuple
 
 from openff.toolkit import topology as off
 from openff.toolkit.utils.toolkits import (
