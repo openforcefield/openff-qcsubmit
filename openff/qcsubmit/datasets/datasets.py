@@ -1502,20 +1502,15 @@ class OptimizationDataset(BasicDataset):
         """Add the given compute spec to this Datasets's corresponding Collection.
 
         Args:
-            spec: The QCSpec we are trying to add to the collection
+            spec:
+                The QCSpec we are trying to add to the collection
             dataset:
-            opt_spec: The qcportal style optimization spec
-        This will check if a spec under this name has already been added and if it should be overwritten.
+                The QCArchive dataset this specification should be added to
+            procedure_spec:
+                The qcportal style optimization spec
 
         Raises:
             QCSpecificationError: If a specification with the same name is already added to the collection but has different settings.
-        If a specification is already stored under this name in the collection we have options:
-            - If a spec with the same name but different details has been added and used we must raise an error to change the name of the new spec
-            - If the spec has been added and has not been used then overwrite it.
-
-        Returns:
-            `True` if the specification is present in the collection and is exactly the same as what we are trying to add.
-            `False` if no specification can be found in the collection with the given name.
 
         Note:
             If a specification is already stored under this name in the collection we have options:
