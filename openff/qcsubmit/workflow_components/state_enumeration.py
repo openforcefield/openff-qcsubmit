@@ -1,7 +1,7 @@
 """
 Components to expand stereochemistry and tautomeric states of molecules.
 """
-from typing import List
+from typing import List, Optional, Tuple
 
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper
@@ -9,11 +9,18 @@ from pydantic import Field
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
-from openff.qcsubmit.datasets import ComponentResult
 from openff.qcsubmit.utils import check_missing_stereo
 from openff.qcsubmit.workflow_components.base_component import (
+    BasicSettings,
     CustomWorkflowComponent,
     ToolkitValidator,
+)
+from openff.qcsubmit.workflow_components.utils import (
+    ComponentResult,
+    ImproperScan,
+    Scan1D,
+    Scan2D,
+    TorsionIndexer,
 )
 
 
@@ -231,3 +238,214 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
                 result.filter_molecule(molecule)
 
             return result
+
+
+class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
+    """
+    This module will tag any matching substructures for scanning, useful for torsiondrive datasets.
+    """
+
+    type: Literal["ScanEnumerator"] = "ScanEnumerator"
+
+    torsion_scans: List[Scan1D] = Field(
+        [],
+        description="A list of scan objects which describes the scan range and scan increment"
+        "that should be used with the associated smarts pattern.",
+    )
+    double_torsion_scans: List[Scan2D] = Field(
+        [],
+        description="A list of double scan objects which describes the scan ranges and scan increments,"
+        "that should be used with each of the smarts patterns.",
+    )
+    improper_scans: List[ImproperScan] = Field(
+        [],
+        description="A list of improper scan objects which describes the scan range and scan increment"
+        "that should be used with the smarts pattern.",
+    )
+
+    @classmethod
+    def description(cls) -> str:
+        return "Tag any matched substructures for scanning."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecule contained no substructure matches."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
+
+    def add_torsion_scan(
+        self,
+        smarts: str,
+        scan_rage: Optional[Tuple[int, int]] = None,
+        scan_increment: int = 15,
+    ) -> None:
+        """
+        Add a targeted 1D torsion scan to the scan enumerator.
+
+        Args:
+            smarts:
+                The numerically tagged SMARTs pattern that should be used to identify the torsion atoms.
+            scan_rage:
+                The angle in degrees the torsion should be scanned between, from low to high
+            scan_increment:
+                The value in degrees between each grid point in the scan.
+        """
+        self.torsion_scans.append(
+            Scan1D(
+                smarts1=smarts, scan_range1=scan_rage, scan_increment=[scan_increment]
+            )
+        )
+
+    def add_double_torsion(
+        self,
+        smarts1: str,
+        smarts2: str,
+        scan_range1: Optional[Tuple[int, int]] = None,
+        scan_range2: Optional[Tuple[int, int]] = None,
+        scan_increments: List[int] = (15, 15),
+    ) -> None:
+        """
+        Add a targeted 2D torsion scan to the scan enumerator.
+
+        Args:
+            smarts1:
+                The numerically tagged SMARTs pattern that should be used to identify the first torsion atoms.
+            smarts2:
+                The numerically tagged SMARTs pattern that should be used to identify the second torsion atoms.
+            scan_range1:
+                The angle in degrees the first torsion should be scanned between, from low to high
+            scan_range2:
+                The angle in degrees the second torsion should be scanned between, from low to high
+            scan_increments:
+                A list of the values in degrees between each grid point in the scans.
+        """
+        self.double_torsion_scans.append(
+            Scan2D(
+                smarts1=smarts1,
+                smarts2=smarts2,
+                scan_range1=scan_range1,
+                scan_range2=scan_range2,
+                scan_increment=scan_increments,
+            )
+        )
+
+    def add_improper_torsion(
+        self,
+        smarts: str,
+        central_smarts: str,
+        scan_range: Optional[Tuple[int, int]] = None,
+        scan_increment: int = 15,
+    ) -> None:
+        """
+        Add a targeted Improper torsion to the scan enumerator.
+
+        Args:
+            smarts:
+                The numerically tagged SMARTs pattern which describes the entire improper.
+            central_smarts:
+                The numerically tagged SMARTs pattern which identifies the central atom in the improper.
+            scan_range:
+                The angles in degrees the improper should be scanned between, from low to high.
+            scan_increment:
+                The value in degrees between each grid point in the scan.
+        """
+        self.improper_scans.append(
+            ImproperScan(
+                smarts=smarts,
+                central_smarts=central_smarts,
+                scan_range=scan_range,
+                scan_increment=[scan_increment],
+            )
+        )
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+        """
+        Tag any dihedrals which match the defined set of targets in the enumerator.
+        """
+
+        result = self._create_result()
+
+        for molecule in molecules:
+            molecule.properties["dihedrals"] = TorsionIndexer()
+            self._tag_torsions(molecule)
+            self._tag_double_torsions(molecule)
+            self._tag_improper_torsions(molecule)
+
+            indexer = molecule.properties["dihedrals"]
+            if len(indexer.get_dihedrals) == 0:
+                result.filter_molecule(molecule)
+
+            result.add_molecule(molecule)
+
+        return result
+
+    def _tag_torsions(self, molecule: Molecule) -> None:
+        """
+        For each of the torsions in the torsion list try and tag only one in the molecule.
+        """
+
+        indexer: TorsionIndexer = molecule.properties["dihedrals"]
+
+        for torsion in self.torsion_scans:
+            try:
+                match = molecule.chemical_environment_matches(torsion.smarts1)[0]
+                indexer.add_torsion(
+                    torsion=match,
+                    scan_range=torsion.scan_range1,
+                    scan_incrment=torsion.scan_increment,
+                )
+            except IndexError:
+                continue
+
+    def _tag_double_torsions(self, molecule: Molecule) -> None:
+        """
+        For each double torsion in the list try and tag the combination in the molecule.
+        """
+
+        indexer: TorsionIndexer = molecule.properties["dihedrals"]
+
+        for double_torsion in self.double_torsion_scans:
+            try:
+                match1 = molecule.chemical_environment_matches(double_torsion.smarts1)[
+                    0
+                ]
+                match2 = molecule.chemical_environment_matches(double_torsion.smarts2)[
+                    0
+                ]
+                indexer.add_double_torsion(
+                    torsion1=match1,
+                    torsion2=match2,
+                    scan_range1=double_torsion.scan_range1,
+                    scan_range2=double_torsion.scan_range2,
+                    scan_increment=double_torsion.scan_increment,
+                )
+            except IndexError:
+                continue
+
+    def _tag_improper_torsions(self, molecule: Molecule) -> None:
+        """
+        For each improper torsion in the list try and tag the combination in the molecule.
+        """
+
+        indexer: TorsionIndexer = molecule.properties["dihedrals"]
+
+        for improper in self.improper_scans:
+            try:
+                match = molecule.chemical_environment_matches(improper.smarts)[0]
+            except IndexError:
+                continue
+
+            central_atoms = molecule.chemical_environment_matches(
+                improper.central_smarts
+            )
+            for atom in central_atoms:
+                if atom[0] in match:
+                    indexer.add_improper(
+                        central_atom=atom[0],
+                        improper=match,
+                        scan_range=improper.scan_range,
+                        scan_increment=improper.scan_increment,
+                    )
+                    break

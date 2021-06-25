@@ -10,11 +10,10 @@ from openff.toolkit.topology import Molecule
 from pydantic import ValidationError
 from simtk import unit
 
-from openff.qcsubmit.common_structures import MoleculeAttributes, TorsionIndexer
+from openff.qcsubmit.common_structures import MoleculeAttributes
 from openff.qcsubmit.constraints import Constraints, PositionConstraintSet
 from openff.qcsubmit.datasets import (
     BasicDataset,
-    ComponentResult,
     OptimizationDataset,
     OptimizationEntry,
     TorsiondriveDataset,
@@ -44,6 +43,7 @@ from openff.qcsubmit.validators import (
     check_bond_connection,
     check_torsion_connection,
 )
+from openff.qcsubmit.workflow_components import ComponentResult, TorsionIndexer
 
 
 def duplicated_molecules(include_conformers: bool = True, duplicates: int = 2):
@@ -1069,7 +1069,7 @@ def test_torsion_index_iterator():
     """
     Make sure the iterator combines all torsions together.
     """
-    from openff.qcsubmit.common_structures import (
+    from openff.qcsubmit.workflow_components.utils import (
         DoubleTorsion,
         ImproperTorsion,
         SingleTorsion,

@@ -9,13 +9,13 @@ from pydantic import Field, root_validator, validator
 from rdkit.Chem.rdMolAlign import AlignMol
 from typing_extensions import Literal
 
-from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
-from openff.qcsubmit.datasets import ComponentResult
+from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.validators import check_allowed_elements, check_environments
 from openff.qcsubmit.workflow_components.base_component import (
     BasicSettings,
     CustomWorkflowComponent,
 )
+from openff.qcsubmit.workflow_components.utils import ComponentResult, TorsionIndexer
 
 
 class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):

@@ -6,7 +6,6 @@ from openff.qcsubmit.datasets.dataset_utils import (
 )
 from openff.qcsubmit.datasets.datasets import (
     BasicDataset,
-    ComponentResult,
     DatasetEntry,
     OptimizationDataset,
     OptimizationEntry,

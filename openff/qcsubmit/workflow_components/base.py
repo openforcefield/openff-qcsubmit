@@ -29,6 +29,7 @@ from openff.qcsubmit.workflow_components.state_enumeration import (
     EnumerateProtomers,
     EnumerateStereoisomers,
     EnumerateTautomers,
+    ScanEnumerator,
 )
 
 __all__ = [
@@ -53,6 +54,7 @@ Components = Union[
     WBOFragmenter,
     PfizerFragmenter,
     ScanFilter,
+    ScanEnumerator,
 ]
 
 
@@ -82,7 +84,7 @@ def register_component(
             workflow_components[component_name] = component
         else:
             raise ComponentRegisterError(
-                f"There is already a component registered with QCSubmit with the name {component.type}, to replace this use the `replace=True` flag."
+                f"There is already a component registered with QCSubmit with the name {component.__fields__['type'].default}, to replace this use the `replace=True` flag."
             )
     else:
         raise InvalidWorkflowComponentError(

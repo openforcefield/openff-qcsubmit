@@ -30,4 +30,12 @@ from openff.qcsubmit.workflow_components.state_enumeration import (
     EnumerateProtomers,
     EnumerateStereoisomers,
     EnumerateTautomers,
+    ScanEnumerator,
+)
+from openff.qcsubmit.workflow_components.utils import (
+    ComponentResult,
+    ImproperScan,
+    Scan1D,
+    Scan2D,
+    TorsionIndexer,
 )

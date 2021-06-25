@@ -10,8 +10,7 @@ from pydantic import ValidationError
 from typing_extensions import Literal
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
-from openff.qcsubmit.datasets import ComponentResult
+from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.exceptions import (
     ComponentRegisterError,
     InvalidWorkflowComponentError,
@@ -19,8 +18,10 @@ from openff.qcsubmit.exceptions import (
 from openff.qcsubmit.utils import check_missing_stereo, get_data
 from openff.qcsubmit.validators import check_torsion_connection
 from openff.qcsubmit.workflow_components import (
+    ComponentResult,
     CustomWorkflowComponent,
     ToolkitValidator,
+    TorsionIndexer,
     deregister_component,
     get_component,
     list_components,
@@ -63,7 +64,7 @@ def test_list_components():
     """
     components = list_components()
     for component in components:
-        assert component.type == component.__class__.__name__
+        assert component.__fields__["type"].default == component.__name__
 
 
 def test_register_component_replace():
@@ -78,6 +79,7 @@ def test_register_component_replace():
 
     # now register using replace with a new default
     register_component(component=gen, replace=True)
+
 
 def test_register_component_error():
     """
@@ -976,3 +978,74 @@ def test_scan_filter_exclude():
 
     assert result.n_molecules == 1
     assert (1, 2) in ethanol.properties["dihedrals"].torsions
+
+
+def test_scan_enumerator_no_scans():
+    """
+    Make sure molecules are filtered if they have no scans assigned.
+    """
+    mol = Molecule.from_smiles("CC")
+
+    scan_tagger = workflow_components.ScanEnumerator()
+    scan_tagger.add_torsion_scan(smarts="[*:1]~[#8:1]-[#6:3]~[*:4]", scan_rage=(-40, 40), scan_increment=15)
+
+    result = scan_tagger.apply([mol], processors=1)
+
+    assert result.n_molecules == 0
+    assert result.n_filtered == 1
+
+
+def test_scan_enumerator_1d():
+    """
+    Make sure only one match is tagged per torsion.
+    """
+    mol = Molecule.from_smiles("CCC")
+
+    scan_tagger = workflow_components.ScanEnumerator()
+    scan_tagger.add_torsion_scan(smarts="[*:1]~[#6:2]-[#6:3]~[*:4]", scan_rage=(-60, 60), scan_increment=20)
+
+    result = scan_tagger.apply([mol], processors=1)
+
+    assert result.n_molecules == 1
+    indexer = mol.properties["dihedrals"]
+    assert indexer.n_torsions == 1
+    assert indexer.torsions[(0, 1)].scan_range1 == (-60, 60)
+
+
+def test_scan_enumerator_2d():
+    """
+    Make sure one combination of the 2D scan is tagged.
+    """
+
+    mol = Molecule.from_smiles("COc1ccc(cc1)N")
+
+    scan_tagger = workflow_components.ScanEnumerator()
+    scan_tagger.add_double_torsion(smarts1="[*:1]-[#7X3+0:2]-[#6:3]@[#6,#7:4]", smarts2="[#7X3+0:1](-[*:3])(-[*:4])-[#6:2]@[#6,#7]",
+                                   scan_range1=(-165, 180),
+                                   scan_range2=(-60, 60),
+                                   scan_increments=[15, 4])
+
+    result = scan_tagger.apply([mol], processors=1)
+    assert result.n_molecules == 1
+    indexer = mol.properties["dihedrals"]
+    assert indexer.n_double_torsions == 1
+    assert indexer.double_torsions[((5, 8), (5, 16))].scan_range1 == (-165, 180)
+    assert indexer.double_torsions[((5, 8), (5, 16))].scan_range2 == (-60, 60)
+
+
+def test_improper_enumerator():
+    """
+    Make sure improper torsions are correctly tagged.
+    """
+
+    mol = Molecule.from_file(get_data("benzene.sdf"))
+
+    scan_tagger = workflow_components.ScanEnumerator()
+    scan_tagger.add_improper_torsion(smarts="[#6:1](-[#1:2])(:[#6:3]):[#6:4]", central_smarts="[#6:1]", scan_range=(-40, 40), scan_increment=4)
+
+    result = scan_tagger.apply([mol], processors=1)
+
+    assert result.n_molecules == 1
+    indexer = mol.properties["dihedrals"]
+    assert indexer.n_impropers == 1
+    assert indexer.imporpers[0].scan_increment == [4]
