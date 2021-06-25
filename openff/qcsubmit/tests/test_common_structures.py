@@ -1,6 +1,9 @@
+import pytest
 from openff.toolkit.topology import Molecule
 
-from openff.qcsubmit.common_structures import MoleculeAttributes
+from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes
+from openff.qcsubmit.exceptions import DatasetInputError
+from openff.qcsubmit.tests import does_not_raise
 
 
 def test_attributes_from_openff_molecule():
@@ -42,3 +45,42 @@ def test_attributes_to_openff_molecule():
     assert isomorphic is True
     # make sure the molecules are in the same order
     assert atom_map == dict((i, i) for i in range(mol.n_atoms))
+
+
+@pytest.mark.parametrize(
+    "metadata, expected_raises",
+    [
+        (
+            Metadata(
+                collection_type="torsiondrive",
+                dataset_name="ABC",
+                short_description="abcdefgh",
+                long_description_url="https://github.com/openforcefield",
+                long_description="abcdefgh",
+                elements={"C", "H"}
+            ),
+            does_not_raise()
+        ),
+        (
+            Metadata(
+                collection_type="torsiondrive",
+                dataset_name="ABC",
+                short_description="abcdefgh",
+                long_description="abcdefgh",
+                elements={"C", "H"}
+            ),
+            does_not_raise()
+        ),
+        (
+            Metadata(),
+            pytest.raises(
+                DatasetInputError,
+                match="The metadata has the following incomplete fields"
+            )
+        )
+    ]
+)
+def test_validate_metadata(metadata, expected_raises):
+
+    with expected_raises:
+        metadata.validate_metadata(raise_errors=True)

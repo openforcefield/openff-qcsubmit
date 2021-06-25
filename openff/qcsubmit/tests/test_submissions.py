@@ -58,11 +58,14 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
                                      tagline="Testing single point datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -136,11 +139,14 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
                                      tagline="Testing single point datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -212,11 +218,14 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
                                      tagline="Testing single point datasets with pcm water",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -287,7 +296,6 @@ def test_adding_specifications(fractal_compute_server):
     opt_dataset.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm",
                             spec_description="default openff spec", spec_name="openff-1.0.0")
 
-    opt_dataset.metadata.long_description_url = "https://test.org"
     # submit the optimizations and let the compute run
     opt_dataset.submit(client=client)
     fractal_compute_server.await_results()
@@ -352,9 +360,6 @@ def test_adding_compute(fractal_compute_server, dataset_data):
                                      molecules=mol,
                                      description=f"Testing adding compute to a {dataset_type} dataset",
                                      tagline="tests for adding compute.")
-
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
     dataset.submit(client=client)
@@ -469,8 +474,6 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
                                      description="Test basics dataset",
                                      tagline="Testing single point datasets with wavefunction",
                                      )
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
 
     # submit the dataset
     # now submit again
@@ -539,8 +542,6 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     attributes = factory.create_cmiles_metadata(ethane)
     index = ethane.to_smiles()
     dataset.add_molecule(index=index, molecule=ethane, attributes=attributes, constraints=constraints)
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
     dataset.submit(client=client)
@@ -587,11 +588,14 @@ def test_optimization_submissions(fractal_compute_server, specification):
                                      tagline="Testing optimization datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -662,11 +666,14 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
                                      tagline="Testing optimization datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -727,8 +734,6 @@ def test_torsiondrive_scan_keywords(fractal_compute_server):
     dataset = factory.create_dataset(dataset_name="Torsiondrive scan keywords", molecules=molecules,
                                      description="Testing scan keywords which overwrite the global settings",
                                      tagline="Testing scan keywords which overwrite the global settings")
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
 
     # now set the keywords
     keys = list(dataset.dataset.keys())
@@ -778,11 +783,14 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
                                      tagline="Testing torsiondrive datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -848,8 +856,6 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
                                      tagline="Testing ignore errors datasets",
                                      )
 
-    dataset.metadata.long_description_url = "https://test.org"
-
     # make sure the dataset raises an error here
     with pytest.raises(MissingBasisCoverageError):
         dataset.submit(client=client, ignore_errors=False)
@@ -886,7 +892,6 @@ def test_index_not_changed(fractal_compute_server, factory_type):
                                      tagline="Testing index changes datasets",
                                      )
 
-    dataset.metadata.long_description_url = "https://test.org"
     # now change the index name to something unique
     entry = dataset.dataset.pop(list(dataset.dataset.keys())[0])
     entry.index = "my_unique_index"
@@ -926,8 +931,6 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
                                      tagline="Testing ignore errors datasets",
                                      )
 
-    dataset.metadata.long_description_url = "https://test.org"
-
     # make sure all expected index get submitted
     dataset.submit(client=client, verbose=True)
     info = capsys.readouterr()
@@ -962,8 +965,6 @@ def test_expanding_compute(fractal_compute_server, factory_type):
                                      description="Test compute expansion",
                                      tagline="Testing compute expansion",
                                      )
-
-    dataset.metadata.long_description_url = "https://test.org"
 
     # make sure all expected index get submitted
     dataset.submit(client=client)
