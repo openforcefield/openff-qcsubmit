@@ -52,9 +52,13 @@ from openff.qcsubmit.exceptions import (
 from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.serializers import deserialize, serialize
 from openff.qcsubmit.utils import chunk_generator
+from openff.qcsubmit.utils.smirnoff import smirnoff_coverage
 from openff.qcsubmit.utils.visualize import molecules_to_pdf
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
+
+    from openff.toolkit.typing.engines.smirnoff import ForceField
+    from qcfractal.interface import FractalClient
     from qcportal import FractalClient
     from qcportal.collections.collection import Collection
     from qcportal.models.common_models import OptimizationSpecification
@@ -1023,54 +1027,27 @@ class _BaseDataset(abc.ABC, CommonBase):
 
         serialize(serializable=self, file_name=file_name, compression=compression)
 
-    def coverage_report(self, forcefields: List[str]) -> Dict:
-        """
-        Produce a coverage report of all of the parameters that are exercised by the molecules in the dataset.
+    def coverage_report(
+        self, force_field: "ForceField", verbose: bool = False
+    ) -> Dict[str, Dict[str, int]]:
+        """Returns a summary of how many molecules within this dataset would be assigned
+        each of the parameters in a force field.
+
+        Notes:
+            * Parameters which would not be assigned to any molecules in the dataset
+              will not be included in the returned summary.
 
         Args:
-            forcefields:
-                The name of the openforcefield force field which should be included in the coverage report.
+            force_field: The force field containing the parameters to summarize.
+            verbose: If true a progress bar will be shown on screen.
 
         Returns:
-            A dictionary for each of the force fields which break down which parameters are exercised by their
-            parameter type.
+            A dictionary of the form ``coverage[handler_name][parameter_smirks] = count``
+            which stores the number of molecules within this dataset that would be
+            assigned to each parameter.
         """
 
-        from openff.toolkit.typing.engines.smirnoff import ForceField
-
-        coverage = {}
-        param_types = {
-            "a": "Angles",
-            "b": "Bonds",
-            "c": "Constraints",
-            "t": "ProperTorsions",
-            "i": "ImproperTorsions",
-            "n": "vdW",
-        }
-        if isinstance(forcefields, str):
-            forcefields = [
-                forcefields,
-            ]
-
-        for forcefield in forcefields:
-
-            result = {}
-            ff = ForceField(forcefield)
-            for molecule in self.molecules:
-                labels = ff.label_molecules(molecule.to_topology())[0]
-                # format the labels into a set
-                covered_types = set(
-                    [label.id for types in labels.values() for label in types.values()]
-                )
-                # now insert into the forcefield dict
-                for parameter in covered_types:
-                    p_id = parameter[0]
-                    result.setdefault(param_types[p_id], set()).add(parameter)
-
-            # now store the force field dict into the main result
-            coverage[forcefield] = result
-
-        return coverage
+        return smirnoff_coverage(self.molecules, force_field, verbose)
 
     def visualize(
         self,

@@ -19,6 +19,7 @@ from typing import (
 
 import qcportal
 from openff.toolkit.topology import Molecule
+from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import BaseModel, Field, validator
 from qcportal.collections import OptimizationDataset, TorsionDriveDataset
 from qcportal.collections.collection import Collection as QCCollection
@@ -40,7 +41,7 @@ from openff.qcsubmit.results.caching import (
     cached_query_optimization_results,
     cached_query_torsion_drive_results,
 )
-from openff.qcsubmit.utils.visualize import molecules_to_pdf
+from openff.qcsubmit.utils.smirnoff import smirnoff_coverage, smirnoff_torsion_coverage
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.filters import ResultFilter
@@ -219,38 +220,35 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
         return filtered_collection
 
-    def visualize(
-        self,
-        file_name: str,
-        columns: int = 4,
-        toolkit: Optional[Literal["openeye", "rdkit"]] = None,
-    ) -> None:
-        """
-        Create a pdf file of the molecules referenced by this collection using either
-        OpenEye or RDKit.
+    def smirnoff_coverage(self, force_field: ForceField, verbose: bool = False):
+        """Returns a summary of how many unique molecules within this collection
+        would be assigned each of the parameters in a force field.
 
-        Parameters:
-            file_name: The name of the pdf file which will be produced.
-            columns: The number of molecules per row.
-            toolkit: The backend toolkit to use when producing the pdf file.
+        Notes:
+            * Parameters which would not be assigned to any molecules in the collection
+              will not be included in the returned summary.
+
+        Args:
+            force_field: The force field containing the parameters to summarize.
+            verbose: If true a progress bar will be shown on screen.
+
+        Returns:
+            A dictionary of the form ``coverage[handler_name][parameter_smirks] = count``
+            which stores the number of unique molecules within this collection that
+            would be assigned to each parameter.
         """
 
         # We filter by inchi key to make sure that we don't double count molecules
         # with different orderings.
-        unique_smiles = set(
+        unique_molecules = set(
             {
-                entry.inchi_key: entry.cmiles
+                entry.molecule.to_smiles(isomeric=False, mapped=False): entry.molecule
                 for entries in self.entries.values()
                 for entry in entries
             }.values()
         )
 
-        molecules = [
-            Molecule.from_smiles(smiles, allow_undefined_stereo=True)
-            for smiles in unique_smiles
-        ]
-
-        molecules_to_pdf(molecules, file_name, columns, toolkit)
+        return smirnoff_coverage(unique_molecules, force_field, verbose)
 
 
 class BasicResult(_BaseResult):
@@ -727,27 +725,69 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
-    # def create_optimization_dataset(
-    #     self,
-    #     dataset_name: str,
-    #     description: str,
-    #     tagline: str,
-    #     metadata: Optional[Metadata] = None,
-    # ) -> OptimizationDataset:
-    #     """Create an optimization dataset from the results of the current torsion drive
-    #     dataset. This will result in many constrained optimizations for each molecule.
-    #
-    #     Note:
-    #         The final geometry of each torsiondrive constrained optimization is supplied
-    #         as a starting geometry.
-    #
-    #     Parameters:
-    #         dataset_name: The name that will be given to the new dataset.
-    #         tagline: The tagline that should be given to the new dataset.
-    #         description: The description that should be given to the new dataset.
-    #         metadata: The metadata for the new dataset.
-    #
-    #     Returns:
-    #         The created optimization dataset.
-    #     """
-    #     raise NotImplementedError()
+    def create_optimization_dataset(
+        self,
+        dataset_name: str,
+        description: str,
+        tagline: str,
+        metadata: Optional[Metadata] = None,
+    ) -> OptimizationDataset:
+        """Create an optimization dataset from the results of the current torsion drive
+        dataset. This will result in many constrained optimizations for each molecule.
+
+        Note:
+            The final geometry of each torsiondrive constrained optimization is supplied
+            as a starting geometry.
+
+        Parameters:
+            dataset_name: The name that will be given to the new dataset.
+            tagline: The tagline that should be given to the new dataset.
+            description: The description that should be given to the new dataset.
+            metadata: The metadata for the new dataset.
+
+        Returns:
+            The created optimization dataset.
+        """
+        raise NotImplementedError()
+
+    def smirnoff_coverage(
+        self, force_field: ForceField, verbose: bool = False, driven_only: bool = False
+    ):
+        """Returns a summary of how many unique molecules within this collection
+        would be assigned each of the parameters in a force field.
+
+        Notes:
+            * Parameters which would not be assigned to any molecules in the collection
+              will not be included in the returned summary.
+
+        Args:
+            force_field: The force field containing the parameters to summarize.
+            verbose: If true a progress bar will be shown on screen.
+            driven_only: Whether to only include parameters that are applied (at least
+                partially) across a central torsion bond that was driven.
+
+                This option is still experimental and may in cases not count parameters
+                that are actually applied or double count certain applied parameters.
+
+        Returns:
+            A dictionary of the form ``coverage[handler_name][parameter_smirks] = count``
+            which stores the number of unique molecules within this collection that
+            would be assigned to each parameter.
+
+            If ``driven_only`` is true, then ``count`` will be the number of unique
+            driven torsions, rather than unique molecules.
+        """
+
+        if not driven_only:
+            return super(TorsionDriveResultCollection, self).smirnoff_coverage(
+                force_field, verbose
+            )
+
+        records_and_molecules = self.to_records()
+
+        molecules = [
+            (molecule, tuple(record.keywords.dihedrals[0]))
+            for record, molecule in records_and_molecules
+        ]
+
+        return smirnoff_torsion_coverage(molecules, force_field, verbose)

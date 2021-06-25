@@ -7,6 +7,7 @@ from typing import Tuple
 import numpy as np
 import pytest
 from openff.toolkit.topology import Molecule
+from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import ValidationError
 from simtk import unit
 
@@ -1349,7 +1350,7 @@ def test_basicdataset_add_molecules_conformers():
             assert mol.conformers[i].flatten().tolist() == pytest.approx(butane.conformers[i].flatten().tolist())
 
 
-def test_basicdataset_coverage_reporter():
+def test_basic_dataset_coverage_reporter():
     """
     Test generating coverage reports for openforcefield force fields.
     """
@@ -1363,14 +1364,11 @@ def test_basicdataset_coverage_reporter():
         attributes = get_cmiles(molecule)
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
 
-    ff = "openff_unconstrained-1.0.0.offxml"
-    coverage = dataset.coverage_report(ff)
+    coverage = dataset.coverage_report(ForceField("openff_unconstrained-1.0.0.offxml"))
 
-    assert ff in coverage
     # make sure that every tag has been used
     tags = ["Angles", "Bonds", "ImproperTorsions", "ProperTorsions", "vdW"]
-    for tag in tags:
-        assert tag in coverage[ff]
+    assert all(tag in coverage for tag in tags)
 
 
 def test_basicdataset_add_molecule_no_conformer():
