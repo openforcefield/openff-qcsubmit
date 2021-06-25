@@ -13,12 +13,12 @@ from openff.qcsubmit.results.caching import (
     _molecule_cache,
     _record_cache,
     batched_indices,
+    cached_fractal_client,
     cached_query_basic_results,
     cached_query_molecules,
     cached_query_optimization_results,
     cached_query_procedures,
     cached_query_torsion_drive_results,
-    cached_fractal_client,
 )
 
 
