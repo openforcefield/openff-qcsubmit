@@ -18,11 +18,28 @@ from openff.qcsubmit.results.caching import (
     cached_query_optimization_results,
     cached_query_procedures,
     cached_query_torsion_drive_results,
+    cached_fractal_client,
 )
 
 
 def test_batched_indices():
     assert batched_indices([1, 2, 3, 4], 3) == [[1, 2, 3], [4]]
+
+
+def test_cached_fractal_client_bad_address():
+
+    with pytest.raises(ConnectionRefusedError):
+        cached_fractal_client("http://localhost:1234/")
+
+
+def test_cached_fractal_client_snowflake():
+
+    from qcfractal import FractalSnowflake
+
+    snowflake = FractalSnowflake(start_server=False)
+    client = cached_fractal_client(snowflake.client().address)
+
+    assert client is not None
 
 
 def test_cached_query_procedures(public_client):
