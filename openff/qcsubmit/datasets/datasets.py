@@ -1,3 +1,4 @@
+import abc
 import json
 import os
 from typing import (
@@ -9,6 +10,8 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Type,
+    TypeVar,
     Union,
 )
 
@@ -42,7 +45,6 @@ from openff.qcsubmit.datasets.entries import (
 )
 from openff.qcsubmit.exceptions import (
     DatasetCombinationError,
-    DatasetInputError,
     MissingBasisCoverageError,
     QCSpecificationError,
     UnsupportedFiletypeError,
@@ -57,6 +59,12 @@ if TYPE_CHECKING:
 
     from openff.toolkit.typing.engines.smirnoff import ForceField
     from qcfractal.interface import FractalClient
+    from qcportal import FractalClient
+    from qcportal.collections.collection import Collection
+    from qcportal.models.common_models import OptimizationSpecification
+
+C = TypeVar("C", bound="Collection")
+E = TypeVar("E", bound=DatasetEntry)
 
 
 class ComponentResult:
@@ -292,33 +300,25 @@ class ComponentResult:
         return f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' filtered='{self.n_filtered}'>"
 
 
-class BasicDataset(CommonBase):
+class _BaseDataset(abc.ABC, CommonBase):
     """
-    The general qcfractal dataset class which contains all of the molecules and information about them prior to
-    submission.
-
-    The class is a simple holder of the dataset and information about it and can do simple checks on the data before
-    submitting it such as ensuring that the molecules have cmiles information
-    and a unique index to be identified by.
-
-    Note:
-        The molecules in this dataset are all expanded so that different conformers are unique submissions.
+    A general base model for QCSubmit datasets which act as wrappers around a corresponding QFractal collection.
     """
 
     dataset_name: str = Field(
-        "BasicDataset",
+        ...,
         description="The name of the dataset, this will be the name given to the collection in QCArchive.",
     )
     dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = Field(
-        "OpenForcefield single point evaluations.",
+        ...,
         description="The tagline should be a short description of the dataset which will be displayed by the QCArchive client when the collections are listed.",
     )
-    dataset_type: Literal["DataSet"] = Field(
-        "DataSet",
+    type: Literal["_BaseDataset"] = Field(
+        "_BaseDataset",
         description="The dataset type corresponds to the type of collection that will be made in QCArchive.",
     )
     description: constr(min_length=8, regex="[a-zA-Z]") = Field(
-        f"A basic dataset of single points.",
+        ...,
         description="A long description of the datasets purpose and details about the molecules within.",
     )
     metadata: Metadata = Field(
@@ -336,7 +336,6 @@ class BasicDataset(CommonBase):
         description="The set of workflow components used to generate the dataset with any filtered molecules.",
     )
     _file_writers = {"json": json.dump}
-    _entry_class = DatasetEntry
 
     def __init__(self, **kwargs):
         """
@@ -346,7 +345,7 @@ class BasicDataset(CommonBase):
         super().__init__(**kwargs)
 
         # set the collection type here
-        self.metadata.collection_type = self.dataset_type
+        self.metadata.collection_type = self.type
         self.metadata.dataset_name = self.dataset_name
 
         # some fields can be reused here
@@ -355,48 +354,296 @@ class BasicDataset(CommonBase):
         if self.metadata.long_description is None:
             self.metadata.long_description = self.description
 
-    def __add__(self, other: "BasicDataset") -> "BasicDataset":
+    @classmethod
+    @abc.abstractmethod
+    def _entry_class(cls) -> Type[E]:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _generate_collection(self, client: "FractalClient") -> C:
+        """Generate the corresponding QCFractal Collection for this Dataset.
+
+        Each QCSubmit Dataset class corresponds to and wraps
+        a QCFractal Collection class. This method generates an instance
+        of that corresponding Collection, with inputs applied from
+        Dataset attributes.
+
+        Args:
+            client:
+                Client to use for connecting to a QCFractal server instance.
+
+        Returns:
+            Collection instance corresponding to this Dataset.
+
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _get_procedure_spec(self) -> "OptimizationSpecification":
+        """Get the procedure spec, if applicable, for this Dataset.
+
+        If the dataset has no concept of procedure specs, this method
+        should return `None`.
+
+        Returns:
+            Specification for the optimization procedure to perform.
+
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _get_indices(self, dataset: C) -> List[str]:
+        """Shim method to get indices from different Collection types.
+
+        The mechanism for getting indices from different QCFractal Collections
+        is inconsistent. This method wraps the required calls to the given
+        Collection to yield these indices.
+
+        Parameters
+        ----------
+        collection : Collection
+            Collection instance corresponding to this Dataset.
+
+        Returns
+        -------
+        indices : List[str]
+            Indices from the entries in the Collection.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def _compute_kwargs(self, spec: QCSpec, indices: List[str]) -> Dict[str, Any]:
+        """Returns a dict giving the full arguments to the Collection's
+        `compute` method.
+
+        This requires the compute spec defining the compute operations,
+        as well as the set of indices to operate on.
+
+        Parameters
+        ----------
+        spec : QCSpec
+            The method, basis, program, and other parameters for compute execution.
+        indices : List[str]
+            List of entry indices to apply the compute spec to.
+
+        Returns
+        -------
+        spec_kwargs : Dict[str, Any]
+            A dict giving the full arguments to the compute method of this
+            Dataset's corresponding Collection.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def _add_entries(self, dataset: C, chunk_size: int) -> Tuple[List[str], int]:
+        """Add entries to the Dataset's corresponding Collection.
+
+        This method allows for handling of e.g. generating the index/name for
+        the corresponding Collection from each item in `self.dataset`. Since
+        each item may feature more than one conformer, appropriate handling
+        differs between e.g. `OptimizationDataset` and `TorsiondriveDataset`
+
+        Parameters
+        ----------
+        collection : Collection
+            Collection instance corresponding to this Dataset.
+        chunk_size : int
+            The max number of entries to submit to the QCFractal Server at a time.
+            Increase this number to yield better performance.
+            The maximum allowed size is set on a per-server basis as its
+            `query_limit`.
+
+        Returns
+        -------
+        indices : List[str]
+            A list of the entry indices added.
+        new_entries : int
+            The number of new entries added.
+
+        """
+        pass
+
+    @abc.abstractmethod
+    def _add_entry(
+        self, molecule: qcel.models.Molecule, dataset: C, name: str, data: E
+    ) -> bool:
+        """
+        Attempt to add a molecule from the local dataset to the QCArchive instance.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _add_dataset_specification(
+        self,
+        spec: QCSpec,
+        dataset: C,
+        procedure_spec: Optional["OptimizationSpecification"] = None,
+    ) -> bool:
+        """Add the given compute spec to this Datasets's corresponding Collection.
+
+        This will check if a spec under this name has already been added and if it should be overwritten.
+
+        If a specification is already stored under this name in the collection we have options:
+            - If a spec with the same name but different details has been added and used we must raise an error to change the name of the new spec
+            - If the spec has been added and has not been used then overwrite it.
+
+        Parameters
+        ----------
+        spec : QCSpec
+            The QCSpec we are trying to add to the Collection.
+        procedure_spec : OptimizationSpecification
+            The procedure spec to add, in this case an `OptimizationSpecification`.
+        dataset : Collection
+            The Collection to add this compute spec to.
+
+
+        Returns
+        -------
+        bool
+            `True` if the specification is present in the collection
+            and is exactly the same as what we are trying to add.
+
+        Raises
+        ------
+        QCSpecificationError
+            If a specification with the same name is already added to the collection but has different settings.
+        """
+        pass
+
+    def submit(
+        self,
+        client: Union[str, "FractalClient"],
+        processes: Optional[int] = 1,
+        ignore_errors: bool = False,
+        verbose: bool = False,
+        chunk_size: Optional[int] = None,
+    ) -> Dict:
+        """
+        Submit the dataset to a QCFractal server.
+
+        Args:
+            client:
+                The name of the file containing the client information or an actual client instance.
+            processes:
+                Number of processes to use for submission; if ``None``, all available processes will be used.
+            ignore_errors:
+                If the user wants to submit the compute regardless of errors set this to ``True``.
+                Mainly to override basis coverage.
+            chunk_size:
+                Max number of molecules or molecules+specs to include in individual server calls.
+                If ``None``, will use ``query_limit`` from ``client``.
+            verbose:
+                If progress bars and submission statistics should be printed ``True`` or not ``False``.
+
+        Returns:
+            A dictionary of the compute response from the client for each specification submitted.
+
+        Raises:
+            MissingBasisCoverageError:
+                If the chosen basis set does not cover some of the elements in the dataset.
+
+        """
+        if chunk_size is None:
+            chunk_size = client.query_limit
+
+        # pre submission checks
+        # make sure we have some QCSpec to submit
+        self._check_qc_specs()
+        # basis set coverage check
+        self._get_missing_basis_coverage(raise_errors=(not ignore_errors))
+
+        # get client instance
+        target_client = self._activate_client(client)
+
+        # see if collection already exists
+        # if so, we'll extend it
+        # if not, we'll create a new one
+        try:
+            collection = target_client.get_collection(self.type, self.dataset_name)
+        except KeyError:
+            self.metadata.validate_metadata(raise_errors=not ignore_errors)
+            collection = self._generate_collection(client=target_client)
+
+        # create specifications
+        procedure_spec = self._get_procedure_spec()
+        for spec in self.qc_specifications.values():
+            self._add_dataset_specification(
+                spec=spec, dataset=collection, procedure_spec=procedure_spec
+            )
+
+        # add the molecules to the database
+        indices, new_entries = self._add_entries(collection, chunk_size)
+        if verbose:
+            print(f"Number of new entries: {new_entries}/{self.n_records}")
+
+        # if we have no indices, such as with a pure compute submission,
+        # then get all of the existing ones and use these
+        if not indices:
+            indices = self._get_indices(collection)
+
+        responses = {}
+        # set up process pool for compute submission
+        # if processes == 1, perform in-process, no pool
+        if processes is None or processes > 1:
+            from multiprocessing.pool import Pool
+
+            with Pool(processes=processes) as pool:
+
+                # add compute specs to the collection
+                for spec_name, spec in self.qc_specifications.items():
+                    spec_tasks = 0
+                    work_list = []
+                    for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
+                        spec_kwargs = self._compute_kwargs(spec, mol_chunk)
+                        work_list.append(
+                            pool.apply_async(collection.compute, **spec_kwargs)
+                        )
+
+                    for work in tqdm.tqdm(
+                        work_list,
+                        total=len(work_list),
+                        ncols=80,
+                        desc=f"Creating tasks for: {spec_name}",
+                        disable=not verbose,
+                    ):
+                        result = work.get()
+                        try:
+                            spec_tasks += result
+                        except TypeError:
+                            spec_tasks += len(result.ids)
+
+                    responses[spec_name] = spec_tasks
+
+        else:
+            for spec_name, spec in self.qc_specifications.items():
+                spec_tasks = 0
+                for mol_chunk in tqdm.tqdm(
+                    chunk_generator(indices, chunk_size=chunk_size),
+                    total=len(indices) / chunk_size,
+                    ncols=80,
+                    desc=f"Creating tasks for: {spec_name}",
+                    disable=not verbose,
+                ):
+                    spec_kwargs = self._compute_kwargs(spec, mol_chunk)
+                    result = collection.compute(**spec_kwargs)
+                    # datasets give a compute response, but opt and torsiondrives give ints
+                    try:
+                        spec_tasks += result
+                    except TypeError:
+                        spec_tasks += len(result.ids)
+
+                responses[spec_name] = spec_tasks
+
+        return responses
+
+    @abc.abstractmethod
+    def __add__(self, other: "_BaseDataset") -> "_BaseDataset":
         """
         Add two Basicdatasets together.
         """
-        import copy
-
-        # make sure the dataset types match
-        if self.dataset_type != other.dataset_type:
-            raise DatasetCombinationError(
-                f"The datasets must be the same type, you can not add types {self.dataset_type} and {other.dataset_type}"
-            )
-
-        # create a new datset
-        new_dataset = copy.deepcopy(self)
-        # update the elements in the dataset
-        new_dataset.metadata.elements.update(other.metadata.elements)
-        for index, entry in other.dataset.items():
-            # search for the molecule
-            entry_ids = new_dataset.get_molecule_entry(
-                entry.get_off_molecule(include_conformers=False)
-            )
-            if not entry_ids:
-                new_dataset.dataset[index] = entry
-            else:
-                mol_id = entry_ids[0]
-                current_entry = new_dataset.dataset[mol_id]
-                _, atom_map = off.Molecule.are_isomorphic(
-                    entry.get_off_molecule(include_conformers=False),
-                    current_entry.get_off_molecule(include_conformers=False),
-                    return_atom_map=True,
-                )
-                # remap the molecule and all conformers
-                entry_mol = entry.get_off_molecule(include_conformers=True)
-                mapped_mol = entry_mol.remap(mapping_dict=atom_map, current_to_new=True)
-                for i in range(mapped_mol.n_conformers):
-                    mapped_schema = mapped_mol.to_qcschema(
-                        conformer=i, extras=current_entry.initial_molecules[0].extras
-                    )
-                    if mapped_schema not in current_entry.initial_molecules:
-                        current_entry.initial_molecules.append(mapped_schema)
-
-        return new_dataset
+        raise NotImplementedError()
 
     @classmethod
     def parse_file(cls, file_name: str):
@@ -608,7 +855,7 @@ class BasicDataset(CommonBase):
         """
 
         try:
-            data_entry = self._entry_class(
+            data_entry = self._entry_class()(
                 off_molecule=molecule,
                 index=index,
                 attributes=attributes,
@@ -724,135 +971,6 @@ class BasicDataset(CommonBase):
                     )
         if not raise_errors:
             return basis_report
-
-    def submit(
-        self,
-        client: Union[str, ptl.FractalClient, "FractalClient"],
-        threads: Optional[int] = None,
-        ignore_errors: bool = False,
-        verbose: bool = False,
-    ) -> Dict:
-        """
-        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-        corresponding result class.
-
-        Args:
-            client:
-                The name of the file containing the client information or an actual client instance.
-            threads:
-                The number of threads that should be used to submit the dataset in parallel.
-            ignore_errors:
-                If the user wants to submit the compute regardless of errors set this to `True`. Mainly to override basis coverage.
-            verbose:
-                If `True` display progress bars and feedback on the number of molecules added to the database.
-
-        Raises:
-            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
-
-        Returns:
-             A dictionary of the compute response from the client for each specification submitted.
-        """
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
-        # pre submission checks
-        # make sure we have some QCSpec to submit
-        self._check_qc_specs()
-        # basis set coverage check
-        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
-
-        target_client = self._activate_client(client)
-        # work out if we are extending a collection
-        try:
-            collection = target_client.get_collection("Dataset", self.dataset_name)
-        except KeyError:
-            # we are making a new dataset so make sure the metadata is complete
-            # we hard code the default to be psi4 but each spec can submit their own program to use
-            self.metadata.validate_metadata(raise_errors=True)
-            collection = ptl.collections.Dataset(
-                name=self.dataset_name,
-                client=target_client,
-                default_driver=self.driver,
-                default_program="psi4",
-                tagline=self.dataset_tagline,
-                tags=self.dataset_tags,
-                description=self.description,
-                provenance=self.provenance,
-                metadata=self.metadata.dict(),
-            )
-
-        # here we need to add a spec for each program and set the default
-        for spec in self.qc_specifications.values():
-            # generate the keyword set
-            kw = self._get_spec_keywords(spec=spec)
-            try:
-                # try and add the keywords if present then continue
-                collection.add_keywords(
-                    alias=spec.spec_name,
-                    program=spec.program,
-                    keyword=kw,
-                    default=False,
-                )
-                collection.save()
-            except (KeyError, AttributeError):
-                pass
-
-        new_entries = 0
-        # now add the molecules to the database
-        for index, data in self.dataset.items():
-            if len(data.initial_molecules) > 1:
-                # check if the index we have been supplied has a number tag already if so start from this tag
-                index, tag = self._clean_index(index=index)
-
-                for j, molecule in enumerate(data.initial_molecules):
-                    name = index + f"-{tag + j}"
-                    new_entries += self._add_dataset_entry(
-                        dataset=collection, name=name, molecule=molecule
-                    )
-            else:
-                new_entries += self._add_dataset_entry(
-                    dataset=collection, name=index, molecule=data.initial_molecules[0]
-                )
-
-        # save the final dataset
-        collection.save()
-        if verbose:
-            print(f"Number of new entries: {new_entries}/{self.n_records}")
-        # submit the calculations for each spec
-        responses = {}
-        pool = ThreadPoolExecutor(max_workers=threads)
-        work = {}
-        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
-        for spec in self.qc_specifications.values():
-            spec_kwargs.update(spec.dict(include={"method", "basis", "program"}))
-            spec_kwargs["keywords"] = spec.spec_name
-            spec_kwargs["protocols"] = {"wavefunction": spec.store_wavefunction.value}
-            task = pool.submit(collection.compute, **spec_kwargs)
-            work[task] = spec.spec_name
-
-        iterable = as_completed(work)
-        iterable = tqdm.tqdm(
-            iterable, total=len(work), ncols=80, desc="Tasks", disable=not verbose
-        )
-        for result in iterable:
-            responses[work[result]] = result.result()
-
-        pool.shutdown(wait=True)
-        return responses
-
-    def _add_dataset_entry(
-        self,
-        dataset: ptl.collections.Dataset,
-        name: str,
-        molecule: qcel.models.Molecule,
-    ) -> bool:
-        """
-        Try and add a molecule to the basic dataset and return if we were successful or not.
-        """
-        try:
-            dataset.add_entry(name=name, molecule=molecule)
-            return True
-        except KeyError:
-            return False
 
     def _get_spec_keywords(self, spec: QCSpec) -> ptl.models.KeywordSet:
         """
@@ -1027,28 +1145,209 @@ class BasicDataset(CommonBase):
         return inchikey
 
 
+class BasicDataset(_BaseDataset):
+    """
+    The general QCFractal dataset class which contains all of the molecules and information about them prior to
+    submission.
+
+    The class is a simple holder of the dataset and information about it and can do simple checks on the data before
+    submitting it such as ensuring that the molecules have cmiles information
+    and a unique index to be identified by.
+
+    Note:
+        The molecules in this dataset are all expanded so that different conformers are unique submissions.
+    """
+
+    type: Literal["DataSet"] = "DataSet"
+
+    @classmethod
+    def _entry_class(cls) -> Type[DatasetEntry]:
+        return DatasetEntry
+
+    def __add__(self, other: "BasicDataset") -> "BasicDataset":
+        import copy
+
+        # make sure the dataset types match
+        if self.type != other.type:
+            raise DatasetCombinationError(
+                f"The datasets must be the same type, you can not add types {self.type} and {other.type}"
+            )
+
+        # create a new datset
+        new_dataset = copy.deepcopy(self)
+        # update the elements in the dataset
+        new_dataset.metadata.elements.update(other.metadata.elements)
+        for index, entry in other.dataset.items():
+            # search for the molecule
+            entry_ids = new_dataset.get_molecule_entry(
+                entry.get_off_molecule(include_conformers=False)
+            )
+            if not entry_ids:
+                new_dataset.dataset[index] = entry
+            else:
+                mol_id = entry_ids[0]
+                current_entry = new_dataset.dataset[mol_id]
+                _, atom_map = off.Molecule.are_isomorphic(
+                    entry.get_off_molecule(include_conformers=False),
+                    current_entry.get_off_molecule(include_conformers=False),
+                    return_atom_map=True,
+                )
+                # remap the molecule and all conformers
+                entry_mol = entry.get_off_molecule(include_conformers=True)
+                mapped_mol = entry_mol.remap(mapping_dict=atom_map, current_to_new=True)
+                for i in range(mapped_mol.n_conformers):
+                    mapped_schema = mapped_mol.to_qcschema(
+                        conformer=i, extras=current_entry.initial_molecules[0].extras
+                    )
+                    if mapped_schema not in current_entry.initial_molecules:
+                        current_entry.initial_molecules.append(mapped_schema)
+
+        return new_dataset
+
+    def _generate_collection(self, client: "FractalClient") -> ptl.collections.Dataset:
+        collection = ptl.collections.Dataset(
+            name=self.dataset_name,
+            client=client,
+            default_driver=self.driver,
+            default_program="psi4",
+            tagline=self.dataset_tagline,
+            tags=self.dataset_tags,
+            description=self.description,
+            provenance=self.provenance,
+            metadata=self.metadata.dict(),
+        )
+        return collection
+
+    def _get_procedure_spec(self):
+        """Needed for `submit` usage."""
+        return None
+
+    def _get_indices(self, collection: ptl.collections.Dataset):
+        return [e.molecule_id for e in collection.data.records]
+
+    def _add_dataset_specification(
+        self,
+        spec: QCSpec,
+        dataset: ptl.collections.Dataset,
+        procedure_spec: Optional["OptimizationSpecification"] = None,
+    ) -> bool:
+        """Add the given compute spec to this Datasets's corresponding Collection.
+
+        Args:
+            spec:
+                The QCSpec we are trying to add to the dataset in the QCArchive instance.
+            dataset:
+                The dataset to add this compute spec to.
+            procedure_spec:
+                The procedure spec to add; ignored for ``BasicDataset``.
+
+        Returns:
+            ``True`` if the specification successfully added, ``False`` otherwise.
+        """
+        # generate the keyword set
+        kw = self._get_spec_keywords(spec=spec)
+        try:
+            # try and add the keywords; if present then continue
+            dataset.add_keywords(
+                alias=spec.spec_name,
+                program=spec.program,
+                keyword=kw,
+                default=False,
+            )
+            dataset.save()
+            return True
+        except (KeyError, AttributeError):
+            return False
+
+    def _compute_kwargs(self, spec, indices):
+        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
+        spec_kwargs.update(spec.dict(include={"method", "basis", "program"}))
+        spec_kwargs["keywords"] = spec.spec_name
+        spec_kwargs["protocols"] = {"wavefunction": spec.store_wavefunction.value}
+        spec_kwargs["subset"] = indices
+        return spec_kwargs
+
+    def _add_entries(
+        self, dataset: ptl.collections.Dataset, chunk_size: int
+    ) -> Tuple[List[str], int]:
+        new_entries = 0
+        indices = []
+
+        for i, (index, data) in enumerate(self.dataset.items()):
+
+            # if we hit the chunk size, we upload to the server
+            if (i % chunk_size) == 0:
+                dataset.save()
+
+            if len(data.initial_molecules) > 1:
+
+                # check if the index has a number tag
+                # if so, start from this tag
+                index, tag = self._clean_index(index=index)
+
+                for j, molecule in enumerate(data.initial_molecules):
+                    name = index + f"-{tag + j}"
+                    new_entries += int(
+                        self._add_entry(
+                            molecule=molecule, dataset=dataset, name=name, data=data
+                        )
+                    )
+                    indices.append(name)
+            else:
+                new_entries += int(
+                    self._add_entry(
+                        molecule=data.initial_molecules[0],
+                        dataset=dataset,
+                        name=index,
+                        data=data,
+                    )
+                )
+                indices.append(index)
+
+        # upload remainder molecules to the server
+        dataset.save()
+        # we have to convert the indices to the object ids
+        object_ids = [
+            entry.molecule_id for entry in dataset.data.records if entry.name in indices
+        ]
+
+        return object_ids, new_entries
+
+    def _add_entry(
+        self,
+        molecule: qcel.models.Molecule,
+        dataset: ptl.collections.Dataset,
+        name: str,
+        data: DatasetEntry,
+    ) -> bool:
+        """
+        Attempt to add molecule the dataset.
+        Return `True` if successful, `False` otherwise.
+        """
+        try:
+            dataset.add_entry(name=name, molecule=molecule)
+            return True
+        except KeyError:
+            return False
+
+
 class OptimizationDataset(BasicDataset):
     """
     An optimisation dataset class which handles submission of settings differently from the basic dataset, and creates
     optimization datasets in the public or local qcarcive instance.
     """
 
-    dataset_name = "OptimizationDataset"
-    dataset_tagline: constr(
-        min_length=8, regex="[a-zA-Z]"
-    ) = "OpenForcefield optimizations."
-    dataset: Dict[str, OptimizationEntry] = {}
-    dataset_type: Literal["OptimizationDataset"] = "OptimizationDataset"
-    description: constr(
-        min_length=8, regex="[a-zA-Z]"
-    ) = "An optimization dataset using geometric."
-    metadata: Metadata = Metadata()
+    type: Literal["OptimizationDataset"] = "OptimizationDataset"
     driver: DriverEnum = DriverEnum.gradient
     optimization_procedure: GeometricProcedure = Field(
         GeometricProcedure(),
         description="The optimization program and settings that should be used.",
     )
-    _entry_class = OptimizationEntry
+    dataset: Dict[str, OptimizationEntry] = {}
+
+    @classmethod
+    def _entry_class(cls) -> Type[OptimizationEntry]:
+        return OptimizationEntry
 
     @validator("driver")
     def _check_driver(cls, driver):
@@ -1066,9 +1365,9 @@ class OptimizationDataset(BasicDataset):
         from openff.qcsubmit.utils import remap_list
 
         # make sure the dataset types match
-        if self.dataset_type != other.dataset_type:
+        if self.type != other.type:
             raise DatasetCombinationError(
-                f"The datasets must be the same type, you can not add types {self.dataset_type} and {other.dataset_type}"
+                f"The datasets must be the same type, you can not add types {self.type} and {other.type}"
             )
 
         # create a new dataset
@@ -1136,7 +1435,7 @@ class OptimizationDataset(BasicDataset):
 
         return new_dataset
 
-    def _add_keywords(self, client: ptl.FractalClient, spec: QCSpec) -> str:
+    def _add_keywords(self, client: "FractalClient", spec: QCSpec) -> str:
         """
         Add the keywords to the client and return the index number of the keyword set.
 
@@ -1174,25 +1473,21 @@ class OptimizationDataset(BasicDataset):
     def _add_dataset_specification(
         self,
         spec: QCSpec,
-        opt_spec: OptimizationSpecification,
-        collection: Union[
-            ptl.collections.OptimizationDataset, ptl.collections.TorsionDriveDataset
-        ],
+        dataset: ptl.collections.OptimizationDataset,
+        procedure_spec: Optional["OptimizationSpecification"] = None,
     ) -> bool:
-        """
-        Try to add the local qc specification to the given collection, this will check if a spec under this name has already been added and if it should be overwritten.
+        """Add the given compute spec to this Datasets's corresponding Collection.
 
         Args:
-            spec: The QCSpec we are trying to add to the collection
-            opt_spec: The qcportal style optimization spec
-            collection: The collection we are trying to add this compute specification to
+            spec:
+                The QCSpec we are trying to add to the collection
+            dataset:
+                The QCArchive dataset this specification should be added to
+            procedure_spec:
+                The qcportal style optimization spec
 
         Raises:
             QCSpecificationError: If a specification with the same name is already added to the collection but has different settings.
-
-        Returns:
-            `True` if the specification is present in the collection and is exactly the same as what we are trying to add.
-            `False` if no specification can be found in the collection with the given name.
 
         Note:
             If a specification is already stored under this name in the collection we have options:
@@ -1200,15 +1495,15 @@ class OptimizationDataset(BasicDataset):
             - If the spec has been added and has not been used then overwrite it.
         """
         # build the qcportal version of our spec
-        kw_id = self._add_keywords(client=collection.client, spec=spec)
+        kw_id = self._add_keywords(client=dataset.client, spec=spec)
         qcportal_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
 
         # see if the spec is in the history
-        if spec.spec_name.lower() in collection.data.history:
-            collection_spec = collection.get_specification(name=spec.spec_name)
+        if spec.spec_name.lower() in dataset.data.history:
+            collection_spec = dataset.get_specification(name=spec.spec_name)
             # check they are the same
             if (
-                collection_spec.optimization_spec == opt_spec
+                collection_spec.optimization_spec == procedure_spec
                 and qcportal_spec == collection_spec.qc_spec
             ):
                 # the spec is already there and is the same so just skip adding it
@@ -1221,148 +1516,90 @@ class OptimizationDataset(BasicDataset):
 
         else:
             # the spec either has not been added or has not been used so set the new default
-            collection.add_specification(
+            dataset.add_specification(
                 name=spec.spec_name,
-                optimization_spec=opt_spec,
+                optimization_spec=procedure_spec,
                 qc_spec=qcportal_spec,
                 description=spec.spec_description,
                 overwrite=True,
             )
             return True
 
-    def submit(
-        self,
-        client: Union[str, ptl.FractalClient, "FractalClient"],
-        threads: Optional[int] = None,
-        ignore_errors: bool = False,
-        verbose: bool = False,
-    ) -> Dict:
-        """
-        Submit the dataset to the chosen QCArchive instance.
+    def _generate_collection(
+        self, client: "FractalClient"
+    ) -> ptl.collections.OptimizationDataset:
+        collection = ptl.collections.OptimizationDataset(
+            name=self.dataset_name,
+            client=client,
+            tagline=self.dataset_tagline,
+            tags=self.dataset_tags,
+            description=self.description,
+            provenance=self.provenance,
+            metadata=self.metadata.dict(),
+        )
+        return collection
 
-        Args:
-            client:
-                The name of the file containing the client information or the client instance.
-            threads:
-                The number of threads used to contact the client.
-            ignore_errors:
-                If the user wants to ignore basis coverage errors and submit the dataset.
-            verbose:
-                If we should print out useful information during the submission or not.
+    def _get_procedure_spec(self):
+        return self.optimization_procedure.get_optimzation_spec()
 
-        Raises:
-            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
+    def _get_indices(self, collection):
+        return collection.df.index.tolist()
 
-        Returns:
-            A dictionary of the compute response from the client for each specification submitted.
-        """
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+    def _compute_kwargs(self, spec, indices):
+        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
+        spec_kwargs["subset"] = indices
+        spec_kwargs["specification"] = spec.spec_name
+        return spec_kwargs
 
-        # pre submission checks
-        # check for qcspecs
-        self._check_qc_specs()
-        # basis set coverage check
-        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
-
-        target_client = self._activate_client(client)
-        # work out if we are extending a collection
-        try:
-            collection = target_client.get_collection(
-                "OptimizationDataset", self.dataset_name
-            )
-        except KeyError:
-            # we are making a new dataset so make sure the url metadata is supplied
-            if self.metadata.long_description_url is None:
-                raise DatasetInputError(
-                    "Please provide a long_description_url for the metadata before submitting."
-                )
-
-            collection = ptl.collections.OptimizationDataset(
-                name=self.dataset_name,
-                client=target_client,
-                tagline=self.dataset_tagline,
-                tags=self.dataset_tags,
-                description=self.description,
-                provenance=self.provenance,
-                metadata=self.metadata.dict(),
-            )
-
-        # create the optimization specification
-        opt_spec = self.optimization_procedure.get_optimzation_spec()
-        # create the qc specification and add them all
-        for spec in self.qc_specifications.values():
-            self._add_dataset_specification(
-                spec=spec, opt_spec=opt_spec, collection=collection
-            )
-
-        # start a thread pool worker for submissions
-        work = []
+    def _add_entries(
+        self, dataset: ptl.collections.OptimizationDataset, chunk_size: int
+    ) -> Tuple[List[str], int]:
         new_entries = 0
         indices = []
-        pool = ThreadPoolExecutor(max_workers=threads)
-        for index, data in self.dataset.items():
+
+        for i, (index, data) in enumerate(self.dataset.items()):
+
+            # if we hit the chunk size, we upload to the server
+            if (i % chunk_size) == 0:
+                dataset.save()
+
             if len(data.initial_molecules) > 1:
-                # check if the index we have been supplied has a number tag already if so start from this tag
+
+                # check if the index has a number tag
+                # if so, start from this tag
                 index, tag = self._clean_index(index=index)
 
                 for j, molecule in enumerate(data.initial_molecules):
                     name = index + f"-{tag + j}"
-                    task = pool.submit(
-                        self._add_optimization_entry,
-                        *(collection, name, molecule, data),
+                    new_entries += int(
+                        self._add_entry(
+                            molecule=molecule, dataset=dataset, name=name, data=data
+                        )
                     )
-                    work.append(task)
+                    indices.append(name)
             else:
-                task = pool.submit(
-                    self._add_optimization_entry,
-                    *(collection, index, data.initial_molecules[0], data),
+                new_entries += int(
+                    self._add_entry(
+                        molecule=data.initial_molecules[0],
+                        dataset=dataset,
+                        name=index,
+                        data=data,
+                    )
                 )
-                work.append(task)
+                indices.append(index)
 
-        # count how many tasks have been made
-        for task in as_completed(work):
-            new_index, result = task.result()
-            new_entries += int(result)
-            indices.append(new_index)
+        # upload remainder molecules to the server
+        dataset.save()
 
-        if verbose:
-            print(f"Number of new entries: {new_entries}/{self.n_records}")
-        collection.save()
-        # if we have no new indices grab them all from the dataset
-        if not indices:
-            indices = list(collection.df.index)
+        return indices, new_entries
 
-        responses = {}
-        chunk_size = 100
-        # submit the calculations for each spec
-        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
-        for spec_name in self.qc_specifications.keys():
-            spec_tasks = 0
-            work = []
-            for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
-                spec_kwargs["subset"] = mol_chunk
-                task = pool.submit(collection.compute, spec_name, **spec_kwargs)
-                work.append(task)
-
-            work_list = as_completed(work)
-            work_list = tqdm.tqdm(
-                work_list, total=len(work), ncols=80, desc="Tasks", disable=not verbose
-            )
-            for result in work_list:
-                spec_tasks += result.result()
-
-            responses[spec_name] = spec_tasks
-
-        pool.shutdown(wait=True)
-        return responses
-
-    def _add_optimization_entry(
+    def _add_entry(
         self,
+        molecule: qcel.models.Molecule,
         dataset: ptl.collections.OptimizationDataset,
         name: str,
-        molecule: qcel.models.Molecule,
         data: OptimizationEntry,
-    ) -> Tuple[str, bool]:
+    ) -> bool:
         """
         Add a molecule to the given optimization dataset and return the ids and the result of adding the molecule.
         """
@@ -1374,9 +1611,9 @@ class OptimizationDataset(BasicDataset):
                 additional_keywords=data.formatted_keywords,
                 save=False,
             )
-            return name, True
+            return True
         except KeyError:
-            return name, False
+            return False
 
 
 class TorsiondriveDataset(OptimizationDataset):
@@ -1389,16 +1626,8 @@ class TorsiondriveDataset(OptimizationDataset):
         by case basis they can be defined for each torsion in a molecule separately in the keywords of the torsiondrive entry.
     """
 
-    dataset_name = "TorsionDriveDataset"
-    dataset_tagline: constr(
-        min_length=8, regex="[a-zA-Z]"
-    ) = "OpenForcefield TorsionDrives."
     dataset: Dict[str, TorsionDriveEntry] = {}
-    dataset_type: Literal["TorsiondriveDataset"] = "TorsiondriveDataset"
-    description: constr(
-        min_length=8, regex="[a-zA-Z]"
-    ) = "A TorsionDrive dataset using geometric."
-    metadata: Metadata = Metadata()
+    type: Literal["TorsionDriveDataset"] = "TorsionDriveDataset"
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )
@@ -1418,7 +1647,10 @@ class TorsiondriveDataset(OptimizationDataset):
         None,
         description="The energy lower threshold to trigger new optimizations in the torsiondrive.",
     )
-    _entry_class = TorsionDriveEntry
+
+    @classmethod
+    def _entry_class(cls) -> Type[TorsionDriveEntry]:
+        return TorsionDriveEntry
 
     def __add__(self, other: "TorsiondriveDataset") -> "TorsiondriveDataset":
         """
@@ -1427,9 +1659,9 @@ class TorsiondriveDataset(OptimizationDataset):
         import copy
 
         # make sure the dataset types match
-        if self.dataset_type != other.dataset_type:
+        if self.type != other.type:
             raise DatasetCombinationError(
-                f"The datasets must be the same type, you can not add types {self.dataset_type} and {other.dataset_type}"
+                f"The datasets must be the same type, you can not add types {self.type} and {other.type}"
             )
 
         # create a new dataset
@@ -1491,125 +1723,53 @@ class TorsiondriveDataset(OptimizationDataset):
         """
         return len(self.dataset)
 
-    def submit(
-        self,
-        client: Union[str, ptl.FractalClient, "FractalClient"],
-        threads: Optional[int] = None,
-        ignore_errors: bool = False,
-        verbose: bool = False,
-    ) -> Dict:
-        """
-        Submit the dataset to the chosen qcarchive address and finish or wait for the results and return the
-        corresponding result class.
+    def _generate_collection(
+        self, client: "FractalClient"
+    ) -> ptl.collections.TorsionDriveDataset:
+        collection = ptl.collections.TorsionDriveDataset(
+            name=self.dataset_name,
+            client=client,
+            tagline=self.dataset_tagline,
+            tags=self.dataset_tags,
+            description=self.description,
+            provenance=self.provenance,
+            metadata=self.metadata.dict(),
+        )
+        return collection
 
-        Args:
-            client:
-                The name of the file containing the client information or the client instance.
-            threads:
-                The number of threads used to connect with the client.
-            ignore_errors:
-                If the user wants to ignore basis coverage issues and submit the dataset.
-            verbose:
-                If help messages should be printed while submitting the dataset.
-
-
-        Returns:
-            A dictionary of the compute response from the client for each specification submitted.
-
-        Raises:
-            MissingBasisCoverageError: If the chosen basis set does not cover some of the elements in the dataset.
-        """
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
-        # pre submission checks
-        # check for qcspecs
-        self._check_qc_specs()
-        # basis set coverage check
-        self._get_missing_basis_coverage(raise_errors=not ignore_errors)
-
-        target_client = self._activate_client(client)
-        # work out if we are extending a collection
-        try:
-            collection = target_client.get_collection(
-                "TorsionDriveDataset", self.dataset_name
-            )
-        except KeyError:
-            # we are making a new dataset so make sure the metadata is complete
-            self.metadata.validate_metadata(raise_errors=True)
-
-            collection = ptl.collections.TorsionDriveDataset(
-                name=self.dataset_name,
-                client=target_client,
-                tagline=self.dataset_tagline,
-                tags=self.dataset_tags,
-                description=self.description,
-                provenance=self.provenance,
-                metadata=self.metadata.dict(),
-            )
-        # create the optimization specification
-        opt_spec = self.optimization_procedure.get_optimzation_spec()
-        # create the qc specification for each spec
-        for spec in self.qc_specifications.values():
-            self._add_dataset_specification(
-                spec=spec, opt_spec=opt_spec, collection=collection
-            )
-
-        # start a thread pool worker for the submissions
-        work = []
+    def _add_entries(
+        self, dataset: ptl.collections.TorsionDriveDataset, chunk_size: int
+    ) -> Tuple[List[str], int]:
         new_entries = 0
         indices = []
-        pool = ThreadPoolExecutor(max_workers=threads)
-        # start add the molecule to the dataset, multiple conformers/molecules can be used as the starting geometry
-        for index, data in self.dataset.items():
-            task = pool.submit(self._add_torsiondrive_entry, *(collection, data))
-            work.append(task)
 
-        # count how many tasks have been made
-        for task in as_completed(work):
-            index, result = task.result()
-            new_entries += int(result)
+        for i, (index, data) in enumerate(self.dataset.items()):
+            # if we hit the chunk size, we upload to the server
+            if (i % chunk_size) == 0:
+                dataset.save()
+
+            new_entries += int(
+                self._add_entry(
+                    data.initial_molecules, dataset=dataset, name=data.index, data=data
+                )
+            )
             indices.append(index)
 
-        if verbose:
-            print(f"Number of new entries: {new_entries}/{self.n_records}")
-        collection.save()
+        # upload remainder molecules to the server
+        dataset.save()
 
-        # if there are no new tasks, generate them for all entries
-        if not indices:
-            indices = list(collection.df.index)
+        return indices, new_entries
 
-        responses = {}
-        chunk_size = 100
-        # submit the calculations for each spec
-        spec_kwargs = dict(tag=self.compute_tag, priority=self.priority)
-        for spec_name in self.qc_specifications.keys():
-            spec_tasks = 0
-            work = []
-            for mol_chunk in chunk_generator(indices, chunk_size=chunk_size):
-                spec_kwargs["subset"] = mol_chunk
-                task = pool.submit(collection.compute, spec_name, **spec_kwargs)
-                work.append(task)
-
-            work_list = as_completed(work)
-            work_list = tqdm.tqdm(
-                work_list, total=len(work), ncols=80, desc="Tasks", disable=not verbose
-            )
-            for result in work_list:
-                spec_tasks += result.result()
-
-            responses[spec_name] = spec_tasks
-
-        pool.shutdown(wait=True)
-        return responses
-
-    def _add_torsiondrive_entry(
+    def _add_entry(
         self,
+        molecule: qcel.models.Molecule,
         dataset: ptl.collections.TorsionDriveDataset,
+        name: str,
         data: TorsionDriveEntry,
-    ) -> Tuple[str, bool]:
+    ) -> bool:
         """
-        Add a molecule to the given torsiondrive dataset and return the ids and the result of adding the molecule.
-        """
+        Add a molecule to the given torsiondrive dataset and return the id and
+        the result of adding the molecule."""
         try:
             dataset.add_entry(
                 name=data.index,
@@ -1623,6 +1783,6 @@ class TorsiondriveDataset(OptimizationDataset):
                 or self.energy_decrease_thresh,
                 dihedral_ranges=data.keywords.dihedral_ranges or self.dihedral_ranges,
             )
-            return data.index, True
+            return True
         except KeyError:
-            return data.index, False
+            return False

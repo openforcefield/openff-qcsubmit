@@ -397,14 +397,14 @@ class BasicResultCollection(_BaseResultCollection):
 
 class OptimizationResult(_BaseResult):
     """A class which stores a reference to, and allows the retrieval of, data from
-    a single result record stored in a QCFractal instance."""
+    a single optimization result record stored in a QCFractal instance."""
 
     type: Literal["optimization"] = "optimization"
 
 
 class OptimizationResultCollection(_BaseResultCollection):
     """A class which stores a reference to, and allows the retrieval of, data from
-    a single result record stored in a QCFractal instance."""
+    a single optimization result record stored in a QCFractal instance."""
 
     entries: Dict[str, List[OptimizationResult]] = Field(
         ...,
@@ -623,14 +623,14 @@ class OptimizationResultCollection(_BaseResultCollection):
 
 class TorsionDriveResult(_BaseResult):
     """A class which stores a reference to, and allows the retrieval of, data from
-    a single result record stored in a QCFractal instance."""
+    a single torsion drive result record stored in a QCFractal instance."""
 
     type: Literal["torsion"] = "torsion"
 
 
 class TorsionDriveResultCollection(_BaseResultCollection):
     """A class which stores a reference to, and allows the retrieval of, data from
-    a single result record stored in a QCFractal instance."""
+    a single torsion drive result record stored in a QCFractal instance."""
 
     entries: Dict[str, List[TorsionDriveResult]] = Field(
         ...,

@@ -22,6 +22,7 @@ from openff.qcsubmit.datasets import (
     list_datasets,
     load_dataset,
     register_dataset,
+    update_specification_and_metadata,
 )
 from openff.qcsubmit.exceptions import (
     AngleConnectionError,
@@ -37,14 +38,8 @@ from openff.qcsubmit.exceptions import (
     QCSpecificationError,
     UnsupportedFiletypeError,
 )
-from openff.qcsubmit.factories import BasicDatasetFactory
 from openff.qcsubmit.testing import temp_directory
-from openff.qcsubmit.utils import (
-    condense_molecules,
-    get_data,
-    get_torsion,
-    update_specification_and_metadata,
-)
+from openff.qcsubmit.utils import condense_molecules, get_data, get_torsion
 from openff.qcsubmit.validators import (
     check_angle_connection,
     check_bond_connection,
@@ -88,8 +83,7 @@ def get_cmiles(molecule: Molecule) -> MoleculeAttributes:
     Generate a valid and full cmiles for the given molecule.
     """
 
-    factory = BasicDatasetFactory()
-    return factory.create_cmiles_metadata(molecule)
+    return MoleculeAttributes.from_openff_molecule(molecule=molecule)
 
 
 def test_list_datasets():
@@ -109,8 +103,8 @@ def test_load_dataset_obj(dataset):
     """
     Test the dataset util function can load any of the registered datasets
     """
-    new_dataset = load_dataset(dataset().dict())
-    assert new_dataset.dataset_type == dataset.__fields__["dataset_type"].default
+    new_dataset = load_dataset(dataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX").dict())
+    assert new_dataset.type == dataset.__fields__["type"].default
 
 
 def test_load_dataset_file():
@@ -118,7 +112,7 @@ def test_load_dataset_file():
     Make sure the dataset util function can load a dataset from file.
     """
     dataset = load_dataset(get_data("valid_torsion_dataset.json"))
-    assert dataset.dataset_type == "TorsiondriveDataset"
+    assert dataset.type == "TorsionDriveDataset"
 
 
 def test_load_dataset_error():
@@ -126,7 +120,7 @@ def test_load_dataset_error():
     Make sure an error is raised when we can not load the dataset type.
     """
     with pytest.raises(DatasetRegisterError):
-        load_dataset({"dataset_type": "unknown"})
+        load_dataset({"type": "unknown"})
 
 
 def test_register_dataset():
@@ -365,7 +359,7 @@ def test_dataset_dihedral_validation(ethanol_data):
     Test adding molecules to a dataset with different dihedrals, this will make sure that the dataset validators work.
     """
 
-    dataset = TorsiondriveDataset()
+    dataset = TorsiondriveDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecule_file, dihedrals, error = ethanol_data
     ethanol = Molecule.from_file(get_data(molecule_file))
     attributes = get_cmiles(ethanol)
@@ -382,7 +376,7 @@ def test_dataset_valence_validator():
     """
     Make sure a warning about the valence of a molecule with a net charge is produced.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     charged_molecules = Molecule.from_file(get_data("charged_molecules.smi"))
     for molecule in charged_molecules:
         index = molecule.to_smiles()
@@ -405,7 +399,7 @@ def test_dataset_linear_dihedral_validator():
     """
     Make sure that dataset rejects molecules with tagged linear bonds.
     """
-    dataset = TorsiondriveDataset()
+    dataset = TorsiondriveDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = Molecule.from_file(get_data("linear_molecules.sdf"), allow_undefined_stereo=True)
     linear_smarts = "[*!D1:1]~[$(*#*)&D2,$(C=*)&D2:2]"
 
@@ -423,7 +417,7 @@ def test_torsiondrive_unqiue_settings():
     """
     Test adding unqiue settings to a torsiondrive entry.
     """
-    dataset = TorsiondriveDataset()
+    dataset = TorsiondriveDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecule = Molecule.from_smiles("CO")
     bond = molecule.find_rotatable_bonds()[0]
     dataset.add_molecule(index="test", molecule=molecule, attributes=get_cmiles(molecule), dihedrals=[get_torsion(bond), ], keywords={"grid_spacing": [5], "dihedral_ranges": [(-50, 50),]})
@@ -562,7 +556,7 @@ def test_add_entry_with_constraints(constraint_setting):
     """
     Add an entry to a dataset with constraints in the keywords and make sure they converted to the constraints field.
     """
-    dataset = OptimizationDataset()
+    dataset = OptimizationDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     # now add a molecule with constraints in the keywords
     mol = Molecule.from_file(get_data("ethane.sdf"), "sdf")
     constraints = {"set": [{"type": "dihedral", "indices": [0, 1, 2, 3], "value": 50, "bonded": False},
@@ -628,7 +622,7 @@ def test_scf_prop_validation():
     """
     Make sure unsupported scf properties are not allowed into a dataset.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     with pytest.raises(DatasetInputError):
         dataset.scf_properties = ["ddec_charges"]
 
@@ -637,7 +631,7 @@ def test_add_molecule_no_extras():
     """
     Test that adding a molecule with no extras automatically updates the extras to include the cmiles and c1 symmetry.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     mols = duplicated_molecules(include_conformers=True, duplicates=1)
     for mol in mols:
         index = mol.to_smiles()
@@ -664,7 +658,7 @@ def test_dataset_update(dataset_data):
     dataset_type, dataset_name, specs = dataset_data
     client = ptl.FractalClient()
     # set up the dataset
-    dataset = dataset_type(dataset_name=dataset_name)
+    dataset = dataset_type(dataset_name=dataset_name, dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     assert bool(dataset.metadata.elements) is False
     dataset = update_specification_and_metadata(dataset, client)
     # now make sure the elements have been updated and the spec added
@@ -684,7 +678,7 @@ def test_dataset_adding(dataset_types):
     Test combining two different datasets this should raise an error as they have different conditions to be considered equal.
     """
     data_type1, data_type2 = dataset_types
-    dataset1, dataset2 = data_type1(), data_type2()
+    dataset1, dataset2 = data_type1(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX"), data_type2(dataset_name="Test dataset2", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     with pytest.raises(DatasetCombinationError):
         _ = dataset1 + dataset2
 
@@ -699,8 +693,8 @@ def test_basic_and_opt_dataset_addition(dataset_type):
     Opt has no constraints and behaves like basic in this case.
     """
 
-    dataset1 = dataset_type()
-    dataset2 = dataset_type()
+    dataset1 = dataset_type(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
+    dataset2 = dataset_type(dataset_name="Test dataset2", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     # get some butane conformers and split them between the datasets
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
     butane1 = condense_molecules(molecules[:4])
@@ -738,8 +732,8 @@ def test_optimization_dataset_addition_constraints_equal():
     """
     Test adding two optimizationdatasets with constraints.
     """
-    dataset1 = OptimizationDataset()
-    dataset2 = OptimizationDataset()
+    dataset1 = OptimizationDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
+    dataset2 = OptimizationDataset(dataset_name="Test dataset2", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     # add molecules to each dataset
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
     butane1 = condense_molecules(molecules[:4])
@@ -778,8 +772,8 @@ def test_optimization_dataset_addition_constraints_not_equall():
     """
     Test adding two optimizationdatasets with constraints that are not the same.
     """
-    dataset1 = OptimizationDataset()
-    dataset2 = OptimizationDataset()
+    dataset1 = OptimizationDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
+    dataset2 = OptimizationDataset(dataset_name="Test dataset2", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     # add molecules to each dataset
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
     butane1 = condense_molecules(molecules[:4])
@@ -826,8 +820,8 @@ def test_torsiondrive_dataset_addition_same_dihedral():
     """
     from openff.qcsubmit.factories import TorsiondriveDatasetFactory
     factory = TorsiondriveDatasetFactory()
-    dataset1 = TorsiondriveDataset()
-    dataset2 = TorsiondriveDataset()
+    dataset1 = TorsiondriveDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
+    dataset2 = TorsiondriveDataset(dataset_name="Test dataset2", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
     butane1 = condense_molecules(molecules[:4])
     butane2 = condense_molecules(molecules[4:])
@@ -862,8 +856,8 @@ def test_torsiondrive_dataset_addition_different_dihedral():
     """
     from openff.qcsubmit.factories import TorsiondriveDatasetFactory
     factory = TorsiondriveDatasetFactory()
-    dataset1 = TorsiondriveDataset()
-    dataset2 = TorsiondriveDataset()
+    dataset1 = TorsiondriveDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
+    dataset2 = TorsiondriveDataset(dataset_name="Test dataset2", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), 'pdb')
     butane1 = condense_molecules(molecules[:4])
     butane2 = condense_molecules(molecules[4:])
@@ -1159,7 +1153,7 @@ def test_dataset_add_filter_molecules():
     """
     Test adding extra molecules to filter.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     methane = Molecule.from_smiles("C")
     ethanol = Molecule.from_smiles("CC")
     dataset.filter_molecules(molecules=methane,
@@ -1185,9 +1179,7 @@ def test_dataset_metadata(dataset_type):
     """
 
     # make a basic dataset
-    dataset = dataset_type(dataset_name="Testing dataset name",
-                           dataset_tagline="test tagline",
-                           description="Test description")
+    dataset = dataset_type(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
 
     # check the metadata
     empty_fields = dataset.metadata.validate_metadata(raise_errors=False)
@@ -1198,7 +1190,7 @@ def test_dataset_metadata(dataset_type):
     assert dataset.metadata.dataset_name == dataset.dataset_name
     assert dataset.metadata.short_description == dataset.dataset_tagline
     assert dataset.metadata.long_description == dataset.description
-    assert dataset.metadata.collection_type == dataset.dataset_type
+    assert dataset.metadata.collection_type == dataset.type
 
 
 @pytest.mark.parametrize("dataset_type", [
@@ -1212,11 +1204,11 @@ def test_wrong_metadata_collection_type(dataset_type):
 
     from openff.qcsubmit.common_structures import Metadata
     meta = Metadata(collection_type="INVALID")
-    dataset = dataset_type(metadata=meta)
+    dataset = dataset_type(metadata=meta, dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
 
     # make sure the init of the dataset corrects the collection type
     assert dataset.metadata.collection_type != "INVALID"
-    assert dataset.metadata.collection_type == dataset.dataset_type
+    assert dataset.metadata.collection_type == dataset.type
 
 
 @pytest.mark.parametrize("dataset_type", [
@@ -1230,7 +1222,7 @@ def test_dataset_exporting_same_type(dataset_type):
     """
 
     with temp_directory():
-        dataset = dataset_type(compute_tag="test tag")
+        dataset = dataset_type(compute_tag="test tag", dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
         dataset.export_dataset('dataset.json')
 
         dataset2 = dataset_type.parse_file('dataset.json')
@@ -1243,7 +1235,7 @@ def test_dataset_unsupported_exports():
     Test trying to export to unsupported file types.
     """
     with temp_directory():
-        dataset = BasicDataset()
+        dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
         with pytest.raises(UnsupportedFiletypeError):
             dataset.export_dataset("dataset.yaml")
 
@@ -1257,7 +1249,7 @@ def test_get_molecule_entry(molecule_data):
     """
     Test getting a molecule entry from dataset.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     query_molecule, entries_no = molecule_data
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     for molecule in molecules:
@@ -1274,7 +1266,7 @@ def test_get_entry_molecule():
     """
     Test getting a molecule with and without conformers from a dataset.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     for molecule in molecules:
         index =molecule.to_smiles()
@@ -1295,7 +1287,7 @@ def test_dataset_nmolecules_tautomers():
     We use inchikey to find the unique molecules however some tautomers can have the same inchikey so make sure we can still find the unique molecules by forceing the inchi_key to be the same.
     """
 
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     same_inchi  = molecules[0].to_inchikey(fixed_hydrogens=False)
     for molecule in molecules:
@@ -1312,7 +1304,7 @@ def test_basicdataset_add_molecules_single_conformer():
     Test creating a basic dataset.
     """
 
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     # get some molecules
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # store the molecules in the dataset under a common index
@@ -1335,7 +1327,7 @@ def test_basicdataset_add_molecules_conformers():
     Test adding a molecule with conformers which should each be expanded into their own qcportal.models.Molecule.
     """
 
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     # create a molecule with multipule conformers
     molecules = Molecule.from_file(get_data('butane_conformers.pdb'))
     # collapse the conformers down
@@ -1363,7 +1355,7 @@ def test_basic_dataset_coverage_reporter():
     Test generating coverage reports for openforcefield force fields.
     """
 
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     # get some molecules
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
@@ -1384,7 +1376,7 @@ def test_basicdataset_add_molecule_no_conformer():
     Test adding molecules with no conformers which should cause the validtor to generate one.
     """
 
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     ethane = Molecule.from_smiles('CC')
     # add the molecule to the dataset with no conformer
     index = ethane.to_smiles()
@@ -1400,7 +1392,7 @@ def test_basicdataset_add_molecule_missing_attributes():
     """
     Test adding a molecule to the dataset with a missing cmiles attribute this should raise an error.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     ethane = Molecule.from_smiles('CC')
     # generate a conformer to make sure this is not rasing an error
     ethane.generate_conformers()
@@ -1421,7 +1413,7 @@ def test_basicdataset_molecules_to_file(file_data):
     """
     Test exporting only the molecules in a dataset to file for each of the supported types.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
@@ -1456,7 +1448,7 @@ def test_dataset_to_pdf_no_torsions(toolkit_data):
     """
     Test exporting molecules to pdf with no torsions.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     toolkit, error = toolkit_data
@@ -1482,7 +1474,7 @@ def test_dataset_to_pdf_with_torsions(toolkit):
     """
     Test exporting molecules to PDF with torsions.
     """
-    dataset = TorsiondriveDataset()
+    dataset = TorsiondriveDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     for molecule in molecules:
         index = molecule.to_smiles()
@@ -1504,7 +1496,7 @@ def test_dataset_export_full_dataset_json(dataset_type):
     """
     Test round tripping a full dataset via json.
     """
-    dataset = dataset_type()
+    dataset = dataset_type(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
@@ -1537,7 +1529,7 @@ def test_dataset_export_full_dataset_json_mixing(dataset_type):
     Test round tripping a full dataset via json from one type to another this should fail as the dataset_types do not
     match.
     """
-    dataset = dataset_type[0]()
+    dataset = dataset_type[0](dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
@@ -1549,7 +1541,7 @@ def test_dataset_export_full_dataset_json_mixing(dataset_type):
         dataset.export_dataset("dataset.json")
 
         with pytest.raises(ValidationError):
-            dataset2 = dataset_type[1].parse_file("dataset.json")
+            _ = dataset_type[1].parse_file("dataset.json")
 
 
 @pytest.mark.parametrize("dataset_type", [
@@ -1560,7 +1552,7 @@ def test_dataset_export_dict(dataset_type):
     """
     Test making a new dataset from the dict of another of the same type.
     """
-    dataset = dataset_type()
+    dataset = dataset_type(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
@@ -1594,7 +1586,7 @@ def test_dataset_export_json(dataset_type):
     """
     Test that the json serialisation works.
     """
-    dataset = dataset_type()
+    dataset = dataset_type(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
@@ -1633,7 +1625,7 @@ def test_dataset_roundtrip_compression(dataset_type, compression):
     """
     Test that the json serialisation works.
     """
-    dataset = dataset_type()
+    dataset = dataset_type(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
@@ -1684,7 +1676,7 @@ def test_basis_coverage_single(basis_data):
     """
 
     qc_spec, elements, error = basis_data
-    dataset = BasicDataset(metadata={"elements": elements})
+    dataset = BasicDataset(metadata={"elements": elements}, dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     dataset.add_qc_spec(**qc_spec, spec_name="default", spec_description="testing the basis", overwrite=True)
 
     if error:
@@ -1701,7 +1693,7 @@ def test_basis_coverage_multiple():
     """
 
     # make a dataset covered by xtb, psi4, rdkit, smirnoff, but not ani
-    dataset = BasicDataset(metadata={"elements": {"I", "C", "H", "N", "O"}})
+    dataset = BasicDataset(metadata={"elements": {"I", "C", "H", "N", "O"}}, dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     specs = [
         {"method": "hf", "basis": "DZVP", "program": "psi4"},
         {"method": "gfn2xtb", "basis": None, "program": "xtb"},
@@ -1728,7 +1720,7 @@ def test_remove_qcspec():
     """
     Test removing qcspecs.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     dataset.remove_qcspec("default")
     assert dataset.qc_specifications == {}
 
@@ -1743,7 +1735,7 @@ def test_adding_qc_specs(qc_spec):
     """
     Test adding different qc_specs to a dataset/factory they are controlled by the mixin so just test that.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     qc_spec_data, error = qc_spec
     if error:
         with pytest.raises(QCSpecificationError):
@@ -1757,7 +1749,7 @@ def test_qcspec_dict():
     """
     Test making a dict with the qcspec.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     dataset.add_qc_spec(method="b3lyp",
                         basis="dzvp",
                         program="psi4",
@@ -1774,7 +1766,7 @@ def test_qc_spec_overwrite():
     """
     Test adding new qcspecs and overwiting.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     # remove all qcspecs
     dataset.clear_qcspecs()
     # raise an error for no specs
@@ -1816,10 +1808,10 @@ def test_basicdataset_schema():
     Test that producing the schema still works.
     """
 
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     # make a schema
     schema = dataset.schema()
-    assert schema["title"] == dataset.dataset_name
+    assert schema["properties"]["type"]["default"] == dataset.type
     assert schema["properties"]["compute_tag"]["type"] == "string"
 
 
@@ -1832,7 +1824,7 @@ def test_basicdataset_clean_index(input_data):
     allows us to submit molecule indexs that start from a counter other than 0.
     """
 
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
 
     index = input_data[0] + "-" + str(input_data[1])
 
@@ -1847,7 +1839,7 @@ def test_basicdataset_clean_index_normal():
     Test that index cleaning works when no numeric counter is on the index this should give back the core and 0 as the
     tag.
     """
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     index = "CCCC"
     core, counter = dataset._clean_index(index=index)
     assert core == index
@@ -1859,7 +1851,7 @@ def test_basicdataset_filtering():
     Test adding filtered molecules to the dataset.
     """
 
-    dataset = BasicDataset()
+    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=False, duplicates=1)
     # create a filtered result
     component_provenance = {"test_provenance": "version_1"}
@@ -1887,7 +1879,7 @@ def test_optimizationdataset_qc_spec():
     Test generating the qc spec for optimization datasets.
     """
 
-    dataset = OptimizationDataset(driver="energy")
+    dataset = OptimizationDataset(driver="energy", dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     qc_spec = dataset.get_qc_spec("default", keyword_id="0")
     assert qc_spec.keywords == "0"
     tags = ['program', "method", "basis", "driver"]
@@ -1902,7 +1894,7 @@ def test_torsiondrivedataset_torsion_indices():
     Test adding molecules to a torsiondrive dataset with incorrect torsion indices.
     """
 
-    dataset = TorsiondriveDataset()
+    dataset = TorsiondriveDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
 
     for molecule in molecules:

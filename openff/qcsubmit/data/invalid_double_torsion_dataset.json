@@ -1,7 +1,7 @@
 {
   "dataset_name": "TorsionDriveDataset",
   "dataset_tagline": "OpenForcefield TorsionDrives.",
-  "dataset_type": "TorsiondriveDataset",
+  "type": "TorsionDriveDataset",
   "method": "B3LYP-D3BJ",
   "basis": "DZVP",
   "program": "psi4",

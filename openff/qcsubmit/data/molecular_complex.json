@@ -1,7 +1,7 @@
 {
   "dataset_name": "BasicDataset",
   "dataset_tagline": "OpenForcefield.",
-  "dataset_type": "BasicDataset",
+  "type": "DataSet",
   "method": "B3LYP-D3BJ",
   "basis": "DZVP",
   "program": "psi4",

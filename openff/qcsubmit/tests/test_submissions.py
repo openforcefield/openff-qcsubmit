@@ -294,12 +294,12 @@ def test_adding_specifications(fractal_compute_server):
     fractal_compute_server.await_services()
 
     # grab the collection
-    ds = client.get_collection(opt_dataset.dataset_type, opt_dataset.dataset_name)
+    ds = client.get_collection(opt_dataset.type, opt_dataset.dataset_name)
 
     # now try and add the specification again this should return True
     assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
-                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                  collection=ds) is True
+                                                  procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  dataset=ds) is True
 
     # now change part of the spec but keep the name the same
     opt_dataset.clear_qcspecs()
@@ -309,23 +309,23 @@ def test_adding_specifications(fractal_compute_server):
     # now try and add this specification with the same name but different settings
     with pytest.raises(QCSpecificationError):
         opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
-                                               opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                               collection=ds)
+                                               procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                               dataset=ds)
 
     # now add a new specification but no compute and make sure it is overwritten
     opt_dataset.clear_qcspecs()
     opt_dataset.add_qc_spec(method="ani1x", basis=None, program="torchani", spec_name="ani", spec_description="a ani spec")
     assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
-                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                  collection=ds) is True
+                                                  procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  dataset=ds) is True
 
     # now change the spec slightly and add again
     opt_dataset.clear_qcspecs()
     opt_dataset.add_qc_spec(method="ani1ccx", basis=None, program="torchani", spec_name="ani",
                             spec_description="a ani spec")
     assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
-                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                  collection=ds) is True
+                                                  procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  dataset=ds) is True
 
 
 @pytest.mark.parametrize("dataset_data", [
@@ -364,7 +364,7 @@ def test_adding_compute(fractal_compute_server, dataset_data):
 
     # now lets make a dataset with new compute and submit it
     # transfer the metadata to compare the elements
-    compute_dataset = dataset_type(dataset_name=dataset.dataset_name, metadata=dataset.metadata)
+    compute_dataset = dataset_type(dataset_name=dataset.dataset_name, metadata=dataset.metadata, dataset_tagline=dataset.dataset_tagline, description=dataset.description)
     compute_dataset.clear_qcspecs()
     # now add the new compute spec
     compute_dataset.add_qc_spec(method="uff",
@@ -381,7 +381,7 @@ def test_adding_compute(fractal_compute_server, dataset_data):
     fractal_compute_server.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    ds = client.get_collection(dataset.type, dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -397,7 +397,7 @@ def test_adding_compute(fractal_compute_server, dataset_data):
     # update all specs into one dataset
     dataset.add_qc_spec(**compute_dataset.qc_specifications["rdkit"].dict())
     # get the last ran spec
-    if dataset.dataset_type == "DataSet":
+    if dataset.type == "DataSet":
             for specification in ds.data.history:
                 driver, program, method, basis, spec_name = specification
                 spec = dataset.qc_specifications[spec_name]
@@ -528,7 +528,7 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     client = FractalClient(fractal_compute_server)
     ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
     factory = OptimizationDatasetFactory()
-    dataset = OptimizationDataset(dataset_name="Test optimizations with constraint", description="Test optimization dataset with constraints", tagline="Testing optimization datasets")
+    dataset = OptimizationDataset(dataset_name="Test optimizations with constraint", description="Test optimization dataset with constraints", dataset_tagline="Testing optimization datasets")
     # add just mm spec
     dataset.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default", spec_description="mm default spec", overwrite=True)
     # build some constraints
@@ -895,9 +895,9 @@ def test_index_not_changed(fractal_compute_server, factory_type):
     dataset.submit(client=client)
 
     # pull the dataset and make sure our index is present
-    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    ds = client.get_collection(dataset.type, dataset.dataset_name)
 
-    if dataset.dataset_type == "DataSet":
+    if dataset.type == "DataSet":
         query = ds.get_records(method="openff-1.0.0", basis="smirnoff", program="openmm")
         assert "my_unique_index" in query.index
     else:
@@ -968,7 +968,7 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     # make sure all expected index get submitted
     dataset.submit(client=client)
     # grab the dataset and check the history
-    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    ds = client.get_collection(dataset.type, dataset.dataset_name)
     assert ds.data.history == {"default"}
 
     # now make another dataset to expand the compute
@@ -985,7 +985,7 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     dataset.submit(client=client)
 
     # now grab the dataset again and check the tasks list
-    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    ds = client.get_collection(dataset.type, dataset.dataset_name)
     assert ds.data.history == {"default", "parsley2"}
     # make sure a record has been made
     entry = ds.get_entry(ds.df.index[0])
