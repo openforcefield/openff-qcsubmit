@@ -1179,15 +1179,14 @@ def test_dataset_metadata(dataset_type):
 
     # make a basic dataset
     dataset = dataset_type(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
+    dataset.metadata.short_description = None
 
     # check the metadata
     empty_fields = dataset.metadata.validate_metadata(raise_errors=False)
-    # this should be the only none autofilled field
-    assert empty_fields == ["long_description_url"]
+    assert empty_fields == ["short_description"]
 
     # now make sure the names and types match
     assert dataset.metadata.dataset_name == dataset.dataset_name
-    assert dataset.metadata.short_description == dataset.dataset_tagline
     assert dataset.metadata.long_description == dataset.description
     assert dataset.metadata.collection_type == dataset.type
 

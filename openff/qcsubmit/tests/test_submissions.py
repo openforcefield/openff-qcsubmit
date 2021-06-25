@@ -58,11 +58,14 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
                                      tagline="Testing single point datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -136,11 +139,14 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
                                      tagline="Testing single point datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -587,11 +593,14 @@ def test_optimization_submissions(fractal_compute_server, specification):
                                      tagline="Testing optimization datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -778,11 +787,14 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
                                      tagline="Testing torsiondrive datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
