@@ -1,6 +1,5 @@
 import abc
 import json
-import os
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -15,7 +14,6 @@ from typing import (
     Union,
 )
 
-import numpy as np
 import qcelemental as qcel
 import qcportal as ptl
 import tqdm
@@ -26,7 +24,6 @@ from qcportal.models.common_models import (
     OptimizationSpecification,
     QCSpecification,
 )
-from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import (

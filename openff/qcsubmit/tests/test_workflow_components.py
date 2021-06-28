@@ -86,7 +86,7 @@ def test_register_component_error():
     Make sure an error is raised if we try and register a component that is not a sub class of CustomWorkflowComponent.
     """
     # fake component
-    charge_filter = {"type": "charge_filter"}
+    charge_filter = dict
 
     with pytest.raises(InvalidWorkflowComponentError):
         register_component(component=charge_filter)
@@ -94,7 +94,6 @@ def test_register_component_error():
 
 @pytest.mark.parametrize("component", [
     pytest.param(workflow_components.SmartsFilter, id="Class instance"),
-    pytest.param("SmartsFilter", id="Class name")
 ])
 def test_deregister_component(component):
     """
@@ -103,7 +102,7 @@ def test_deregister_component(component):
     # deregister the component
     deregister_component(component=component)
 
-    assert workflow_components.SmartsFilter() not in list_components()
+    assert workflow_components.SmartsFilter not in list_components()
 
     # now add it back
     register_component(component=workflow_components.SmartsFilter)

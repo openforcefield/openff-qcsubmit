@@ -126,11 +126,11 @@ def deregister_component(component: Union[Type[CustomWorkflowComponent], str]) -
         ComponentRegisterError: If the component to be removed was not registered.
     """
 
-    if issubclass(component, CustomWorkflowComponent):
-        component_name = component.__fields__["type"].default.lower()
+    if isinstance(component, str):
+        component_name = component.lower()
 
     else:
-        component_name = component.lower()
+        component_name = component.__fields__["type"].default.lower()
 
     wc = workflow_components.pop(component_name, None)
     if wc is None:
