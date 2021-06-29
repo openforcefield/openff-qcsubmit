@@ -114,7 +114,7 @@ def test_deregister_component_error():
     """
 
     with pytest.raises(ComponentRegisterError):
-        deregister_component(component="ChargeFilter")
+        deregister_component(component="BadComponent")
 
 
 def test_get_component():
@@ -131,7 +131,7 @@ def test_get_component_error():
     Make sure an error is rasied when we try to get a component that was not registered.
     """
     with pytest.raises(ComponentRegisterError):
-        get_component(component_name="ChargeFilter")
+        get_component(component_name="BadComponent")
 
 
 def test_custom_component():
@@ -1065,3 +1065,31 @@ def test_improper_enumerator():
     indexer = mol.properties["dihedrals"]
     assert indexer.n_impropers == 1
     assert indexer.imporpers[0].scan_increment == [4]
+
+
+def test_formal_charge_filter_exclusive():
+    """
+    Raise an error if both allowed and filtered charges are supplied
+    """
+
+    with pytest.raises(ValidationError):
+        workflow_components.ChargeFilter(charges_to_include=[0, 1], charges_to_exclude=[-1])
+
+
+def test_formal_charge_filter():
+    """
+    Make sure we can correctly filter by the molecules net formal charge.
+    """
+
+    molecule = Molecule.from_mapped_smiles("[N+:1](=[O:2])([O-:3])[O-:4]")
+
+    # filter out the molecule
+    charge_filter = workflow_components.ChargeFilter(charges_to_exclude=[-1, 0])
+    result = charge_filter.apply([molecule], processors=1)
+    assert result.n_molecules == 0
+    assert result.n_filtered == 1
+
+    # now allow it through
+    charge_filter = workflow_components.ChargeFilter(charges_to_include=[-1])
+    result = charge_filter.apply([molecule], processors=1)
+    assert result.n_molecules == 1

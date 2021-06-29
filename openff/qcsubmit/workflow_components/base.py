@@ -13,6 +13,7 @@ from openff.qcsubmit.workflow_components.conformer_generation import (
     StandardConformerGenerator,
 )
 from openff.qcsubmit.workflow_components.filters import (
+    ChargeFilter,
     CoverageFilter,
     ElementFilter,
     MolecularWeightFilter,
@@ -53,6 +54,7 @@ Components = Union[
     EnumerateStereoisomers,
     WBOFragmenter,
     PfizerFragmenter,
+    ChargeFilter,
     ScanFilter,
     ScanEnumerator,
 ]
@@ -166,6 +168,7 @@ register_component(CoverageFilter)
 register_component(MolecularWeightFilter)
 register_component(ElementFilter)
 register_component(ScanFilter)
+register_component(ChargeFilter)
 
 # state enumeration
 register_component(EnumerateTautomers)

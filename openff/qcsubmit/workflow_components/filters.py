@@ -7,6 +7,7 @@ from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import Field, root_validator, validator
 from rdkit.Chem.rdMolAlign import AlignMol
+from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
@@ -692,5 +693,72 @@ class ScanFilter(BasicSettings, CustomWorkflowComponent):
                 result.filter_molecule(molecule)
 
             result.add_molecule(molecule)
+
+        return result
+
+
+class ChargeFilter(BasicSettings, CustomWorkflowComponent):
+    """
+    Filter molecules if their formal charge is not in the `charges_to_include` list or is in the `charges_to_exclude` list.
+    """
+
+    type: Literal["ChargeFilter"] = "ChargeFilter"
+
+    charges_to_include: Optional[List[int]] = Field(
+        None,
+        description="The list of net molecule formal charges which are allowed in the dataset."
+        "This option is mutually exclusive with ``charges_to_exclude``.",
+    )
+    charges_to_exclude: Optional[List[int]] = Field(
+        None,
+        description="The list of net molecule formal charges which are to be removed from the dataset."
+        "This option is mutually exclusive with ``charges_to_include``.",
+    )
+
+    @classmethod
+    def description(cls) -> str:
+        return "Filter molecules by net formal charge."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecules net formal charge was not requested or was in the `charges_to_exclude`."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
+
+    @root_validator
+    def _validate_mutually_exclusive(cls, values):
+        charges_to_include = values.get("charges_to_include")
+        charges_to_exclude = values.get("charges_to_exclude")
+
+        message = "exactly one of ``charges_to_include` and `charges_to_exclude` must specified."
+
+        assert charges_to_include is not None or charges_to_exclude is not None, message
+        assert charges_to_include is None or charges_to_exclude is None, message
+
+        return values
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+        """
+        Filter molecules based on their net formal charge
+        """
+
+        result = self._create_result()
+
+        for molecule in molecules:
+            total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+
+            if (
+                self.charges_to_include is not None
+                and total_charge not in self.charges_to_include
+            ) or (
+                self.charges_to_exclude is not None
+                and total_charge in self.charges_to_exclude
+            ):
+                result.filter_molecule(molecule=molecule)
+
+            else:
+                result.add_molecule(molecule)
 
         return result
