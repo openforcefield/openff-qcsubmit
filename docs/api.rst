@@ -147,6 +147,7 @@ Filters
     :nosignatures:
     :toctree: api/generated/
 
+    ChargeFilter
     CoverageFilter
     ElementFilter
     MolecularWeightFilter
