@@ -14,9 +14,9 @@ from openff.qcsubmit.workflow_components.conformer_generation import (
     StandardConformerGenerator,
 )
 from openff.qcsubmit.workflow_components.filters import (
+    ChargeFilter,
     CoverageFilter,
     ElementFilter,
-    FormalChargeFilter,
     MolecularWeightFilter,
     RMSDCutoffConformerFilter,
     RotorFilter,

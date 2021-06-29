@@ -697,22 +697,22 @@ class ScanFilter(BasicSettings, CustomWorkflowComponent):
         return result
 
 
-class FormalChargeFilter(BasicSettings, CustomWorkflowComponent):
+class ChargeFilter(BasicSettings, CustomWorkflowComponent):
     """
-    Filter molecules if their formal charge is not in the allowed charges list or is in the filtered charges list.
+    Filter molecules if their formal charge is not in the `charges_to_include` list or is in the `charges_to_exclude` list.
     """
 
-    type: Literal["FormalChargeFilter"] = "FormalChargeFilter"
+    type: Literal["ChargeFilter"] = "ChargeFilter"
 
-    allowed_charges: Optional[List[int]] = Field(
+    charges_to_include: Optional[List[int]] = Field(
         None,
         description="The list of net molecule formal charges which are allowed in the dataset."
-        "This option is mutually exclusive with ``filtered_charges``.",
+        "This option is mutually exclusive with ``charges_to_exclude``.",
     )
-    filtered_charges: Optional[List[int]] = Field(
+    charges_to_exclude: Optional[List[int]] = Field(
         None,
         description="The list of net molecule formal charges which are to be removed from the dataset."
-        "This option is mutually exclusive with ``allowed_charges``.",
+        "This option is mutually exclusive with ``charges_to_include``.",
     )
 
     @classmethod
@@ -721,7 +721,7 @@ class FormalChargeFilter(BasicSettings, CustomWorkflowComponent):
 
     @classmethod
     def fail_reason(cls) -> str:
-        return "The molecules net formal charge was not requested or was in the filtered list."
+        return "The molecules net formal charge was not requested or was in the `charges_to_exclude`."
 
     @classmethod
     def properties(cls) -> ComponentProperties:
@@ -729,15 +729,13 @@ class FormalChargeFilter(BasicSettings, CustomWorkflowComponent):
 
     @root_validator
     def _validate_mutually_exclusive(cls, values):
-        allowed_charges = values.get("allowed_charges")
-        filtered_charges = values.get("filtered_charges")
+        charges_to_include = values.get("charges_to_include")
+        charges_to_exclude = values.get("charges_to_exclude")
 
-        message = (
-            "exactly one of ``allowed_charges` and `filtered_charges` must specified."
-        )
+        message = "exactly one of ``charges_to_include` and `charges_to_exclude` must specified."
 
-        assert allowed_charges is not None or filtered_charges is not None, message
-        assert allowed_charges is None or filtered_charges is None, message
+        assert charges_to_include is not None or charges_to_exclude is not None, message
+        assert charges_to_include is None or charges_to_exclude is None, message
 
         return values
 
@@ -752,11 +750,11 @@ class FormalChargeFilter(BasicSettings, CustomWorkflowComponent):
             total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
 
             if (
-                self.allowed_charges is not None
-                and total_charge not in self.allowed_charges
+                self.charges_to_include is not None
+                and total_charge not in self.charges_to_include
             ) or (
-                self.filtered_charges is not None
-                and total_charge in self.filtered_charges
+                self.charges_to_exclude is not None
+                and total_charge in self.charges_to_exclude
             ):
                 result.filter_molecule(molecule=molecule)
 

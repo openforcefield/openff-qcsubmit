@@ -1073,7 +1073,7 @@ def test_formal_charge_filter_exclusive():
     """
 
     with pytest.raises(ValidationError):
-        workflow_components.FormalChargeFilter(allowed_charges=[0, 1], filtered_charges=[-1])
+        workflow_components.ChargeFilter(charges_to_include=[0, 1], charges_to_exclude=[-1])
 
 
 def test_formal_charge_filter():
@@ -1084,12 +1084,12 @@ def test_formal_charge_filter():
     molecule = Molecule.from_mapped_smiles("[N+:1](=[O:2])([O-:3])[O-:4]")
 
     # filter out the molecule
-    charge_filter = workflow_components.FormalChargeFilter(filtered_charges=[-1, 0])
+    charge_filter = workflow_components.ChargeFilter(charges_to_exclude=[-1, 0])
     result = charge_filter.apply([molecule], processors=1)
     assert result.n_molecules == 0
     assert result.n_filtered == 1
 
     # now allow it through
-    charge_filter = workflow_components.FormalChargeFilter(allowed_charges=[-1])
+    charge_filter = workflow_components.ChargeFilter(charges_to_include=[-1])
     result = charge_filter.apply([molecule], processors=1)
     assert result.n_molecules == 1
