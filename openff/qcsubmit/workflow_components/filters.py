@@ -10,8 +10,9 @@ from openff.toolkit.typing.chemistry.environment import (
     SMIRKSParsingError,
 )
 from openff.toolkit.typing.engines.smirnoff import ForceField
-from pydantic import Field, validator
+from pydantic import Field, root_validator, validator
 from rdkit.Chem.rdMolAlign import AlignMol
+from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
@@ -608,6 +609,75 @@ class RMSDCutoffConformerFilter(BasicSettings, CustomWorkflowComponent):
                 result.filter_molecule(molecule)
             else:
                 self._prune_conformers(molecule)
+                result.add_molecule(molecule)
+
+        return result
+
+
+class FormalChargeFilter(BasicSettings, CustomWorkflowComponent):
+    """
+    Filter molecules if their formal charge is not in the allowed charges list or is in the filtered charges list.
+    """
+
+    type: Literal["FormalChargeFilter"] = "FormalChargeFilter"
+
+    allowed_charges: Optional[List[int]] = Field(
+        None,
+        description="The list of net molecule formal charges which are allowed in the dataset."
+        "This option is mutually exclusive with ``filtered_charges``.",
+    )
+    filtered_charges: Optional[List[int]] = Field(
+        None,
+        description="The list of net molecule formal charges which are to be removed from the dataset."
+        "This option is mutually exclusive with ``allowed_charges``.",
+    )
+
+    @classmethod
+    def description(cls) -> str:
+        return "Filter molecules by net formal charge."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecules net formal charge was not requested or was in the filtered list."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=False)
+
+    @root_validator
+    def _validate_mutually_exclusive(cls, values):
+        allowed_charges = values.get("allowed_charges")
+        filtered_charges = values.get("filtered_charges")
+
+        message = (
+            "exactly one of ``allowed_charges` and `filtered_charges` must specified."
+        )
+
+        assert allowed_charges is not None or filtered_charges is not None, message
+        assert allowed_charges is None or filtered_charges is None, message
+
+        return values
+
+    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+        """
+        Filter molecules based on their net formal charge
+        """
+
+        result = self._create_result()
+
+        for molecule in molecules:
+            total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+
+            if (
+                self.allowed_charges is not None
+                and total_charge not in self.allowed_charges
+            ) or (
+                self.filtered_charges is not None
+                and total_charge in self.filtered_charges
+            ):
+                result.filter_molecule(molecule=molecule)
+
+            else:
                 result.add_molecule(molecule)
 
         return result

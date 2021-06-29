@@ -920,3 +920,15 @@ def test_smarts_filter_apply_tag_torsions(tag_dihedrals):
                 _ = check_torsion_connection(torsion=torsion.torsion1, molecule=molecule)
         else:
             assert "dihedrals" not in molecule.properties
+
+
+def test_formal_charge_filter_exclusive():
+    """
+    Raise an error if both allowed and filtered charges are supplied
+    """
+
+    with pytest.raises(ValidationError):
+        workflow_components.FormalChargeFilter(allowed_charges=[0, 1], filtered_charges=[-1])
+
+
+
