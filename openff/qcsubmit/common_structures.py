@@ -10,7 +10,18 @@ from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 import qcportal as ptl
 from openff.toolkit.topology import Molecule
-from pydantic import BaseModel, Field, HttpUrl, PositiveInt, constr, validator
+from pydantic import (
+    BaseModel,
+    Field,
+    HttpUrl,
+    PositiveInt,
+    StrictBool,
+    StrictFloat,
+    StrictInt,
+    StrictStr,
+    constr,
+    validator,
+)
 from qcelemental import constants
 from qcelemental.models.results import WavefunctionProtocolEnum
 from qcportal.models.common_models import DriverEnum
@@ -343,6 +354,14 @@ class QCSpec(ResultsConfig):
         None,
         description="If PCM is to be used with psi4 this is the full description of the settings that should be used.",
     )
+    keywords: Optional[
+        Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
+    ] = Field(
+        None,
+        description="An optional set of program specific computational keywords that "
+        "should be passed to the program. These may include, for example, DFT grid "
+        "settings.",
+    )
 
     def __init__(
         self,
@@ -353,6 +372,9 @@ class QCSpec(ResultsConfig):
         spec_description: str = "Standard OpenFF optimization quantum chemistry specification.",
         store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none,
         implicit_solvent: Optional[PCMSettings] = None,
+        keywords: Optional[
+            Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
+        ] = None,
     ):
         """
         Validate the combination of method, basis and program.
@@ -438,6 +460,7 @@ class QCSpec(ResultsConfig):
             spec_description=spec_description,
             store_wavefunction=store_wavefunction,
             implicit_solvent=implicit_solvent,
+            keywords=keywords,
         )
 
     def dict(
@@ -518,6 +541,9 @@ class QCSpecificationHandler(BaseModel):
         store_wavefunction: str = "none",
         overwrite: bool = False,
         implicit_solvent: Optional[PCMSettings] = None,
+        keywords: Optional[
+            Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
+        ] = None,
     ) -> None:
         """
         Add a new qcspecification to the factory which will be applied to the dataset.
@@ -531,6 +557,8 @@ class QCSpecificationHandler(BaseModel):
             store_wavefunction: what parts of the wavefunction that should be saved
             overwrite: If there is a spec under this name already overwrite it
             implicit_solvent: The implicit solvent settings if it is to be used.
+            keywords: Program specific computational keywords that should be passed to
+                the program
         """
         spec = QCSpec(
             method=method,
@@ -540,6 +568,7 @@ class QCSpecificationHandler(BaseModel):
             spec_description=spec_description,
             store_wavefunction=store_wavefunction,
             implicit_solvent=implicit_solvent,
+            keywords=keywords,
         )
 
         if spec_name not in self.qc_specifications:
