@@ -61,7 +61,18 @@ def batched_indices(indices: List[T], batch_size: int) -> List[List[T]]:
 @lru_cache()
 def cached_fractal_client(address: str) -> FractalClient:
     """Returns a cached copy of a fractal client."""
-    return FractalClient(address)
+
+    try:
+
+        return FractalClient(address)
+
+    except ConnectionRefusedError as e:
+
+        # Try to handle the case when connecting to a local snowflake.
+        try:
+            return FractalClient(address, verify=False)
+        except ConnectionRefusedError:
+            raise e
 
 
 def _cached_client_query(
