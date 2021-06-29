@@ -1008,7 +1008,23 @@ def test_scan_enumerator_1d():
     assert result.n_molecules == 1
     indexer = mol.properties["dihedrals"]
     assert indexer.n_torsions == 1
-    assert indexer.torsions[(0, 1)].scan_range1 == (-60, 60)
+    assert indexer.torsions[(1, 2)].scan_range1 == (-60, 60)
+
+
+def test_scan_enumerator_unique():
+    """
+    If the enumerator would hit multiple torsions in a molecule make sure they are unique by symmetry.
+    """
+    mol = Molecule.from_smiles("CCCC")
+
+    scan_tagger = workflow_components.ScanEnumerator()
+    scan_tagger.add_torsion_scan(smarts="[*:1]~[#6:2]-[#6:3]~[*:4]")
+
+    result = scan_tagger.apply(molecules=[mol], processors=1)
+
+    assert result.n_molecules == 1
+    indexer = mol.properties["dihedrals"]
+    assert indexer.n_torsions == 2
 
 
 def test_scan_enumerator_2d():
@@ -1028,8 +1044,8 @@ def test_scan_enumerator_2d():
     assert result.n_molecules == 1
     indexer = mol.properties["dihedrals"]
     assert indexer.n_double_torsions == 1
-    assert indexer.double_torsions[((5, 8), (5, 16))].scan_range1 == (-165, 180)
-    assert indexer.double_torsions[((5, 8), (5, 16))].scan_range2 == (-60, 60)
+    assert indexer.double_torsions[((5, 8), (5, 17))].scan_range1 == (-165, 180)
+    assert indexer.double_torsions[((5, 8), (5, 17))].scan_range2 == (-60, 60)
 
 
 def test_improper_enumerator():
@@ -1040,6 +1056,7 @@ def test_improper_enumerator():
     mol = Molecule.from_file(get_data("benzene.sdf"))
 
     scan_tagger = workflow_components.ScanEnumerator()
+    # even though there is more than one improper make sure we only get one scan back
     scan_tagger.add_improper_torsion(smarts="[#6:1](-[#1:2])(:[#6:3]):[#6:4]", central_smarts="[#6:1]", scan_range=(-40, 40), scan_increment=4)
 
     result = scan_tagger.apply([mol], processors=1)

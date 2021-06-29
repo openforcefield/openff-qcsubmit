@@ -360,6 +360,44 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
             )
         )
 
+    def _find_symmetry_classes(self, molecule: Molecule) -> List[int]:
+        """
+        Assign each atom in the molecule a symmetry class that can be used to find unique torsions.
+        """
+        try:
+            from rdkit import Chem
+
+            rd_mol = molecule.to_rdkit()
+            symmetry_classes = list(Chem.CanonicalRankAtoms(rd_mol, breakTies=False))
+
+        except (ImportError, ModuleNotFoundError):
+            from openeye import oechem
+
+            oe_mol = molecule.to_openeye()
+            oechem.OEPerceiveSymmetry(oe_mol)
+
+            symmetry_classes_by_index = {
+                a.GetIdx(): a.GetSymmetryClass() for a in oe_mol.GetAtoms()
+            }
+            symmetry_classes = [
+                symmetry_classes_by_index[i] for i in range(molecule.n_atoms)
+            ]
+
+        return symmetry_classes
+
+    def _get_unique_torsions(
+        self, matches: List[Tuple[int, int, int, int]], symmetry_classes: List[int]
+    ) -> List[Tuple[int, int, int, int]]:
+        """
+        Use the symmetry classes to condense the matches into unique torsions in the molecule by symmetry.
+        """
+        torsions_by_symmetry = {
+            tuple(sorted(symmetry_classes[idx] for idx in match[1:3])): match
+            for match in matches
+        }
+        unique_torsions = [*torsions_by_symmetry.values()]
+        return unique_torsions
+
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Tag any dihedrals which match the defined set of targets in the enumerator.
@@ -368,10 +406,11 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
         result = self._create_result()
 
         for molecule in molecules:
+            symmetry_classes = self._find_symmetry_classes(molecule)
             molecule.properties["dihedrals"] = TorsionIndexer()
-            self._tag_torsions(molecule)
-            self._tag_double_torsions(molecule)
-            self._tag_improper_torsions(molecule)
+            self._tag_torsions(molecule, symmetry_classes)
+            self._tag_double_torsions(molecule, symmetry_classes)
+            self._tag_improper_torsions(molecule, symmetry_classes)
 
             indexer = molecule.properties["dihedrals"]
             if len(indexer.get_dihedrals) == 0:
@@ -381,7 +420,7 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
 
         return result
 
-    def _tag_torsions(self, molecule: Molecule) -> None:
+    def _tag_torsions(self, molecule: Molecule, symmetry_classes: List[int]) -> None:
         """
         For each of the torsions in the torsion list try and tag only one in the molecule.
         """
@@ -389,17 +428,20 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
         indexer: TorsionIndexer = molecule.properties["dihedrals"]
 
         for torsion in self.torsion_scans:
-            try:
-                match = molecule.chemical_environment_matches(torsion.smarts1)[0]
+            matches = molecule.chemical_environment_matches(torsion.smarts1)
+            unique_torsions = self._get_unique_torsions(
+                matches=matches, symmetry_classes=symmetry_classes
+            )
+            for tagged_torsion in unique_torsions:
                 indexer.add_torsion(
-                    torsion=match,
+                    torsion=tagged_torsion,
                     scan_range=torsion.scan_range1,
                     scan_incrment=torsion.scan_increment,
                 )
-            except IndexError:
-                continue
 
-    def _tag_double_torsions(self, molecule: Molecule) -> None:
+    def _tag_double_torsions(
+        self, molecule: Molecule, symmetry_classes: List[int]
+    ) -> None:
         """
         For each double torsion in the list try and tag the combination in the molecule.
         """
@@ -407,24 +449,27 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
         indexer: TorsionIndexer = molecule.properties["dihedrals"]
 
         for double_torsion in self.double_torsion_scans:
-            try:
-                match1 = molecule.chemical_environment_matches(double_torsion.smarts1)[
-                    0
-                ]
-                match2 = molecule.chemical_environment_matches(double_torsion.smarts2)[
-                    0
-                ]
-                indexer.add_double_torsion(
-                    torsion1=match1,
-                    torsion2=match2,
-                    scan_range1=double_torsion.scan_range1,
-                    scan_range2=double_torsion.scan_range2,
-                    scan_increment=double_torsion.scan_increment,
-                )
-            except IndexError:
-                continue
+            matches1 = molecule.chemical_environment_matches(double_torsion.smarts1)
+            matches2 = molecule.chemical_environment_matches(double_torsion.smarts2)
+            unique_torsions1 = self._get_unique_torsions(
+                matches=matches1, symmetry_classes=symmetry_classes
+            )
+            unique_torsions2 = self._get_unique_torsions(
+                matches=matches2, symmetry_classes=symmetry_classes
+            )
+            for tagged_torsion1 in unique_torsions1:
+                for tagged_torsion2 in unique_torsions2:
+                    indexer.add_double_torsion(
+                        torsion1=tagged_torsion1,
+                        torsion2=tagged_torsion2,
+                        scan_range1=double_torsion.scan_range1,
+                        scan_range2=double_torsion.scan_range2,
+                        scan_increment=double_torsion.scan_increment,
+                    )
 
-    def _tag_improper_torsions(self, molecule: Molecule) -> None:
+    def _tag_improper_torsions(
+        self, molecule: Molecule, symmetry_classes: List[int]
+    ) -> None:
         """
         For each improper torsion in the list try and tag the combination in the molecule.
         """
@@ -432,20 +477,21 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
         indexer: TorsionIndexer = molecule.properties["dihedrals"]
 
         for improper in self.improper_scans:
-            try:
-                match = molecule.chemical_environment_matches(improper.smarts)[0]
-            except IndexError:
-                continue
 
+            matches = molecule.chemical_environment_matches(improper.smarts)
+            unique_torsions = self._get_unique_torsions(
+                matches=matches, symmetry_classes=symmetry_classes
+            )
             central_atoms = molecule.chemical_environment_matches(
                 improper.central_smarts
             )
-            for atom in central_atoms:
-                if atom[0] in match:
-                    indexer.add_improper(
-                        central_atom=atom[0],
-                        improper=match,
-                        scan_range=improper.scan_range,
-                        scan_increment=improper.scan_increment,
-                    )
-                    break
+            for tagged_torsion in unique_torsions:
+                for atom in central_atoms:
+                    if atom[0] in tagged_torsion:
+                        indexer.add_improper(
+                            central_atom=atom[0],
+                            improper=tagged_torsion,
+                            scan_range=improper.scan_range,
+                            scan_increment=improper.scan_increment,
+                        )
+                        break
