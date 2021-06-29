@@ -114,7 +114,7 @@ def test_deregister_component_error():
     """
 
     with pytest.raises(ComponentRegisterError):
-        deregister_component(component="ChargeFilter")
+        deregister_component(component="BadComponent")
 
 
 def test_get_component():
