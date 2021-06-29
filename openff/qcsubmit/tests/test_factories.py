@@ -522,7 +522,6 @@ def test_torsiondrive_torsion_string():
 @pytest.mark.parametrize("factory_dataset_type", [
     pytest.param((BasicDatasetFactory, BasicDataset), id="BasicDatasetFactory"),
     pytest.param((OptimizationDatasetFactory, OptimizationDataset), id="OptimizationDatasetFactory"),
-    pytest.param((TorsiondriveDatasetFactory, TorsiondriveDataset), id="TorsiondriveDatasetFactory"),
 ])
 def test_create_dataset(factory_dataset_type):
     """
@@ -560,6 +559,27 @@ def test_create_dataset(factory_dataset_type):
     assert dataset.dataset != {}
     assert dataset.filtered != {}
     assert element_filter.type in dataset.filtered_molecules
+
+
+def test_create_torsiondrive_dataset():
+    """
+    Make sure we can correclt make a dataset using the scan enumerator.
+    """
+    factory = TorsiondriveDatasetFactory()
+    scan_filter = workflow_components.ScanEnumerator()
+    scan_filter.add_torsion_scan(smarts="[*:1]~[*:2]-[#8:3]-[#1:4]", scan_rage=(-90, 90), scan_increment=10)
+    factory.add_workflow_components(scan_filter)
+    conformer_generator = workflow_components.StandardConformerGenerator(max_conformers=1)
+    factory.add_workflow_components(conformer_generator)
+    mols = Molecule.from_file(get_data("tautomers_small.smi"), "smi", allow_undefined_stereo=True)
+    dataset = factory.create_dataset(dataset_name="test name", molecules=mols, description="Force field test",
+                                     tagline="A test dataset", processors=1)
+
+    assert dataset.n_molecules > 0
+    assert dataset.n_records > 0
+    for entry in dataset.dataset.values():
+        assert entry.keywords.dihedral_ranges == [(-90, 90)]
+        assert entry.keywords.grid_spacing == [10]
 
 
 def test_create_dataset_atom_map():

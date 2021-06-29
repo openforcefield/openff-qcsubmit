@@ -8,13 +8,13 @@ from pydantic import Field
 from qcelemental.util import which_import
 from typing_extensions import Literal
 
-from openff.qcsubmit.common_structures import ComponentProperties, TorsionIndexer
-from openff.qcsubmit.datasets import ComponentResult
+from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.utils import get_torsion
 from openff.qcsubmit.workflow_components.base_component import (
     CustomWorkflowComponent,
     ToolkitValidator,
 )
+from openff.qcsubmit.workflow_components.utils import ComponentResult, TorsionIndexer
 
 if TYPE_CHECKING:
     from openff.fragmenter.fragment import FragmentationResult
