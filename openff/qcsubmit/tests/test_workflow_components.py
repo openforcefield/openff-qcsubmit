@@ -131,7 +131,7 @@ def test_get_component_error():
     Make sure an error is rasied when we try to get a component that was not registered.
     """
     with pytest.raises(ComponentRegisterError):
-        get_component(component_name="ChargeFilter")
+        get_component(component_name="BadComponent")
 
 
 def test_custom_component():
