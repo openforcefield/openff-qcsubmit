@@ -9,6 +9,7 @@ from openff.toolkit.topology import Molecule
 from qcengine.testing import has_program
 from qcportal import FractalClient
 
+from openff.qcsubmit import workflow_components
 from openff.qcsubmit.common_structures import Metadata, PCMSettings
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets import (
@@ -729,6 +730,9 @@ def test_torsiondrive_scan_keywords(fractal_compute_server):
     client = FractalClient(fractal_compute_server)
     molecules = Molecule.from_smiles("CO")
     factory = TorsiondriveDatasetFactory()
+    scan_enum = workflow_components.ScanEnumerator()
+    scan_enum.add_torsion_scan(smarts="[*:1]~[#6:2]-[#8:3]~[*:4]")
+    factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     factory.add_qc_spec(method="openff_unconstrained-1.1.0", basis="smirnoff", program="openmm", spec_description="scan range test", spec_name="openff-1.1.0")
     dataset = factory.create_dataset(dataset_name="Torsiondrive scan keywords", molecules=molecules,
@@ -846,7 +850,10 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
     client = FractalClient(fractal_compute_server)
     # molecule containing boron
     molecule = Molecule.from_smiles("OB(O)C1=CC=CC=C1")
+    scan_enum = workflow_components.ScanEnumerator()
+    scan_enum.add_torsion_scan(smarts="[#6:1]~[#6:2]-[B:3]~[#8:4]")
     factory = factory_type()
+    factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
@@ -922,6 +929,9 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
     molecule = Molecule.from_smiles("CO")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
+    scan_enum = workflow_components.ScanEnumerator()
+    scan_enum.add_torsion_scan(smarts="[*:1]~[#6:2]-[#8:3]~[*:4]")
+    factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
@@ -956,6 +966,9 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     molecule = Molecule.from_smiles("CC")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
+    scan_enum = workflow_components.ScanEnumerator()
+    scan_enum.add_torsion_scan(smarts="[*:1]~[#6:2]-[#6:3]~[*:4]")
+    factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default",

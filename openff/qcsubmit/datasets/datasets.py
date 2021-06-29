@@ -1,6 +1,5 @@
 import abc
 import json
-import os
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -15,7 +14,6 @@ from typing import (
     Union,
 )
 
-import numpy as np
 import qcelemental as qcel
 import qcportal as ptl
 import tqdm
@@ -26,7 +24,6 @@ from qcportal.models.common_models import (
     OptimizationSpecification,
     QCSpecification,
 )
-from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import (
@@ -34,7 +31,6 @@ from openff.qcsubmit.common_structures import (
     Metadata,
     MoleculeAttributes,
     QCSpec,
-    TorsionIndexer,
 )
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets.entries import (
@@ -65,239 +61,6 @@ if TYPE_CHECKING:
 
 C = TypeVar("C", bound="Collection")
 E = TypeVar("E", bound=DatasetEntry)
-
-
-class ComponentResult:
-    """
-    Class to contain molecules after the execution of a workflow component this automatically applies de-duplication to
-    the molecules. For example if a molecule is already in the molecules list it will not be added but any conformers
-    will be kept and transferred.
-
-
-    If a molecule in the molecules list is then filtered it will be removed from the molecules list.
-    """
-
-    def __init__(
-        self,
-        component_name: str,
-        component_description: Dict[str, str],
-        component_provenance: Dict[str, str],
-        molecules: Optional[Union[List[off.Molecule], off.Molecule]] = None,
-        input_file: Optional[str] = None,
-        input_directory: Optional[str] = None,
-        skip_unique_check: Optional[bool] = False,
-        verbose: bool = True,
-    ):
-        """Register the list of molecules to process.
-
-        Args:
-            component_name:
-                The name of the component that produced this result.
-            component_description:
-                The dictionary representation of the component which details the function and running parameters.
-            component_provenance:
-                The dictionary of the modules used and there version number when running the component.
-            molecules:
-                The list of molecules that have been possessed by a component and returned as a result.
-            input_file:
-                The name of the input file used to produce the result if not from a component.
-            input_directory:
-                The name of the input directory which contains input molecule files.
-            verbose:
-                If the timing information and progress bar should be shown while doing deduplication.
-            skip_unique_check:
-                Set to True if it is sure that all molecules will be unique in this result
-        """
-
-        self._molecules: Dict[str, off.Molecule] = {}
-        self._filtered: Dict[str, off.Molecule] = {}
-        self.component_name: str = component_name
-        self.component_description: Dict = component_description
-        self.component_provenance: Dict = component_provenance
-        self.skip_unique_check: bool = skip_unique_check
-
-        assert (
-            molecules is None or input_file is None
-        ), "Provide either a list of molecules or an input file name."
-
-        # if we have an input file load it
-        if input_file is not None:
-            molecules = off.Molecule.from_file(
-                file_path=input_file, allow_undefined_stereo=True
-            )
-            if not isinstance(molecules, list):
-                molecules = [
-                    molecules,
-                ]
-
-        if input_directory is not None:
-            molecules = []
-            for file in os.listdir(input_directory):
-                # each file could have many molecules in it so combine
-                mols = off.Molecule.from_file(
-                    file_path=os.path.join(input_directory, file),
-                    allow_undefined_stereo=True,
-                )
-                try:
-                    molecules.extend(mols)
-                except TypeError:
-                    molecules.append(mols)
-
-        # now lets process the molecules and add them to the class
-        if molecules is not None:
-            for molecule in tqdm.tqdm(
-                molecules,
-                total=len(molecules),
-                ncols=80,
-                desc="{:30s}".format("Deduplication"),
-                disable=not verbose,
-            ):
-                self.add_molecule(molecule)
-
-    @property
-    def molecules(self) -> List[off.Molecule]:
-        """
-        Get the list of molecules which can be iterated over.
-        """
-        return list(self._molecules.values())
-
-    @property
-    def filtered(self) -> List[off.Molecule]:
-        """
-        Get the list of molecule that have been filtered to iterate over.
-        """
-        return list(self._filtered.values())
-
-    @property
-    def n_molecules(self) -> int:
-        """
-        The number of molecules saved in the result.
-        """
-
-        return len(self._molecules)
-
-    @property
-    def n_conformers(self) -> int:
-        """
-        The number of conformers stored in the molecules.
-        """
-
-        conformers = sum(
-            [molecule.n_conformers for molecule in self._molecules.values()]
-        )
-        return conformers
-
-    @property
-    def n_filtered(self) -> int:
-        """
-        The number of filtered molecules.
-        """
-        return len(self._filtered)
-
-    def add_molecule(self, molecule: off.Molecule) -> bool:
-        """
-        Add a molecule to the molecule list after checking that it is not present already. If it is de-duplicate the
-        record and condense the conformers and metadata.
-
-        Args:
-            molecule:
-                The molecule and its conformers which we should try and add to the result.
-
-        Returns:
-            `True` if the molecule is already present and `False` if not.
-        """
-        # always strip the atom map as it is not preserved in a workflow
-        if "atom_map" in molecule.properties:
-            del molecule.properties["atom_map"]
-
-        # make a unique molecule hash independent of atom order or conformers
-        molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
-
-        if not self.skip_unique_check and molecule_hash in self._molecules:
-            # we need to align the molecules and transfer the coords and properties
-            # get the mapping, drop some comparisons to match inchikey
-            isomorphic, mapping = off.Molecule.are_isomorphic(
-                molecule,
-                self._molecules[molecule_hash],
-                return_atom_map=True,
-                formal_charge_matching=False,
-                bond_order_matching=False,
-            )
-            assert isomorphic is True
-            # transfer any torsion indexes for similar fragments
-            if "dihedrals" in molecule.properties:
-                # we need to transfer the properties; get the current molecule dihedrals indexer
-                # if one is missing create a new one
-                current_indexer = self._molecules[molecule_hash].properties.get(
-                    "dihedrals", TorsionIndexer()
-                )
-
-                # update it with the new molecule info
-                current_indexer.update(
-                    torsion_indexer=molecule.properties["dihedrals"],
-                    reorder_mapping=mapping,
-                )
-
-                # store it back
-                self._molecules[molecule_hash].properties["dihedrals"] = current_indexer
-
-            if molecule.n_conformers != 0:
-
-                # transfer the coordinates
-                for conformer in molecule.conformers:
-                    new_conformer = np.zeros((molecule.n_atoms, 3))
-                    for i in range(molecule.n_atoms):
-                        new_conformer[i] = conformer[mapping[i]].value_in_unit(
-                            unit.angstrom
-                        )
-
-                    new_conf = unit.Quantity(value=new_conformer, unit=unit.angstrom)
-
-                    # check if the conformer is already on the molecule
-                    for old_conformer in self._molecules[molecule_hash].conformers:
-                        if old_conformer.tolist() == new_conf.tolist():
-                            break
-                    else:
-                        self._molecules[molecule_hash].add_conformer(
-                            new_conformer * unit.angstrom
-                        )
-            else:
-                # molecule already in list and coords not present so just return
-                return True
-
-        else:
-            if molecule.n_conformers == 0:
-                # make sure this is a list to avoid errors
-                molecule._conformers = []
-            self._molecules[molecule_hash] = molecule
-            return False
-
-    def filter_molecule(self, molecule: off.Molecule):
-        """
-        Filter out a molecule that has not passed this workflow component. If the molecule is already in the pass list
-        remove it and ensure it is only in the filtered list.
-
-        Args:
-            molecule:
-                The molecule which should be filtered.
-        """
-
-        molecule_hash = molecule.to_inchikey(fixed_hydrogens=True)
-        try:
-            del self._molecules[molecule_hash]
-
-        except KeyError:
-            pass
-
-        finally:
-            if molecule not in self._filtered:
-                self._filtered[molecule_hash] = molecule
-
-    def __repr__(self):
-        return f"ComponentResult(name={self.component_name}, molecules={self.n_molecules}, filtered={self.n_filtered})"
-
-    def __str__(self):
-        return f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' filtered='{self.n_filtered}'>"
 
 
 class _BaseDataset(abc.ABC, CommonBase):
