@@ -627,6 +627,32 @@ def test_scf_prop_validation():
         dataset.scf_properties = ["ddec_charges"]
 
 
+@pytest.mark.parametrize(
+    "keywords",
+    [None, {"keyword-1": True, "keyword-2": 1, "keyword-3": 1.5, "keyword-4": "1.5"}]
+)
+def test_keywords_detected(keywords):
+    """
+    Make sure unsupported scf properties are not allowed into a dataset.
+    """
+    dataset = BasicDataset(
+        dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX",
+    )
+    dataset.add_qc_spec(
+        "hf", "6-31G", "psi4", "XXXXXXXX", "XXXXXXXX", keywords=keywords
+    )
+
+    qc_spec = dataset.qc_specifications["XXXXXXXX"]
+    assert qc_spec.keywords == keywords
+
+    portal_keywords = dataset._get_spec_keywords(qc_spec)
+
+    for key, expected_value in {} if keywords is None else keywords.items():
+
+        assert key in portal_keywords.values
+        assert portal_keywords.values[key] == expected_value
+
+
 def test_add_molecule_no_extras():
     """
     Test that adding a molecule with no extras automatically updates the extras to include the cmiles and c1 symmetry.

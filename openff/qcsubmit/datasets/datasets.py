@@ -980,8 +980,18 @@ class _BaseDataset(abc.ABC, CommonBase):
         data = self.dict(include={"maxiter", "scf_properties"})
         # account for implicit solvent
         if spec.implicit_solvent is not None:
+
+            if spec.program.lower() != "psi4":
+
+                raise NotImplementedError(
+                    "Implicit solvent is currently only supported when using psi4."
+                )
+
             data["pcm"] = True
             data["pcm__input"] = spec.implicit_solvent.to_string()
+
+        if spec.keywords is not None:
+            data.update(spec.keywords)
 
         return ptl.models.KeywordSet(values=data)
 
