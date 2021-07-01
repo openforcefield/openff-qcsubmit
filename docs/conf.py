@@ -125,6 +125,7 @@ html_theme_options = {
     # Content Minification for deployment, prettification for debugging
     "html_minify": True,
     "css_minify": True,
+    "globaltoc_depth": 2,
     "globaltoc_includehidden": True,
 }
 
