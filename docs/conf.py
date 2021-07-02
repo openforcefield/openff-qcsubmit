@@ -115,6 +115,9 @@ html_theme_options = {
     "repo_name": "openff-qcsubmit",
     # Must be one of github, gitlab or bitbucket
     "repo_type": "github",
+    # Sidebar settings
+    "globaltoc_depth": 2,
+    "globaltoc_includehidden": True,
     # Colour for sidebar captions and other accents. One of
     # openff-blue, openff-toolkit-blue, openff-dataset-yellow,
     # openff-evaluator-orange, aquamarine, lilac, amaranth, grape,
@@ -125,8 +128,6 @@ html_theme_options = {
     # Content Minification for deployment, prettification for debugging
     "html_minify": True,
     "css_minify": True,
-    "globaltoc_depth": 2,
-    "globaltoc_includehidden": True,
 }
 
 html_static_path = ['_static']
