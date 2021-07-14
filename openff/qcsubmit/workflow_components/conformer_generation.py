@@ -6,11 +6,11 @@ from pydantic import Field
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
-from openff.qcsubmit.datasets import ComponentResult
 from openff.qcsubmit.workflow_components.base_component import (
     CustomWorkflowComponent,
     ToolkitValidator,
 )
+from openff.qcsubmit.workflow_components.utils import ComponentResult
 
 
 class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):

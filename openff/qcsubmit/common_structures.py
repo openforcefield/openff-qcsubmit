@@ -10,7 +10,18 @@ from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 import qcportal as ptl
 from openff.toolkit.topology import Molecule
-from pydantic import BaseModel, Field, HttpUrl, PositiveInt, constr, validator
+from pydantic import (
+    BaseModel,
+    Field,
+    HttpUrl,
+    PositiveInt,
+    StrictBool,
+    StrictFloat,
+    StrictInt,
+    StrictStr,
+    constr,
+    validator,
+)
 from qcelemental import constants
 from qcelemental.models.results import WavefunctionProtocolEnum
 from qcportal.models.common_models import DriverEnum
@@ -343,6 +354,14 @@ class QCSpec(ResultsConfig):
         None,
         description="If PCM is to be used with psi4 this is the full description of the settings that should be used.",
     )
+    keywords: Optional[
+        Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
+    ] = Field(
+        None,
+        description="An optional set of program specific computational keywords that "
+        "should be passed to the program. These may include, for example, DFT grid "
+        "settings.",
+    )
 
     def __init__(
         self,
@@ -353,6 +372,9 @@ class QCSpec(ResultsConfig):
         spec_description: str = "Standard OpenFF optimization quantum chemistry specification.",
         store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none,
         implicit_solvent: Optional[PCMSettings] = None,
+        keywords: Optional[
+            Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
+        ] = None,
     ):
         """
         Validate the combination of method, basis and program.
@@ -438,6 +460,7 @@ class QCSpec(ResultsConfig):
             spec_description=spec_description,
             store_wavefunction=store_wavefunction,
             implicit_solvent=implicit_solvent,
+            keywords=keywords,
         )
 
     def dict(
@@ -518,6 +541,9 @@ class QCSpecificationHandler(BaseModel):
         store_wavefunction: str = "none",
         overwrite: bool = False,
         implicit_solvent: Optional[PCMSettings] = None,
+        keywords: Optional[
+            Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
+        ] = None,
     ) -> None:
         """
         Add a new qcspecification to the factory which will be applied to the dataset.
@@ -531,6 +557,8 @@ class QCSpecificationHandler(BaseModel):
             store_wavefunction: what parts of the wavefunction that should be saved
             overwrite: If there is a spec under this name already overwrite it
             implicit_solvent: The implicit solvent settings if it is to be used.
+            keywords: Program specific computational keywords that should be passed to
+                the program
         """
         spec = QCSpec(
             method=method,
@@ -540,6 +568,7 @@ class QCSpecificationHandler(BaseModel):
             spec_description=spec_description,
             store_wavefunction=store_wavefunction,
             implicit_solvent=implicit_solvent,
+            keywords=keywords,
         )
 
         if spec_name not in self.qc_specifications:
@@ -552,367 +581,6 @@ class QCSpecificationHandler(BaseModel):
             )
 
 
-def order_torsion(torsion: Tuple[int, int, int, int]) -> Tuple[int, int, int, int]:
-    """
-    Order a torsion string to ensure the central bond is ordered.
-    """
-    if torsion[1:3] == tuple(sorted(torsion[1:3])):
-        return torsion
-    else:
-        return torsion[::-1]
-
-
-def order_scan_range(scan_range: Tuple[int, int]) -> Optional[Tuple[int, int]]:
-    """
-    Order the scan range.
-    """
-    if scan_range is not None:
-        return tuple(sorted(scan_range))
-    else:
-        return None
-
-
-class SingleTorsion(ResultsConfig):
-    """
-    A class used to mark torsions that will be driven for torsiondrive datasets.
-
-    Note:
-        This is only for 1D torsiondrives.
-    """
-
-    torsion1: Tuple[int, int, int, int] = Field(
-        ..., description="The torsion which is to be driven."
-    )
-    scan_range1: Optional[Tuple[int, int]] = Field(
-        None, description="The scan range used in the torsion drive"
-    )
-
-    _order_torsion1 = validator("torsion1", allow_reuse=True)(order_torsion)
-    _order_scan_range1 = validator("scan_range1", allow_reuse=True)(order_scan_range)
-
-    @property
-    def central_bond(self) -> Tuple[int, int]:
-        """Get the sorted index of the central bond."""
-
-        return tuple(sorted(self.torsion1[1:3]))
-
-    @property
-    def get_dihedrals(self) -> List[Tuple[int, int, int, int]]:
-        """
-        Get the formatted representation of the dihedrals to scan over.
-        """
-        return [
-            self.torsion1,
-        ]
-
-    @property
-    def get_scan_range(self) -> Optional[List[Tuple[int, int]]]:
-        """
-        Get the formatted representation of the dihedral scan ranges.
-        """
-        if self.scan_range1 is not None:
-            return [
-                self.scan_range1,
-            ]
-        else:
-            return self.scan_range1
-
-    @property
-    def get_atom_map(self) -> Dict[int, int]:
-        """
-        Create an atom map which will tag the correct dihedral atoms.
-        """
-        return dict((atom, i) for i, atom in enumerate(self.torsion1))
-
-
-class DoubleTorsion(SingleTorsion):
-    """A class used to mark coupled torsions which should be scanned."""
-
-    torsion2: Tuple[int, int, int, int] = Field(
-        ...,
-        description="The torsion tuple of the second dihedral to be drive at the same time as the first.",
-    )
-    scan_range2: Optional[Tuple[int, int]] = Field(
-        None,
-        description="The separate scan range that should be used for the second dihedral.",
-    )
-
-    _order_torsion2 = validator("torsion2", allow_reuse=True)(order_torsion)
-    _order_scan_range2 = validator("scan_range2", allow_reuse=True)(order_scan_range)
-
-    @property
-    def central_bond(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
-        """Get the 4 integer tuple of the two central bonds."""
-
-        central_bond = tuple(
-            sorted(
-                [
-                    tuple(sorted(self.torsion1[1:3])),
-                    tuple(sorted(self.torsion2[1:3])),
-                ]
-            )
-        )
-        return central_bond
-
-    @property
-    def get_dihedrals(self) -> List[Tuple[int, int, int, int]]:
-        """
-        Get the formatted representation of the dihedrals to scan over.
-        """
-        return [
-            self.torsion1,
-            self.torsion2,
-        ]
-
-    @property
-    def get_scan_range(self) -> Optional[List[Tuple[int, int]]]:
-        """
-        Get the formatted representation of the dihedral scan ranges.
-        """
-        if self.scan_range1 is not None and self.scan_range2 is not None:
-            return [
-                self.scan_range1,
-                self.scan_range2,
-            ]
-        else:
-            return None
-
-    @property
-    def get_atom_map(self) -> Dict[int, int]:
-        """
-        Create an atom map which will tag the correct dihedral atoms.
-        """
-        atom_map = {}
-        i = 0
-        for torsion in self.get_dihedrals:
-            for atom in torsion:
-                atom_map[atom] = i
-                i += 1
-        return atom_map
-
-
-class ImproperTorsion(ResultsConfig):
-    """
-    A class to keep track of improper torsions being scanned.
-    """
-
-    central_atom: int = Field(
-        ..., description="The index of the central atom of an improper torsion."
-    )
-    improper: Tuple[int, int, int, int] = Field(
-        ..., description="The tuple of the atoms in the improper torsion."
-    )
-    scan_range: Optional[Tuple[int, int]] = Field(
-        None,
-        description="The scan range of the improper dihedral which should normally be limited.",
-    )
-
-    _order_scan_range = validator("scan_range", allow_reuse=True)(order_scan_range)
-
-    @property
-    def get_dihedrals(self) -> List[Tuple[int, int, int, int]]:
-        """
-        Get the formatted representation of the dihedrals to scan over.
-        """
-        return [
-            self.improper,
-        ]
-
-    @property
-    def get_scan_range(self) -> Optional[List[Tuple[int, int]]]:
-        """
-        Get the formatted representation of the dihedral scan ranges.
-        """
-        if self.scan_range is not None:
-            return [
-                self.scan_range,
-            ]
-        else:
-            return self.scan_range
-
-    @property
-    def get_atom_map(self) -> Dict[int, int]:
-        """
-        Create an atom map which will tag the correct dihedral atoms.
-        """
-        return dict((atom, i) for i, atom in enumerate(self.improper))
-
-
-class TorsionIndexer(DatasetConfig):
-    """
-    A class to keep track of the torsions highlighted for scanning, with methods for combining and deduplication.
-    """
-
-    torsions: Dict[Tuple[int, int], SingleTorsion] = Field(
-        {},
-        description="A dictionary of the torsions to be scanned grouped by the central bond in the torsion.",
-    )
-    double_torsions: Dict[
-        Tuple[Tuple[int, int], Tuple[int, int]], DoubleTorsion
-    ] = Field(
-        {},
-        description="A dictionary of the 2D torsions to be scanned grouped by the sorted combination of the central bonds.",
-    )
-    imporpers: Dict[int, ImproperTorsion] = Field(
-        {},
-        description="A dictionary of the improper torsions to be scanned grouped by the central atom in the torsion.",
-    )
-
-    @property
-    def get_dihedrals(
-        self,
-    ) -> List[Union[SingleTorsion, DoubleTorsion, ImproperTorsion]]:
-        """
-        Return a list of all of the dihedrals tagged making it easy to loop over.
-        """
-        all_torsions = []
-        all_torsions.extend(list(self.torsions.values()))
-        all_torsions.extend(list(self.double_torsions.values()))
-        all_torsions.extend(list(self.imporpers.values()))
-        return all_torsions
-
-    def add_torsion(
-        self,
-        torsion: Tuple[int, int, int, int],
-        scan_range: Optional[Tuple[int, int]] = None,
-        overwrite: bool = False,
-    ) -> None:
-        """
-        Add a single torsion to the torsion indexer if this central bond has not already been tagged.
-        """
-        torsion = SingleTorsion(torsion1=torsion, scan_range1=scan_range)
-
-        if torsion.central_bond not in self.torsions:
-            self.torsions[torsion.central_bond] = torsion
-        elif overwrite:
-            self.torsions[torsion.central_bond] = torsion
-
-    def add_double_torsion(
-        self,
-        torsion1: Tuple[int, int, int, int],
-        torsion2: Tuple[int, int, int, int],
-        scan_range1: Optional[Tuple[int, int]] = None,
-        scan_range2: Optional[Tuple[int, int]] = None,
-        overwrite: bool = False,
-    ) -> None:
-        """
-        Add a double torsion to the indexer if this central bond combination has not been tagged.
-        """
-
-        double_torsion = DoubleTorsion(
-            torsion1=torsion1,
-            torsion2=torsion2,
-            scan_range1=scan_range1,
-            scan_range2=scan_range2,
-        )
-
-        if double_torsion.central_bond not in self.double_torsions:
-            self.double_torsions[double_torsion.central_bond] = double_torsion
-        elif overwrite:
-            self.double_torsions[double_torsion.central_bond] = double_torsion
-
-    def add_improper(
-        self,
-        central_atom: int,
-        improper: Tuple[int, int, int, int],
-        scan_range: Optional[Tuple[int, int]] = None,
-        overwrite: bool = False,
-    ) -> None:
-        """
-        Add an improper torsion to the indexer if its central atom is not already covered.
-        """
-
-        improper_torsion = ImproperTorsion(
-            central_atom=central_atom, improper=improper, scan_range=scan_range
-        )
-
-        if improper_torsion.central_atom not in self.imporpers:
-            self.imporpers[improper_torsion.central_atom] = improper_torsion
-        elif overwrite:
-            self.imporpers[improper_torsion.central_atom] = improper_torsion
-
-    def update(
-        self,
-        torsion_indexer: "TorsionIndexer",
-        reorder_mapping: Optional[Dict[int, int]] = None,
-    ) -> None:
-        """
-        Update the current torsion indexer with another.
-
-        Parameters:
-            torsion_indexer: The other torsionindxer that should be used to update the current object.
-            reorder_mapping: The mapping between the other and current molecule should the order need updating.
-        """
-
-        if reorder_mapping is None:
-            self.torsions.update(torsion_indexer.torsions)
-            self.double_torsions.update(torsion_indexer.double_torsions)
-            self.imporpers.update(torsion_indexer.imporpers)
-
-        else:
-            # we need to use the reorder_mapping to change the objects before adding them
-            for torsion in torsion_indexer.torsions.values():
-                new_torsion = self._reorder_torsion(torsion.torsion1, reorder_mapping)
-                self.add_torsion(torsion=new_torsion, scan_range=torsion.scan_range1)
-
-            for double_torsion in torsion_indexer.double_torsions.values():
-                new_torsion1 = self._reorder_torsion(
-                    double_torsion.torsion1, reorder_mapping
-                )
-                new_torsion2 = self._reorder_torsion(
-                    double_torsion.torsion2, reorder_mapping
-                )
-                self.add_double_torsion(
-                    torsion1=new_torsion1,
-                    torsion2=new_torsion2,
-                    scan_range1=double_torsion.scan_range1,
-                    scan_range2=double_torsion.scan_range2,
-                )
-
-            for improper in torsion_indexer.imporpers.values():
-                new_improper = self._reorder_torsion(improper.improper, reorder_mapping)
-                new_central = reorder_mapping[improper.central_atom]
-                self.add_improper(
-                    new_central, new_improper, scan_range=improper.scan_range
-                )
-
-    @staticmethod
-    def _reorder_torsion(
-        torsion: Tuple[int, int, int, int], mapping: Dict[int, int]
-    ) -> Tuple[int, int, int, int]:
-        """
-        Reorder the given torsion based on the mapping.
-
-        Parameters:
-            torsion: The other molecules torsion that should be remapped.
-            mapping: The mapping between the other molecule and the current.
-        """
-
-        return tuple([mapping[index] for index in torsion])
-
-    @property
-    def n_torsions(self) -> int:
-        """Return the number of torsions highlighted."""
-
-        return len(self.torsions)
-
-    @property
-    def n_double_torsions(self) -> int:
-        """
-        Return the number of double torsions highlighted.
-        """
-
-        return len(self.double_torsions)
-
-    @property
-    def n_impropers(self) -> int:
-        """
-        Return the number of imporpers highlighted.
-        """
-
-        return len(self.imporpers)
-
-
 class IndexCleaner:
     """
     This class offers the ability to clean a molecule index that already has a numeric tag useful for datasets and
@@ -922,8 +590,9 @@ class IndexCleaner:
     @staticmethod
     def _clean_index(index: str) -> Tuple[str, int]:
         """
-        Take an index and clean it by checking if it already has an enumerator in it return the core index and any
-        numeric tags if no tag is found the tag is set to 0.
+        Take an index and clean it by checking if it already has an enumerator in it.
+        Return the core index and any numeric tags.
+        If no tag is found the tag is set to 0.
 
         Parameters:
             index: The index for the entry which should be checked, if no numeric tag can be found return 0.
@@ -1024,6 +693,12 @@ class Metadata(DatasetConfig):
 
         empty_fields = []
         for field in self.__fields__:
+
+            if field == "long_description_url":
+                # The 'long_description_url' is made optional to more easily facilitate
+                # local or private dataset submissions.
+                continue
+
             attr = getattr(self, field)
             if attr is None:
                 empty_fields.append(field)

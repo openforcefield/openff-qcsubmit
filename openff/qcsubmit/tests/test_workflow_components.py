@@ -11,7 +11,6 @@ from typing_extensions import Literal
 
 from openff.qcsubmit import workflow_components
 from openff.qcsubmit.common_structures import ComponentProperties
-from openff.qcsubmit.datasets import ComponentResult
 from openff.qcsubmit.exceptions import (
     ComponentRegisterError,
     InvalidWorkflowComponentError,
@@ -19,8 +18,10 @@ from openff.qcsubmit.exceptions import (
 from openff.qcsubmit.utils import check_missing_stereo, get_data
 from openff.qcsubmit.validators import check_torsion_connection
 from openff.qcsubmit.workflow_components import (
+    ComponentResult,
     CustomWorkflowComponent,
     ToolkitValidator,
+    TorsionIndexer,
     deregister_component,
     get_component,
     list_components,
@@ -63,7 +64,7 @@ def test_list_components():
     """
     components = list_components()
     for component in components:
-        assert component.type == component.__class__.__name__
+        assert component.__fields__["type"].default == component.__name__
 
 
 def test_register_component_replace():
@@ -71,19 +72,13 @@ def test_register_component_replace():
     Test registering a component that is already registered with and without using replace.
     """
     # get the standard conformer generator
-    gen = workflow_components.StandardConformerGenerator(max_conformers=1)
+    gen = workflow_components.StandardConformerGenerator
 
     with pytest.raises(ComponentRegisterError):
-        register_component(component=gen, replace=False)
+        register_component(component=workflow_components.StandardConformerGenerator, replace=False)
 
     # now register using replace with a new default
     register_component(component=gen, replace=True)
-
-    gen2 = get_component(gen.type)
-    assert gen2.max_conformers == gen.max_conformers
-
-    # now return th list back to normal
-    register_component(component=workflow_components.StandardConformerGenerator(), replace=True)
 
 
 def test_register_component_error():
@@ -91,15 +86,14 @@ def test_register_component_error():
     Make sure an error is raised if we try and register a component that is not a sub class of CustomWorkflowComponent.
     """
     # fake component
-    charge_filter = {"type": "charge_filter"}
+    charge_filter = dict
 
     with pytest.raises(InvalidWorkflowComponentError):
         register_component(component=charge_filter)
 
 
 @pytest.mark.parametrize("component", [
-    pytest.param(workflow_components.SmartsFilter(), id="Class instance"),
-    pytest.param("SmartsFilter", id="Class name")
+    pytest.param(workflow_components.SmartsFilter, id="Class instance"),
 ])
 def test_deregister_component(component):
     """
@@ -108,10 +102,10 @@ def test_deregister_component(component):
     # deregister the component
     deregister_component(component=component)
 
-    assert workflow_components.SmartsFilter() not in list_components()
+    assert workflow_components.SmartsFilter not in list_components()
 
     # now add it back
-    register_component(component=workflow_components.SmartsFilter())
+    register_component(component=workflow_components.SmartsFilter)
 
 
 def test_deregister_component_error():
@@ -120,7 +114,7 @@ def test_deregister_component_error():
     """
 
     with pytest.raises(ComponentRegisterError):
-        deregister_component(component="ChargeFilter")
+        deregister_component(component="BadComponent")
 
 
 def test_get_component():
@@ -129,7 +123,7 @@ def test_get_component():
     """
     gen = get_component("standardconformergenerator")
 
-    assert gen == workflow_components.StandardConformerGenerator()
+    assert gen == workflow_components.StandardConformerGenerator
 
 
 def test_get_component_error():
@@ -137,7 +131,7 @@ def test_get_component_error():
     Make sure an error is rasied when we try to get a component that was not registered.
     """
     with pytest.raises(ComponentRegisterError):
-        get_component(component_name="ChargeFilter")
+        get_component(component_name="BadComponent")
 
 
 def test_custom_component():
@@ -920,3 +914,182 @@ def test_smarts_filter_apply_tag_torsions(tag_dihedrals):
                 _ = check_torsion_connection(torsion=torsion.torsion1, molecule=molecule)
         else:
             assert "dihedrals" not in molecule.properties
+
+
+def test_scan_filter_mutually_exclusive():
+    """
+    Make sure an error is raised when both options are passed.
+    """
+    with pytest.raises(ValidationError):
+        workflow_components.ScanFilter(scans_to_include=["[*:1]~[*:2]:[*:3]~[*:4]"], scans_to_exclude=["[*:1]~[*:2]-[CH3:3]-[H:4]"])
+
+
+def test_scan_filter_no_torsions():
+    """
+    Filter all molecules which do not have any torsions tagged for scanning.
+    """
+
+    molecule = Molecule.from_smiles("CC")
+
+    filter = workflow_components.ScanFilter(scans_to_include=["[*:1]~[*:2]-[CH3:3]-[H:4]"])
+
+    result = filter.apply(molecules=[molecule], processors=1)
+    assert result.n_molecules == 0
+
+
+def test_scan_filter_include():
+    """
+    Make sure only torsion scans we want to include are kept when more than one is defined.
+    """
+    ethanol = Molecule.from_file(get_data("ethanol.sdf"))
+    t_indexer = TorsionIndexer()
+    # C-C torsion
+    t_indexer.add_torsion(torsion=(3, 0, 1, 2))
+    # O-C torsion
+    t_indexer.add_torsion(torsion=(0, 1, 2, 8))
+    ethanol.properties["dihedrals"] = t_indexer
+
+    # only keep the C-C scan
+    filter = workflow_components.ScanFilter(scans_to_include=["[#1:1]~[#6:2]-[#6:3]-[#1:4]"])
+
+    result = filter.apply(molecules=[ethanol], processors=1)
+
+    assert result.n_molecules == 1
+    assert (0, 1) in ethanol.properties["dihedrals"].torsions
+
+
+def test_scan_filter_exclude():
+    """
+    Make sure only exclude torsion scans we do not want and keep any other defined scans.
+    """
+    ethanol = Molecule.from_file(get_data("ethanol.sdf"))
+    t_indexer = TorsionIndexer()
+    # C-C torsion
+    t_indexer.add_torsion(torsion=(3, 0, 1, 2))
+    # O-C torsion
+    t_indexer.add_torsion(torsion=(0, 1, 2, 8))
+    ethanol.properties["dihedrals"] = t_indexer
+
+    # only keep the C-C scan
+    filter = workflow_components.ScanFilter(scans_to_exclude=["[#1:1]~[#6:2]-[#6:3]-[#1:4]"])
+
+    result = filter.apply(molecules=[ethanol], processors=1)
+
+    assert result.n_molecules == 1
+    assert (1, 2) in ethanol.properties["dihedrals"].torsions
+
+
+def test_scan_enumerator_no_scans():
+    """
+    Make sure molecules are filtered if they have no scans assigned.
+    """
+    mol = Molecule.from_smiles("CC")
+
+    scan_tagger = workflow_components.ScanEnumerator()
+    scan_tagger.add_torsion_scan(smarts="[*:1]~[#8:1]-[#6:3]~[*:4]", scan_rage=(-40, 40), scan_increment=15)
+
+    result = scan_tagger.apply([mol], processors=1)
+
+    assert result.n_molecules == 0
+    assert result.n_filtered == 1
+
+
+def test_scan_enumerator_1d():
+    """
+    Make sure only one match is tagged per torsion.
+    """
+    mol = Molecule.from_smiles("CCC")
+
+    scan_tagger = workflow_components.ScanEnumerator()
+    scan_tagger.add_torsion_scan(smarts="[*:1]~[#6:2]-[#6:3]~[*:4]", scan_rage=(-60, 60), scan_increment=20)
+
+    result = scan_tagger.apply([mol], processors=1)
+
+    assert result.n_molecules == 1
+    indexer = mol.properties["dihedrals"]
+    assert indexer.n_torsions == 1
+    assert indexer.torsions[(1, 2)].scan_range1 == (-60, 60)
+
+
+def test_scan_enumerator_unique():
+    """
+    If the enumerator would hit multiple torsions in a molecule make sure they are unique by symmetry.
+    """
+    mol = Molecule.from_smiles("CCCC")
+
+    scan_tagger = workflow_components.ScanEnumerator()
+    scan_tagger.add_torsion_scan(smarts="[*:1]~[#6:2]-[#6:3]~[*:4]")
+
+    result = scan_tagger.apply(molecules=[mol], processors=1)
+
+    assert result.n_molecules == 1
+    indexer = mol.properties["dihedrals"]
+    assert indexer.n_torsions == 2
+
+
+def test_scan_enumerator_2d():
+    """
+    Make sure one combination of the 2D scan is tagged.
+    """
+
+    mol = Molecule.from_smiles("COc1ccc(cc1)N")
+
+    scan_tagger = workflow_components.ScanEnumerator()
+    scan_tagger.add_double_torsion(smarts1="[*:1]-[#7X3+0:2]-[#6:3]@[#6,#7:4]", smarts2="[#7X3+0:1](-[*:3])(-[*:4])-[#6:2]@[#6,#7]",
+                                   scan_range1=(-165, 180),
+                                   scan_range2=(-60, 60),
+                                   scan_increments=[15, 4])
+
+    result = scan_tagger.apply([mol], processors=1)
+    assert result.n_molecules == 1
+    indexer = mol.properties["dihedrals"]
+    assert indexer.n_double_torsions == 1
+    assert indexer.double_torsions[((5, 8), (5, 17))].scan_range1 == (-165, 180)
+    assert indexer.double_torsions[((5, 8), (5, 17))].scan_range2 == (-60, 60)
+
+
+def test_improper_enumerator():
+    """
+    Make sure improper torsions are correctly tagged.
+    """
+
+    mol = Molecule.from_file(get_data("benzene.sdf"))
+
+    scan_tagger = workflow_components.ScanEnumerator()
+    # even though there is more than one improper make sure we only get one scan back
+    scan_tagger.add_improper_torsion(smarts="[#6:1](-[#1:2])(:[#6:3]):[#6:4]", central_smarts="[#6:1]", scan_range=(-40, 40), scan_increment=4)
+
+    result = scan_tagger.apply([mol], processors=1)
+
+    assert result.n_molecules == 1
+    indexer = mol.properties["dihedrals"]
+    assert indexer.n_impropers == 1
+    assert indexer.imporpers[0].scan_increment == [4]
+
+
+def test_formal_charge_filter_exclusive():
+    """
+    Raise an error if both allowed and filtered charges are supplied
+    """
+
+    with pytest.raises(ValidationError):
+        workflow_components.ChargeFilter(charges_to_include=[0, 1], charges_to_exclude=[-1])
+
+
+def test_formal_charge_filter():
+    """
+    Make sure we can correctly filter by the molecules net formal charge.
+    """
+
+    molecule = Molecule.from_mapped_smiles("[N+:1](=[O:2])([O-:3])[O-:4]")
+
+    # filter out the molecule
+    charge_filter = workflow_components.ChargeFilter(charges_to_exclude=[-1, 0])
+    result = charge_filter.apply([molecule], processors=1)
+    assert result.n_molecules == 0
+    assert result.n_filtered == 1
+
+    # now allow it through
+    charge_filter = workflow_components.ChargeFilter(charges_to_include=[-1])
+    result = charge_filter.apply([molecule], processors=1)
+    assert result.n_molecules == 1

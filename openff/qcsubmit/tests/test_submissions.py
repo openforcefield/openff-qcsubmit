@@ -9,6 +9,7 @@ from openff.toolkit.topology import Molecule
 from qcengine.testing import has_program
 from qcportal import FractalClient
 
+from openff.qcsubmit import workflow_components
 from openff.qcsubmit.common_structures import Metadata, PCMSettings
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets import (
@@ -58,11 +59,14 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
                                      tagline="Testing single point datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -136,11 +140,14 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
                                      tagline="Testing single point datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -212,11 +219,14 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
                                      tagline="Testing single point datasets with pcm water",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -287,19 +297,18 @@ def test_adding_specifications(fractal_compute_server):
     opt_dataset.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm",
                             spec_description="default openff spec", spec_name="openff-1.0.0")
 
-    opt_dataset.metadata.long_description_url = "https://test.org"
     # submit the optimizations and let the compute run
     opt_dataset.submit(client=client)
     fractal_compute_server.await_results()
     fractal_compute_server.await_services()
 
     # grab the collection
-    ds = client.get_collection(opt_dataset.dataset_type, opt_dataset.dataset_name)
+    ds = client.get_collection(opt_dataset.type, opt_dataset.dataset_name)
 
     # now try and add the specification again this should return True
     assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
-                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                  collection=ds) is True
+                                                  procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  dataset=ds) is True
 
     # now change part of the spec but keep the name the same
     opt_dataset.clear_qcspecs()
@@ -309,23 +318,23 @@ def test_adding_specifications(fractal_compute_server):
     # now try and add this specification with the same name but different settings
     with pytest.raises(QCSpecificationError):
         opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
-                                               opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                               collection=ds)
+                                               procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                               dataset=ds)
 
     # now add a new specification but no compute and make sure it is overwritten
     opt_dataset.clear_qcspecs()
     opt_dataset.add_qc_spec(method="ani1x", basis=None, program="torchani", spec_name="ani", spec_description="a ani spec")
     assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
-                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                  collection=ds) is True
+                                                  procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  dataset=ds) is True
 
     # now change the spec slightly and add again
     opt_dataset.clear_qcspecs()
     opt_dataset.add_qc_spec(method="ani1ccx", basis=None, program="torchani", spec_name="ani",
                             spec_description="a ani spec")
     assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
-                                                  opt_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                  collection=ds) is True
+                                                  procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+                                                  dataset=ds) is True
 
 
 @pytest.mark.parametrize("dataset_data", [
@@ -353,9 +362,6 @@ def test_adding_compute(fractal_compute_server, dataset_data):
                                      description=f"Testing adding compute to a {dataset_type} dataset",
                                      tagline="tests for adding compute.")
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
-
     # now submit again
     dataset.submit(client=client)
     # make sure that the compute has finished
@@ -364,7 +370,7 @@ def test_adding_compute(fractal_compute_server, dataset_data):
 
     # now lets make a dataset with new compute and submit it
     # transfer the metadata to compare the elements
-    compute_dataset = dataset_type(dataset_name=dataset.dataset_name, metadata=dataset.metadata)
+    compute_dataset = dataset_type(dataset_name=dataset.dataset_name, metadata=dataset.metadata, dataset_tagline=dataset.dataset_tagline, description=dataset.description)
     compute_dataset.clear_qcspecs()
     # now add the new compute spec
     compute_dataset.add_qc_spec(method="uff",
@@ -381,7 +387,7 @@ def test_adding_compute(fractal_compute_server, dataset_data):
     fractal_compute_server.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    ds = client.get_collection(dataset.type, dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -397,7 +403,7 @@ def test_adding_compute(fractal_compute_server, dataset_data):
     # update all specs into one dataset
     dataset.add_qc_spec(**compute_dataset.qc_specifications["rdkit"].dict())
     # get the last ran spec
-    if dataset.dataset_type == "DataSet":
+    if dataset.type == "DataSet":
             for specification in ds.data.history:
                 driver, program, method, basis, spec_name = specification
                 spec = dataset.qc_specifications[spec_name]
@@ -469,8 +475,6 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
                                      description="Test basics dataset",
                                      tagline="Testing single point datasets with wavefunction",
                                      )
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
 
     # submit the dataset
     # now submit again
@@ -528,7 +532,7 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     client = FractalClient(fractal_compute_server)
     ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
     factory = OptimizationDatasetFactory()
-    dataset = OptimizationDataset(dataset_name="Test optimizations with constraint", description="Test optimization dataset with constraints", tagline="Testing optimization datasets")
+    dataset = OptimizationDataset(dataset_name="Test optimizations with constraint", description="Test optimization dataset with constraints", dataset_tagline="Testing optimization datasets")
     # add just mm spec
     dataset.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default", spec_description="mm default spec", overwrite=True)
     # build some constraints
@@ -539,8 +543,6 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     attributes = factory.create_cmiles_metadata(ethane)
     index = ethane.to_smiles()
     dataset.add_molecule(index=index, molecule=ethane, attributes=attributes, constraints=constraints)
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
 
     # now submit again
     dataset.submit(client=client)
@@ -587,11 +589,14 @@ def test_optimization_submissions(fractal_compute_server, specification):
                                      tagline="Testing optimization datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -662,11 +667,14 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
                                      tagline="Testing optimization datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -722,13 +730,14 @@ def test_torsiondrive_scan_keywords(fractal_compute_server):
     client = FractalClient(fractal_compute_server)
     molecules = Molecule.from_smiles("CO")
     factory = TorsiondriveDatasetFactory()
+    scan_enum = workflow_components.ScanEnumerator()
+    scan_enum.add_torsion_scan(smarts="[*:1]~[#6:2]-[#8:3]~[*:4]")
+    factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     factory.add_qc_spec(method="openff_unconstrained-1.1.0", basis="smirnoff", program="openmm", spec_description="scan range test", spec_name="openff-1.1.0")
     dataset = factory.create_dataset(dataset_name="Torsiondrive scan keywords", molecules=molecules,
                                      description="Testing scan keywords which overwrite the global settings",
                                      tagline="Testing scan keywords which overwrite the global settings")
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
 
     # now set the keywords
     keys = list(dataset.dataset.keys())
@@ -778,11 +787,14 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
                                      tagline="Testing torsiondrive datasets",
                                      )
 
+    # force a metadata validation error
+    dataset.metadata.long_description = None
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
-    # now add a mock url so we can submit the data
-    dataset.metadata.long_description_url = "https://test.org"
+    # re-add the description so we can submit the data
+    dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
     dataset.submit(client=client)
@@ -838,7 +850,10 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
     client = FractalClient(fractal_compute_server)
     # molecule containing boron
     molecule = Molecule.from_smiles("OB(O)C1=CC=CC=C1")
+    scan_enum = workflow_components.ScanEnumerator()
+    scan_enum.add_torsion_scan(smarts="[#6:1]~[#6:2]-[B:3]~[#8:4]")
     factory = factory_type()
+    factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
@@ -847,8 +862,6 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
                                      description="Test ignore errors dataset",
                                      tagline="Testing ignore errors datasets",
                                      )
-
-    dataset.metadata.long_description_url = "https://test.org"
 
     # make sure the dataset raises an error here
     with pytest.raises(MissingBasisCoverageError):
@@ -886,7 +899,6 @@ def test_index_not_changed(fractal_compute_server, factory_type):
                                      tagline="Testing index changes datasets",
                                      )
 
-    dataset.metadata.long_description_url = "https://test.org"
     # now change the index name to something unique
     entry = dataset.dataset.pop(list(dataset.dataset.keys())[0])
     entry.index = "my_unique_index"
@@ -895,9 +907,9 @@ def test_index_not_changed(fractal_compute_server, factory_type):
     dataset.submit(client=client)
 
     # pull the dataset and make sure our index is present
-    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    ds = client.get_collection(dataset.type, dataset.dataset_name)
 
-    if dataset.dataset_type == "DataSet":
+    if dataset.type == "DataSet":
         query = ds.get_records(method="openff-1.0.0", basis="smirnoff", program="openmm")
         assert "my_unique_index" in query.index
     else:
@@ -917,6 +929,9 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
     molecule = Molecule.from_smiles("CO")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
+    scan_enum = workflow_components.ScanEnumerator()
+    scan_enum.add_torsion_scan(smarts="[*:1]~[#6:2]-[#8:3]~[*:4]")
+    factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
@@ -925,8 +940,6 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
                                      description="Test ignore errors dataset",
                                      tagline="Testing ignore errors datasets",
                                      )
-
-    dataset.metadata.long_description_url = "https://test.org"
 
     # make sure all expected index get submitted
     dataset.submit(client=client, verbose=True)
@@ -953,6 +966,9 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     molecule = Molecule.from_smiles("CC")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
+    scan_enum = workflow_components.ScanEnumerator()
+    scan_enum.add_torsion_scan(smarts="[*:1]~[#6:2]-[#6:3]~[*:4]")
+    factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default",
@@ -963,12 +979,10 @@ def test_expanding_compute(fractal_compute_server, factory_type):
                                      tagline="Testing compute expansion",
                                      )
 
-    dataset.metadata.long_description_url = "https://test.org"
-
     # make sure all expected index get submitted
     dataset.submit(client=client)
     # grab the dataset and check the history
-    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    ds = client.get_collection(dataset.type, dataset.dataset_name)
     assert ds.data.history == {"default"}
 
     # now make another dataset to expand the compute
@@ -985,7 +999,7 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     dataset.submit(client=client)
 
     # now grab the dataset again and check the tasks list
-    ds = client.get_collection(dataset.dataset_type, dataset.dataset_name)
+    ds = client.get_collection(dataset.type, dataset.dataset_name)
     assert ds.data.history == {"default", "parsley2"}
     # make sure a record has been made
     entry = ds.get_entry(ds.df.index[0])

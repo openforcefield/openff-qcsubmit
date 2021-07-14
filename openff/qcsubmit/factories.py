@@ -11,7 +11,6 @@ from typing_extensions import Literal
 from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes
 from openff.qcsubmit.datasets import (
     BasicDataset,
-    ComponentResult,
     OptimizationDataset,
     TorsiondriveDataset,
 )
@@ -26,8 +25,8 @@ from openff.qcsubmit.exceptions import (
 )
 from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.serializers import deserialize, serialize
-from openff.qcsubmit.utils import get_torsion
 from openff.qcsubmit.workflow_components import (
+    ComponentResult,
     Components,
     CustomWorkflowComponent,
     get_component,
@@ -76,6 +75,24 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                     molecule,
                 ],
                 component="MolecularComplexRemoval",
+                component_settings={},
+                component_provenance=self.provenance(),
+            )
+
+    def _no_dihedrals_filter(self, dataset: T, molecule: off.Molecule) -> None:
+        """
+        Fail a molecule for having no tagged torsions.
+        """
+        try:
+            dataset.filtered_molecules["NoDihedralRemoval"].add_molecule(
+                molecule=molecule
+            )
+        except KeyError:
+            dataset.filter_molecules(
+                molecules=[
+                    molecule,
+                ],
+                component="NoDihedralRemoval",
                 component_settings={},
                 component_provenance=self.provenance(),
             )
@@ -405,7 +422,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
         # create the dataset
         # first we need to instance the dataset and assign the metadata
-        object_meta = self.dict(exclude={"workflow"})
+        object_meta = self.dict(exclude={"workflow", "type"})
 
         # the only data missing is the collection name so add it here.
         object_meta["dataset_name"] = dataset_name
@@ -646,6 +663,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 dihedrals = dihedral.get_dihedrals
 
                 keywords["dihedral_ranges"] = dihedral.get_scan_range
+                keywords["grid_spacing"] = dihedral.scan_increment
                 try:
                     dataset.add_molecule(
                         index=index,
@@ -662,33 +680,8 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 except MolecularComplexError:
                     self._molecular_complex_filter(dataset=dataset, molecule=molecule)
 
-        else:
-            # the molecule has not had its atoms identified yet so process them here
-            # order the molecule
-            order_mol = molecule.canonical_order_atoms()
-            rotatble_bonds = order_mol.find_rotatable_bonds()
-            attributes = self.create_cmiles_metadata(molecule=order_mol)
-            for bond in rotatble_bonds:
-                # create a torsion to hold as fixed using non-hydrogen atoms
-                torsion_index = get_torsion(bond)
-                order_mol.properties["atom_map"] = dict(
-                    (atom, index) for index, atom in enumerate(torsion_index)
-                )
-                try:
-                    dataset.add_molecule(
-                        index=self.create_index(molecule=order_mol),
-                        molecule=order_mol,
-                        attributes=attributes,
-                        dihedrals=[torsion_index],
-                        extras=extras,
-                        keywords=keywords,
-                    )
-                except DihedralConnectionError:
-                    self._unconnected_torsion_filter(dataset=dataset, molecule=molecule)
-                except LinearTorsionError:
-                    self._linear_torsion_filter(dataset=dataset, molecule=molecule)
-                except MolecularComplexError:
-                    self._molecular_complex_filter(dataset=dataset, molecule=molecule)
+        # if no dihedrals have been tagged we need to fail the molecule
+        self._no_dihedrals_filter(dataset=dataset, molecule=molecule)
 
     def create_index(self, molecule: off.Molecule) -> str:
         """

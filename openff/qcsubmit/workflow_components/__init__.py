@@ -14,11 +14,13 @@ from openff.qcsubmit.workflow_components.conformer_generation import (
     StandardConformerGenerator,
 )
 from openff.qcsubmit.workflow_components.filters import (
+    ChargeFilter,
     CoverageFilter,
     ElementFilter,
     MolecularWeightFilter,
     RMSDCutoffConformerFilter,
     RotorFilter,
+    ScanFilter,
     SmartsFilter,
 )
 from openff.qcsubmit.workflow_components.fragmentation import (
@@ -29,4 +31,12 @@ from openff.qcsubmit.workflow_components.state_enumeration import (
     EnumerateProtomers,
     EnumerateStereoisomers,
     EnumerateTautomers,
+    ScanEnumerator,
+)
+from openff.qcsubmit.workflow_components.utils import (
+    ComponentResult,
+    ImproperScan,
+    Scan1D,
+    Scan2D,
+    TorsionIndexer,
 )

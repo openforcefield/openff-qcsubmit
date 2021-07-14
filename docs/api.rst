@@ -19,7 +19,7 @@ Datasets
     OptimizationEntry
     TorsiondriveDataset
     TorsionDriveEntry
-    ComponentResult
+    FilterEntry
 
 Factories
 """""""""
@@ -147,12 +147,14 @@ Filters
     :nosignatures:
     :toctree: api/generated/
 
+    ChargeFilter
     CoverageFilter
     ElementFilter
     MolecularWeightFilter
     RMSDCutoffConformerFilter
     RotorFilter
     SmartsFilter
+    ScanFilter
 
 Fragmentation
 """""""""""""
@@ -176,6 +178,21 @@ State Enumeration
     EnumerateProtomers
     EnumerateStereoisomers
     EnumerateTautomers
+    ScanEnumerator
+
+Utils
+"""""
+
+.. currentmodule:: openff.qcsubmit.workflow_components
+.. autosummary::
+    :nosignatures:
+    :toctree: api/generated
+
+    ComponentResult
+    ImproperScan
+    Scan1D
+    Scan2D
+    TorsionIndexer
 
 Common Structures
 -----------------
