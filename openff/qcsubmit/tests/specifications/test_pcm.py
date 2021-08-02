@@ -177,4 +177,3 @@ def test_qcspec_with_solvent():
     qc_spec = QCSpec(implicit_solvent=PCMSettings(units="au", medium_Solvent="water"))
     assert qc_spec.implicit_solvent is not None
     assert qc_spec.implicit_solvent.medium_Solvent == "H2O"
-

@@ -281,7 +281,7 @@ def get_format_name(file_name: str) -> Tuple[str, str]:
         Tuple[str, str]
         The format name and compression type if also supplied.
     """
-    split_name = [l.lower() for l in file_name.split(".")]
+    split_name = [x.lower() for x in file_name.split(".")]
 
     def is_compression_extension(ext):
         return ext in compression_algorithms

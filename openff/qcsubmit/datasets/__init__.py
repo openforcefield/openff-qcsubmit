@@ -13,3 +13,17 @@ from openff.qcsubmit.datasets.datasets import (
     TorsiondriveDataset,
     TorsionDriveEntry,
 )
+
+__all__ = [
+    list_datasets,
+    load_dataset,
+    register_dataset,
+    update_specification_and_metadata,
+    BasicDataset,
+    DatasetEntry,
+    FilterEntry,
+    OptimizationDataset,
+    OptimizationEntry,
+    TorsiondriveDataset,
+    TorsionDriveEntry,
+]

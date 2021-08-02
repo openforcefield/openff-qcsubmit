@@ -28,7 +28,6 @@ from openff.qcsubmit.exceptions import (
     BondConnectionError,
     ConstraintError,
     DatasetCombinationError,
-    DatasetInputError,
     DatasetRegisterError,
     DihedralConnectionError,
     InvalidDatasetError,
@@ -334,8 +333,8 @@ def test_componentresult_deduplication_torsions_same_bond_same_coords():
 
 
 @pytest.mark.parametrize("ethanol_data", [
-    pytest.param(("ethanol.sdf",  [(8, 2, 1, 0)], None), id="correct torsion ethanol"),
-    pytest.param(("ethanol.sdf",  [(22, 23, 24, 100)], DihedralConnectionError),
+    pytest.param(("ethanol.sdf", [(8, 2, 1, 0)], None), id="correct torsion ethanol"),
+    pytest.param(("ethanol.sdf", [(22, 23, 24, 100)], DihedralConnectionError),
                  id="incorrect torsion ethanol"),
     pytest.param(("ethanol.sdf", [(7, 2, 1, 4)], DihedralConnectionError),
                  id="incorrect torsion ethanol"),
@@ -420,7 +419,7 @@ def test_torsiondrive_unqiue_settings():
     dataset = TorsiondriveDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecule = Molecule.from_smiles("CO")
     bond = molecule.find_rotatable_bonds()[0]
-    dataset.add_molecule(index="test", molecule=molecule, attributes=get_cmiles(molecule), dihedrals=[get_torsion(bond), ], keywords={"grid_spacing": [5], "dihedral_ranges": [(-50, 50),]})
+    dataset.add_molecule(index="test", molecule=molecule, attributes=get_cmiles(molecule), dihedrals=[get_torsion(bond), ], keywords={"grid_spacing": [5], "dihedral_ranges": [(-50, 50), ]})
     # make sure the object was made and the values are set
     assert dataset.dataset["test"].keywords.grid_spacing == [5, ]
     assert dataset.dataset["test"].keywords.dihedral_ranges == [(-50, 50), ]
@@ -616,15 +615,6 @@ def test_constraints_are_equal():
 
     const1.add_freeze_constraint(constraint_type="distance", indices=[0, 1])
     assert const1 == const2
-
-
-def test_scf_prop_validation():
-    """
-    Make sure unsupported scf properties are not allowed into a dataset.
-    """
-    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
-    with pytest.raises(DatasetInputError):
-        dataset.scf_properties = ["ddec_charges"]
 
 
 @pytest.mark.parametrize(
@@ -900,7 +890,6 @@ def test_torsiondrive_dataset_addition_different_dihedral():
     butane2.properties["atom_map"] = atom_map2
     index2 = factory.create_index(butane2)
     del butane2.properties["atom_map"]
-
 
     dataset1.add_molecule(index=index1,
                           molecule=butane1,
@@ -1294,7 +1283,7 @@ def test_get_entry_molecule():
     dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     for molecule in molecules:
-        index =molecule.to_smiles()
+        index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
         dataset.add_molecule(index=index, attributes=attributes, molecule=molecule)
 
@@ -1314,7 +1303,7 @@ def test_dataset_nmolecules_tautomers():
 
     dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
-    same_inchi  = molecules[0].to_inchikey(fixed_hydrogens=False)
+    same_inchi = molecules[0].to_inchikey(fixed_hydrogens=False)
     for molecule in molecules:
         index = molecule.to_smiles()
         attributes = get_cmiles(molecule)
@@ -1927,3 +1916,26 @@ def test_torsiondrivedataset_torsion_indices():
             index = molecule.to_smiles()
             attributes = get_cmiles(molecule)
             dataset.add_molecule(index=index, molecule=molecule, attributes=attributes, dihedrals=[(0, 1, 1, 1)])
+
+
+@pytest.mark.parametrize("dataset_type, program", [
+    pytest.param(BasicDataset, "psi4", id="basic"),
+    pytest.param(OptimizationDataset, "geometric", id="optimization")
+])
+def test_dataset_tasks(dataset_type, program):
+    """
+    Make sure datasets can be converted to QCEngine single point and procedure calculations.
+    """
+    dataset = dataset_type(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
+    # add another qc_spec
+    molecules = duplicated_molecules(include_conformers=True, duplicates=1)
+    # add them to the dataset
+    for molecule in molecules:
+        index = molecule.to_smiles()
+        attributes = get_cmiles(molecule)
+        dihedrals = [get_dihedral(molecule), ]
+        dataset.add_molecule(index=index, attributes=attributes, molecule=molecule, dihedrals=dihedrals)
+
+    tasks = dataset.to_tasks()
+    # make sure we have a task for every molecule and spec
+    assert len(tasks[program]) == dataset.n_records
