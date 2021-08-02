@@ -704,8 +704,8 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
         # check the keywords
         keywords = client.query_keywords(spec.qc_spec.keywords)[0]
 
-        assert keywords.values["maxiter"] == dataset.maxiter
-        assert keywords.values["scf_properties"] == dataset.scf_properties
+        assert keywords.values["maxiter"] == qc_spec.maxiter
+        assert keywords.values["scf_properties"] == qc_spec.scf_properties
 
         # query the dataset
         ds.query(qc_spec.spec_name)

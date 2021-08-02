@@ -96,6 +96,7 @@ intersphinx_mapping = {
     'numpy': ('https://docs.scipy.org/doc/numpy/', None),
     'openff.toolkit': ('https://open-forcefield-toolkit.readthedocs.io/en/latest/', None),
     'qcportal': ('http://docs.qcarchive.molssi.org/projects/qcportal/en/latest/', None),
+    'qcelemental': ('http://docs.qcarchive.molssi.org/projects/qcelemental/en/latest/', None),
 }
 
 # Set up mathjax.
