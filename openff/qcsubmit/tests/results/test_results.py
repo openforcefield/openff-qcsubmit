@@ -1,7 +1,6 @@
 """
 Test the results packages when collecting from the public qcarchive.
 """
-import os.path
 
 import numpy
 import pytest

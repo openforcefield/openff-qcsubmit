@@ -110,7 +110,7 @@ class PositionConstraintSet(PositionConstraint):
                 split_value = value
         if split_value is None:
             raise ConstraintError(
-                f"Position constraints require a valid 3 number position as a string or list/tuple."
+                "Position constraints require a valid 3 number position as a string or list/tuple."
             )
 
         # now make sure each value is a valid float and convert to the correct string
@@ -120,7 +120,7 @@ class PositionConstraintSet(PositionConstraint):
 
         except ValueError as e:
             raise ConstraintError(
-                f"Position constraints require a valid 3 float position"
+                "Position constraints require a valid 3 float position"
             ) from e
 
 
@@ -179,7 +179,7 @@ class Constraints(ResultsConfig):
             )
         except ValidationError as e:
             raise ConstraintError(
-                f"A valid constraint could not be built due to the above validation error."
+                "A valid constraint could not be built due to the above validation error."
             ) from e
 
     def add_set_constraint(
@@ -209,7 +209,7 @@ class Constraints(ResultsConfig):
             )
         except ValidationError as e:
             raise ConstraintError(
-                f"A valid constraint could not be built due to the above validation error."
+                "A valid constraint could not be built due to the above validation error."
             ) from e
 
     @property

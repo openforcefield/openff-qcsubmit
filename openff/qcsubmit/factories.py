@@ -306,7 +306,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
         else:
             raise RuntimeError(
-                f"The input type could not be converted into a settings dictionary."
+                "The input type could not be converted into a settings dictionary."
             )
 
         # now set the factory meta settings

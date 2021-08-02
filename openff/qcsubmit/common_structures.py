@@ -23,6 +23,7 @@ from pydantic import (
     validator,
 )
 from qcelemental import constants
+from qcelemental.models.common_models import Model
 from qcelemental.models.results import WavefunctionProtocolEnum
 from qcportal.models.common_models import DriverEnum
 
@@ -61,6 +62,40 @@ class ResultsConfig(BaseModel):
             np.ndarray: lambda v: v.flatten().tolist(),
             Enum: lambda v: v.value,
         }
+
+
+class SCFProperties(str, Enum):
+    """
+    The type of SCF property that should be extracted from a single point calculation.
+    """
+
+    Dipole = "dipole"
+    Quadrupole = "quadrupole"
+    MullikenCharges = "mulliken_charges"
+    LowdinCharges = "lowdin_charges"
+    WibergLowdinIndices = "wiberg_lowdin_indices"
+    MayerIndices = "mayer_indices"
+    MBISCharges = "mbis_charges"
+
+    @classmethod
+    def _missing_(cls, value):
+        """
+        overwrite the missing method to handle properties with incorrect capitalization.
+        """
+        for member in cls.__members__.values():
+            if member._value_ == value.lower():
+                return member
+        raise QCSpecificationError(
+            f"{value} is not a valid {cls.__name__} please chose from {cls.__members__.values()}"
+        )
+
+
+DefaultProperties = (
+    SCFProperties.Dipole,
+    SCFProperties.Quadrupole,
+    SCFProperties.WibergLowdinIndices,
+    SCFProperties.MayerIndices,
+)
 
 
 class ComponentProperties(BaseModel):
@@ -354,6 +389,19 @@ class QCSpec(ResultsConfig):
         None,
         description="If PCM is to be used with psi4 this is the full description of the settings that should be used.",
     )
+    maxiter: PositiveInt = Field(
+        200,
+        description="The maximum number of SCF iterations in QM calculations this will be ignored by programs where this does not make sense.",
+    )
+    scf_properties: Optional[List[SCFProperties]] = Field(
+        [
+            SCFProperties.Dipole,
+            SCFProperties.Quadrupole,
+            SCFProperties.WibergLowdinIndices,
+            SCFProperties.MayerIndices,
+        ],
+        description="The SCF properties which should be extracted after every single point calculation.",
+    )
     keywords: Optional[
         Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
     ] = Field(
@@ -372,6 +420,8 @@ class QCSpec(ResultsConfig):
         spec_description: str = "Standard OpenFF optimization quantum chemistry specification.",
         store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none,
         implicit_solvent: Optional[PCMSettings] = None,
+        maxiter: PositiveInt = 200,
+        scf_properties: List[SCFProperties] = DefaultProperties,
         keywords: Optional[
             Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
         ] = None,
@@ -460,6 +510,8 @@ class QCSpec(ResultsConfig):
             spec_description=spec_description,
             store_wavefunction=store_wavefunction,
             implicit_solvent=implicit_solvent,
+            maxiter=maxiter,
+            scf_properties=scf_properties,
             keywords=keywords,
         )
 
@@ -486,6 +538,30 @@ class QCSpec(ResultsConfig):
         )
         if "store_wavefunction" in data:
             data["store_wavefunction"] = self.store_wavefunction.value
+        if "scf_properties" in data:
+            data["scf_properties"] = [prop.value for prop in self.scf_properties]
+        return data
+
+    @property
+    def qc_model(self) -> Model:
+        """Return the qcelmental schema for this method and basis."""
+        return Model(method=self.method, basis=self.basis)
+
+    @property
+    def qc_keywords(self) -> Dict[str, Any]:
+        """
+        Return the formatted keywords for this calculation.
+        """
+        data = self.dict(include={"maxiter", "scf_properties"})
+        if self.keywords is not None:
+            data.update(self.keywords)
+        if self.implicit_solvent is not None:
+            if self.program.lower() != "psi4":
+                raise QCSpecificationError(
+                    "PCM can only be used with PSI4 please set implicit solvent to None."
+                )
+            data["pcm"] = True
+            data["pcm__input"] = self.implicit_solvent.to_string()
         return data
 
 
@@ -528,7 +604,7 @@ class QCSpecificationHandler(BaseModel):
     def _check_qc_specs(self) -> None:
         if self.n_qc_specs == 0:
             raise QCSpecificationError(
-                f"There are no QCSpecifications for this dataset please add some using `add_qc_spec`"
+                "There are no QCSpecifications for this dataset please add some using `add_qc_spec`"
             )
 
     def add_qc_spec(
@@ -541,6 +617,8 @@ class QCSpecificationHandler(BaseModel):
         store_wavefunction: str = "none",
         overwrite: bool = False,
         implicit_solvent: Optional[PCMSettings] = None,
+        maxiter: PositiveInt = 200,
+        scf_properties: Optional[List[SCFProperties]] = None,
         keywords: Optional[
             Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
         ] = None,
@@ -557,6 +635,8 @@ class QCSpecificationHandler(BaseModel):
             store_wavefunction: what parts of the wavefunction that should be saved
             overwrite: If there is a spec under this name already overwrite it
             implicit_solvent: The implicit solvent settings if it is to be used.
+            maxiter: The maximum number of SCF iterations that should be done.
+            scf_properties: The list of SCF properties that should be extracted from the calculation.
             keywords: Program specific computational keywords that should be passed to
                 the program
         """
@@ -567,6 +647,8 @@ class QCSpecificationHandler(BaseModel):
             spec_name=spec_name,
             spec_description=spec_description,
             store_wavefunction=store_wavefunction,
+            maxiter=maxiter,
+            scf_properties=scf_properties or DefaultProperties,
             implicit_solvent=implicit_solvent,
             keywords=keywords,
         )
@@ -810,53 +892,14 @@ class MoleculeAttributes(DatasetConfig):
         )
 
 
-class SCFProperties(str, Enum):
-    """
-    The type of SCF property that should be extracted from a single point calculation.
-    """
-
-    Dipole = "dipole"
-    Quadrupole = "quadrupole"
-    MullikenCharges = "mulliken_charges"
-    LowdinCharges = "lowdin_charges"
-    WibergLowdinIndices = "wiberg_lowdin_indices"
-    MayerIndices = "mayer_indices"
-    MBISCharges = "mbis_charges"
-
-    @classmethod
-    def _missing_(cls, value):
-        """
-        overwrite the missing method to handle properties with incorrect capitalization.
-        """
-        for member in cls.__members__.values():
-            if member._value_ == value.lower():
-                return member
-        raise DatasetInputError(
-            f"{value} is not a valid {cls.__name__} please chose from {cls.__members__.values()}"
-        )
-
-
 class CommonBase(DatasetConfig, IndexCleaner, ClientHandler, QCSpecificationHandler):
     """
     A common base structure which the dataset and factory classes derive from.
     """
 
-    maxiter: PositiveInt = Field(
-        200,
-        description="The maximum number of SCF iterations in QM calculations this will be ignored by programs where this does not make sense.",
-    )
     driver: DriverEnum = Field(
         DriverEnum.energy,
         description="The type of single point calculations which will be computed. Note some services require certain calculations for example optimizations require graident calculations.",
-    )
-    scf_properties: List[SCFProperties] = Field(
-        [
-            SCFProperties.Dipole,
-            SCFProperties.Quadrupole,
-            SCFProperties.WibergLowdinIndices,
-            SCFProperties.MayerIndices,
-        ],
-        description="The SCF properties which should be extracted after every single point calculation.",
     )
     priority: str = Field(
         "normal",
@@ -870,36 +913,6 @@ class CommonBase(DatasetConfig, IndexCleaner, ClientHandler, QCSpecificationHand
         description="The tag the computes tasks will be assigned to, managers wishing to execute these tasks should use this compute tag.",
     )
 
-    def add_scf_property(self, scf_property: SCFProperties) -> None:
-        """
-        Add an scf_property to the list of scf_properties requested during a calculation.
-
-        Parameters:
-            scf_property: The name of the property which should be entered into the list.
-
-        Raises:
-            DatasetInputError: If the scf_property is not valid.
-        """
-        # make sure the property is valid first
-        try:
-            validated_property = SCFProperties(scf_property)
-        except ValueError:
-            raise DatasetInputError(
-                f"{scf_property} is not a valid SCF property please chose from {SCFProperties.__members__}"
-            )
-        if validated_property not in self.scf_properties:
-            self.scf_properties.append(validated_property)
-
-    def remove_scf_property(self, scf_property: SCFProperties) -> None:
-        """
-        Remove an scf_property from the validated list.
-
-        Parameters:
-            scf_property: The name of the property which should be removed.
-        """
-        if scf_property.lower() in self.scf_properties:
-            self.scf_properties.remove(scf_property.lower())
-
     def dict(self, *args, **kwargs):
         """
         Overwrite the dict method to handle any enums when saving to yaml/json via a dict call.
@@ -908,6 +921,4 @@ class CommonBase(DatasetConfig, IndexCleaner, ClientHandler, QCSpecificationHand
         # now add the enum values
         if "driver" in data:
             data["driver"] = self.driver.value
-        if "scf_properties" in data:
-            data["scf_properties"] = [prop.value for prop in self.scf_properties]
         return data

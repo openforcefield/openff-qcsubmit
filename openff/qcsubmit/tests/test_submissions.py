@@ -134,7 +134,7 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
                             spec_description="testing the single points"
                             )
 
-    dataset = factory.create_dataset(dataset_name=f"Test single points multiple specs",
+    dataset = factory.create_dataset(dataset_name="Test single points multiple specs",
                                      molecules=molecules,
                                      description="Test basics dataset",
                                      tagline="Testing single point datasets",
@@ -213,7 +213,7 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
                         overwrite=True)
 
     # only use one molecule due to the time it takes to run with pcm
-    dataset = factory.create_dataset(dataset_name=f"Test single points with pcm water",
+    dataset = factory.create_dataset(dataset_name="Test single points with pcm water",
                                      molecules=molecules[0],
                                      description="Test basics dataset with pcm water",
                                      tagline="Testing single point datasets with pcm water",
@@ -404,25 +404,25 @@ def test_adding_compute(fractal_compute_server, dataset_data):
     dataset.add_qc_spec(**compute_dataset.qc_specifications["rdkit"].dict())
     # get the last ran spec
     if dataset.type == "DataSet":
-            for specification in ds.data.history:
-                driver, program, method, basis, spec_name = specification
-                spec = dataset.qc_specifications[spec_name]
-                assert driver == dataset.driver
-                assert program == spec.program
-                assert method == spec.method
-                assert basis == spec.basis
+        for specification in ds.data.history:
+            driver, program, method, basis, spec_name = specification
+            spec = dataset.qc_specifications[spec_name]
+            assert driver == dataset.driver
+            assert program == spec.program
+            assert method == spec.method
+            assert basis == spec.basis
 
-            for spec in dataset.qc_specifications.values():
-                query = ds.get_records(
-                    method=spec.method,
-                    basis=spec.basis,
-                    program=spec.program,
-                )
-                for index in query.index:
-                    result = query.loc[index].record
-                    assert result.status.value.upper() == "COMPLETE"
-                    assert result.error is None
-                    assert result.return_result is not None
+        for spec in dataset.qc_specifications.values():
+            query = ds.get_records(
+                method=spec.method,
+                basis=spec.basis,
+                program=spec.program,
+            )
+            for index in query.index:
+                result = query.loc[index].record
+                assert result.status.value.upper() == "COMPLETE"
+                assert result.error is None
+                assert result.return_result is not None
     else:
         # check the qc spec
         for qc_spec in dataset.qc_specifications.values():
@@ -437,8 +437,8 @@ def test_adding_compute(fractal_compute_server, dataset_data):
             # check the keywords
             keywords = client.query_keywords(spec.qc_spec.keywords)[0]
 
-            assert keywords.values["maxiter"] == dataset.maxiter
-            assert keywords.values["scf_properties"] == dataset.scf_properties
+            assert keywords.values["maxiter"] == qc_spec.maxiter
+            assert keywords.values["scf_properties"] == qc_spec.scf_properties
 
             # query the dataset
             ds.query(qc_spec.spec_name)
@@ -456,7 +456,7 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
     """
     # only a psi4 test
     if not has_program("psi4"):
-        pytest.skip(f"Program psi4 not found.")
+        pytest.skip("Program psi4 not found.")
 
     client = FractalClient(fractal_compute_server)
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
@@ -470,7 +470,7 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
                         spec_description="wavefunction spec",
                         store_wavefunction="orbitals_and_eigenvalues")
 
-    dataset = factory.create_dataset(dataset_name=f"Test single points with wavefunction",
+    dataset = factory.create_dataset(dataset_name="Test single points with wavefunction",
                                      molecules=molecules,
                                      description="Test basics dataset",
                                      tagline="Testing single point datasets with wavefunction",
@@ -626,8 +626,8 @@ def test_optimization_submissions(fractal_compute_server, specification):
         # check the keywords
         keywords = client.query_keywords(spec.qc_spec.keywords)[0]
 
-        assert keywords.values["maxiter"] == dataset.maxiter
-        assert keywords.values["scf_properties"] == dataset.scf_properties
+        assert keywords.values["maxiter"] == qc_spec.maxiter
+        assert keywords.values["scf_properties"] == qc_spec.scf_properties
 
         # query the dataset
         ds.query(qc_spec.spec_name)
@@ -661,7 +661,7 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
                         implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
                         overwrite=True)
 
-    dataset = factory.create_dataset(dataset_name=f"Test optimizations info with pcm water",
+    dataset = factory.create_dataset(dataset_name="Test optimizations info with pcm water",
                                      molecules=molecules,
                                      description="Test optimization dataset",
                                      tagline="Testing optimization datasets",
@@ -704,8 +704,8 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
         # check the keywords
         keywords = client.query_keywords(spec.qc_spec.keywords)[0]
 
-        assert keywords.values["maxiter"] == dataset.maxiter
-        assert keywords.values["scf_properties"] == dataset.scf_properties
+        assert keywords.values["maxiter"] == qc_spec.maxiter
+        assert keywords.values["scf_properties"] == qc_spec.scf_properties
 
         # query the dataset
         ds.query(qc_spec.spec_name)
@@ -824,8 +824,8 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
         # check the keywords
         keywords = client.query_keywords(spec.qc_spec.keywords)[0]
 
-        assert keywords.values["maxiter"] == dataset.maxiter
-        assert keywords.values["scf_properties"] == dataset.scf_properties
+        assert keywords.values["maxiter"] == qc_spec.maxiter
+        assert keywords.values["scf_properties"] == qc_spec.scf_properties
 
         # query the dataset
         ds.query(qc_spec.spec_name)

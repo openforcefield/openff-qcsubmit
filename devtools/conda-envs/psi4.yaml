@@ -3,7 +3,6 @@ name: test
 channels:
   - openeye
   - conda-forge
-  - omnia
   - defaults
   - psi4/label/dev
 
@@ -41,5 +40,6 @@ dependencies:
 
   # Optional
   - openmmforcefields >=0.9.0
-  - pip:
-      - git+https://github.com/openforcefield/openff-fragmenter.git@master
+  - openff-fragmenter
+#  - pip:
+#      - git+https://github.com/openforcefield/openff-fragmenter.git@master
