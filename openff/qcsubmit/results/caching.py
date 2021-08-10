@@ -396,6 +396,8 @@ def cached_query_torsion_drive_results(
         qc_record = qc_records[result.record_id]
 
         grid_ids = [*qc_record.minimum_positions]
+        # order the ids so the conformers follow the torsiondrive scan range
+        grid_ids.sort(key=lambda x: float(x[1:-1]))
 
         qc_grid_molecules = [
             qc_molecules[molecule_ids[(qc_record.id, grid_id)]] for grid_id in grid_ids
