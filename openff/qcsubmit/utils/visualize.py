@@ -46,8 +46,8 @@ def molecules_to_pdf(
             return pdf_func(molecules, file_name, columns)
 
     raise ImportError(
-        f"No backend toolkit was found to generate the pdf please install openeye "
-        f"and/or rdkit."
+        "No backend toolkit was found to generate the pdf please install openeye "
+        "and/or rdkit."
     )
 
 

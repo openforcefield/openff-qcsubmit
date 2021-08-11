@@ -98,6 +98,7 @@ intersphinx_mapping = {
         None,
     ),
     "qcportal": ("http://docs.qcarchive.molssi.org/projects/qcportal/en/latest/", None),
+    'qcelemental': ('http://docs.qcarchive.molssi.org/projects/qcelemental/en/latest/', None),
 }
 
 # Set up mathjax.

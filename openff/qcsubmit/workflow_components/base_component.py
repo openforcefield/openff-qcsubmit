@@ -291,7 +291,7 @@ class ToolkitValidator(BaseModel):
                     return True
         # if we are here both toolkits are missing
         raise ModuleNotFoundError(
-            f"Openeye or RDKit is required to use this component please install via `conda install openeye-toolkits -c openeye` or `conda install rdkit -c conda-forge`."
+            "Openeye or RDKit is required to use this component please install via `conda install openeye-toolkits -c openeye` or `conda install rdkit -c conda-forge`."
         )
 
 

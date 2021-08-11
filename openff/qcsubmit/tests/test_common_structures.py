@@ -1,8 +1,8 @@
 import pytest
 from openff.toolkit.topology import Molecule
 
-from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes
-from openff.qcsubmit.exceptions import DatasetInputError
+from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
+from openff.qcsubmit.exceptions import DatasetInputError, QCSpecificationError
 from openff.qcsubmit.tests import does_not_raise
 
 
@@ -84,3 +84,12 @@ def test_validate_metadata(metadata, expected_raises):
 
     with expected_raises:
         metadata.validate_metadata(raise_errors=True)
+
+
+def test_scf_prop_validation():
+    """
+    Make sure unsupported scf properties are not allowed into a QCSpec.
+    """
+
+    with pytest.raises(QCSpecificationError):
+        QCSpec(scf_properties=["ddec_charges"])

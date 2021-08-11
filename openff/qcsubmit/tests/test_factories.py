@@ -7,16 +7,8 @@ from openff.toolkit.topology import Molecule
 from pydantic import ValidationError
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit.datasets import (
-    BasicDataset,
-    OptimizationDataset,
-    TorsiondriveDataset,
-)
-from openff.qcsubmit.exceptions import (
-    DatasetInputError,
-    DriverError,
-    InvalidWorkflowComponentError,
-)
+from openff.qcsubmit.datasets import BasicDataset, OptimizationDataset
+from openff.qcsubmit.exceptions import DriverError, InvalidWorkflowComponentError
 from openff.qcsubmit.factories import (
     BasicDatasetFactory,
     OptimizationDatasetFactory,
@@ -24,34 +16,6 @@ from openff.qcsubmit.factories import (
 )
 from openff.qcsubmit.testing import temp_directory
 from openff.qcsubmit.utils import get_data, get_torsion
-
-
-def test_scf_properties_assignment():
-    """Test adding different scf_properties and make sure they are validated correctly."""
-
-    factory = BasicDatasetFactory()
-
-    # incorrect spellings
-    with pytest.raises(DatasetInputError):
-        factory.scf_properties = ["diapole", "qudrupole"]
-
-
-def test_adding_removing_scf_properties():
-    """
-    Test adding different scf_properties which should be passed through validation.
-    """
-
-    factory = BasicDatasetFactory()
-    # test strange caps
-    factory.scf_properties = ["QuaDruPole"]
-    factory.remove_scf_property(scf_property="QuaDruPole")
-    # test adding new property
-    factory.add_scf_property(scf_property="mulliken_charges")
-    # add the wrong property
-    with pytest.raises(DatasetInputError):
-        factory.add_scf_property(scf_property="FakeProperty")
-
-    assert factory.scf_properties == ["mulliken_charges"]
 
 
 @pytest.mark.parametrize("factory_type", [
@@ -219,7 +183,6 @@ def test_factory_round_trip(file_type, tmpdir):
 
         factory2 = BasicDatasetFactory.from_file(file_name)
         assert factory2.driver == factory.driver
-        assert factory2.maxiter == factory.maxiter
         assert factory2.workflow == factory.workflow
 
 
@@ -237,7 +200,7 @@ def test_exporting_settings_no_workflow(file_type, factory_type):
     with temp_directory():
         factory = factory_type()
 
-        changed_attrs = {"maxiter": 400, "priority":  "super_high", "compute_tag": "test tag"}
+        changed_attrs = {"priority":  "super_high", "compute_tag": "test tag"}
         for attr, value in changed_attrs.items():
             setattr(factory, attr, value)
 
@@ -265,7 +228,7 @@ def test_exporting_settings_workflow(file_type, factory_type):
     with temp_directory():
 
         factory = factory_type()
-        changed_attrs = {"maxiter": 400, "priority":  "super_high", "compute_tag": "test tag"}
+        changed_attrs = {"priority":  "super_high", "compute_tag": "test tag"}
         for attr, value in changed_attrs.items():
             setattr(factory, attr, value)
 
@@ -300,7 +263,6 @@ def test_importing_settings_no_workflow(file_type, factory_type):
     factory.import_settings(get_data(file_name))
 
     changed_attrs = {
-        "maxiter": 400,
         "priority": "super_high",
         "compute_tag": "loaded tag",
     }
@@ -325,7 +287,6 @@ def test_importing_settings_workflow(file_type, factory_type):
     factory.import_settings(get_data(file_name))
 
     changed_attrs = {
-        "maxiter": 400,
         "priority": "super_high",
         "compute_tag": "loaded tag",
     }
@@ -539,8 +500,7 @@ def test_create_dataset(factory_dataset_type):
 
     # set some settings
     changed_attrs = {"compute_tag": "test tag",
-                     "dataset_tags": ["openff", "test"],
-                     "maxiter": 400}
+                     "dataset_tags": ["openff", "test"]}
     for attr, value in changed_attrs.items():
         setattr(factory, attr, value)
 

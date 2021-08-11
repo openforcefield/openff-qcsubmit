@@ -1,5 +1,6 @@
 import abc
 import json
+from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -19,11 +20,9 @@ import qcportal as ptl
 import tqdm
 from openff.toolkit import topology as off
 from pydantic import Field, constr, validator
-from qcportal.models.common_models import (
-    DriverEnum,
-    OptimizationSpecification,
-    QCSpecification,
-)
+from qcelemental.models import AtomicInput, OptimizationInput
+from qcelemental.models.procedures import QCInputSpecification
+from qcportal.models.common_models import DriverEnum, QCSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import (
@@ -54,7 +53,6 @@ from openff.qcsubmit.utils.visualize import molecules_to_pdf
 if TYPE_CHECKING:
 
     from openff.toolkit.typing.engines.smirnoff import ForceField
-    from qcfractal.interface import FractalClient
     from qcportal import FractalClient
     from qcportal.collections.collection import Collection
     from qcportal.models.common_models import OptimizationSpecification
@@ -274,6 +272,13 @@ class _BaseDataset(abc.ABC, CommonBase):
             If a specification with the same name is already added to the collection but has different settings.
         """
         pass
+
+    @abc.abstractmethod
+    def to_tasks(self) -> Dict[str, List[Union[AtomicInput, OptimizationInput]]]:
+        """
+        Create a dictionary of QCengine tasks which correspond to this dataset stored by the program which should be used for the task.
+        """
+        raise NotImplementedError()
 
     def submit(
         self,
@@ -739,24 +744,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         """
         Build a keyword set which is specific to this QC specification and accounts for implicit solvent when requested.
         """
-        # use the basic keywords we allow
-        data = self.dict(include={"maxiter", "scf_properties"})
-        # account for implicit solvent
-        if spec.implicit_solvent is not None:
-
-            if spec.program.lower() != "psi4":
-
-                raise NotImplementedError(
-                    "Implicit solvent is currently only supported when using psi4."
-                )
-
-            data["pcm"] = True
-            data["pcm__input"] = spec.implicit_solvent.to_string()
-
-        if spec.keywords is not None:
-            data.update(spec.keywords)
-
-        return ptl.models.KeywordSet(values=data)
+        return ptl.models.KeywordSet(values=spec.qc_keywords)
 
     def export_dataset(self, file_name: str, compression: Optional[str] = None) -> None:
         """
@@ -1103,6 +1091,36 @@ class BasicDataset(_BaseDataset):
         except KeyError:
             return False
 
+    def to_tasks(self) -> Dict[str, List[AtomicInput]]:
+        """
+        Build a dictionary of single QCEngine tasks that correspond to this dataset organised by program name. The tasks can be passed directly
+        to qcengine.compute.
+        """
+        data = defaultdict(list)
+        for spec in self.qc_specifications.values():
+            qc_model = spec.qc_model
+            keywords = spec.qc_keywords
+            protocols = {"wavefunction": spec.store_wavefunction.value}
+            program = spec.program.lower()
+            for index, entry in self.dataset.items():
+                # check if the index has a number tag
+                # if so, start from this tag
+                index, tag = self._clean_index(index=index)
+                for j, molecule in enumerate(entry.initial_molecules):
+                    name = index + f"-{tag + j}"
+
+                    data[program].append(
+                        AtomicInput(
+                            id=name,
+                            molecule=molecule,
+                            driver=self.driver,
+                            model=qc_model,
+                            keywords=keywords,
+                            protocols=protocols,
+                        )
+                    )
+        return data
+
 
 class OptimizationDataset(BasicDataset):
     """
@@ -1388,6 +1406,38 @@ class OptimizationDataset(BasicDataset):
         except KeyError:
             return False
 
+    def to_tasks(self) -> Dict[str, List[OptimizationInput]]:
+        """
+        Build a list of QCEngine optimisation inputs organised by the optimisation engine which should be used to run the task.
+        """
+        data = defaultdict(list)
+        opt_program = self.optimization_procedure.program.lower()
+        for spec in self.qc_specifications.values():
+            qc_model = spec.qc_model
+            qc_keywords = spec.qc_keywords
+            qc_spec = QCInputSpecification(
+                driver=self.driver, model=qc_model, keywords=qc_keywords
+            )
+            opt_spec = self.optimization_procedure.dict(exclude={"program"})
+            # this needs to be the single point calculation program
+            opt_spec["program"] = spec.program.lower()
+
+            for index, entry in self.dataset.items():
+                index, tag = self._clean_index(index=index)
+                for j, molecule in enumerate(entry.initial_molecules):
+                    name = index + f"-{tag + j}"
+
+                    data[opt_program].append(
+                        OptimizationInput(
+                            id=name,
+                            keywords=opt_spec,
+                            input_specification=qc_spec,
+                            initial_molecule=molecule,
+                        )
+                    )
+
+        return data
+
 
 class TorsiondriveDataset(OptimizationDataset):
     """
@@ -1559,3 +1609,8 @@ class TorsiondriveDataset(OptimizationDataset):
             return True
         except KeyError:
             return False
+
+    def to_tasks(self) -> Dict[str, List[OptimizationInput]]:
+        """Build a list of QCEngine procedure tasks which correspond to this dataset."""
+
+        raise NotImplementedError()
