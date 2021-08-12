@@ -417,7 +417,7 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
                     scan_range=torsion.scan_range1,
                     scan_increment=torsion.scan_increment,
                     symmetry_group=get_symmetry_group(
-                        atom_groups=tagged_torsion[1:3],
+                        atom_group=tagged_torsion[1:3],
                         symmetry_classes=symmetry_classes,
                     ),
                 )

@@ -371,7 +371,7 @@ class TorsionIndexer(DatasetConfig):
             and torsion.symmetry_group1 not in self.torsion_groups
         ):
             self.torsions[torsion.central_bond] = torsion
-        elif overwrite and torsion.symmetry_group1 not in self.torsion_groups:
+        elif overwrite:
             self.torsions[torsion.central_bond] = torsion
 
     def add_double_torsion(
@@ -406,11 +406,7 @@ class TorsionIndexer(DatasetConfig):
             not in self.double_torsion_groups
         ):
             self.double_torsions[double_torsion.central_bond] = double_torsion
-        elif (
-            overwrite
-            and (double_torsion.symmetry_group1, double_torsion.symmetry_group2)
-            not in self.double_torsion_groups
-        ):
+        elif overwrite:
             self.double_torsions[double_torsion.central_bond] = double_torsion
 
     def add_improper(
@@ -440,7 +436,7 @@ class TorsionIndexer(DatasetConfig):
             and improper_torsion.symmetry_group not in self.improper_groups
         ):
             self.impropers[improper_torsion.central_atom] = improper_torsion
-        elif overwrite and improper_torsion.symmetry_group not in self.improper_groups:
+        elif overwrite:
             self.impropers[improper_torsion.central_atom] = improper_torsion
 
     def update(

@@ -321,7 +321,7 @@ def test_componentresult_deduplication_torsions_same_bond_same_coords():
     ethanol_dihedrals = [(5, 1, 0, 2), (5, 1, 0, 3), (5, 1, 0, 4)]
     for molecule, dihedral in zip(molecules, ethanol_dihedrals):
         torsion_indexer = TorsionIndexer()
-        torsion_indexer.add_torsion(torsion=dihedral, scan_range=None)
+        torsion_indexer.add_torsion(torsion=dihedral, scan_range=None, symmetry_group=(1, 1))
         molecule.properties["dihedrals"] = torsion_indexer
         result.add_molecule(molecule)
 
@@ -945,7 +945,7 @@ def test_componenetresult_deduplication_torsions_same_bond_different_coords():
     butane_dihedral = (0, 1, 2, 3)
     for molecule in molecules:
         torsion_indexer = TorsionIndexer()
-        torsion_indexer.add_torsion(torsion=butane_dihedral, scan_range=None)
+        torsion_indexer.add_torsion(torsion=butane_dihedral, scan_range=None, symmetry_group=(1, 1))
         molecule.properties["dihedrals"] = torsion_indexer
         result.add_molecule(molecule)
 
@@ -1016,7 +1016,7 @@ def test_torsion_indexing_torsion():
 
     torsion_indexer = TorsionIndexer()
     # add a 1-D torsion
-    torsion_indexer.add_torsion((3, 2, 1, 0), (180, -165))
+    torsion_indexer.add_torsion(torsion=(3, 2, 1, 0), scan_range=(180, -165), symmetry_group=(1, 1))
     # make sure they have been ordered
     assert (1, 2) in torsion_indexer.torsions
     single_torsion = torsion_indexer.torsions[(1, 2)]
@@ -1027,10 +1027,14 @@ def test_torsion_indexing_torsion():
 
     assert torsion_indexer.n_torsions == 1
     # test overwrite
-    torsion_indexer.add_torsion(torsion=(3, 2, 1, 0), scan_range=None, overwrite=True)
+    torsion_indexer.add_torsion(torsion=(3, 2, 1, 0), scan_range=None, overwrite=True, symmetry_group=(1, 2))
     assert torsion_indexer.n_torsions == 1
     single_torsion = torsion_indexer.torsions[(1, 2)]
     assert single_torsion.get_scan_range is None
+    # test symmetry deduplication
+    torsion_indexer.add_torsion(torsion=(4, 5, 6, 7), scan_range=None, symmetry_group=(1, 2))
+    # the torsion should not be replaced as it is not symmetry unique
+    assert torsion_indexer.n_torsions == 1
 
 
 def test_torsion_indexing_double():
@@ -1041,7 +1045,7 @@ def test_torsion_indexing_double():
     torsion_indexer = TorsionIndexer()
     # add a 2-D scan
     torsion_indexer.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(0, 1, 2, 3), scan_range1=[40, -40],
-                                       scan_range2=[-165, 180])
+                                       scan_range2=[-165, 180], symmetry_group2=(1, 2), symmetry_group1=(1, 1))
     # check the central bond was ordered
     assert ((1, 2), (7, 8)) in torsion_indexer.double_torsions
     double_torsion = torsion_indexer.double_torsions[((1, 2), (7, 8))]
@@ -1054,7 +1058,7 @@ def test_torsion_indexing_double():
 
     # test overwrite
     torsion_indexer.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(0, 1, 2, 3), scan_range1=None,
-                                       scan_range2=None, overwrite=True)
+                                       scan_range2=None, overwrite=True, symmetry_group1=(1, 3), symmetry_group2=(2, 3))
     assert torsion_indexer.n_double_torsions == 1
     double_torsion = torsion_indexer.double_torsions[((1, 2), (7, 8))]
     assert double_torsion.get_scan_range is None
@@ -1066,12 +1070,12 @@ def test_torsion_indexing_improper():
     """
 
     torsion_indexer = TorsionIndexer()
-    torsion_indexer.add_improper(1, (0, 1, 2, 3), scan_range=[40, -40])
+    torsion_indexer.add_improper(central_atom=1, improper=(0, 1, 2, 3), scan_range=[40, -40], symmetry_group=(2, 1, 1, 1))
     assert 1 in torsion_indexer.impropers
     assert torsion_indexer.n_impropers == 1
     improper = torsion_indexer.impropers[1]
     assert improper.get_scan_range == [(-40, 40), ]
-    torsion_indexer.add_improper(1, (3, 2, 1, 0), scan_range=None, overwrite=True)
+    torsion_indexer.add_improper(1, (3, 2, 1, 0), scan_range=None, overwrite=True, symmetry_group=(2, 1, 1, 1))
     # make sure it was over writen
     assert 1 in torsion_indexer.impropers
     assert torsion_indexer.n_impropers == 1
@@ -1093,8 +1097,8 @@ def test_torsion_index_iterator():
     torsion_indexer = TorsionIndexer()
     torsion_indexer.add_torsion((3, 2, 1, 0), (180, -165))
     torsion_indexer.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(0, 1, 2, 3), scan_range1=[40, -40],
-                                       scan_range2=[-165, 180])
-    torsion_indexer.add_improper(1, (0, 1, 2, 3), scan_range=[40, -40])
+                                       scan_range2=[-165, 180], symmetry_group1=(1, 1), symmetry_group2=(1, 1))
+    torsion_indexer.add_improper(1, (0, 1, 2, 3), scan_range=[40, -40], symmetry_group=(2, 1, 1, 1))
     assert torsion_indexer.n_torsions == 1
     assert torsion_indexer.n_double_torsions == 1
     assert torsion_indexer.n_impropers == 1
@@ -1111,17 +1115,17 @@ def test_torsion_indexer_update_no_mapping():
     """
 
     torsion_indexer1 = TorsionIndexer()
-    torsion_indexer1.add_torsion((0, 1, 2, 3))
-    torsion_indexer1.add_double_torsion(torsion1=(0, 1, 2, 3), torsion2=(9, 8, 7, 6))
-    torsion_indexer1.add_improper(1, (0, 1, 2, 3))
+    torsion_indexer1.add_torsion(torsion=(0, 1, 2, 3), symmetry_group=(1, 1))
+    torsion_indexer1.add_double_torsion(torsion1=(0, 1, 2, 3), torsion2=(9, 8, 7, 6), symmetry_group1=(1, 1), symmetry_group2=(1, 1))
+    torsion_indexer1.add_improper(central_atom=1, improper=(0, 1, 2, 3), symmetry_group=(2, 1, 1, 1))
     assert torsion_indexer1.n_torsions == 1
     assert torsion_indexer1.n_double_torsions == 1
     assert torsion_indexer1.n_impropers == 1
 
     torsion_indexer2 = TorsionIndexer()
-    torsion_indexer2.add_torsion((9, 8, 7, 6))
-    torsion_indexer2.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(10, 11, 12, 13))
-    torsion_indexer2.add_improper(5, (5, 6, 7, 8))
+    torsion_indexer2.add_torsion(torsion=(9, 8, 7, 6), symmetry_group=(1, 2))
+    torsion_indexer2.add_double_torsion(torsion1=(9, 8, 7, 6), torsion2=(10, 11, 12, 13), symmetry_group1=(1, 2), symmetry_group2=(1, 1))
+    torsion_indexer2.add_improper(central_atom=5, improper=(5, 6, 7, 8), symmetry_group=(3, 1, 1, 1))
     assert torsion_indexer2.n_torsions == 1
     assert torsion_indexer2.n_double_torsions == 1
     assert torsion_indexer2.n_impropers == 1

@@ -16,7 +16,6 @@ from openff.qcsubmit.exceptions import (
     InvalidWorkflowComponentError,
 )
 from openff.qcsubmit.utils import check_missing_stereo, get_data
-from openff.qcsubmit.validators import check_torsion_connection
 from openff.qcsubmit.workflow_components import (
     ComponentResult,
     CustomWorkflowComponent,
@@ -682,31 +681,6 @@ def test_coverage_filter():
     assert result.n_molecules == result.n_molecules
 
 
-def test_coverage_filter_tag_dihedrals():
-    """
-    Make sure the coverage filter tags dihedrals that we request.
-    """
-
-    coverage_filter = workflow_components.CoverageFilter()
-    coverage_filter.allowed_ids = ["t1"]
-    coverage_filter.tag_dihedrals = True
-
-    mols = get_tautomers()
-
-    # we have to remove duplicated records
-    # remove duplicates from the set
-    molecule_container = get_container(mols)
-
-    result = coverage_filter.apply(molecule_container.molecules, processors=1)
-
-    for molecule in result.molecules:
-        assert "dihedrals" in molecule.properties
-        torsion_indexer = molecule.properties["dihedrals"]
-        assert torsion_indexer.n_torsions > 0, print(molecule)
-        assert torsion_indexer.n_double_torsions == 0
-        assert torsion_indexer.n_impropers == 0
-
-
 def test_wbo_fragmentation_apply():
     """
     Make sure that wbo fragmentation is working.
@@ -889,33 +863,6 @@ def test_smarts_filter_apply_none():
     assert len(result2.molecules) != len(result.molecules)
 
 
-@pytest.mark.parametrize("tag_dihedrals", [
-    pytest.param(True, id="Tag dihedrals"),
-    pytest.param(False, id="Do not tag Dihedrals")
-])
-def test_smarts_filter_apply_tag_torsions(tag_dihedrals):
-    """
-    Make sure that torsions in molecules are tagged if we supply a torsion smarts a pattern.
-    """
-    filter = workflow_components.SmartsFilter(tag_dihedrals=tag_dihedrals)
-
-    # look for methyl torsions here
-    filter.allowed_substructures = ["[*:1]-[*:2]-[#6H3:3]-[#1:4]"]
-
-    molecules = get_tautomers()
-    # this should filter and tag the dihedrals
-    result = filter.apply(molecules, processors=1)
-    for molecule in result.molecules:
-        if tag_dihedrals:
-            assert "dihedrals" in molecule.properties
-            # make sure the torsion is connected
-            torsions = molecule.properties["dihedrals"]
-            for torsion in torsions.get_dihedrals:
-                _ = check_torsion_connection(torsion=torsion.torsion1, molecule=molecule)
-        else:
-            assert "dihedrals" not in molecule.properties
-
-
 def test_scan_filter_mutually_exclusive():
     """
     Make sure an error is raised when both options are passed.
@@ -944,9 +891,9 @@ def test_scan_filter_include():
     ethanol = Molecule.from_file(get_data("ethanol.sdf"))
     t_indexer = TorsionIndexer()
     # C-C torsion
-    t_indexer.add_torsion(torsion=(3, 0, 1, 2))
+    t_indexer.add_torsion(torsion=(3, 0, 1, 2), symmetry_group=(1, 1))
     # O-C torsion
-    t_indexer.add_torsion(torsion=(0, 1, 2, 8))
+    t_indexer.add_torsion(torsion=(0, 1, 2, 8), symmetry_group=(1, 2))
     ethanol.properties["dihedrals"] = t_indexer
 
     # only keep the C-C scan
@@ -965,9 +912,9 @@ def test_scan_filter_exclude():
     ethanol = Molecule.from_file(get_data("ethanol.sdf"))
     t_indexer = TorsionIndexer()
     # C-C torsion
-    t_indexer.add_torsion(torsion=(3, 0, 1, 2))
+    t_indexer.add_torsion(torsion=(3, 0, 1, 2), symmetry_group=(1, 1))
     # O-C torsion
-    t_indexer.add_torsion(torsion=(0, 1, 2, 8))
+    t_indexer.add_torsion(torsion=(0, 1, 2, 8), symmetry_group=(1, 2))
     ethanol.properties["dihedrals"] = t_indexer
 
     # only keep the C-C scan
