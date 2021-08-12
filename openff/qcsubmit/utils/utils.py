@@ -135,3 +135,37 @@ def get_torsion(bond: off.Bond) -> Tuple[int, int, int, int]:
             terminal_atoms[atoms[1]].molecule_atom_index,
         ]
     )
+
+
+def get_symmetry_classes(molecule: off.Molecule) -> List[int]:
+    """Calculate the symmetry classes of each atom in the molecule using the backend toolkits."""
+
+    try:
+        from rdkit import Chem
+
+        rd_mol = molecule.to_rdkit()
+        symmetry_classes = list(Chem.CanonicalRankAtoms(rd_mol, breakTies=False))
+
+    except (ImportError, ModuleNotFoundError):
+        from openeye import oechem
+
+        oe_mol = molecule.to_openeye()
+        oechem.OEPerceiveSymmetry(oe_mol)
+
+        symmetry_classes_by_index = {
+            a.GetIdx(): a.GetSymmetryClass() for a in oe_mol.GetAtoms()
+        }
+        symmetry_classes = [
+            symmetry_classes_by_index[i] for i in range(molecule.n_atoms)
+        ]
+
+    return symmetry_classes
+
+
+def get_symmetry_group(
+    atom_group: Tuple[int, ...], symmetry_classes: List[int]
+) -> Tuple[int, ...]:
+    """
+    For the list of atom groups calculate their symmetry class for the given molecule.
+    """
+    return tuple([symmetry_classes[atom] for atom in atom_group])

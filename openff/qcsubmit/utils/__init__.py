@@ -4,6 +4,8 @@ from openff.qcsubmit.utils.utils import (
     clean_strings,
     condense_molecules,
     get_data,
+    get_symmetry_classes,
+    get_symmetry_group,
     get_torsion,
     remap_list,
 )
@@ -16,4 +18,6 @@ __all__ = [
     get_data,
     get_torsion,
     remap_list,
+    get_symmetry_classes,
+    get_symmetry_group,
 ]

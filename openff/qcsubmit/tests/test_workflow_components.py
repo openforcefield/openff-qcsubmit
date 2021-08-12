@@ -1064,7 +1064,7 @@ def test_improper_enumerator():
     assert result.n_molecules == 1
     indexer = mol.properties["dihedrals"]
     assert indexer.n_impropers == 1
-    assert indexer.imporpers[0].scan_increment == [4]
+    assert indexer.impropers[0].scan_increment == [4]
 
 
 def test_formal_charge_filter_exclusive():

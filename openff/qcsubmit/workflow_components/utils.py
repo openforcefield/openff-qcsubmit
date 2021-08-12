@@ -115,9 +115,16 @@ class SingleTorsion(ResultsConfig):
     scan_increment: List[int] = Field(
         [15], description="The value in degrees between each grid point in the scan."
     )
+    symmetry_group1: Tuple[int, int] = Field(
+        ...,
+        description="The symmetry of the central atoms in the torsion used to deduplicate symmetrical torsions.",
+    )
 
     _order_torsion1 = validator("torsion1", allow_reuse=True)(order_torsion)
     _order_scan_range1 = validator("scan_range1", allow_reuse=True)(order_scan_range)
+    _order_symmetry_group1 = validator("symmetry_group1", allow_reuse=True)(
+        order_scan_range
+    )
 
     @property
     def central_bond(self) -> Tuple[int, int]:
@@ -166,9 +173,16 @@ class DoubleTorsion(SingleTorsion):
         description="The separate scan range that should be used for the second dihedral.",
     )
     scan_increment: List[int] = [15, 15]
+    symmetry_group2: Tuple[int, int] = Field(
+        ...,
+        description="The symmetry group of the second torsion, used to deduplicate torsions.",
+    )
 
     _order_torsion2 = validator("torsion2", allow_reuse=True)(order_torsion)
     _order_scan_range2 = validator("scan_range2", allow_reuse=True)(order_scan_range)
+    _order_symmetry_group2 = validator("symmetry_group2", allow_reuse=True)(
+        order_scan_range
+    )
 
     @property
     def central_bond(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
@@ -239,8 +253,19 @@ class ImproperTorsion(ResultsConfig):
     scan_increment: List[int] = Field(
         [15], description="The value in degrees between each grid point in the scan."
     )
+    symmetry_group: Tuple[int, int, int, int] = Field(
+        ...,
+        description="The symmetry group of the improper used to deduplicate improper torsions.",
+    )
 
     _order_scan_range = validator("scan_range", allow_reuse=True)(order_scan_range)
+
+    @validator("symmetry_group")
+    def _sort_symmetry(
+        cls, symmetry_group: Tuple[int, int, int, int]
+    ) -> Tuple[int, int, int, int]:
+        """Sort the symmetry group for easier comparison."""
+        return tuple(sorted(symmetry_group))
 
     @property
     def get_dihedrals(self) -> List[Tuple[int, int, int, int]]:
@@ -286,7 +311,7 @@ class TorsionIndexer(DatasetConfig):
         {},
         description="A dictionary of the 2D torsions to be scanned grouped by the sorted combination of the central bonds.",
     )
-    imporpers: Dict[int, ImproperTorsion] = Field(
+    impropers: Dict[int, ImproperTorsion] = Field(
         {},
         description="A dictionary of the improper torsions to be scanned grouped by the central atom in the torsion.",
     )
@@ -301,77 +326,122 @@ class TorsionIndexer(DatasetConfig):
         all_torsions = []
         all_torsions.extend(list(self.torsions.values()))
         all_torsions.extend(list(self.double_torsions.values()))
-        all_torsions.extend(list(self.imporpers.values()))
+        all_torsions.extend(list(self.impropers.values()))
         return all_torsions
+
+    @property
+    def torsion_groups(self) -> List[Tuple[int, int]]:
+        """Return a list of all of the currently covered torsion symmetry groups. Note this only includes central bond atoms."""
+        return [torsion.symmetry_group1 for torsion in self.torsions.values()]
+
+    @property
+    def double_torsion_groups(self) -> List[Tuple[Tuple[int, int], Tuple[int, int]]]:
+        """Return a list of all of the currently covered pairs of torsion symmetry groups."""
+        return [
+            (double_torsion.symmetry_group1, double_torsion.symmetry_group2)
+            for double_torsion in self.double_torsions.values()
+        ]
+
+    @property
+    def improper_groups(self) -> List[Tuple[int, int, int, int]]:
+        """Return a list of all of the currently covered improper torsion symmetry groups."""
+        return [improper.symmetry_group for improper in self.impropers.values()]
 
     def add_torsion(
         self,
         torsion: Tuple[int, int, int, int],
+        symmetry_group: Tuple[int, int],
         scan_range: Optional[Tuple[int, int]] = None,
-        scan_incrment: List[int] = [15],
+        scan_increment: List[int] = [15],
         overwrite: bool = False,
     ) -> None:
         """
-        Add a single torsion to the torsion indexer if this central bond has not already been tagged.
+        Add a single torsion to the torsion indexer if this central bond has not already been tagged and the torsion
+        is symmetry unique.
         """
         torsion = SingleTorsion(
-            torsion1=torsion, scan_range1=scan_range, scan_increment=scan_incrment
+            torsion1=torsion,
+            scan_range1=scan_range,
+            scan_increment=scan_increment,
+            symmetry_group1=symmetry_group,
         )
 
-        if torsion.central_bond not in self.torsions:
+        if (
+            torsion.central_bond not in self.torsions
+            and torsion.symmetry_group1 not in self.torsion_groups
+        ):
             self.torsions[torsion.central_bond] = torsion
-        elif overwrite:
+        elif overwrite and torsion.symmetry_group1 not in self.torsion_groups:
             self.torsions[torsion.central_bond] = torsion
 
     def add_double_torsion(
         self,
         torsion1: Tuple[int, int, int, int],
         torsion2: Tuple[int, int, int, int],
+        symmetry_group1: Tuple[int, int],
+        symmetry_group2: Tuple[int, int],
         scan_range1: Optional[Tuple[int, int]] = None,
         scan_range2: Optional[Tuple[int, int]] = None,
         scan_increment: List[int] = [15, 15],
         overwrite: bool = False,
     ) -> None:
         """
-        Add a double torsion to the indexer if this central bond combination has not been tagged.
+        Add a double torsion to the indexer if this central bond combination has not been tagged and the torsion pair are
+        symmetry unique.
         """
 
         double_torsion = DoubleTorsion(
             torsion1=torsion1,
             torsion2=torsion2,
+            symmetry_group1=symmetry_group1,
+            symmetry_group2=symmetry_group2,
             scan_range1=scan_range1,
             scan_range2=scan_range2,
             scan_increment=scan_increment,
         )
 
-        if double_torsion.central_bond not in self.double_torsions:
+        if (
+            double_torsion.central_bond not in self.double_torsions
+            and (double_torsion.symmetry_group1, double_torsion.symmetry_group2)
+            not in self.double_torsion_groups
+        ):
             self.double_torsions[double_torsion.central_bond] = double_torsion
-        elif overwrite:
+        elif (
+            overwrite
+            and (double_torsion.symmetry_group1, double_torsion.symmetry_group2)
+            not in self.double_torsion_groups
+        ):
             self.double_torsions[double_torsion.central_bond] = double_torsion
 
     def add_improper(
         self,
         central_atom: int,
         improper: Tuple[int, int, int, int],
+        symmetry_group: Tuple[int, int, int, int],
         scan_range: Optional[Tuple[int, int]] = None,
         scan_increment: List[int] = [15],
         overwrite: bool = False,
     ) -> None:
         """
-        Add an improper torsion to the indexer if its central atom is not already covered.
+        Add an improper torsion to the indexer if its central atom is not already covered and the improper is symmetry
+        unique.
         """
 
         improper_torsion = ImproperTorsion(
             central_atom=central_atom,
+            symmetry_group=symmetry_group,
             improper=improper,
             scan_range=scan_range,
             scan_increment=scan_increment,
         )
 
-        if improper_torsion.central_atom not in self.imporpers:
-            self.imporpers[improper_torsion.central_atom] = improper_torsion
-        elif overwrite:
-            self.imporpers[improper_torsion.central_atom] = improper_torsion
+        if (
+            improper_torsion.central_atom not in self.impropers
+            and improper_torsion.symmetry_group not in self.improper_groups
+        ):
+            self.impropers[improper_torsion.central_atom] = improper_torsion
+        elif overwrite and improper_torsion.symmetry_group not in self.improper_groups:
+            self.impropers[improper_torsion.central_atom] = improper_torsion
 
     def update(
         self,
@@ -386,45 +456,44 @@ class TorsionIndexer(DatasetConfig):
             reorder_mapping: The mapping between the other and current molecule should the order need updating.
         """
 
-        if reorder_mapping is None:
-            self.torsions.update(torsion_indexer.torsions)
-            self.double_torsions.update(torsion_indexer.double_torsions)
-            self.imporpers.update(torsion_indexer.imporpers)
+        # we need to use the reorder_mapping to change the objects before adding them if required
+        for torsion in torsion_indexer.torsions.values():
+            self.add_torsion(
+                torsion=self._reorder_torsion(torsion.torsion1, reorder_mapping)
+                if reorder_mapping is not None
+                else torsion.torsion1,
+                scan_range=torsion.scan_range1,
+                scan_increment=torsion.scan_increment,
+                symmetry_group=torsion.symmetry_group1,
+            )
 
-        else:
-            # we need to use the reorder_mapping to change the objects before adding them
-            for torsion in torsion_indexer.torsions.values():
-                new_torsion = self._reorder_torsion(torsion.torsion1, reorder_mapping)
-                self.add_torsion(
-                    torsion=new_torsion,
-                    scan_range=torsion.scan_range1,
-                    scan_incrment=torsion.scan_increment,
-                )
+        for double_torsion in torsion_indexer.double_torsions.values():
+            self.add_double_torsion(
+                torsion1=self._reorder_torsion(double_torsion.torsion1, reorder_mapping)
+                if reorder_mapping is not None
+                else double_torsion.torsion1,
+                torsion2=self._reorder_torsion(double_torsion.torsion2, reorder_mapping)
+                if reorder_mapping is not None
+                else double_torsion.torsion2,
+                scan_range1=double_torsion.scan_range1,
+                scan_range2=double_torsion.scan_range2,
+                scan_increment=double_torsion.scan_increment,
+                symmetry_group1=double_torsion.symmetry_group1,
+                symmetry_group2=double_torsion.symmetry_group2,
+            )
 
-            for double_torsion in torsion_indexer.double_torsions.values():
-                new_torsion1 = self._reorder_torsion(
-                    double_torsion.torsion1, reorder_mapping
-                )
-                new_torsion2 = self._reorder_torsion(
-                    double_torsion.torsion2, reorder_mapping
-                )
-                self.add_double_torsion(
-                    torsion1=new_torsion1,
-                    torsion2=new_torsion2,
-                    scan_range1=double_torsion.scan_range1,
-                    scan_range2=double_torsion.scan_range2,
-                    scan_increment=double_torsion.scan_increment,
-                )
-
-            for improper in torsion_indexer.imporpers.values():
-                new_improper = self._reorder_torsion(improper.improper, reorder_mapping)
-                new_central = reorder_mapping[improper.central_atom]
-                self.add_improper(
-                    central_atom=new_central,
-                    improper=new_improper,
-                    scan_range=improper.scan_range,
-                    scan_increment=improper.scan_increment,
-                )
+        for improper in torsion_indexer.impropers.values():
+            self.add_improper(
+                central_atom=reorder_mapping[improper.central_atom]
+                if reorder_mapping is not None
+                else improper.central_atom,
+                improper=self._reorder_torsion(improper.improper, reorder_mapping)
+                if reorder_mapping is not None
+                else improper.improper,
+                scan_range=improper.scan_range,
+                scan_increment=improper.scan_increment,
+                symmetry_group=improper.symmetry_group,
+            )
 
     @staticmethod
     def _reorder_torsion(
@@ -460,7 +529,7 @@ class TorsionIndexer(DatasetConfig):
         Return the number of imporpers highlighted.
         """
 
-        return len(self.imporpers)
+        return len(self.impropers)
 
 
 class ComponentResult:

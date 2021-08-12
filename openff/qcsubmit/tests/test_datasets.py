@@ -1067,15 +1067,15 @@ def test_torsion_indexing_improper():
 
     torsion_indexer = TorsionIndexer()
     torsion_indexer.add_improper(1, (0, 1, 2, 3), scan_range=[40, -40])
-    assert 1 in torsion_indexer.imporpers
+    assert 1 in torsion_indexer.impropers
     assert torsion_indexer.n_impropers == 1
-    improper = torsion_indexer.imporpers[1]
+    improper = torsion_indexer.impropers[1]
     assert improper.get_scan_range == [(-40, 40), ]
     torsion_indexer.add_improper(1, (3, 2, 1, 0), scan_range=None, overwrite=True)
     # make sure it was over writen
-    assert 1 in torsion_indexer.imporpers
+    assert 1 in torsion_indexer.impropers
     assert torsion_indexer.n_impropers == 1
-    improper = torsion_indexer.imporpers[1]
+    improper = torsion_indexer.impropers[1]
     assert improper.get_dihedrals == [(3, 2, 1, 0), ]
     assert improper.get_scan_range is None
     assert improper.get_atom_map == {3: 0, 2: 1, 1: 2, 0: 3}
