@@ -5,6 +5,7 @@ from typing import Dict, List
 
 import pytest
 from openff.toolkit.topology import Molecule
+from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
 from pydantic import ValidationError
 from typing_extensions import Literal
@@ -315,7 +316,6 @@ def test_weight_filter_apply():
         pytest.param((workflow_components.EnumerateTautomers, "max_tautomers", 2), id="EnumerateTautomers"),
         pytest.param((workflow_components.EnumerateStereoisomers, "undefined_only", True), id="EnumerateStereoisomers"),
         pytest.param((workflow_components.RotorFilter, "maximum_rotors", 3), id="RotorFilter"),
-        pytest.param((workflow_components.SmartsFilter, "allowed_substructures", ["[C:1]-[C:2]"]), id="SmartsFilter"),
         pytest.param((workflow_components.WBOFragmenter, "threshold", 0.5), id="WBOFragmenter"),
         pytest.param((workflow_components.EnumerateProtomers, "max_states", 5), id="EnumerateProtomers"),
         pytest.param((workflow_components.RMSDCutoffConformerFilter, "cutoff", 1.2), id="RMSDCutoffConformerFilter")
@@ -640,15 +640,35 @@ def test_enumerating_protomers_apply():
     assert result.n_molecules == 3
 
 
-def test_coverage_filter():
+def test_coverage_filter_remove():
+    """
+    Make sure we can remove molecules which hit unwanted ids.
+    """
+
+    coverage_filter = workflow_components.CoverageFilter(filtered_ids={"b87"})
+    mols = get_stereoisomers()
+
+    # we have to remove duplicated records
+    # remove duplicates from the set
+    molecule_container = get_container(mols)
+    result = coverage_filter.apply(molecule_container.molecules, processors=1)
+
+    forcefield = ForceField("openff_unconstrained-1.0.0.offxml")
+    # now see if any molecules do not have b83
+    for molecule in result.molecules:
+        labels = forcefield.label_molecules(molecule.to_topology())[0]
+        covered_types = set(
+            [label.id for types in labels.values() for label in types.values()]
+        )
+        assert "b87" not in covered_types
+
+
+def test_coverage_filter_allowed():
     """
     Make sure the coverage filter removes the correct molecules.
     """
-    from openff.toolkit.typing.engines.smirnoff import ForceField
 
-    coverage_filter = workflow_components.CoverageFilter()
-    coverage_filter.allowed_ids = ["b83"]
-    coverage_filter.filtered_ids = ["b87"]
+    coverage_filter = workflow_components.CoverageFilter(allowed_ids={"b83"})
 
     mols = get_stereoisomers()
 
@@ -674,11 +694,31 @@ def test_coverage_filter():
         assert molecule.to_smiles() in expected
         assert "dihedrals" not in molecule.properties
 
-    # we now need to check that the molecules passed contain only the allowed atoms
-    # do this by running the component again
-    result2 = coverage_filter.apply(result.molecules, processors=1)
-    assert result2.n_filtered == 0
-    assert result.n_molecules == result.n_molecules
+
+def test_coverage_allowed_no_match():
+    """
+    Make sure that molecules with no parameters in the allowed list are failed.
+    """
+    coverage_filter = workflow_components.CoverageFilter(allowed_ids={"fake_id"})
+
+    mols = get_stereoisomers()
+
+    # we have to remove duplicated records
+    # remove duplicates from the set
+    molecule_container = get_container(mols)
+    result = coverage_filter.apply(molecule_container.molecules, processors=1)
+
+    # make sure all molecules have been removed as none have the made up id
+    assert result.n_molecules == 0
+
+
+def test_coverage_validation():
+    """
+    Make sure the filter raised an error if both allowed and filtered ids are passed
+    """
+
+    with pytest.raises(ValidationError):
+        workflow_components.CoverageFilter(allowed_ids={"a1"}, filtered_ids={"b1"})
 
 
 def test_wbo_fragmentation_apply():
@@ -789,38 +829,36 @@ def test_smarts_filter_validator():
 
     from openff.toolkit.typing.chemistry import SMIRKSParsingError
 
-    filter = workflow_components.SmartsFilter()
+    with pytest.raises(ValidationError):
+        workflow_components.SmartsFilter(allowed_substructures=["[C:1]"], filtered_substructures=["[N:1]"])
 
     with pytest.raises(SMIRKSParsingError):
-        filter.allowed_substructures = [1, 2, 3, 4]
+        workflow_components.SmartsFilter(allowed_substructures=[1, 2, 3, 4])
 
     with pytest.raises(SMIRKSParsingError):
         # bad string
-        filter.allowed_substructures = ["fkebfsjb"]
+        workflow_components.SmartsFilter(allowed_substructures=["fkebfsjb"])
 
     with pytest.raises(SMIRKSParsingError):
         # make sure each item is checked
-        filter.allowed_substructures = ["[C:1]-[C:2]", "ksbfsb"]
+        workflow_components.SmartsFilter(allowed_substructures=["[C:1]-[C:2]", "ksbfsb"])
 
     with pytest.raises(SMIRKSParsingError):
         # good smarts with no tagged atoms.
-        filter.allowed_substructures = ["[C]=[C]"]
+        workflow_components.SmartsFilter(allowed_substructures=["[C]=[C]"])
 
     # a good search string
-    filter.allowed_substructures = ["[C:1]=[C:2]"]
-    assert len(filter.allowed_substructures) == 1
+    smart_filter = workflow_components.SmartsFilter(allowed_substructures=["[C:1]=[C:2]"])
+    assert len(smart_filter.allowed_substructures) == 1
 
 
-def test_smarts_filter_apply_parameters():
+def test_smarts_filter_allowed():
     """
     Make sure the environment filter is correctly identifying substructures.
     """
 
-    filter = workflow_components.SmartsFilter()
-
     # this should only allow C, H, N, O containing molecules through similar to the element filter
-    filter.allowed_substructures = ["[C:1]", "[c:1]", "[H:1]", "[O:1]", "[N:1]"]
-    filter.filtered_substructures = ["[Cl:1]", "[F:1]", "[P:1]", "[Br:1]", "[S:1]", "[I:1]", "[B:1]"]
+    filter = workflow_components.SmartsFilter(allowed_substructures=["[C:1]", "[c:1]", "[H:1]", "[O:1]", "[N:1]"])
     allowed_elements = [1, 6, 7, 8]
 
     molecules = get_tautomers()
@@ -839,28 +877,42 @@ def test_smarts_filter_apply_parameters():
         assert sorted(elements) != sorted(allowed_elements)
 
 
-def test_smarts_filter_apply_none():
+def test_smarts_filter_allowed_no_match():
     """
-    Make sure we get the expected behaviour when we supply None as the filter list.
+    Make sure molecules are removed by the smarts filter if they do not match any allowed substructure.
     """
 
-    filter = workflow_components.SmartsFilter()
-
-    filter.allowed_substructures = None
+    # only allow fuorine containing molecules through which is none
+    filter = workflow_components.SmartsFilter(allowed_substructures=["[#9:1]"])
 
     molecules = get_tautomers()
 
-    # this should allow all molecules through
-    result = filter.apply(molecules=molecules, processors=1)
+    result = filter.apply(molecules, processors=1)
+    assert result.n_molecules == 0
 
-    assert len(result.molecules) == len(molecules)
 
-    # now filter the molecule set again removing aromatic carbons
-    filter.filtered_substructures = ["[c:1]"]
+def test_smarts_filter_remove():
+    """
+    Make sure we can correctly remove any molecules which have unwanted substructures.
+    """
 
-    result2 = filter.apply(molecules=result.molecules, processors=1)
+    filter = workflow_components.SmartsFilter(filtered_substructures=["[Cl:1]", "[F:1]", "[P:1]", "[Br:1]", "[S:1]", "[I:1]", "[B:1]", "[#7:1]"])
+    allowed_elements = [1, 6, 8]
 
-    assert len(result2.molecules) != len(result.molecules)
+    molecules = get_tautomers()
+
+    result = filter.apply(molecules, processors=1)
+
+    assert result.component_name == filter.type
+    assert result.component_description == filter.dict()
+    # make sure there are no unwanted elements in the pass set
+    for molecule in result.molecules:
+        for atom in molecule.atoms:
+            assert atom.atomic_number in allowed_elements, print(molecule)
+
+    for molecule in result.filtered:
+        elements = set([atom.atomic_number for atom in molecule.atoms])
+        assert sorted(elements) != sorted(allowed_elements)
 
 
 def test_scan_filter_mutually_exclusive():

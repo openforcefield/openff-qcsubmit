@@ -205,15 +205,8 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
 
 class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     """
-    Filters molecules based on the requested forcefield coverage.
+    Filters molecules based on the requested force field parameter ids..
 
-    Important:
-        The ids supplied to the respective group are the ids that are allowed, if `None` is passed all ids are allowed.
-
-    Note:
-        * If a molecule has any id in the allowed_ids and not in the filtered ids it is passed. Any molecule with a
-            parameter in both sets is failed.
-        * If None is passed to allowed IDs and tag_dihedrals will have no effect as all dihedrals are scanned by default.
     """
 
     type: Literal["CoverageFilter"] = "CoverageFilter"
@@ -238,6 +231,18 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     @classmethod
     def fail_reason(cls) -> str:
         return "The molecule was typed with disallowed parameters."
+
+    @root_validator
+    def _validate_mutually_exclusive(cls, values):
+        ids_to_include = values.get("allowed_ids")
+        ids_to_exclude = values.get("filtered_ids")
+
+        message = "exactly one of ``allowed_ids` and `filtered_ids` must specified."
+
+        assert ids_to_include is not None or ids_to_exclude is not None, message
+        assert ids_to_include is None or ids_to_exclude is None, message
+
+        return values
 
     @classmethod
     def properties(cls) -> ComponentProperties:
@@ -271,22 +276,20 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
             covered_types = set(
                 [label.id for types in labels.values() for label in types.values()]
             )
-            # use set intersection to check coverage for unwanted types
-            # if filtered is None change to an empty set.
+
+            # use set intersection to check coverage for unwanted and wanted types
             unwanted_types = covered_types.intersection(self.filtered_ids or set())
-            if unwanted_types:
-                # fail the molecule for any unwanted matches
-                result.filter_molecule(molecule)
-                continue
+            common_types = covered_types.intersection(self.allowed_ids or set())
 
-            # now check for wanted common types
-            # if the allowed option is None change to have overlap
-            common_types = covered_types.intersection(self.allowed_ids or covered_types)
-            if common_types:
-                result.add_molecule(molecule)
-
+            if self.filtered_ids is not None and unwanted_types:
+                # the molecule has an unwanted parameter id
+                result.filter_molecule(molecule=molecule)
+            elif self.allowed_ids is not None and not common_types:
+                # the molecule does not contain the wanted parameter id
+                result.filter_molecule(molecule=molecule)
             else:
-                result.filter_molecule(molecule)
+                # the molecule contains a wanted or does not contain a filtered parameter id
+                result.add_molecule(molecule=molecule)
 
         return result
 
@@ -413,6 +416,20 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
         allow_reuse=True,
     )(check_environments)
 
+    @root_validator
+    def _validate_mutually_exclusive(cls, values):
+        allowed_substructures = values.get("allowed_substructures")
+        filtered_substructures = values.get("filtered_substructures")
+
+        message = "exactly one of ``allowed_substructures` and `filtered_substructures` must specified."
+
+        assert (
+            allowed_substructures is not None or filtered_substructures is not None
+        ), message
+        assert allowed_substructures is None or filtered_substructures is None, message
+
+        return values
+
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Apply the filter to the input list of molecules removing those that match the filtered set or do not contain an
@@ -428,35 +445,25 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
 
         result = self._create_result()
 
-        if self.allowed_substructures is None:
-            # pass all of the molecules
-            for molecule in molecules:
-                result.add_molecule(molecule=molecule)
+        for molecule in molecules:
 
-        else:
-            for molecule in molecules:
+            if self.allowed_substructures is not None:
                 for substructure in self.allowed_substructures:
-                    matches = molecule.chemical_environment_matches(query=substructure)
-                    if matches:
+                    if molecule.chemical_environment_matches(query=substructure):
                         result.add_molecule(molecule=molecule)
                         break
-                    else:
-                        continue
                 else:
+                    # the molecule does not contain the allowed substructure so remove it
                     result.filter_molecule(molecule=molecule)
 
-        if self.filtered_substructures is not None:
-            # now we only want to check the molecules in the pass list
-            molecules_to_remove = []
-            for molecule in result.molecules:
+            elif self.filtered_substructures is not None:
                 for substructure in self.filtered_substructures:
                     if molecule.chemical_environment_matches(query=substructure):
-                        molecules_to_remove.append(molecule)
+                        result.filter_molecule(molecule=molecule)
                         break
-
-            # Failing a molecule automatically removes it from the successes
-            for molecule in molecules_to_remove:
-                result.filter_molecule(molecule)
+                else:
+                    # there was no filtered substructure so keep the molecule
+                    result.add_molecule(molecule=molecule)
 
         return result
 
