@@ -205,7 +205,10 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
 
 class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     """
-    Filters molecules based on the requested force field parameter ids..
+    Filters molecules based on the requested force field parameter ids.
+
+    Note:
+        * The options ``allowed_ids`` and ``filtered_ids`` are mutually exclusive.
 
     """
 
@@ -384,8 +387,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
 
     Note:
         * The smarts tags used for filtering should be numerically tagged in order to work with the toolkit.
-        * If None is passed to the allowed list all molecules that dont match a filter pattern will be passed.
-        * If tag_dihedrals is set to true any smarts pattern tagging 4 atoms in a torsion will be prepared for a torsiondrive.
+        * The options ``allowed_substructures`` and ``filtered_substructures`` are mutually exclusive.
     """
 
     type: Literal["SmartsFilter"] = "SmartsFilter"
