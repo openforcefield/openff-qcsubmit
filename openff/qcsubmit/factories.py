@@ -679,9 +679,9 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                     self._linear_torsion_filter(dataset=dataset, molecule=molecule)
                 except MolecularComplexError:
                     self._molecular_complex_filter(dataset=dataset, molecule=molecule)
-
-        # if no dihedrals have been tagged we need to fail the molecule
-        self._no_dihedrals_filter(dataset=dataset, molecule=molecule)
+        else:
+            # if no dihedrals have been tagged we need to fail the molecule
+            self._no_dihedrals_filter(dataset=dataset, molecule=molecule)
 
     def create_index(self, molecule: off.Molecule) -> str:
         """

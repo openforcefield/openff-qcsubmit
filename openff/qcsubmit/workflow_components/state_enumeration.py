@@ -9,7 +9,11 @@ from pydantic import Field
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
-from openff.qcsubmit.utils import check_missing_stereo
+from openff.qcsubmit.utils import (
+    check_missing_stereo,
+    get_symmetry_classes,
+    get_symmetry_group,
+)
 from openff.qcsubmit.workflow_components.base_component import (
     BasicSettings,
     CustomWorkflowComponent,
@@ -360,31 +364,6 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
             )
         )
 
-    def _find_symmetry_classes(self, molecule: Molecule) -> List[int]:
-        """
-        Assign each atom in the molecule a symmetry class that can be used to find unique torsions.
-        """
-        try:
-            from rdkit import Chem
-
-            rd_mol = molecule.to_rdkit()
-            symmetry_classes = list(Chem.CanonicalRankAtoms(rd_mol, breakTies=False))
-
-        except (ImportError, ModuleNotFoundError):
-            from openeye import oechem
-
-            oe_mol = molecule.to_openeye()
-            oechem.OEPerceiveSymmetry(oe_mol)
-
-            symmetry_classes_by_index = {
-                a.GetIdx(): a.GetSymmetryClass() for a in oe_mol.GetAtoms()
-            }
-            symmetry_classes = [
-                symmetry_classes_by_index[i] for i in range(molecule.n_atoms)
-            ]
-
-        return symmetry_classes
-
     def _get_unique_torsions(
         self, matches: List[Tuple[int, int, int, int]], symmetry_classes: List[int]
     ) -> List[Tuple[int, int, int, int]]:
@@ -406,7 +385,7 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
         result = self._create_result()
 
         for molecule in molecules:
-            symmetry_classes = self._find_symmetry_classes(molecule)
+            symmetry_classes = get_symmetry_classes(molecule)
             molecule.properties["dihedrals"] = TorsionIndexer()
             self._tag_torsions(molecule, symmetry_classes)
             self._tag_double_torsions(molecule, symmetry_classes)
@@ -436,7 +415,11 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
                 indexer.add_torsion(
                     torsion=tagged_torsion,
                     scan_range=torsion.scan_range1,
-                    scan_incrment=torsion.scan_increment,
+                    scan_increment=torsion.scan_increment,
+                    symmetry_group=get_symmetry_group(
+                        atom_group=tagged_torsion[1:3],
+                        symmetry_classes=symmetry_classes,
+                    ),
                 )
 
     def _tag_double_torsions(
@@ -458,10 +441,19 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
                 matches=matches2, symmetry_classes=symmetry_classes
             )
             for tagged_torsion1 in unique_torsions1:
+                symmetry_group1 = get_symmetry_group(
+                    atom_group=tagged_torsion1[1:3], symmetry_classes=symmetry_classes
+                )
                 for tagged_torsion2 in unique_torsions2:
+                    symmetry_group2 = get_symmetry_group(
+                        atom_group=tagged_torsion2[1:3],
+                        symmetry_classes=symmetry_classes,
+                    )
                     indexer.add_double_torsion(
                         torsion1=tagged_torsion1,
                         torsion2=tagged_torsion2,
+                        symmetry_group1=symmetry_group1,
+                        symmetry_group2=symmetry_group2,
                         scan_range1=double_torsion.scan_range1,
                         scan_range2=double_torsion.scan_range2,
                         scan_increment=double_torsion.scan_increment,
@@ -486,11 +478,15 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
                 improper.central_smarts
             )
             for tagged_torsion in unique_torsions:
+                symmetry_group = get_symmetry_group(
+                    atom_group=tagged_torsion, symmetry_classes=symmetry_classes
+                )
                 for atom in central_atoms:
                     if atom[0] in tagged_torsion:
                         indexer.add_improper(
                             central_atom=atom[0],
                             improper=tagged_torsion,
+                            symmetry_group=symmetry_group,
                             scan_range=improper.scan_range,
                             scan_increment=improper.scan_increment,
                         )

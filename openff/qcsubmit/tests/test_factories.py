@@ -200,7 +200,7 @@ def test_exporting_settings_no_workflow(file_type, factory_type):
     with temp_directory():
         factory = factory_type()
 
-        changed_attrs = {"priority":  "super_high", "compute_tag": "test tag"}
+        changed_attrs = {"priority": "super_high", "compute_tag": "test tag"}
         for attr, value in changed_attrs.items():
             setattr(factory, attr, value)
 
@@ -228,7 +228,7 @@ def test_exporting_settings_workflow(file_type, factory_type):
     with temp_directory():
 
         factory = factory_type()
-        changed_attrs = {"priority":  "super_high", "compute_tag": "test tag"}
+        changed_attrs = {"priority": "super_high", "compute_tag": "test tag"}
         for attr, value in changed_attrs.items():
             setattr(factory, attr, value)
 

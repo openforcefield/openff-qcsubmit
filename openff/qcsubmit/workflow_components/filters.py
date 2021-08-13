@@ -16,7 +16,7 @@ from openff.qcsubmit.workflow_components.base_component import (
     BasicSettings,
     CustomWorkflowComponent,
 )
-from openff.qcsubmit.workflow_components.utils import ComponentResult, TorsionIndexer
+from openff.qcsubmit.workflow_components.utils import ComponentResult
 
 
 class MolecularWeightFilter(BasicSettings, CustomWorkflowComponent):
@@ -205,22 +205,18 @@ class ElementFilter(BasicSettings, CustomWorkflowComponent):
 
 class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     """
-    Filters molecules based on the requested forcefield coverage.
-
-    Important:
-        The ids supplied to the respective group are the ids that are allowed, if `None` is passed all ids are allowed.
+    Filters molecules based on the requested force field parameter ids.
 
     Note:
-        * If a molecule has any id in the allowed_ids and not in the filtered ids it is passed. Any molecule with a
-            parameter in both sets is failed.
-        * If None is passed to allowed IDs and tag_dihedrals will have no effect as all dihedrals are scanned by default.
+        * The options ``allowed_ids`` and ``filtered_ids`` are mutually exclusive.
+
     """
 
     type: Literal["CoverageFilter"] = "CoverageFilter"
     allowed_ids: Optional[Set[str]] = Field(
         None,
         description="The SMIRKS parameter ids of the parameters which are allowed to be exercised by the molecules. "
-        "Molecules should use atleast one of these ids to be passed by the component.",
+        "Molecules should use at least one of these ids to be passed by the component.",
     )
     filtered_ids: Optional[Set[str]] = Field(
         None,
@@ -228,11 +224,7 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     )
     forcefield: str = Field(
         "openff_unconstrained-1.0.0.offxml",
-        description="The name of the forcefield which we want to filter against.",
-    )
-    tag_dihedrals: bool = Field(
-        False,
-        description="If we should tag any dihedral ids exercised for torsion driving.",
+        description="The name of the force field which we want to filter against.",
     )
 
     @classmethod
@@ -242,6 +234,18 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
     @classmethod
     def fail_reason(cls) -> str:
         return "The molecule was typed with disallowed parameters."
+
+    @root_validator
+    def _validate_mutually_exclusive(cls, values):
+        ids_to_include = values.get("allowed_ids")
+        ids_to_exclude = values.get("filtered_ids")
+
+        message = "exactly one of ``allowed_ids` and `filtered_ids` must specified."
+
+        assert ids_to_include is not None or ids_to_exclude is not None, message
+        assert ids_to_include is None or ids_to_exclude is None, message
+
+        return values
 
     @classmethod
     def properties(cls) -> ComponentProperties:
@@ -275,45 +279,20 @@ class CoverageFilter(BasicSettings, CustomWorkflowComponent):
             covered_types = set(
                 [label.id for types in labels.values() for label in types.values()]
             )
-            # use set intersection to check coverage for unwanted types
-            # if filtered is None change to an empty set.
+
+            # use set intersection to check coverage for unwanted and wanted types
             unwanted_types = covered_types.intersection(self.filtered_ids or set())
-            if unwanted_types:
-                # fail the molecule for any unwanted matches
-                result.filter_molecule(molecule)
-                continue
+            common_types = covered_types.intersection(self.allowed_ids or set())
 
-            # now check for wanted common types
-            # if the allowed option is None change to have overlap
-            common_types = covered_types.intersection(self.allowed_ids or covered_types)
-            if common_types:
-                # here we have to find improper and proper dihedrals to tag
-                if self.tag_dihedrals:
-                    torsion_indexer = TorsionIndexer()
-                    # combine a full torsion list
-                    torsion_labels = labels["ProperTorsions"]
-                    torsion_labels.update(labels["ImproperTorsions"])
-                    for type_label in common_types:
-                        if "t" in type_label or "i" in type_label:
-                            for torsion, parameter in torsion_labels.items():
-                                if type_label == parameter.id:
-                                    if "Improper" in parameter.__class__.__name__:
-                                        torsion_indexer.add_improper(
-                                            central_atom=torsion[1],
-                                            improper=torsion,
-                                            scan_range=None,
-                                        )
-                                    elif "Proper" in parameter.__class__.__name__:
-                                        torsion_indexer.add_torsion(
-                                            torsion=torsion, scan_range=None
-                                        )
-
-                    molecule.properties["dihedrals"] = torsion_indexer
-
-                result.add_molecule(molecule)
-
+            if self.filtered_ids is not None and unwanted_types:
+                # the molecule has an unwanted parameter id
+                result.filter_molecule(molecule=molecule)
+            elif self.allowed_ids is not None and not common_types:
+                # the molecule does not contain the wanted parameter id
+                result.filter_molecule(molecule=molecule)
             else:
-                result.filter_molecule(molecule)
+                # the molecule contains a wanted or does not contain a filtered parameter id
+                result.add_molecule(molecule=molecule)
 
         return result
 
@@ -408,8 +387,7 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
 
     Note:
         * The smarts tags used for filtering should be numerically tagged in order to work with the toolkit.
-        * If None is passed to the allowed list all molecules that dont match a filter pattern will be passed.
-        * If tag_dihedrals is set to true any smarts pattern tagging 4 atoms in a torsion will be prepared for a torsiondrive.
+        * The options ``allowed_substructures`` and ``filtered_substructures`` are mutually exclusive.
     """
 
     type: Literal["SmartsFilter"] = "SmartsFilter"
@@ -419,10 +397,6 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
     )
     filtered_substructures: Optional[List[str]] = Field(
         None, description="The list of substructures which should be filtered."
-    )
-    tag_dihedrals: bool = Field(
-        False,
-        description="If any dihedrals included in the allowed smarts should also be tagged for torsion driving.",
     )
 
     @classmethod
@@ -444,6 +418,20 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
         allow_reuse=True,
     )(check_environments)
 
+    @root_validator
+    def _validate_mutually_exclusive(cls, values):
+        allowed_substructures = values.get("allowed_substructures")
+        filtered_substructures = values.get("filtered_substructures")
+
+        message = "exactly one of ``allowed_substructures` and `filtered_substructures` must specified."
+
+        assert (
+            allowed_substructures is not None or filtered_substructures is not None
+        ), message
+        assert allowed_substructures is None or filtered_substructures is None, message
+
+        return values
+
     def _apply(self, molecules: List[Molecule]) -> ComponentResult:
         """
         Apply the filter to the input list of molecules removing those that match the filtered set or do not contain an
@@ -459,47 +447,25 @@ class SmartsFilter(BasicSettings, CustomWorkflowComponent):
 
         result = self._create_result()
 
-        if self.allowed_substructures is None:
-            # pass all of the molecules
-            for molecule in molecules:
-                result.add_molecule(molecule=molecule)
+        for molecule in molecules:
 
-        else:
-            for molecule in molecules:
-                # keep all dihedral matches here
-                dihedrals = TorsionIndexer()
+            if self.allowed_substructures is not None:
                 for substructure in self.allowed_substructures:
-                    matches = molecule.chemical_environment_matches(query=substructure)
-                    if matches and not self.tag_dihedrals:
+                    if molecule.chemical_environment_matches(query=substructure):
                         result.add_molecule(molecule=molecule)
                         break
-                    elif matches and self.tag_dihedrals:
-                        # add the dihedral for tagging if valid
-                        for match in matches:
-                            # this will handle deduplication
-                            dihedrals.add_torsion(torsion=match, scan_range=None)
-                    else:
-                        continue
                 else:
-                    # if we have dihedrals then add the molecule else fail it as we didn't break
-                    if dihedrals.n_torsions >= 1:
-                        molecule.properties["dihedrals"] = dihedrals
-                        result.add_molecule(molecule)
-                    else:
-                        result.filter_molecule(molecule=molecule)
+                    # the molecule does not contain the allowed substructure so remove it
+                    result.filter_molecule(molecule=molecule)
 
-        if self.filtered_substructures is not None:
-            # now we only want to check the molecules in the pass list
-            molecules_to_remove = []
-            for molecule in result.molecules:
+            elif self.filtered_substructures is not None:
                 for substructure in self.filtered_substructures:
                     if molecule.chemical_environment_matches(query=substructure):
-                        molecules_to_remove.append(molecule)
+                        result.filter_molecule(molecule=molecule)
                         break
-
-            # Failing a molecule automatically removes it from the successes
-            for molecule in molecules_to_remove:
-                result.filter_molecule(molecule)
+                else:
+                    # there was no filtered substructure so keep the molecule
+                    result.add_molecule(molecule=molecule)
 
         return result
 

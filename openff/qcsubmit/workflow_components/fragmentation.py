@@ -9,7 +9,7 @@ from qcelemental.util import which_import
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
-from openff.qcsubmit.utils import get_torsion
+from openff.qcsubmit.utils import get_symmetry_classes, get_symmetry_group, get_torsion
 from openff.qcsubmit.workflow_components.base_component import (
     CustomWorkflowComponent,
     ToolkitValidator,
@@ -82,9 +82,14 @@ class FragmenterBase(ToolkitValidator, CustomWorkflowComponent):
                 fragment_mol, bond_map[1]
             )
             bond = fragment_mol.get_bond_between(atom1, atom2)
+            symmetry_classes = get_symmetry_classes(fragment_mol)
+            symmetry_group = get_symmetry_group(
+                atom_group=(bond.atom1_index, bond.atom2_index),
+                symmetry_classes=symmetry_classes,
+            )
             torsion = get_torsion(bond)
             torsion_tag = TorsionIndexer()
-            torsion_tag.add_torsion(torsion=torsion)
+            torsion_tag.add_torsion(torsion=torsion, symmetry_group=symmetry_group)
             fragment_mol.properties["dihedrals"] = torsion_tag
             del fragment_mol.properties["atom_map"]
             component_result.add_molecule(fragment_mol)
