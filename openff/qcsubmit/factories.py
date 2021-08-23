@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import tqdm
 from openff.toolkit import topology as off
+from openff.toolkit.utils import GLOBAL_TOOLKIT_REGISTRY, ToolkitRegistry
 from pydantic import Field, validator
 from qcportal.models.common_models import DriverEnum
 from typing_extensions import Literal
@@ -61,7 +62,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         """Get the type of dataset made by this factory."""
         ...
 
-    def _molecular_complex_filter(self, dataset: T, molecule: off.Molecule) -> None:
+    def _molecular_complex_filter(
+        self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry
+    ) -> None:
         """
         Make a molecular complex dummy filter and filter a molecule.
         """
@@ -76,10 +79,12 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                 ],
                 component="MolecularComplexRemoval",
                 component_settings={},
-                component_provenance=self.provenance(),
+                component_provenance=self.provenance(toolkit_registry=toolkit_registry),
             )
 
-    def _no_dihedrals_filter(self, dataset: T, molecule: off.Molecule) -> None:
+    def _no_dihedrals_filter(
+        self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry
+    ) -> None:
         """
         Fail a molecule for having no tagged torsions.
         """
@@ -94,10 +99,10 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                 ],
                 component="NoDihedralRemoval",
                 component_settings={},
-                component_provenance=self.provenance(),
+                component_provenance=self.provenance(toolkit_registry=toolkit_registry),
             )
 
-    def provenance(self) -> Dict[str, str]:
+    def provenance(self, toolkit_registry: ToolkitRegistry) -> Dict[str, str]:
         """
         Create the provenance of openff-qcsubmit that created the molecule input data.
 
@@ -115,14 +120,10 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
             "openff-qcsubmit": qcsubmit.__version__,
             "openff-toolkit": toolkit.__version__,
         }
-        try:
-            import openeye
-
-            provenance["openeye"] = openeye.__version__
-        except ImportError:
-            import rdkit
-
-            provenance["rdkit"] = rdkit.__version__
+        # add all toolkit wrappers in the same order they are registered
+        for tk in toolkit_registry.registered_toolkits:
+            if tk.__class__.__name__ != "BuiltInToolkitWrapper":
+                provenance[tk.__class__.__name__] = tk.toolkit_version
 
         return provenance
 
@@ -320,7 +321,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         self.import_workflow(workflow=workflow, clear_existing=clear_workflow)
 
     def _create_initial_component_result(
-        self, molecules: Union[str, off.Molecule, List[off.Molecule]]
+        self,
+        molecules: Union[str, off.Molecule, List[off.Molecule]],
+        toolkit_registry: ToolkitRegistry,
     ) -> ComponentResult:
         """
         Create the initial component result which is used for de-duplication.
@@ -339,7 +342,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                 workflow_molecules = ComponentResult(
                     component_name=self.type,
                     component_description={"type": self.type},
-                    component_provenance=self.provenance(),
+                    component_provenance=self.provenance(
+                        toolkit_registry=toolkit_registry
+                    ),
                     input_file=molecules,
                 )
 
@@ -347,7 +352,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                 workflow_molecules = ComponentResult(
                     component_name=self.type,
                     component_description={"type": self.type},
-                    component_provenance=self.provenance(),
+                    component_provenance=self.provenance(
+                        toolkit_registry=toolkit_registry
+                    ),
                     input_directory=molecules,
                 )
 
@@ -355,7 +362,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
             workflow_molecules = ComponentResult(
                 component_name=self.type,
                 component_description={"type": self.type},
-                component_provenance=self.provenance(),
+                component_provenance=self.provenance(toolkit_registry=toolkit_registry),
                 molecules=[
                     molecules,
                 ],
@@ -365,14 +372,16 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
             workflow_molecules = ComponentResult(
                 component_name=self.type,
                 component_description={"type": self.type},
-                component_provenance=self.provenance(),
+                component_provenance=self.provenance(toolkit_registry=toolkit_registry),
                 molecules=molecules,
             )
 
         return workflow_molecules
 
     @abc.abstractmethod
-    def _process_molecule(self, dataset: T, molecule: off.Molecule) -> None:
+    def _process_molecule(
+        self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry
+    ) -> None:
         """
         Process the molecules returned from running the workflow into a new dataset.
         """
@@ -386,6 +395,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         tagline: str,
         metadata: Optional[Metadata] = None,
         processors: Optional[int] = None,
+        toolkit_registry: Optional[ToolkitRegistry] = None,
         verbose: bool = True,
     ) -> T:
         """
@@ -407,6 +417,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                 after making the dataset.
             processors:
                 The number of processors available to the workflow, note None will use all available processors.
+            toolkit_registry:
+                The openff.toolkit.utils.ToolkitRegistry which declares the available toolkits and the order in which they should be queried for functionality.If ``None`` is passed
+                the default global registry will be used with all installed toolkits.
             verbose:
                 If True a progress bar for each workflow component will be shown.
 
@@ -416,9 +429,13 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
             workflow.
         """
         # TODO set up a logging system to report the components
+        if toolkit_registry is None:
+            toolkit_registry = GLOBAL_TOOLKIT_REGISTRY
 
         #  create an initial component result
-        workflow_molecules = self._create_initial_component_result(molecules=molecules)
+        workflow_molecules = self._create_initial_component_result(
+            molecules=molecules, toolkit_registry=toolkit_registry
+        )
 
         # create the dataset
         # first we need to instance the dataset and assign the metadata
@@ -427,7 +444,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
         # the only data missing is the collection name so add it here.
         object_meta["dataset_name"] = dataset_name
         object_meta["description"] = description
-        object_meta["provenance"] = self.provenance()
+        object_meta["provenance"] = self.provenance(toolkit_registry=toolkit_registry)
         object_meta["dataset_tagline"] = tagline
         if metadata is not None:
             object_meta["metadata"] = metadata.dict()
@@ -439,6 +456,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                 workflow_molecules = component.apply(
                     molecules=workflow_molecules.molecules,
                     processors=processors,
+                    toolkit_registry=toolkit_registry,
                     verbose=verbose,
                 )
 
@@ -457,7 +475,9 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
             desc="{:30s}".format("Preparation"),
             disable=not verbose,
         ):
-            self._process_molecule(dataset=dataset, molecule=molecule)
+            self._process_molecule(
+                dataset=dataset, molecule=molecule, toolkit_registry=toolkit_registry
+            )
 
         return dataset
 
@@ -513,11 +533,12 @@ class BasicDatasetFactory(BaseDatasetFactory):
     def _dataset_type(cls) -> Type[BasicDataset]:
         return BasicDataset
 
-    def _process_molecule(self, dataset: T, molecule: off.Molecule) -> None:
+    def _process_molecule(
+        self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry
+    ) -> None:
         # order the molecule
         order_mol = molecule.canonical_order_atoms()
         attributes = self.create_cmiles_metadata(molecule=order_mol)
-        attributes.provenance = self.provenance()
 
         # always put the cmiles in the extras from what we have just calculated to ensure correct order
         extras = molecule.properties.get("extras", {})
@@ -534,7 +555,9 @@ class BasicDatasetFactory(BaseDatasetFactory):
                 keywords=keywords,
             )
         except MolecularComplexError:
-            self._molecular_complex_filter(dataset=dataset, molecule=molecule)
+            self._molecular_complex_filter(
+                dataset=dataset, molecule=molecule, toolkit_registry=toolkit_registry
+            )
 
 
 class OptimizationDatasetFactory(BasicDatasetFactory):
@@ -608,7 +631,9 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     def _dataset_type(cls) -> Type[TorsiondriveDataset]:
         return TorsiondriveDataset
 
-    def _linear_torsion_filter(self, dataset: T, molecule: off.Molecule) -> None:
+    def _linear_torsion_filter(
+        self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry
+    ) -> None:
         """
         Mock a linear torsion filtering component and filter the molecule.
         """
@@ -623,10 +648,12 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 ],
                 component="LinearTorsionRemoval",
                 component_settings={},
-                component_provenance=self.provenance(),
+                component_provenance=self.provenance(toolkit_registry=toolkit_registry),
             )
 
-    def _unconnected_torsion_filter(self, dataset: T, molecule: off.Molecule) -> None:
+    def _unconnected_torsion_filter(
+        self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry
+    ) -> None:
         """Mock a unconnected torsion filtering component and filter the molecule."""
 
         try:
@@ -640,10 +667,12 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                 ],
                 component="UnconnectedTorsionRemoval",
                 component_settings={},
-                component_provenance=self.provenance(),
+                component_provenance=self.provenance(toolkit_registry=toolkit_registry),
             )
 
-    def _process_molecule(self, dataset: T, molecule: off.Molecule) -> None:
+    def _process_molecule(
+        self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry
+    ) -> None:
         # check for extras and keywords
         extras = molecule.properties.get("extras", {})
         keywords = molecule.properties.get("keywords", {})
@@ -674,14 +703,28 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                         extras=extras,
                     )
                 except DihedralConnectionError:
-                    self._unconnected_torsion_filter(dataset=dataset, molecule=molecule)
+                    self._unconnected_torsion_filter(
+                        dataset=dataset,
+                        molecule=molecule,
+                        toolkit_registry=toolkit_registry,
+                    )
                 except LinearTorsionError:
-                    self._linear_torsion_filter(dataset=dataset, molecule=molecule)
+                    self._linear_torsion_filter(
+                        dataset=dataset,
+                        molecule=molecule,
+                        toolkit_registry=toolkit_registry,
+                    )
                 except MolecularComplexError:
-                    self._molecular_complex_filter(dataset=dataset, molecule=molecule)
+                    self._molecular_complex_filter(
+                        dataset=dataset,
+                        molecule=molecule,
+                        toolkit_registry=toolkit_registry,
+                    )
         else:
             # if no dihedrals have been tagged we need to fail the molecule
-            self._no_dihedrals_filter(dataset=dataset, molecule=molecule)
+            self._no_dihedrals_filter(
+                dataset=dataset, molecule=molecule, toolkit_registry=toolkit_registry
+            )
 
     def create_index(self, molecule: off.Molecule) -> str:
         """

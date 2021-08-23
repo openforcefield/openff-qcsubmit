@@ -4,6 +4,7 @@ Components that aid with Fragmentation of molecules.
 from typing import TYPE_CHECKING, Dict, List
 
 from openff.toolkit.topology import Molecule
+from openff.toolkit.utils import ToolkitRegistry
 from pydantic import Field
 from qcelemental.util import which_import
 from typing_extensions import Literal
@@ -55,14 +56,14 @@ class FragmenterBase(ToolkitValidator, CustomWorkflowComponent):
 
         return toolkit and fragmenter
 
-    def provenance(self) -> Dict:
+    def provenance(self, toolkit_registry: ToolkitRegistry) -> Dict:
         """
         Collect the toolkit information and add the fragmenter version information.
         """
 
         from openff import fragmenter
 
-        provenance = super().provenance()
+        provenance = super().provenance(toolkit_registry=toolkit_registry)
 
         provenance["openff-fragmenter"] = fragmenter.__version__
 
@@ -110,6 +111,11 @@ class WBOFragmenter(FragmenterBase):
         False,
         description="If any non rotor ring substituents should be kept during the fragmentation resulting in smaller fragments when `False`.",
     )
+    heuristic: Literal["path_length", "wbo"] = Field(
+        "path_length",
+        description="The path fragmenter should take when fragment needs to be grown "
+        "out. The options are ``['wbo', 'path_length']``.",
+    )
 
     @classmethod
     def description(cls) -> str:
@@ -117,12 +123,15 @@ class WBOFragmenter(FragmenterBase):
             "Fragment a molecule across all rotatable bonds using the WBO fragmenter."
         )
 
-    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(
+        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
+    ) -> ComponentResult:
         """
         Fragment the molecules using the WBOFragmenter.
 
         Args:
             molecules: The list of molecules which should be processed by this component.
+            toolkit_registry: The openff.toolkit.utils.ToolkitRegistry which declares the available toolkits.
 
         Note:
             * If the input molecule fails fragmentation it will fail this component and be removed.
@@ -131,17 +140,20 @@ class WBOFragmenter(FragmenterBase):
         """
         from openff.fragmenter.fragment import WBOFragmenter
 
-        result = self._create_result()
+        result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
 
             fragment_factory = WBOFragmenter(
                 threshold=self.threshold,
                 keep_non_rotor_ring_substituents=self.keep_non_rotor_ring_substituents,
+                heuristic=self.heuristic,
             )
 
             try:
-                fragment_result = fragment_factory.fragment(molecule=molecule)
+                fragment_result = fragment_factory.fragment(
+                    molecule=molecule, toolkit_registry=toolkit_registry
+                )
                 self._process_fragments(
                     fragments=fragment_result, component_result=result
                 )
@@ -164,26 +176,31 @@ class PfizerFragmenter(FragmenterBase):
     def description(cls) -> str:
         return "Fragment a molecule across all rotatable bonds using the Pfizer fragmentation scheme."
 
-    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(
+        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
+    ) -> ComponentResult:
         """
         Fragment the molecules using the PfizerFragmenter.
 
         Args:
             molecules: The list of molecules which should be processed by this component.
+            toolkit_registry: The openff.toolkit.utils.ToolkitRegistry which declares the available toolkits.
 
         Note:
             * If the input molecule fails fragmentation it will be fail this component and be removed.
         """
         from openff.fragmenter.fragment import PfizerFragmenter
 
-        result = self._create_result()
+        result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
 
             fragment_factory = PfizerFragmenter()
 
             try:
-                fragment_result = fragment_factory.fragment(molecule=molecule)
+                fragment_result = fragment_factory.fragment(
+                    molecule=molecule, toolkit_registry=toolkit_registry
+                )
                 self._process_fragments(
                     fragments=fragment_result, component_result=result
                 )
