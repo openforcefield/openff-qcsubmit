@@ -521,7 +521,12 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         for record, molecule in records_and_molecules:
 
-            spec = (record.qc_spec.program, record.qc_spec.method, record.qc_spec.basis)
+            spec = (
+                record.qc_spec.program,
+                record.qc_spec.method,
+                record.qc_spec.basis,
+                record.qc_spec.keywords,
+            )
 
             final_molecule_ids[record.client.address][spec].append(
                 record.final_molecule
@@ -536,9 +541,12 @@ class OptimizationResultCollection(_BaseResultCollection):
 
             result_records = [
                 record
-                for (program, method, basis), molecules_ids in final_molecule_ids[
-                    client_address
-                ].items()
+                for (
+                    program,
+                    method,
+                    basis,
+                    keywords,
+                ), molecules_ids in final_molecule_ids[client_address].items()
                 for batch_ids in batched_indices(molecules_ids, client.query_limit)
                 for record in client.query_results(
                     molecule=batch_ids,
@@ -546,6 +554,7 @@ class OptimizationResultCollection(_BaseResultCollection):
                     program=program,
                     method=method,
                     basis=basis,
+                    keywords=keywords,
                 )
             ]
 
