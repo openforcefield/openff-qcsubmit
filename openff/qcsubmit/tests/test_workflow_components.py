@@ -329,7 +329,10 @@ def test_rmsd_filter():
     """
     import copy
 
-    from simtk import unit
+    try:
+        from openmm import unit
+    except ImportError:
+        from simtk import unit
 
     rmsd_filter = workflow_components.RMSDCutoffConformerFilter(cutoff=1)
     mol = Molecule.from_smiles("CCCC")

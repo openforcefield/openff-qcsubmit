@@ -21,7 +21,11 @@ from qcportal.models.records import (
     RecordStatusEnum,
     ResultRecord,
 )
-from simtk import unit
+
+try:
+    from openmm import unit
+except ImportError:
+    from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.results.results import (
@@ -611,7 +615,10 @@ class ElementFilter(CMILESResultFilter):
         return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
 
     def _apply(self, result_collection: "T") -> "T":
-        from simtk.openmm.app import Element
+        try:
+            from openmm.app import Element
+        except ImportError:
+            from simtk.openmm.app import Element
 
         self._allowed_atomic_numbers = {
             Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele

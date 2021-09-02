@@ -11,7 +11,11 @@ from qcportal import FractalClient
 from qcportal.models import Molecule as QCMolecule
 from qcportal.models import TorsionDriveRecord
 from qcportal.models.records import OptimizationRecord, RecordBase, ResultRecord
-from simtk import unit
+
+try:
+    from openmm import unit
+except ImportError:
+    from simtk import unit
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.results import (

@@ -22,7 +22,11 @@ from qcportal.models.common_models import (
 )
 from qcportal.models.records import RecordStatusEnum
 from qcportal.models.torsiondrive import TDKeywords
-from simtk import unit
+
+try:
+    from openmm import unit
+except ImportError:
+    from simtk import unit
 
 from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
