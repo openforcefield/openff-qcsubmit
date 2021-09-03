@@ -12,7 +12,11 @@ from openff.toolkit.utils import (
 )
 from pydantic import Field, root_validator, validator
 from rdkit.Chem.rdMolAlign import AlignMol
-from simtk import unit
+
+try:
+    from openmm import unit
+except ImportError:
+    from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
@@ -165,7 +169,10 @@ class ElementFilter(ToolkitValidator, CustomWorkflowComponent):
 
     def _apply_init(self, result: ComponentResult) -> None:
 
-        from simtk.openmm.app import Element
+        try:
+            from openmm.app import Element
+        except ImportError:
+            from simtk.openmm.app import Element
 
         self._cache["elements"] = [
             Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
@@ -215,7 +222,10 @@ class ElementFilter(ToolkitValidator, CustomWorkflowComponent):
             The element class in OpenMM is used to match the elements so the OpenMM version is given.
         """
 
-        from simtk import openmm
+        try:
+            import openmm
+        except ImportError:
+            from simtk import openmm
 
         provenance = super().provenance(toolkit_registry=toolkit_registry)
         provenance["openmm_elements"] = openmm.__version__

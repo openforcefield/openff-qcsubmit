@@ -7,7 +7,11 @@ from pydantic import ValidationError
 from qcelemental.models import DriverEnum
 from qcportal.models import ObjectId, ResultRecord
 from qcportal.models.records import RecordStatusEnum
-from simtk import unit
+
+try:
+    from openmm import unit
+except ImportError:
+    from simtk import unit
 
 from openff.qcsubmit.results import (
     BasicResult,

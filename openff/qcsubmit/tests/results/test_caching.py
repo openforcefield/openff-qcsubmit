@@ -5,7 +5,11 @@ import pytest
 import requests_mock
 from openff.toolkit.topology import Molecule
 from qcportal.models import ObjectId, OptimizationRecord, ResultRecord
-from simtk import unit
+
+try:
+    from openmm import unit
+except ImportError:
+    from simtk import unit
 
 from openff.qcsubmit.results import BasicResult, OptimizationResult, TorsionDriveResult
 from openff.qcsubmit.results.caching import (
