@@ -31,7 +31,7 @@ from openff.qcsubmit.results.filters import (
     ResultRecordFilter,
     SMARTSFilter,
     SMILESFilter,
-    UnperceivableStereoFilter,
+    UnperceivableStereoFilter, MinimumConformersFilter,
 )
 from openff.qcsubmit.tests.results import mock_optimization_result_collection
 
@@ -302,6 +302,23 @@ def test_lowest_energy_filter(optimization_result_collection_duplicates):
     # make sure we only have one result
     assert result.n_molecules == 1
     assert result.n_results == 1
+
+
+@pytest.mark.parametrize("min_conformers, n_expected_results", [(1, 2), (3, 0)])
+def test_min_conformers_filter(
+    optimization_result_collection_duplicates, min_conformers, n_expected_results
+):
+
+    min_conformers_filter = MinimumConformersFilter(min_conformers=min_conformers)
+
+    assert optimization_result_collection_duplicates.n_results == 2
+    assert optimization_result_collection_duplicates.n_molecules == 1
+
+    result = min_conformers_filter.apply(
+        result_collection=optimization_result_collection_duplicates
+    )
+
+    assert result.n_results == n_expected_results
 
 
 @pytest.mark.parametrize(
