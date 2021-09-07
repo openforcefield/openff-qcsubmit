@@ -99,6 +99,7 @@ Filters
     UnperceivableStereoFilter
     LowestEnergyFilter
     ConformerRMSDFilter
+    MinimumConformersFilter
 
 Caching
 """""""
