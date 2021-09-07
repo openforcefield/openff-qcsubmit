@@ -26,12 +26,13 @@ from openff.qcsubmit.results.filters import (
     ElementFilter,
     HydrogenBondFilter,
     LowestEnergyFilter,
+    MinimumConformersFilter,
     RecordStatusFilter,
     ResultFilter,
     ResultRecordFilter,
     SMARTSFilter,
     SMILESFilter,
-    UnperceivableStereoFilter, MinimumConformersFilter,
+    UnperceivableStereoFilter,
 )
 from openff.qcsubmit.tests.results import mock_optimization_result_collection
 
