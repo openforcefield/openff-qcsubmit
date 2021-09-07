@@ -37,5 +37,6 @@ dependencies:
   # Optional
   - openmmforcefields >=0.9.0
   - openff-fragmenter
+  - openmm <7.6  # Needed until a new QCEngine release.
 #  - pip:
 #      - git+https://github.com/openforcefield/openff-fragmenter.git@master
