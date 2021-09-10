@@ -143,6 +143,18 @@ def test_molecule_filter_apply(result_filter, expected_ids, basic_result_collect
         }
 
 
+def test_molecule_filter_tautomers(tautomer_basic_result_collection):
+    """Filter for only one tautomer to ensure we are using the fixed hydrogen inchikey."""
+
+    result_filter = SMILESFilter(smiles_to_include=["C1=NC(=O)NN=C1"])
+
+    filtered_collection = result_filter.apply(tautomer_basic_result_collection)
+
+    assert filtered_collection.n_molecules == 1
+    assert len(filtered_collection.entries["http://localhost:442"]) == 1
+    assert filtered_collection.entries["http://localhost:442"][0].record_id == "2"
+
+
 @pytest.mark.parametrize(
     "result_filter, expected_ids",
     [

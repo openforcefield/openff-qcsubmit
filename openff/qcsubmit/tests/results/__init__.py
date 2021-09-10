@@ -58,7 +58,7 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
                 BasicResult(
                     record_id=ObjectId(str(i + 1)),
                     cmiles=molecule.to_smiles(mapped=True),
-                    inchi_key=molecule.to_inchikey(),
+                    inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                 )
                 for i, molecule in enumerate(molecules[address])
             ]
@@ -101,7 +101,7 @@ def mock_optimization_result_collection(
                 OptimizationResult(
                     record_id=ObjectId(str(i + 1)),
                     cmiles=molecule.to_smiles(mapped=True),
-                    inchi_key=molecule.to_inchikey(),
+                    inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                 )
                 for i, molecule in enumerate(molecules[address])
             ]
@@ -149,7 +149,7 @@ def mock_torsion_drive_result_collection(
                 TorsionDriveResult(
                     record_id=ObjectId(str(i + 1)),
                     cmiles=molecule.to_smiles(mapped=True),
-                    inchi_key=molecule.to_inchikey(),
+                    inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                 )
                 for i, molecule in enumerate(molecules[address])
             ]

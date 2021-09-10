@@ -44,6 +44,18 @@ def basic_result_collection(monkeypatch) -> BasicResultCollection:
 
 
 @pytest.fixture()
+def tautomer_basic_result_collection(monkeypatch) -> BasicResultCollection:
+    """Create a basic result collection with tautomers."""
+
+    smiles = {
+        "http://localhost:442": [
+            _smiles_to_molecule(smiles) for smiles in ["Oc1nnccn1", "C1=NC(=O)NN=C1", "C1=CN=NC(=O)N1"]
+        ]
+    }
+    return mock_basic_result_collection(smiles, monkeypatch)
+
+
+@pytest.fixture()
 def h_bond_basic_result_collection(monkeypatch) -> BasicResultCollection:
     """Create a basic collection which can be filtered."""
 
