@@ -68,7 +68,7 @@ class _BaseResult(BaseModel, abc.ABC):
     )
     inchi_key: str = Field(
         ...,
-        description="The InChI key generated from the ``cmiles`` representation. This "
+        description="The fixed hydrogen layer InChI key generated from the ``cmiles`` representation. This "
         "may be used as a hash for the molecule referenced by this record.",
     )
 
@@ -341,7 +341,7 @@ class BasicResultCollection(_BaseResultCollection):
                             # may be some TK specific edge cases we don't want
                             # exceptions for such as OE and nitrogen stereochemistry.
                             allow_undefined_stereo=True,
-                        ).to_inchikey(fixed_hydrogens=False),
+                        ).to_inchikey(fixed_hydrogens=True),
                     )
                     for index, (result,) in query.iterrows()
                     if result.status.value.upper() == "COMPLETE"
@@ -443,7 +443,16 @@ class OptimizationResultCollection(_BaseResultCollection):
                         cmiles=entry.attributes[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
-                        inchi_key=entry.attributes["inchi_key"],
+                        inchi_key=entry.attributes.get(
+                            "fixed_hydrogen_inchi_key",
+                            # if this is missing on old records generate it
+                            Molecule.from_mapped_smiles(
+                                entry.attributes[
+                                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                                ],
+                                allow_undefined_stereo=True,
+                            ).to_inchikey(fixed_hydrogens=True),
+                        ),
                     )
                     for entry in dataset.data.records.values()
                     if entry.name in query
@@ -568,7 +577,7 @@ class OptimizationResultCollection(_BaseResultCollection):
                         cmiles=molecule.to_smiles(
                             isomeric=True, explicit_hydrogens=True, mapped=True
                         ),
-                        inchi_key=molecule.to_inchikey(),
+                        inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                     )
                 )
 
@@ -678,7 +687,15 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                         cmiles=entry.attributes[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
-                        inchi_key=entry.attributes["inchi_key"],
+                        inchi_key=entry.attributes.get(
+                            "fixed_hydrogen_inchi_key",
+                            Molecule.from_mapped_smiles(
+                                entry.attributes[
+                                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                                ],
+                                allow_undefined_stereo=True,
+                            ).to_inchikey(fixed_hydrogens=True),
+                        ),
                     )
                     for entry in dataset.data.records.values()
                     if entry.name in query
