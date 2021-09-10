@@ -21,7 +21,11 @@ from qcportal.models.records import (
     RecordStatusEnum,
     ResultRecord,
 )
-from simtk import unit
+
+try:
+    from openmm import unit
+except ImportError:
+    from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.results.results import (
@@ -418,6 +422,37 @@ class ConformerRMSDFilter(ResultRecordGroupFilter):
         ]
 
 
+class MinimumConformersFilter(ResultRecordGroupFilter):
+    """A filter that will only retain molecules that have at least a specified number
+    of conformers present in the result collection.
+
+    Notes:
+        * This filter will only be applied to basic and optimization datasets.
+          Torsion drive datasets / entries will be skipped.
+    """
+
+    min_conformers: int = Field(
+        2,
+        description="The minimum number of conformers that must be found in order to "
+        "retain a molecule and it's associated records.",
+    )
+
+    def _filter_function(
+        self,
+        entries: List[
+            Tuple["_BaseResult", Union[ResultRecord, OptimizationRecord], Molecule, str]
+        ],
+    ) -> List[Tuple["_BaseResult", str]]:
+
+        # Sanity check that all molecules look as we expect.
+        assert all(molecule.n_conformers == 1 for _, _, molecule, _ in entries)
+
+        if len(entries) < self.min_conformers:
+            return []
+
+        return [(entry, address) for entry, _, _, address in entries]
+
+
 class SMILESFilter(CMILESResultFilter):
     """A filter which will remove or retain records which were computed for molecules
     described by specific SMILES patterns.
@@ -611,7 +646,10 @@ class ElementFilter(CMILESResultFilter):
         return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
 
     def _apply(self, result_collection: "T") -> "T":
-        from simtk.openmm.app import Element
+        try:
+            from openmm.app import Element
+        except ImportError:
+            from simtk.openmm.app import Element
 
         self._allowed_atomic_numbers = {
             Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele

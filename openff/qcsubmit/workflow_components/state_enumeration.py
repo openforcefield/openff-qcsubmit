@@ -4,8 +4,9 @@ Components to expand stereochemistry and tautomeric states of molecules.
 from typing import List, Optional, Tuple
 
 from openff.toolkit.topology import Molecule
-from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper
+from openff.toolkit.utils import ToolkitRegistry
 from pydantic import Field
+from qcelemental.util import which_import
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
@@ -15,7 +16,6 @@ from openff.qcsubmit.utils import (
     get_symmetry_group,
 )
 from openff.qcsubmit.workflow_components.base_component import (
-    BasicSettings,
     CustomWorkflowComponent,
     ToolkitValidator,
 )
@@ -51,13 +51,9 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
     def properties(cls) -> ComponentProperties:
         return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
-    def _apply_init(self, result: ComponentResult) -> None:
-        """
-        Here we load up the toolkit backend into the _cache.
-        """
-        self._cache["toolkit"] = self._toolkits[self.toolkit]()
-
-    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(
+        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
+    ) -> ComponentResult:
         """
         Enumerate tautomers of the input molecule.
 
@@ -65,20 +61,19 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
          Parameters:
             molecules: The list of molecules the component should be applied on.
+            toolkit_registry: The openff.toolkit.utils.ToolkitRegistry which declares the available toolkits.
 
         Returns:
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        toolkit = self._cache["toolkit"]
-
-        result = self._create_result()
+        result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
             try:
                 tautomers = molecule.enumerate_tautomers(
-                    max_states=self.max_tautomers, toolkit_registry=toolkit
+                    max_states=self.max_tautomers, toolkit_registry=toolkit_registry
                 )
                 for tautomer in tautomers:
                     result.add_molecule(tautomer)
@@ -122,25 +117,22 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     def properties(cls) -> ComponentProperties:
         return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
-    def _apply_init(self, result: ComponentResult) -> None:
-
-        self._cache["toolkit"] = self._toolkits[self.toolkit]()
-
-    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(
+        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
+    ) -> ComponentResult:
         """
         Enumerate stereo centers and bonds of the input molecule
 
         Parameters:
             molecules: The list of molecules the component should be applied on.
+            toolkit_registry: The openff.toolkit.utils.ToolkitRegistry which declares the available toolkits.
 
         Returns:
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
             that passed and were filtered by the component and details about the component which generated the result.
         """
 
-        toolkit = self._cache["toolkit"]
-
-        result = self._create_result()
+        result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
             try:
@@ -148,7 +140,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
                     undefined_only=self.undefined_only,
                     max_isomers=self.max_isomers,
                     rationalise=self.rationalise,
-                    toolkit_registry=toolkit,
+                    toolkit_registry=toolkit_registry,
                 )
 
                 # now check that each molecule is well defined
@@ -178,13 +170,21 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     """
 
     type: Literal["EnumerateProtomers"] = "EnumerateProtomers"
-    # restrict the allowed toolkits for this module
-    toolkit = "openeye"
-    _toolkits = {"openeye": OpenEyeToolkitWrapper}
-
     max_states: int = Field(
         10, description="The maximum number of states that should be generated."
     )
+
+    @classmethod
+    def is_available(cls) -> bool:
+        tk = super().is_available()
+        oe = which_import(
+            ".oechem",
+            return_bool=True,
+            raise_error=True,
+            package="openeye",
+            raise_msg="Please install via `conda install openeye-toolkits -c openeye`",
+        )
+        return tk and oe
 
     @classmethod
     def description(cls) -> str:
@@ -198,16 +198,15 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     def properties(cls) -> ComponentProperties:
         return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
-    def _apply_init(self, result: ComponentResult) -> None:
-
-        self._cache["toolkit"] = self._toolkits[self.toolkit]()
-
-    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(
+        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
+    ) -> ComponentResult:
         """
         Enumerate the formal charges of the molecule.
 
         Parameters:
             molecules: The list of molecules the component should be applied on.
+            toolkit_registry: The openff.toolkit.utils.ToolkitRegistry which declares the avilable toolkits.
 
         Returns:
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
@@ -217,34 +216,24 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
             This is only possible using Openeye so far, if openeye is not available this step will fail.
         """
 
-        result = self._create_result()
+        result = self._create_result(toolkit_registry=toolkit_registry)
 
-        has_oe = self._cache["toolkit"]
+        for molecule in molecules:
+            try:
+                protomers = molecule.enumerate_protomers(max_states=self.max_states)
 
-        # must have openeye to use this feature
-        if has_oe:
+                for protomer in protomers:
+                    result.add_molecule(protomer)
+                result.add_molecule(molecule)
 
-            for molecule in molecules:
-                try:
-                    protomers = molecule.enumerate_protomers(max_states=self.max_states)
-
-                    for protomer in protomers:
-                        result.add_molecule(protomer)
-                    result.add_molecule(molecule)
-
-                except Exception:
-                    result.filter_molecule(molecule)
-
-            return result
-
-        else:
-            for molecule in molecules:
+            except Exception:
+                # if openeye is not available this will fail
                 result.filter_molecule(molecule)
 
-            return result
+        return result
 
 
-class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
+class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
     """
     This module will tag any matching substructures for scanning, useful for torsiondrive datasets.
     """
@@ -377,19 +366,27 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
         unique_torsions = [*torsions_by_symmetry.values()]
         return unique_torsions
 
-    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(
+        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
+    ) -> ComponentResult:
         """
         Tag any dihedrals which match the defined set of targets in the enumerator.
         """
 
-        result = self._create_result()
+        result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
             symmetry_classes = get_symmetry_classes(molecule)
             molecule.properties["dihedrals"] = TorsionIndexer()
-            self._tag_torsions(molecule, symmetry_classes)
-            self._tag_double_torsions(molecule, symmetry_classes)
-            self._tag_improper_torsions(molecule, symmetry_classes)
+            self._tag_torsions(
+                molecule, symmetry_classes, toolkit_registry=toolkit_registry
+            )
+            self._tag_double_torsions(
+                molecule, symmetry_classes, toolkit_registry=toolkit_registry
+            )
+            self._tag_improper_torsions(
+                molecule, symmetry_classes, toolkit_registry=toolkit_registry
+            )
 
             indexer = molecule.properties["dihedrals"]
             if len(indexer.get_dihedrals) == 0:
@@ -399,7 +396,12 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
 
         return result
 
-    def _tag_torsions(self, molecule: Molecule, symmetry_classes: List[int]) -> None:
+    def _tag_torsions(
+        self,
+        molecule: Molecule,
+        symmetry_classes: List[int],
+        toolkit_registry: ToolkitRegistry,
+    ) -> None:
         """
         For each of the torsions in the torsion list try and tag only one in the molecule.
         """
@@ -407,7 +409,9 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
         indexer: TorsionIndexer = molecule.properties["dihedrals"]
 
         for torsion in self.torsion_scans:
-            matches = molecule.chemical_environment_matches(torsion.smarts1)
+            matches = molecule.chemical_environment_matches(
+                query=torsion.smarts1, toolkit_registry=toolkit_registry
+            )
             unique_torsions = self._get_unique_torsions(
                 matches=matches, symmetry_classes=symmetry_classes
             )
@@ -423,7 +427,10 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
                 )
 
     def _tag_double_torsions(
-        self, molecule: Molecule, symmetry_classes: List[int]
+        self,
+        molecule: Molecule,
+        symmetry_classes: List[int],
+        toolkit_registry: ToolkitRegistry,
     ) -> None:
         """
         For each double torsion in the list try and tag the combination in the molecule.
@@ -432,8 +439,12 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
         indexer: TorsionIndexer = molecule.properties["dihedrals"]
 
         for double_torsion in self.double_torsion_scans:
-            matches1 = molecule.chemical_environment_matches(double_torsion.smarts1)
-            matches2 = molecule.chemical_environment_matches(double_torsion.smarts2)
+            matches1 = molecule.chemical_environment_matches(
+                query=double_torsion.smarts1, toolkit_registry=toolkit_registry
+            )
+            matches2 = molecule.chemical_environment_matches(
+                query=double_torsion.smarts2, toolkit_registry=toolkit_registry
+            )
             unique_torsions1 = self._get_unique_torsions(
                 matches=matches1, symmetry_classes=symmetry_classes
             )
@@ -460,7 +471,10 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
                     )
 
     def _tag_improper_torsions(
-        self, molecule: Molecule, symmetry_classes: List[int]
+        self,
+        molecule: Molecule,
+        symmetry_classes: List[int],
+        toolkit_registry: ToolkitRegistry,
     ) -> None:
         """
         For each improper torsion in the list try and tag the combination in the molecule.
@@ -470,7 +484,9 @@ class ScanEnumerator(BasicSettings, CustomWorkflowComponent):
 
         for improper in self.improper_scans:
 
-            matches = molecule.chemical_environment_matches(improper.smarts)
+            matches = molecule.chemical_environment_matches(
+                query=improper.smarts, toolkit_registry=toolkit_registry
+            )
             unique_torsions = self._get_unique_torsions(
                 matches=matches, symmetry_classes=symmetry_classes
             )

@@ -275,7 +275,10 @@ def check_allowed_elements(element: Union[str, int]) -> Union[str, int]:
     Raises:
         ValueError: If the element number or symbol passed could not be converted into a valid element.
     """
-    from simtk.openmm.app import Element
+    try:
+        from openmm.app import Element
+    except ImportError:
+        from simtk.openmm.app import Element
 
     if isinstance(element, int):
         return element

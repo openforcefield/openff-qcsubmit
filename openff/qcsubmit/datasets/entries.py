@@ -8,7 +8,11 @@ import numpy as np
 import openff.toolkit.topology as off
 import qcelemental as qcel
 from pydantic import Field, validator
-from simtk import unit
+
+try:
+    from openmm import unit
+except ImportError:
+    from simtk import unit
 
 from openff.qcsubmit.common_structures import (
     DatasetConfig,

@@ -1,10 +1,10 @@
 import abc
-from typing import ClassVar, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import tqdm
 from openff.toolkit.topology import Molecule
-from openff.toolkit.utils.toolkits import OpenEyeToolkitWrapper, RDKitToolkitWrapper
-from pydantic import BaseModel, Field, PrivateAttr, validator
+from openff.toolkit.utils import ToolkitRegistry
+from pydantic import BaseModel, Field, PrivateAttr
 from qcelemental.util import which_import
 from typing_extensions import Literal
 
@@ -69,13 +69,16 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(
+        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
+    ) -> ComponentResult:
         """
         This is the main feature of the workflow component which should accept a molecule, perform the component action
         and then return the result.
 
         Args:
             molecules: The list of molecules to be processed by this component.
+            toolkit_registry: The openff.toolkit.utils.ToolkitRegistry which declares the available toolkits.
 
         Returns:
             A component result class which handles collecting together molecules that pass and fail
@@ -99,6 +102,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
     def apply(
         self,
         molecules: List[Molecule],
+        toolkit_registry: ToolkitRegistry,
         processors: Optional[int] = None,
         verbose: bool = True,
     ) -> ComponentResult:
@@ -109,6 +113,8 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         Args:
             molecules:
                 The list of molecules to be processed by this component.
+            toolkit_registry:
+                The openff.toolkit.utils.ToolkitRegistry which declares the available backend toolkits to be used.
             processors:
                 The number of processor the component can use to run the job in parallel across molecules,
                 None will default to all cores.
@@ -119,7 +125,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
             A component result class which handles collecting together molecules that pass and fail
             the component
         """
-        result: ComponentResult = self._create_result()
+        result: ComponentResult = self._create_result(toolkit_registry=toolkit_registry)
 
         self._apply_init(result)
 
@@ -136,7 +142,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
 
                 # Assumes to process in batches of 1 for now
                 work_list = [
-                    pool.apply_async(self._apply, ([molecule],))
+                    pool.apply_async(self._apply, ([molecule], toolkit_registry))
                     for molecule in molecules
                 ]
                 for work in tqdm.tqdm(
@@ -160,7 +166,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
                 desc="{:30s}".format(self.type),
                 disable=not verbose,
             ):
-                work = self._apply([molecule])
+                work = self._apply([molecule], toolkit_registry)
                 for success in work.molecules:
                     result.add_molecule(success)
                 for fail in work.filtered:
@@ -171,7 +177,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         return result
 
     @abc.abstractmethod
-    def provenance(self) -> Dict:
+    def provenance(self, toolkit_registry: ToolkitRegistry) -> Dict:
         """
         This function should detail the programs with version information and procedures called during activation
         of the workflow component.
@@ -181,7 +187,9 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         """
         ...
 
-    def _create_result(self, **kwargs) -> ComponentResult:
+    def _create_result(
+        self, toolkit_registry: ToolkitRegistry, **kwargs
+    ) -> ComponentResult:
         """
         A helpful method to build to create the component result with the required information.
 
@@ -192,7 +200,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         result = ComponentResult(
             component_name=self.type,
             component_description=self.dict(),
-            component_provenance=self.provenance(),
+            component_provenance=self.provenance(toolkit_registry=toolkit_registry),
             skip_unique_check=not self.properties().produces_duplicates,
             **kwargs,
         )
@@ -209,31 +217,12 @@ class ToolkitValidator(BaseModel):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    toolkit: str = Field(
-        "openeye",
-        description="The name of the toolkit which should be used in this component.",
-    )
-    _toolkits: ClassVar[Dict] = {
-        "rdkit": RDKitToolkitWrapper,
-        "openeye": OpenEyeToolkitWrapper,
-    }
-
-    @validator("toolkit")
-    def _check_toolkit(cls, toolkit: str) -> str:
-        """
-        Make sure that toolkit is one of the supported types in the OFFTK.
-        """
-        if toolkit not in cls._toolkits.keys():
-            raise ValueError(
-                f"The requested toolkit ({toolkit}) is not support by the OFFTK. "
-                f"Please chose from {cls._toolkits.keys()}."
-            )
-        else:
-            return toolkit
-
-    def provenance(self) -> Dict:
+    def provenance(self, toolkit_registry: ToolkitRegistry) -> Dict:
         """
         This component calls the OFFTK to perform the task and logs information on the backend toolkit used.
+
+        Args:
+            toolkit_registry: The openff.toolkit.utils.ToolkitRegistry which declares the available toolkits for the component.
 
         Returns:
             A dictionary containing the version information about the backend toolkit called to perform the task.
@@ -245,16 +234,9 @@ class ToolkitValidator(BaseModel):
             "openff-toolkit": toolkit.__version__,
             "openff-qcsubmit": qcsubmit.__version__,
         }
-
-        if self.toolkit == "rdkit":
-            import rdkit
-
-            provenance["rdkit"] = rdkit.__version__
-
-        elif self.toolkit == "openeye":
-            import openeye
-
-            provenance["openeye"] = openeye.__version__
+        for tk in toolkit_registry.registered_toolkits:
+            if tk.__class__.__name__ != "BuiltInToolkitWrapper":
+                provenance[tk.__class__.__name__] = tk.toolkit_version
 
         return provenance
 
@@ -263,61 +245,10 @@ class ToolkitValidator(BaseModel):
         """
         Check if any of the requested backend toolkits can be used.
         """
-        if len(cls._toolkits) == 1:
-            # the package needs a specific toolkit so raise the error
-            raise_error = True
-        else:
-            raise_error = False
-
-        for toolkit in cls._toolkits:
-            if toolkit == "openeye":
-                oe = which_import(
-                    ".oechem",
-                    package="openeye",
-                    return_bool=True,
-                    raise_error=raise_error,
-                    raise_msg="Please install via `conda install openeye-toolkits -c openeye`.",
-                )
-                if oe:
-                    return True
-            elif toolkit == "rdkit":
-                rdkit = which_import(
-                    "rdkit",
-                    return_bool=True,
-                    raise_error=raise_error,
-                    raise_msg="Please install via `conda install rdkit -c conda-forge`.",
-                )
-                if rdkit:
-                    return True
-        # if we are here both toolkits are missing
-        raise ModuleNotFoundError(
-            "Openeye or RDKit is required to use this component please install via `conda install openeye-toolkits -c openeye` or `conda install rdkit -c conda-forge`."
+        return which_import(
+            ".toolkit",
+            package="openff",
+            return_bool=True,
+            raise_error=True,
+            raise_msg="Please install via `conda install openff-toolkit -c conda-forge`.",
         )
-
-
-class BasicSettings(BaseModel):
-    """
-    This mixin identifies the class as being basic and always being available as it only requires basic packages.
-    """
-
-    @classmethod
-    def is_available(cls) -> bool:
-        """
-        This component is basic if it requires no extra dependencies.
-        """
-
-        return True
-
-    def provenance(self) -> Dict:
-        """
-        The basic settings provenance generator.
-        """
-
-        from openff import qcsubmit, toolkit
-
-        provenance = {
-            "openff-toolkit": toolkit.__version__,
-            "openff-qcsubmit": qcsubmit.__version__,
-        }
-
-        return provenance

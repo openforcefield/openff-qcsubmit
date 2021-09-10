@@ -2,6 +2,7 @@ from typing import List, Optional
 
 import simtk.unit as unit
 from openff.toolkit.topology import Molecule
+from openff.toolkit.utils import ToolkitRegistry
 from pydantic import Field
 from typing_extensions import Literal
 
@@ -52,12 +53,15 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         else:
             self._cache["cutoff"] = None
 
-    def _apply(self, molecules: List[Molecule]) -> ComponentResult:
+    def _apply(
+        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
+    ) -> ComponentResult:
         """
         Generate conformers for the molecules using the selected toolkit backend.
 
         Args:
             molecules: The list of molecules the component should be applied on.
+            toolkit_registry: The openff.toolkit.utils.ToolkitRegistry that declares the available toolkits.
 
         Returns:
             An instance of the [ComponentResult][qcsubmit.datasets.ComponentResult]
@@ -66,9 +70,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         """
 
         # create the toolkit
-        toolkit = self._toolkits[self.toolkit]()
-
-        result = self._create_result()
+        result = self._create_result(toolkit_registry=toolkit_registry)
 
         rms_cutoff = self._cache["cutoff"]
 
@@ -79,7 +81,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
                     n_conformers=self.max_conformers,
                     clear_existing=self.clear_existing,
                     rms_cutoff=rms_cutoff,
-                    toolkit_registry=toolkit,
+                    toolkit_registry=toolkit_registry,
                 )
 
             # need to catch more specific exceptions here.

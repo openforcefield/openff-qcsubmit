@@ -6,7 +6,6 @@ from openff.qcsubmit.workflow_components.base import (
     register_component,
 )
 from openff.qcsubmit.workflow_components.base_component import (
-    BasicSettings,
     CustomWorkflowComponent,
     ToolkitValidator,
 )
@@ -47,7 +46,6 @@ __all__ = [
     register_component,
     list_components,
     get_component,
-    BasicSettings,
     CustomWorkflowComponent,
     ToolkitValidator,
     StandardConformerGenerator,
