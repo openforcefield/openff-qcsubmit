@@ -1738,6 +1738,19 @@ def test_basis_coverage_multiple():
         assert report == set()
 
 
+def test_basis_coberage_qm_none():
+    """Test the basis coverage check with the basis is None for Psi4.
+    Here the basis has been combinded with the method and a warning should be raised that it is not checked.
+    """
+    dataset = BasicDataset(metadata={"elements": {"I", "C", "H", "N", "O"}}, dataset_name="Test dataset",
+                           dataset_tagline="XXXXXXXX", description="XXXXXXXX")
+    dataset.clear_qcspecs()
+    dataset.add_qc_spec(method="mp2/cc-pv[tq]z + D:ccsd(t)/cc-pvdz", basis=None, spec_name="cbs test", program="psi4", spec_description="testing the cbs spec")
+
+    with pytest.warns(UserWarning):
+        dataset._get_missing_basis_coverage()
+
+
 def test_remove_qcspec():
     """
     Test removing qcspecs.
