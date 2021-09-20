@@ -33,6 +33,7 @@ dependencies:
   - basis_set_exchange
   - typing-extensions
   - cachetools
+  - h5py
 
   # Optional
   - openmmforcefields >=0.9.0

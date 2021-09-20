@@ -504,18 +504,20 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                 The molecule for which the dataset index will be generated.
 
         Returns:
-            The canonical isomeric smiles for the molecule which is used as the dataset index.
+            The molecule name or the canonical isomeric smiles for the molecule if the name is not assigned or is blank.
 
         Important:
             Each dataset can have a different indexing system depending on the data, in this basic dataset each conformer
             of a molecule is expanded into its own entry separately indexed entry. This is handled by the dataset however
             so we just generate a general index for the molecule before adding to the dataset.
         """
-
-        index = molecule.to_smiles(
-            isomeric=True, explicit_hydrogens=False, mapped=False
-        )
-        return index
+        name = molecule.name.lower()
+        if name and name != "unnamed":
+            return name
+        else:
+            return molecule.to_smiles(
+                isomeric=True, explicit_hydrogens=False, mapped=False
+            )
 
 
 class BasicDatasetFactory(BaseDatasetFactory):
@@ -536,9 +538,8 @@ class BasicDatasetFactory(BaseDatasetFactory):
     def _process_molecule(
         self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry
     ) -> None:
-        # order the molecule
-        order_mol = molecule.canonical_order_atoms()
-        attributes = self.create_cmiles_metadata(molecule=order_mol)
+
+        attributes = self.create_cmiles_metadata(molecule=molecule)
 
         # always put the cmiles in the extras from what we have just calculated to ensure correct order
         extras = molecule.properties.get("extras", {})
@@ -548,8 +549,8 @@ class BasicDatasetFactory(BaseDatasetFactory):
         # now submit the molecule
         try:
             dataset.add_molecule(
-                index=self.create_index(molecule=order_mol),
-                molecule=order_mol,
+                index=self.create_index(molecule=molecule),
+                molecule=molecule,
                 attributes=attributes,
                 extras=extras if bool(extras) else None,
                 keywords=keywords,

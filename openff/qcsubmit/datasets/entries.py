@@ -5,6 +5,7 @@ All of the individual dataset entry types are defined here.
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+import networkx as nx
 import openff.toolkit.topology as off
 import qcelemental as qcel
 from pydantic import Field, validator
@@ -72,8 +73,24 @@ class DatasetEntry(DatasetConfig):
         """
 
         extras = kwargs["extras"]
+        # a place holder to check for multiple components
+        molecule_ids, charges = None, None
         # if we get an off_molecule we need to convert it
         if off_molecule is not None:
+            molecule_ids = [
+                list(ids) for ids in nx.connected_components(off_molecule.to_networkx())
+            ]
+            charges = [
+                sum(
+                    [
+                        off_molecule.atoms[atom].formal_charge.value_in_unit(
+                            unit.elementary_charge
+                        )
+                        for atom in graph
+                    ]
+                )
+                for graph in molecule_ids
+            ]
             if off_molecule.n_conformers == 0:
                 off_molecule.generate_conformers(n_conformers=1)
             schema_mols = [
@@ -85,7 +102,7 @@ class DatasetEntry(DatasetConfig):
         super().__init__(**kwargs)
 
         # now we need to process all of the initial molecules to make sure the cmiles is present
-        # and force c1 symmetry
+        # and force c1 symmetry, we also need to split the molecule into fragments if there are multiple present
         initial_molecules = []
         for mol in self.initial_molecules:
             extras = mol.extras or {}
@@ -96,6 +113,10 @@ class DatasetEntry(DatasetConfig):
             mol_data["extras"] = extras
             # put into strict c1 symmetry
             mol_data["fix_symmetry"] = "c1"
+            # add fragment information if we have multiple components
+            if molecule_ids is not None and len(molecule_ids) > 1:
+                mol_data["fragments"] = molecule_ids
+                mol_data["fragment_charges"] = charges
             initial_molecules.append(qcel.models.Molecule.parse_obj(mol_data))
         # now assign the new molecules
         self.initial_molecules = initial_molecules
