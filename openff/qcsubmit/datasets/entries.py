@@ -4,10 +4,11 @@ All of the individual dataset entry types are defined here.
 
 from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 import networkx as nx
+import numpy as np
 import openff.toolkit.topology as off
 import qcelemental as qcel
+import qcelemental.models
 from pydantic import Field, validator
 
 try:
@@ -23,11 +24,11 @@ from openff.qcsubmit.common_structures import (
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.exceptions import ConstraintError, DihedralConnectionError
 from openff.qcsubmit.validators import (
+    check_connectivity,
     check_constraints,
     check_improper_connection,
     check_linear_torsions,
     check_torsion_connection,
-    check_valence_connectivity,
 )
 
 
@@ -61,10 +62,6 @@ class DatasetEntry(DatasetConfig):
         {},
         description="Any extra keywords that should be used in the QCArchive calculation should be passed here.",
     )
-
-    _qcel_molecule_validator = validator(
-        "initial_molecules", allow_reuse=True, each_item=True
-    )(check_valence_connectivity)
 
     def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
         """
@@ -232,6 +229,17 @@ class TorsionDriveEntry(DatasetEntry):
         TDSettings(),
         description="The torsiondrive keyword settings which can be used to overwrite the general global settings used in the dataset allowing for finner control.",
     )
+
+    # we do not yet support multi component torsion drives so validate
+    # we have to define the validation this way due to pydantic
+    # <https://pydantic-docs.helpmanual.io/usage/validators/#subclass-validators-and-each_item>
+    @validator("initial_molecules")
+    def _check_conectivity(
+        cls, molecules: List[qcelemental.models.Molecule]
+    ) -> List[qcelemental.models.Molecule]:
+        for mol in molecules:
+            check_connectivity(mol)
+        return molecules
 
     def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
 

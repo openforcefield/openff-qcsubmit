@@ -27,9 +27,20 @@ def test_attributes_from_openff_molecule():
         "standard_inchi": mol.to_inchi(fixed_hydrogens=False),
         "inchi_key": mol.to_inchikey(fixed_hydrogens=False),
         "fixed_hydrogen_inchi": mol.to_inchi(fixed_hydrogens=True),
-        "fixed_hydrogen_inchi_key": mol.to_inchikey(fixed_hydrogens=True)
+        "fixed_hydrogen_inchi_key": mol.to_inchikey(fixed_hydrogens=True),
+        "unique_fixed_hydrogen_inchi_keys": {mol.to_inchikey(fixed_hydrogens=True)}
     }
     assert test_cmiles == attributes
+
+
+def test_attributes_from_openff_multi_component():
+    """
+    Make sure the unique inchi keys are updated correctly.
+    """
+    mol = Molecule.from_smiles("CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5.CS(=O)(=O)O")
+
+    attributes = MoleculeAttributes.from_openff_molecule(mol)
+    assert len(attributes.unique_fixed_hydrogen_inchi_keys) == 2
 
 
 def test_attributes_to_openff_molecule():

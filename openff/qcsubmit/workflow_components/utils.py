@@ -641,7 +641,9 @@ class ComponentResult:
         f = h5py.File(input_file, "r")
         for name, entry in f.items():
             mapped_smiles = entry["smiles"][0].decode("utf-8")
-            molecule: off.Molecule = off.Molecule.from_mapped_smiles(mapped_smiles)
+            molecule: off.Molecule = off.Molecule.from_mapped_smiles(
+                mapped_smiles, allow_undefined_stereo=True
+            )
             molecule.name = name
             units = self._unit_conversion[entry["conformations"].attrs["units"].lower()]
             # now add the conformers
