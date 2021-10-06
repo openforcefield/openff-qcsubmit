@@ -34,13 +34,13 @@ from openff.qcsubmit.workflow_components.state_enumeration import (
 )
 from openff.qcsubmit.workflow_components.utils import (
     ComponentResult,
+    DoubleTorsion,
     ImproperScan,
+    ImproperTorsion,
     Scan1D,
     Scan2D,
-    TorsionIndexer,
     SingleTorsion,
-    ImproperTorsion,
-    DoubleTorsion,
+    TorsionIndexer,
 )
 
 __all__ = [

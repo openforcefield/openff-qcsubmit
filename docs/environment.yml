@@ -1,4 +1,4 @@
-name: fragmenter
+name: qcsubmit
 channels:
   - conda-forge
 
@@ -23,8 +23,8 @@ dependencies:
   - pydantic
   - pyyaml
   - qcportal
-  - torsiondrive
-  - basis_set_exchange
+#  - torsiondrive
+#  - basis_set_exchange
   - typing-extensions
   - cachetools
 
