@@ -38,6 +38,9 @@ from openff.qcsubmit.workflow_components.utils import (
     Scan1D,
     Scan2D,
     TorsionIndexer,
+    SingleTorsion,
+    ImproperTorsion,
+    DoubleTorsion,
 )
 
 __all__ = [
@@ -68,4 +71,7 @@ __all__ = [
     Scan1D,
     Scan2D,
     TorsionIndexer,
+    SingleTorsion,
+    DoubleTorsion,
+    ImproperTorsion,
 ]

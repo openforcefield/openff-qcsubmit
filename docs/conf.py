@@ -40,6 +40,7 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.autosectionlabel',
     'nbsphinx',
     'nbsphinx_link',
     'sphinxcontrib.bibtex',
