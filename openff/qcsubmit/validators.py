@@ -244,19 +244,10 @@ def check_linear_torsions(
     return torsion
 
 
-def check_valence_connectivity(molecule: qcel.models.Molecule) -> qcel.models.Molecule:
+def check_connectivity(molecule: qcel.models.Molecule) -> qcel.models.Molecule:
     """
-    Check if the given molecule is one single molecule, also warn about incomplete valence.
+    Check if the given molecule is one single molecule or not.
     """
-
-    import warnings
-
-    if molecule.molecular_charge != 0:
-        warnings.warn(
-            f"The molecule {molecule.name} has a net charge of {molecule.molecular_charge}.",
-            UserWarning,
-        )
-
     if len(molecule.fragment_charges) > 1:
         raise MolecularComplexError(
             f"The molecule {molecule.name} is a complex made of {len(molecule.fragment_charges)} units."

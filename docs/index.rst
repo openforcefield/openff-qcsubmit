@@ -17,6 +17,7 @@ instance), as well as to retrieve already computed datasets.
 
    Overview <self>
    installation
+   input
 
 .. toctree::
    :maxdepth: 2

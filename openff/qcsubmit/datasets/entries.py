@@ -4,9 +4,11 @@ All of the individual dataset entry types are defined here.
 
 from typing import Any, Dict, List, Optional, Tuple
 
+import networkx as nx
 import numpy as np
 import openff.toolkit.topology as off
 import qcelemental as qcel
+import qcelemental.models
 from pydantic import Field, validator
 
 try:
@@ -22,11 +24,11 @@ from openff.qcsubmit.common_structures import (
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.exceptions import ConstraintError, DihedralConnectionError
 from openff.qcsubmit.validators import (
+    check_connectivity,
     check_constraints,
     check_improper_connection,
     check_linear_torsions,
     check_torsion_connection,
-    check_valence_connectivity,
 )
 
 
@@ -61,10 +63,6 @@ class DatasetEntry(DatasetConfig):
         description="Any extra keywords that should be used in the QCArchive calculation should be passed here.",
     )
 
-    _qcel_molecule_validator = validator(
-        "initial_molecules", allow_reuse=True, each_item=True
-    )(check_valence_connectivity)
-
     def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
         """
         Init the dataclass handling conversions of the molecule first.
@@ -72,8 +70,24 @@ class DatasetEntry(DatasetConfig):
         """
 
         extras = kwargs["extras"]
+        # a place holder to check for multiple components
+        molecule_ids, charges = None, None
         # if we get an off_molecule we need to convert it
         if off_molecule is not None:
+            molecule_ids = [
+                list(ids) for ids in nx.connected_components(off_molecule.to_networkx())
+            ]
+            charges = [
+                sum(
+                    [
+                        off_molecule.atoms[atom].formal_charge.value_in_unit(
+                            unit.elementary_charge
+                        )
+                        for atom in graph
+                    ]
+                )
+                for graph in molecule_ids
+            ]
             if off_molecule.n_conformers == 0:
                 off_molecule.generate_conformers(n_conformers=1)
             schema_mols = [
@@ -85,7 +99,7 @@ class DatasetEntry(DatasetConfig):
         super().__init__(**kwargs)
 
         # now we need to process all of the initial molecules to make sure the cmiles is present
-        # and force c1 symmetry
+        # and force c1 symmetry, we also need to split the molecule into fragments if there are multiple present
         initial_molecules = []
         for mol in self.initial_molecules:
             extras = mol.extras or {}
@@ -96,6 +110,10 @@ class DatasetEntry(DatasetConfig):
             mol_data["extras"] = extras
             # put into strict c1 symmetry
             mol_data["fix_symmetry"] = "c1"
+            # add fragment information if we have multiple components
+            if molecule_ids is not None and len(molecule_ids) > 1:
+                mol_data["fragments"] = molecule_ids
+                mol_data["fragment_charges"] = charges
             initial_molecules.append(qcel.models.Molecule.parse_obj(mol_data))
         # now assign the new molecules
         self.initial_molecules = initial_molecules
@@ -211,6 +229,17 @@ class TorsionDriveEntry(DatasetEntry):
         TDSettings(),
         description="The torsiondrive keyword settings which can be used to overwrite the general global settings used in the dataset allowing for finner control.",
     )
+
+    # we do not yet support multi component torsion drives so validate
+    # we have to define the validation this way due to pydantic
+    # <https://pydantic-docs.helpmanual.io/usage/validators/#subclass-validators-and-each_item>
+    @validator("initial_molecules")
+    def _check_conectivity(
+        cls, molecules: List[qcelemental.models.Molecule]
+    ) -> List[qcelemental.models.Molecule]:
+        for mol in molecules:
+            check_connectivity(mol)
+        return molecules
 
     def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
 

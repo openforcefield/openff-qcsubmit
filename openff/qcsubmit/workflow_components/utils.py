@@ -580,6 +580,14 @@ class ComponentResult:
         self.component_description: Dict = component_description
         self.component_provenance: Dict = component_provenance
         self.skip_unique_check: bool = skip_unique_check
+        self._unit_conversion: Dict[str, unit.Unit] = {
+            "nanometer": unit.nanometers,
+            "nanometers": unit.nanometers,
+            "angstrom": unit.angstrom,
+            "angstroms": unit.angstrom,
+            "bohr": unit.bohr,
+            "bohrs": unit.bohr,
+        }
 
         assert (
             molecules is None or input_file is None
@@ -587,9 +595,12 @@ class ComponentResult:
 
         # if we have an input file load it
         if input_file is not None:
-            molecules = off.Molecule.from_file(
-                file_path=input_file, allow_undefined_stereo=True
-            )
+            if "hdf5" in input_file:
+                molecules = self._read_hdf5(input_file=input_file)
+            else:
+                molecules = off.Molecule.from_file(
+                    file_path=input_file, allow_undefined_stereo=True
+                )
             if not isinstance(molecules, list):
                 molecules = [
                     molecules,
@@ -618,6 +629,31 @@ class ComponentResult:
                 disable=not verbose,
             ):
                 self.add_molecule(molecule)
+
+    def _read_hdf5(self, input_file: str) -> List[off.Molecule]:
+        """
+        Read a set of molecules and conformers from an hdf5 file in a specified format.
+        """
+        import h5py
+
+        molecules = []
+
+        f = h5py.File(input_file, "r")
+        for name, entry in f.items():
+            mapped_smiles = entry["smiles"][0].decode("utf-8")
+            molecule: off.Molecule = off.Molecule.from_mapped_smiles(
+                mapped_smiles, allow_undefined_stereo=True
+            )
+            molecule.name = name
+            units = self._unit_conversion[entry["conformations"].attrs["units"].lower()]
+            # now add the conformers
+            for conformer in entry["conformations"]:
+                molecule.add_conformer(coordinates=conformer * units)
+
+            molecules.append(molecule)
+        f.close()
+
+        return molecules
 
     @property
     def molecules(self) -> List[off.Molecule]:

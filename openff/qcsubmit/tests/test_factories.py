@@ -409,6 +409,7 @@ def test_factory_cmiles():
         "inchi_key": mol.to_inchikey(fixed_hydrogens=False),
         "fixed_hydrogen_inchi": mol.to_inchi(fixed_hydrogens=True),
         "fixed_hydrogen_inchi_key": mol.to_inchikey(fixed_hydrogens=True),
+        "unique_fixed_hydrogen_inchi_keys": {'OTMSDBZUPAUEDD-UHFFFAOYNA-N'},
     }
     assert test_cmiles == cmiles_factory
 

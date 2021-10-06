@@ -32,6 +32,7 @@ from openff.qcsubmit.exceptions import (
     PCMSettingError,
     QCSpecificationError,
 )
+from openff.qcsubmit.utils.smirnoff import split_openff_molecule
 
 
 class DatasetConfig(BaseModel):
@@ -831,6 +832,10 @@ class MoleculeAttributes(DatasetConfig):
     fixed_hydrogen_inchi_key: Optional[str] = Field(
         None, description="The non-standard inchikey with a fixed hydrogen layer."
     )
+    unique_fixed_hydrogen_inchi_keys: Optional[Set[str]] = Field(
+        None,
+        description="The list of unique non-standard inchikey with a fixed hydrogen layer.",
+    )
 
     @classmethod
     def from_openff_molecule(cls, molecule: Molecule) -> "MoleculeAttributes":
@@ -855,7 +860,12 @@ class MoleculeAttributes(DatasetConfig):
             - `inchi_key`
             - `fixed_hydrogen_inchi`
             - `fixed_hydrogen_inchi_key`
+            - `unique_fixed_hydrogen_inchi_keys`
         """
+        molecules = split_openff_molecule(molecule=molecule)
+        unique_fixed_hydrogen_inchi_keys = {
+            mol.to_inchikey(fixed_hydrogens=True) for mol in molecules
+        }
 
         cmiles = {
             "canonical_smiles": molecule.to_smiles(
@@ -878,6 +888,7 @@ class MoleculeAttributes(DatasetConfig):
             "inchi_key": molecule.to_inchikey(fixed_hydrogens=False),
             "fixed_hydrogen_inchi": molecule.to_inchi(fixed_hydrogens=True),
             "fixed_hydrogen_inchi_key": molecule.to_inchikey(fixed_hydrogens=True),
+            "unique_fixed_hydrogen_inchi_keys": unique_fixed_hydrogen_inchi_keys,
         }
 
         return MoleculeAttributes(**cmiles)

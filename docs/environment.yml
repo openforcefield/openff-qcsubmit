@@ -1,4 +1,4 @@
-name: fragmenter
+name: qcsubmit
 channels:
   - conda-forge
 

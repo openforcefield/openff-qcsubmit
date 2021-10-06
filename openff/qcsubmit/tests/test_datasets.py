@@ -213,7 +213,8 @@ def test_componetresult_directory():
 @pytest.mark.parametrize("file_name", [
     pytest.param("benzene.sdf", id="SDF file"),
     pytest.param("butane_conformers.pdb", id="PDB file"),
-    pytest.param("tautomers_small.smi", id="SMI file")
+    pytest.param("tautomers_small.smi", id="SMI file"),
+    pytest.param("hdf5-example.hdf5", id="HDF5 file")
 ])
 def test_componetresult_input_file(file_name):
     """
@@ -375,27 +376,16 @@ def test_dataset_dihedral_validation(ethanol_data):
         assert dataset.n_molecules == 1
 
 
-def test_dataset_valence_validator():
-    """
-    Make sure a warning about the valence of a molecule with a net charge is produced.
-    """
-    dataset = BasicDataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
-    charged_molecules = Molecule.from_file(get_data("charged_molecules.smi"))
-    for molecule in charged_molecules:
-        index = molecule.to_smiles()
-        attributes = get_cmiles(molecule)
-        with pytest.warns(UserWarning):
-            dataset.add_molecule(index=index, molecule=molecule, attributes=attributes)
-
-
 def test_molecular_complex_validator():
     """
     Make sure that molecular complexes are caught by the validator.
     """
 
     from openff.qcsubmit.exceptions import MolecularComplexError
+    dataset = TorsiondriveDataset(dataset_name="test dataset", dataset_tagline="XXXXXXXXXX", description="XXXXXXXX")
+    multi_mol = Molecule.from_file(get_data("imatinib_mesylate.mol"))
     with pytest.raises(MolecularComplexError):
-        _ = BasicDataset.parse_file(get_data("molecular_complex.json"))
+        dataset.add_molecule(index="1", molecule=multi_mol, attributes=MoleculeAttributes.from_openff_molecule(multi_mol), dihedrals=[(0, 1, 2, 3)])
 
 
 def test_dataset_linear_dihedral_validator():

@@ -1,7 +1,14 @@
 import copy
 from collections import defaultdict
-from typing import Dict, Iterable, Tuple
+from typing import Dict, Iterable, List, Tuple
 
+try:
+    from openmm import unit
+except ImportError:
+    from simtk import unit
+
+import networkx as nx
+import numpy as np
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from tqdm import tqdm
@@ -151,3 +158,46 @@ def smirnoff_torsion_coverage(
         handler_name: {smirks: len(smiles) for smirks, smiles in smiles.items()}
         for handler_name, smiles in coverage.items()
     }
+
+
+def split_openff_molecule(molecule: Molecule) -> List[Molecule]:
+    """
+    For a gievn openff molecule split it into its component parts if it is actually a multi-component system.
+
+    Args:
+        molecule:
+            The openff.toolkit.topology.Molecule which should be split.
+    """
+    sub_graphs = list(nx.connected_components(molecule.to_networkx()))
+    if len(sub_graphs) == 1:
+        return [
+            molecule,
+        ]
+    component_molecules = []
+    for sub_graph in sub_graphs:
+        # map the old index to the new one
+        index_mapping = {}
+        comp_mol = Molecule()
+        for atom in sub_graph:
+            new_index = comp_mol.add_atom(**molecule.atoms[atom].to_dict())
+            index_mapping[atom] = new_index
+        for bond in molecule.bonds:
+            if bond.atom1_index in sub_graph and bond.atom2_index in sub_graph:
+                bond_data = {
+                    "atom1": comp_mol.atoms[index_mapping[bond.atom1_index]],
+                    "atom2": comp_mol.atoms[index_mapping[bond.atom2_index]],
+                    "bond_order": bond.bond_order,
+                    "stereochemistry": bond.stereochemistry,
+                    "is_aromatic": bond.is_aromatic,
+                    "fractional_bond_order": bond.fractional_bond_order,
+                }
+                comp_mol.add_bond(**bond_data)
+        # move the conformers
+        if molecule.n_conformers != 0:
+            for conformer in molecule.conformers:
+                new_conformer = np.zeros((comp_mol.n_atoms, 3))
+                for i in sub_graph:
+                    new_conformer[index_mapping[i]] = conformer[i]
+                comp_mol.add_conformer(new_conformer * unit.angstrom)
+        component_molecules.append(comp_mol)
+    return component_molecules

@@ -21,6 +21,8 @@ Datasets
     TorsionDriveEntry
     FilterEntry
 
+.. _factories:
+
 Factories
 """""""""
 
@@ -127,7 +129,6 @@ Workflow Components
     :toctree: api/generated/
 
     CustomWorkflowComponent
-    BasicSettings
     ToolkitValidator
 
 Conformer Generation
@@ -190,6 +191,10 @@ Utils
     :toctree: api/generated
 
     ComponentResult
+    SingleTorsion
+    DoubleTorsion
+    ImproperTorsion
+    TorsionIndexer
     ImproperScan
     Scan1D
     Scan2D
@@ -210,10 +215,6 @@ Common Structures
     PCMSettings
     QCSpec
     QCSpecificationHandler
-    SingleTorsion
-    DoubleTorsion
-    ImproperTorsion
-    TorsionIndexer
     IndexCleaner
     ClientHandler
     Metadata
