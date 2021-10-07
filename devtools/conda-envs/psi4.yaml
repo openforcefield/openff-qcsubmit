@@ -18,11 +18,12 @@ dependencies:
   - codecov
   - requests-mock
 
-  - qcengine >=0.18.0
+  - qcengine >=0.20.0
+  - qcelemental >0.23.0
   - qcfractal
-  - psi4 >=1.4a2
-  - gau2grid =2.0.3
-  - pcmsolver =1.2.1
+  - psi4 >=1.4
+  - gau2grid
+  - pcmsolver
 
   - openeye-toolkits
 
