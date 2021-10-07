@@ -3,8 +3,8 @@ name: test
 channels:
   - openeye
   - conda-forge
-  - defaults
   - psi4/label/dev
+  - defaults
 
 dependencies:
 
@@ -19,6 +19,7 @@ dependencies:
   - requests-mock
 
   - qcengine >=0.18.0
+  - qcelemental <0.23.0
   - qcfractal
   - psi4 >=1.4a2
   - gau2grid =2.0.3
