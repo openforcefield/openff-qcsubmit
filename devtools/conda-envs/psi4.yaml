@@ -3,8 +3,8 @@ name: test
 channels:
   - openeye
   - conda-forge
+  - psi4
   - defaults
-  - psi4/label/dev
 
 dependencies:
 
