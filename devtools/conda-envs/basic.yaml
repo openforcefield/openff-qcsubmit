@@ -17,7 +17,8 @@ dependencies:
   - codecov
   - requests-mock
 
-  - qcengine >=0.18.0
+  - qcengine >=0.20.0
+  - qcelemental <0.23.0
   - qcfractal
 
   - openeye-toolkits
