@@ -114,11 +114,9 @@ html_theme_options = {
 
 html_static_path = ['_static']
 
-html_context = {
-    'css_files': [
+html_css_files = [
         '_static/css/theme_overrides.css',  # override wide tables in RTD theme
-    ],
-}
+    ]
 
 # -- Options for HTMLHelp output ---------------------------------------------
 
