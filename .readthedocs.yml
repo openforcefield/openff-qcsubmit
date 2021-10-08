@@ -1,5 +1,5 @@
 # .readthedocs.yml
-version: 2
+
 build:
   image: stable
   os: ubuntu-20.04
