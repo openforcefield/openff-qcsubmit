@@ -6,9 +6,12 @@ build:
   tools:
     python: mambaforge-4.10
 
-# Build PDF in addition to default HTML and JSON
-formats:
-    - pdf
+sphinx:
+  builder: html
+  configuration: docs/conf.py
+## Build PDF in addition to default HTML and JSON
+#formats:
+#    - pdf
 
 conda:
   environment: docs/environment.yml
