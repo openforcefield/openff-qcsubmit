@@ -404,7 +404,7 @@ class QCSpec(ResultsConfig):
         description="The SCF properties which should be extracted after every single point calculation.",
     )
     keywords: Optional[
-        Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
+        Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool, List[StrictFloat]]]
     ] = Field(
         None,
         description="An optional set of program specific computational keywords that "
@@ -424,7 +424,7 @@ class QCSpec(ResultsConfig):
         maxiter: PositiveInt = 200,
         scf_properties: List[SCFProperties] = DefaultProperties,
         keywords: Optional[
-            Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool]]
+            Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool, List[StrictFloat]]]
         ] = None,
     ):
         """
