@@ -15,7 +15,7 @@ try:
 except ImportError:
     from simtk import unit
 
-from openff.qcsubmit.common_structures import MoleculeAttributes
+from openff.qcsubmit.common_structures import MoleculeAttributes, QCSpec
 from openff.qcsubmit.constraints import Constraints, PositionConstraintSet
 from openff.qcsubmit.datasets import (
     BasicDataset,
@@ -1508,7 +1508,8 @@ def test_dataset_export_full_dataset_json(dataset_type):
     """
     Test round tripping a full dataset via json.
     """
-    dataset = dataset_type(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
+    spec = QCSpec(method="hf", basis="6-31G", program="psi4", spec_name="default", spec_description="testing", keywords={"PERTURB_DIPOLE": [0.1, 0.1, -0.2]})
+    dataset = dataset_type(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX", qc_specifications={"default": spec})
     molecules = duplicated_molecules(include_conformers=True, duplicates=1)
     # add them to the dataset
     for molecule in molecules:
@@ -1528,6 +1529,8 @@ def test_dataset_export_full_dataset_json(dataset_type):
         assert dataset.n_records == dataset2.n_records
         assert dataset.dataset == dataset.dataset
         assert dataset.metadata == dataset2.metadata
+        # make sure the list survives a round trip
+        assert type(dataset2.qc_specifications["default"].keywords["PERTURB_DIPOLE"]) == list
 
 
 @pytest.mark.parametrize("dataset_type", [
