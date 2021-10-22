@@ -655,7 +655,7 @@ def test_add_molecule_no_extras():
 
 
 @pytest.mark.parametrize("dataset_data", [
-    pytest.param((BasicDataset, "OpenFF NCI250K Boron 1", ["default"]), id="Dataset no metadata"),
+    pytest.param((BasicDataset, "OpenFF Theory Benchmarking Single Point Energies v1.0", ["default"]), id="Dataset no metadata"),
     pytest.param((OptimizationDataset, "OpenFF NCI250K Boron 1", ["default"]), id="OptimizationDataset no metadata"),
     pytest.param((TorsiondriveDataset, "OpenFF Fragmenter Phenyl Benchmark", ["UFF", "B3LYP-D3"]), id="TorsiondriveDataset no metadata"),
     pytest.param((TorsiondriveDataset, "OpenFF Rowley Biaryl v1.0", ["default"]), id="Torsiondrive with metadata")
