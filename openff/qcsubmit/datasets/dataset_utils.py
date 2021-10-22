@@ -112,13 +112,15 @@ def update_specification_and_metadata(
         # now we need to add each ran spec
         for history in ds.data.history:
             _, program, method, basis, spec = history
-            dataset.add_qc_spec(
-                method=method,
-                basis=basis,
-                program=program,
-                spec_name=spec,
-                spec_description="basic dataset spec",
-            )
+            if program.lower() != "dftd3":
+                # the composition planner breaks the validation
+                dataset.add_qc_spec(
+                    method=method,
+                    basis=basis,
+                    program=program,
+                    spec_name=spec,
+                    spec_description="basic dataset spec",
+                )
     else:
         # we have the opt or torsiondrive
         if not dataset.metadata.elements:
