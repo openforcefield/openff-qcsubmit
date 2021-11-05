@@ -19,7 +19,7 @@ dependencies:
   - requests-mock
 
   - qcengine >=0.18.0
-  - qcelemental <0.23.0
+  - qcelemental
   - qcfractal
   - psi4 >=1.4a2
   - gau2grid =2.0.3
