@@ -145,7 +145,7 @@ class TDSettings(DatasetConfig):
     )
     additional_keywords: Dict[str, Any] = Field(
         {},
-        description="Additional keywords to add to the torsiondrive's optimization runs"
+        description="Additional keywords to add to the torsiondrive's optimization runs",
     )
 
 
