@@ -19,8 +19,8 @@ dependencies:
   - requests-mock
 
   - qcengine >=0.18.0
-  - qcelemental <0.23.0
-  - qcfractal
+  - qcelemental
+  - qcfractal>=0.15.7
   - psi4 >=1.4a2
   - gau2grid =2.0.3
   - pcmsolver =1.2.1
@@ -33,7 +33,7 @@ dependencies:
   - rdkit
   - pydantic
   - pyyaml
-  - qcportal
+  - qcportal>=0.15.7
   - torsiondrive
   - basis_set_exchange
   - typing-extensions
