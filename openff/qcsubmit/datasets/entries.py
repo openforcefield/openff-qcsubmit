@@ -216,7 +216,7 @@ class OptimizationEntry(DatasetEntry):
             return self.keywords
 
 
-class TorsionDriveEntry(DatasetEntry):
+class TorsionDriveEntry(OptimizationEntry):
     """
     A Torsiondrive dataset specific class which can check dihedral indices and store torsiondrive specific settings with built in validation.
     """
@@ -240,6 +240,17 @@ class TorsionDriveEntry(DatasetEntry):
         for mol in molecules:
             check_connectivity(mol)
         return molecules
+
+    @property
+    def formatted_keywords(self) -> Dict[str, Any]:
+        """Format the keywords with constraints."""
+
+        if self.constraints.has_constraints:
+            keywords = self.keywords.additional_keywords
+            keywords["constraints"] = self.constraints.dict()
+            return keywords
+        else:
+            return self.keywords.additional_keywords
 
     def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
 

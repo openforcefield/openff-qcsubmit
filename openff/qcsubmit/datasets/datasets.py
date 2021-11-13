@@ -1613,7 +1613,7 @@ class TorsiondriveDataset(OptimizationDataset):
                 grid_spacing=data.keywords.grid_spacing or self.grid_spacing,
                 energy_upper_limit=data.keywords.energy_upper_limit
                 or self.energy_upper_limit,
-                additional_keywords=data.keywords.additional_keywords,
+                additional_keywords=data.formatted_keywords,
                 attributes=data.attributes.dict(),
                 energy_decrease_thresh=data.keywords.energy_decrease_thresh
                 or self.energy_decrease_thresh,
