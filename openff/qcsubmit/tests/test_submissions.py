@@ -10,7 +10,7 @@ from qcengine.testing import has_program
 from qcportal import FractalClient
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit.common_structures import Metadata, PCMSettings
+from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, PCMSettings
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets import (
     BasicDataset,
@@ -758,6 +758,42 @@ def test_torsiondrive_scan_keywords(fractal_compute_server):
     assert record.keywords.grid_spacing != dataset.grid_spacing
     assert record.keywords.dihedral_ranges == [(-10, 10)]
     assert record.keywords.dihedral_ranges != dataset.dihedral_ranges
+
+
+def test_torsiondrive_constraints(fractal_compute_server):
+    """
+    Make sure constraints are correctly passed to optimisations in torsiondrives.
+    """
+
+    client = FractalClient(fractal_compute_server)
+    molecule = Molecule.from_file(get_data("TRP.mol2"))
+    dataset = TorsiondriveDataset(dataset_name="Torsiondrive constraints", dataset_tagline="Testing torsiondrive constraints", description="Testing torsiondrive constraints.")
+    dataset.clear_qcspecs()
+    dataset.add_qc_spec(method="uff", basis=None, program="rdkit", spec_name="uff", spec_description="tdrive constraints")
+    # use a restricted range to keep the scan fast
+    dataset.add_molecule(index="1", molecule=molecule, attributes=MoleculeAttributes.from_openff_molecule(molecule=molecule), dihedrals=[(4, 6, 8, 28)], keywords={"dihedral_ranges": [(-165, -145)]})
+    entry = dataset.dataset["1"]
+    # add the constraints
+    entry.add_constraint(constraint="freeze", constraint_type="dihedral", indices=[6, 8, 10, 13])
+    entry.add_constraint(constraint="freeze", constraint_type="dihedral", indices=[8, 10, 13, 14])
+
+    dataset.submit(client=client, processes=1)
+    fractal_compute_server.await_services(max_iter=50)
+
+    # make sure the result is complete
+    ds = client.get_collection("TorsionDriveDataset", dataset.dataset_name)
+
+    record = ds.get_record(ds.df.index[0], "uff")
+    opt = client.query_procedures(id=record.optimization_history['[-150]'])[0]
+    constraints = opt.keywords["constraints"]
+    # make sure both the freeze and set constraints are passed on
+    assert "set" in constraints
+    assert "freeze" in constraints
+    # make sure both freeze constraints are present
+    assert len(constraints["freeze"]) == 2
+    assert constraints["freeze"][0]["indices"] == [6, 8, 10, 13]
+    # make sure the dihedral has not changed
+    assert pytest.approx(opt.get_initial_molecule().measure((6, 8, 10, 13))) == opt.get_final_molecule().measure((6, 8, 10, 13))
 
 
 @pytest.mark.parametrize("specification", [
