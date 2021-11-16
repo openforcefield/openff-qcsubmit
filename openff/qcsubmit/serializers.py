@@ -10,6 +10,7 @@ from typing import IO, Dict, Optional, Tuple, Union
 
 import yaml
 from pydantic import BaseModel
+from typing_extensions import Literal
 
 from openff.qcsubmit.exceptions import UnsupportedFiletypeError
 
@@ -24,6 +25,7 @@ __all__ = [
     "register_compressor",
 ]
 
+Compression = Literal["xz", "bz2", "gz", ""]
 serializers = {}
 deserializers = {}
 # We know how to compress/decompress these automatically
@@ -293,7 +295,7 @@ def get_format_name(file_name: str) -> Tuple[str, str]:
 
 
 def serialize(
-    serializable: Dict, file_name: str, compression: Optional[str] = None
+    serializable: Dict, file_name: str, compression: Optional[Compression] = None
 ) -> None:
     """
     The main serialization method used to serialize objects.
@@ -334,7 +336,7 @@ def deserialize(file_name: str) -> Dict:
         ) as input_data:
             return deserializer.deserialize(input_data)
     else:
-        raise RuntimeError(f"The file {file_name} could not be found.")
+        raise FileNotFoundError(f"The file {file_name} could not be found.")
 
 
 # Register the json and yaml de/serializers
