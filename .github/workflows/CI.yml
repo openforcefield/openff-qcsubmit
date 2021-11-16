@@ -45,7 +45,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
 
-          channels: openeye,conda-forge,omnia,defaults
+          channels: openeye,conda-forge,psi4,defaults
 
           activate-environment: test
           auto-update-conda: true

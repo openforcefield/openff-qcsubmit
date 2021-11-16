@@ -4,7 +4,6 @@ channels:
   - openeye
   - conda-forge
   - psi4
-  - psi4/label/dev
   - defaults
 
 dependencies:
