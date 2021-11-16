@@ -10,6 +10,7 @@ import openff.toolkit.topology as off
 import qcelemental as qcel
 import qcelemental.models
 from pydantic import Field, validator
+from typing_extensions import Literal
 
 try:
     from openmm import unit
@@ -21,7 +22,7 @@ from openff.qcsubmit.common_structures import (
     MoleculeAttributes,
     TDSettings,
 )
-from openff.qcsubmit.constraints import Constraints
+from openff.qcsubmit.constraints import Constraints, ConstraintType
 from openff.qcsubmit.exceptions import ConstraintError, DihedralConnectionError
 from openff.qcsubmit.validators import (
     check_connectivity,
@@ -163,8 +164,8 @@ class OptimizationEntry(DatasetEntry):
 
     def add_constraint(
         self,
-        constraint: str,
-        constraint_type: str,
+        constraint: Literal["set", "freeze"],
+        constraint_type: ConstraintType,
         indices: List[int],
         bonded: bool = True,
         **kwargs,
