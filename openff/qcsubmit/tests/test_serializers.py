@@ -122,7 +122,7 @@ def test_deserializer_error():
     Test deserialize a missing file.
     """
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(FileNotFoundError):
         deserialize("missing_file.json")
 
 
