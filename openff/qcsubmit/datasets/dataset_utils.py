@@ -120,6 +120,7 @@ def update_specification_and_metadata(
                     program=program,
                     spec_name=spec,
                     spec_description="basic dataset spec",
+                    overwrite=True,
                 )
     else:
         # we have the opt or torsiondrive

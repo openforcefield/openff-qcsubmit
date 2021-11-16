@@ -9,12 +9,12 @@ from typing_extensions import Literal
 from openff.qcsubmit.common_structures import ResultsConfig
 from openff.qcsubmit.exceptions import ConstraintError
 
+ConstraintType = Literal["distance", "angle", "dihedral", "xyz"]
+
 
 class Constraint(ResultsConfig):
-    type: Literal["basic_constraint"] = Field(
-        "basic_constraint",
-        description="The literal type of constraint which is linked to the geometric keywords.",
-    )
+    type: Literal["basic_constraint"] = "basic_constraint"
+
     indices: Tuple[int, ...] = Field(
         ..., description="The indices of the atoms which are to be constrained."
     )
@@ -156,7 +156,7 @@ class Constraints(ResultsConfig):
     }
 
     def add_freeze_constraint(
-        self, constraint_type: str, indices: List[int], bonded: bool = True
+        self, constraint_type: ConstraintType, indices: List[int], bonded: bool = True
     ) -> None:
         """
         Add a new freeze constraint to the constraint holder after validating it and making sure it is not already present.
@@ -184,7 +184,7 @@ class Constraints(ResultsConfig):
 
     def add_set_constraint(
         self,
-        constraint_type: str,
+        constraint_type: ConstraintType,
         indices: List[int],
         value: Union[float, List[float], str],
         bonded: bool = True,
