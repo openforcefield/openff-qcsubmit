@@ -122,8 +122,8 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
 
     client = FractalClient(fractal_compute_server)
 
-    qc_specs = [{"method": "openff-1.0.0", "basis": "smirnoff", "program": "openmm", "spec_name": "openff"},
-                {"method": "gaff-2.11", "basis": "antechamber", "program": "openmm", "spec_name": "gaff"}]
+    qc_specs = [{"method": "uff", "basis": None, "program": "rdkit", "spec_name": "uff"},
+                {"method": "mmff94", "basis": None, "program": "rdkit", "spec_name": "mmff94"}]
 
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
@@ -294,7 +294,7 @@ def test_adding_specifications(fractal_compute_server):
                                          tagline="test adding new compute specs")
     opt_dataset.clear_qcspecs()
     # add a new mm spec
-    opt_dataset.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm",
+    opt_dataset.add_qc_spec(method="uff", basis="smirnoff", program="openmm",
                             spec_description="default openff spec", spec_name="openff-1.0.0")
 
     # submit the optimizations and let the compute run

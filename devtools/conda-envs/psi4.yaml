@@ -9,6 +9,7 @@ channels:
 dependencies:
 
   # Base depends
+  - python
   - pip
 
   # Testing
@@ -18,10 +19,11 @@ dependencies:
   - requests-mock
 
   - qcengine >=0.20.0
-  - qcelemental 
+  - qcelemental >=0.23.0
   - qcfractal >=0.15.7
   - qcfractal-core >=0.15.7
-  - psi4 >=1.5a.1
+  - psi4 =1.4a2.dev1058+670a850
+  - gau2grid =2.0.3
 
   - openeye-toolkits
 
@@ -39,8 +41,7 @@ dependencies:
   - h5py
 
   # Optional
-  - openmmforcefields >=0.9.0
-  - openff-fragmenter
-  - openmm >=7.6  # Needed until a new QCEngine release.
+  - openmmforcefields >=0.9.0  # can not install ambertools with psi4
+  - openff-fragmenter-base
 #  - pip:
 #      - git+https://github.com/openforcefield/openff-fragmenter.git@master
