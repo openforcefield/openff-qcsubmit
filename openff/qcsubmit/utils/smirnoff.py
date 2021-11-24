@@ -2,6 +2,8 @@ import copy
 from collections import defaultdict
 from typing import Dict, Iterable, List, Tuple
 
+import numpy
+
 try:
     from openmm import unit
 except ImportError:
@@ -168,7 +170,10 @@ def split_openff_molecule(molecule: Molecule) -> List[Molecule]:
         molecule:
             The openff.toolkit.topology.Molecule which should be split.
     """
-    sub_graphs = list(nx.connected_components(molecule.to_networkx()))
+    sub_graphs = [
+        sorted(sub_graph)
+        for sub_graph in nx.connected_components(molecule.to_networkx())
+    ]
     if len(sub_graphs) == 1:
         return [
             molecule,
@@ -201,3 +206,39 @@ def split_openff_molecule(molecule: Molecule) -> List[Molecule]:
                 comp_mol.add_conformer(new_conformer * unit.angstrom)
         component_molecules.append(comp_mol)
     return component_molecules
+
+
+def combine_openff_molecules(molecules: List[Molecule]) -> Molecule:
+    """
+    For a given set of openff molecules combine them into a single structure assuming the conformers are compatible..
+    """
+
+    master_mol = copy.deepcopy(molecules.pop(0))
+    conformers = [
+        conformer.in_units_of(unit.angstrom) for conformer in master_mol.conformers
+    ]
+    master_mol._conformers = []
+    index_map = {}
+    for molecule in molecules:
+        for atom in molecule.atoms:
+            new_index = master_mol.add_atom(**atom.to_dict())
+            index_map[atom.molecule_atom_index] = new_index
+        for bond in molecule.bonds:
+            bond_data = {
+                "atom1": master_mol.atoms[index_map[bond.atom1_index]],
+                "atom2": master_mol.atoms[index_map[bond.atom2_index]],
+                "bond_order": bond.bond_order,
+                "stereochemistry": bond.stereochemistry,
+                "is_aromatic": bond.is_aromatic,
+                "fractional_bond_order": bond.fractional_bond_order,
+            }
+            master_mol.add_bond(**bond_data)
+        for i, conformer in enumerate(molecule.conformers):
+            conformers[i] = numpy.vstack(
+                [conformers[i], conformer.in_units_of(unit.angstrom)]
+            )
+
+    for conformer in conformers:
+        master_mol.add_conformer(conformer * unit.angstrom)
+
+    return master_mol

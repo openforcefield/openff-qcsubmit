@@ -596,7 +596,6 @@ class _BaseDataset(abc.ABC, CommonBase):
         self,
         index: str,
         molecule: off.Molecule,
-        attributes: Union[Dict[str, Any], MoleculeAttributes],
         extras: Optional[Dict[str, Any]] = None,
         keywords: Optional[Dict[str, Any]] = None,
         **kwargs,
@@ -609,9 +608,6 @@ class _BaseDataset(abc.ABC, CommonBase):
                 The index that should be associated with the molecule in QCArchive.
             molecule:
                 The instance of the molecule which contains its conformer information.
-            attributes:
-                The attributes dictionary containing all of the relevant identifier tags for the molecule and
-                extra meta information on the calculation.
             extras:
                 The extras that should be supplied into the qcportal.moldels.Molecule.
             keywords:
@@ -621,12 +617,17 @@ class _BaseDataset(abc.ABC, CommonBase):
             Each molecule in this basic dataset should have all of its conformers expanded out into separate entries.
             Thus here we take the general molecule index and increment it.
         """
+        # only use attributes if supplied else generate
+        # Note we should only reuse attributes if making a dataset from a result so the attributes are consistent
+        attributes = kwargs.pop(
+            "attributes", MoleculeAttributes.from_openff_molecule(molecule=molecule)
+        )
 
         try:
             data_entry = self._entry_class()(
                 off_molecule=molecule,
-                index=index,
                 attributes=attributes,
+                index=index,
                 extras=extras or {},
                 keywords=keywords or {},
                 **kwargs,

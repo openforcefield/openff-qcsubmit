@@ -383,37 +383,6 @@ def test_torsiondrive_factory_index():
     assert index == mol.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
 
 
-def test_factory_cmiles():
-    """
-    Test the basic factories ability to make cmiles attributes for the molecules.
-    """
-
-    factory = BasicDatasetFactory()
-    mol = Molecule.from_smiles("CC")
-
-    cmiles_factory = factory.create_cmiles_metadata(mol)
-
-    # now make our own cmiles
-    test_cmiles = {
-        "canonical_smiles": mol.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False),
-        "canonical_isomeric_smiles": mol.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False),
-        "canonical_explicit_hydrogen_smiles": mol.to_smiles(isomeric=False, explicit_hydrogens=True, mapped=False),
-        "canonical_isomeric_explicit_hydrogen_smiles": mol.to_smiles(
-            isomeric=True, explicit_hydrogens=True, mapped=False
-        ),
-        "canonical_isomeric_explicit_hydrogen_mapped_smiles": mol.to_smiles(
-            isomeric=True, explicit_hydrogens=True, mapped=True
-        ),
-        "molecular_formula": mol.hill_formula,
-        "standard_inchi": mol.to_inchi(fixed_hydrogens=False),
-        "inchi_key": mol.to_inchikey(fixed_hydrogens=False),
-        "fixed_hydrogen_inchi": mol.to_inchi(fixed_hydrogens=True),
-        "fixed_hydrogen_inchi_key": mol.to_inchikey(fixed_hydrogens=True),
-        "unique_fixed_hydrogen_inchi_keys": {'OTMSDBZUPAUEDD-UHFFFAOYNA-N'},
-    }
-    assert test_cmiles == cmiles_factory
-
-
 def test_optimization_driver():
     """
     Test the optimization factory to make sure the driver can not be changed.
