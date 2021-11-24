@@ -8,7 +8,6 @@ channels:
 dependencies:
 
   # Base depends
-  - python
   - pip
 
   # Testing
