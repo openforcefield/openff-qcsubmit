@@ -21,7 +21,7 @@ dependencies:
   - qcelemental >=0.24.0
   - qcfractal >=0.15.7
   - qcfractal-core >=0.15.7
-  - psi4
+  - psi4 >=1.5a.1
 
   - openeye-toolkits
 
