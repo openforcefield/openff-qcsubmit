@@ -22,8 +22,8 @@ dependencies:
   - qcelemental
   - qcfractal>=0.15.7
   - psi4 >=1.4.1
-  - gau2grid =2.0.3
-  - pcmsolver =1.2.1
+  - gau2grid =2.0.7
+  - pcmsolver >=1.2.1.1
 
   - openeye-toolkits
 
