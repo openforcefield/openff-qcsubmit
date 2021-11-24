@@ -18,7 +18,7 @@ dependencies:
   - requests-mock
 
   - qcengine >=0.20.0
-  - qcelemental >=0.24.0
+  - qcelemental 
   - qcfractal >=0.15.7
   - qcfractal-core >=0.15.7
   - psi4 >=1.5a.1

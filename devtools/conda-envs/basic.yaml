@@ -16,7 +16,7 @@ dependencies:
   - codecov
   - requests-mock
 
-  - qcengine >=0.18.0
+  - qcengine >=0.20.0
   - qcelemental
   - qcfractal>=0.15.7
 
