@@ -3,7 +3,7 @@ name: test
 channels:
   - openeye
   - conda-forge
-  - psi4/label/dev
+  - psi4
   - defaults
 
 dependencies:
@@ -21,7 +21,7 @@ dependencies:
   - qcengine >=0.18.0
   - qcelemental
   - qcfractal>=0.15.7
-  - psi4 >=1.4a2
+  - psi4 >=1.4.1
   - gau2grid =2.0.3
   - pcmsolver =1.2.1
 
@@ -43,6 +43,6 @@ dependencies:
   # Optional
   - openmmforcefields >=0.9.0
   - openff-fragmenter
-  - openmm <7.6  # Needed until a new QCEngine release.
+  - openmm >=7.6  # Needed until a new QCEngine release.
 #  - pip:
 #      - git+https://github.com/openforcefield/openff-fragmenter.git@master
