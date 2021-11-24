@@ -369,16 +369,15 @@ def test_dataset_dihedral_validation(ethanol_data):
         assert dataset.n_molecules == 1
 
 
-def test_molecular_complex_validator():
+def test_molecular_complex_validator(imatinib_mesylate):
     """
     Make sure that molecular complexes are caught by the validator.
     """
 
     from openff.qcsubmit.exceptions import MolecularComplexError
     dataset = TorsiondriveDataset(dataset_name="test dataset", dataset_tagline="XXXXXXXXXX", description="XXXXXXXX")
-    multi_mol = Molecule.from_file(get_data("imatinib_mesylate.mol"))
     with pytest.raises(MolecularComplexError):
-        dataset.add_molecule(index="1", molecule=multi_mol, dihedrals=[(0, 1, 2, 3)])
+        dataset.add_molecule(index="1", molecule=imatinib_mesylate, dihedrals=[(0, 1, 2, 3)])
 
 
 def test_molecular_complex_fragment_reorder(imatinib_mesylate):
