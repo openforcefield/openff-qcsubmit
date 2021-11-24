@@ -20,4 +20,4 @@ def clear_results_caches_before_tests():
 
 @pytest.fixture()
 def imatinib_mesylate() -> Molecule:
-    return Molecule.from_file(get_data("imatinib_mesylate.mol"))
+    return Molecule.from_file(get_data("imatinib_mesylate.sdf"))
