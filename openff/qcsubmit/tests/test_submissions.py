@@ -531,7 +531,6 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     """
     client = FractalClient(fractal_compute_server)
     ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
-    factory = OptimizationDatasetFactory()
     dataset = OptimizationDataset(dataset_name="Test optimizations with constraint", description="Test optimization dataset with constraints", dataset_tagline="Testing optimization datasets")
     # add just mm spec
     dataset.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default", spec_description="mm default spec", overwrite=True)
@@ -540,9 +539,8 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     constraints.add_set_constraint(constraint_type="dihedral", indices=[2, 0, 1, 5], value=60, bonded=True)
     constraints.add_freeze_constraint(constraint_type="distance", indices=[0, 1], bonded=True)
     # add the molecule
-    attributes = factory.create_cmiles_metadata(ethane)
     index = ethane.to_smiles()
-    dataset.add_molecule(index=index, molecule=ethane, attributes=attributes, constraints=constraints)
+    dataset.add_molecule(index=index, molecule=ethane, constraints=constraints)
 
     # now submit again
     dataset.submit(client=client)

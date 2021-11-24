@@ -9,7 +9,7 @@ from pydantic import Field, validator
 from qcportal.models.common_models import DriverEnum
 from typing_extensions import Literal
 
-from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes
+from openff.qcsubmit.common_structures import CommonBase, Metadata
 from openff.qcsubmit.datasets import (
     BasicDataset,
     OptimizationDataset,
@@ -481,20 +481,6 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
         return dataset
 
-    def create_cmiles_metadata(self, molecule: off.Molecule) -> MoleculeAttributes:
-        """
-        Create the Cmiles metadata for the molecule in this dataset.
-
-        Args:
-            molecule:
-                The molecule for which the cmiles data will be generated.
-
-        Returns:
-            The Cmiles identifiers generated for the input molecule.
-        """
-
-        return MoleculeAttributes.from_openff_molecule(molecule)
-
     def create_index(self, molecule: off.Molecule) -> str:
         """
         Create an index for the current molecule.
@@ -539,8 +525,6 @@ class BasicDatasetFactory(BaseDatasetFactory):
         self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry
     ) -> None:
 
-        attributes = self.create_cmiles_metadata(molecule=molecule)
-
         # always put the cmiles in the extras from what we have just calculated to ensure correct order
         extras = molecule.properties.get("extras", {})
 
@@ -551,7 +535,6 @@ class BasicDatasetFactory(BaseDatasetFactory):
             dataset.add_molecule(
                 index=self.create_index(molecule=molecule),
                 molecule=molecule,
-                attributes=attributes,
                 extras=extras if bool(extras) else None,
                 keywords=keywords,
             )
@@ -678,9 +661,6 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
         extras = molecule.properties.get("extras", {})
         keywords = molecule.properties.get("keywords", {})
 
-        # make the general attributes
-        attributes = self.create_cmiles_metadata(molecule=molecule)
-
         # now check for the dihedrals
         if "dihedrals" in molecule.properties:
             # first do 1-D torsions
@@ -698,7 +678,6 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
                     dataset.add_molecule(
                         index=index,
                         molecule=molecule,
-                        attributes=attributes,
                         dihedrals=dihedrals,
                         keywords=keywords,
                         extras=extras,

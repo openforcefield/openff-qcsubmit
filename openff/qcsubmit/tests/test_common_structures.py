@@ -33,6 +33,19 @@ def test_attributes_from_openff_molecule():
     assert test_cmiles == attributes
 
 
+def test_attributes_from_openff_with_map():
+    """
+    Make sure we can provide a valid cmiles for a molecule with an atom_map and ensure the map is not removed.
+    """
+
+    mol = Molecule.from_smiles("CC")
+    atom_map = {0: 0, 1: 1, 2: 2, 3: 3}
+    mol.properties["atom_map"] = atom_map
+    cmiles = MoleculeAttributes.from_openff_molecule(molecule=mol)
+    assert "atom_map" in mol.properties
+    _ = cmiles.to_openff_molecule()
+
+
 def test_attributes_from_openff_multi_component():
     """
     Make sure the unique inchi keys are updated correctly.

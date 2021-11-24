@@ -24,6 +24,10 @@ from openff.qcsubmit.common_structures import (
 )
 from openff.qcsubmit.constraints import Constraints, ConstraintType
 from openff.qcsubmit.exceptions import ConstraintError, DihedralConnectionError
+from openff.qcsubmit.utils.smirnoff import (
+    combine_openff_molecules,
+    split_openff_molecule,
+)
 from openff.qcsubmit.validators import (
     check_connectivity,
     check_constraints,
@@ -75,8 +79,18 @@ class DatasetEntry(DatasetConfig):
         molecule_ids, charges = None, None
         # if we get an off_molecule we need to convert it
         if off_molecule is not None:
+            split_molecules = split_openff_molecule(molecule=off_molecule)
+            if len(split_molecules) > 1:
+                # recombine the molecule in the correct ordering
+                off_molecule = combine_openff_molecules(split_molecules)
+                # we need to remake the attributes for the new ordering
+                kwargs["attributes"] = MoleculeAttributes.from_openff_molecule(
+                    molecule=off_molecule
+                )
+
             molecule_ids = [
-                list(ids) for ids in nx.connected_components(off_molecule.to_networkx())
+                list(sorted(ids))
+                for ids in nx.connected_components(off_molecule.to_networkx())
             ]
             charges = [
                 sum(
@@ -116,6 +130,8 @@ class DatasetEntry(DatasetConfig):
                 mol_data["fragments"] = molecule_ids
                 mol_data["fragment_charges"] = charges
             initial_molecules.append(qcel.models.Molecule.parse_obj(mol_data))
+        # try and parse the schema to make sure the fragment order is correct
+        qcel.molparse.from_schema(molschema=initial_molecules[0].dict(), verbose=True)
         # now assign the new molecules
         self.initial_molecules = initial_molecules
 

@@ -1,6 +1,7 @@
 """
 This file contains common starting structures which can be mixed into datasets, results and factories.
 """
+import copy
 import getpass
 import re
 from datetime import date, datetime
@@ -116,7 +117,7 @@ class ComponentProperties(BaseModel):
 
     class Config:
         allow_mutation: bool = False
-        extra: "forbid"
+        extra = "forbid"
 
 
 class TDSettings(DatasetConfig):
@@ -878,28 +879,30 @@ class MoleculeAttributes(DatasetConfig):
         unique_fixed_hydrogen_inchi_keys = {
             mol.to_inchikey(fixed_hydrogens=True) for mol in molecules
         }
-
+        off_mol = copy.deepcopy(molecule)
+        if "atom_map" in off_mol.properties:
+            del off_mol.properties["atom_map"]
         cmiles = {
-            "canonical_smiles": molecule.to_smiles(
+            "canonical_smiles": off_mol.to_smiles(
                 isomeric=False, explicit_hydrogens=False, mapped=False
             ),
-            "canonical_isomeric_smiles": molecule.to_smiles(
+            "canonical_isomeric_smiles": off_mol.to_smiles(
                 isomeric=True, explicit_hydrogens=False, mapped=False
             ),
-            "canonical_explicit_hydrogen_smiles": molecule.to_smiles(
+            "canonical_explicit_hydrogen_smiles": off_mol.to_smiles(
                 isomeric=False, explicit_hydrogens=True, mapped=False
             ),
-            "canonical_isomeric_explicit_hydrogen_smiles": molecule.to_smiles(
+            "canonical_isomeric_explicit_hydrogen_smiles": off_mol.to_smiles(
                 isomeric=True, explicit_hydrogens=True, mapped=False
             ),
-            "canonical_isomeric_explicit_hydrogen_mapped_smiles": molecule.to_smiles(
+            "canonical_isomeric_explicit_hydrogen_mapped_smiles": off_mol.to_smiles(
                 isomeric=True, explicit_hydrogens=True, mapped=True
             ),
-            "molecular_formula": molecule.hill_formula,
-            "standard_inchi": molecule.to_inchi(fixed_hydrogens=False),
-            "inchi_key": molecule.to_inchikey(fixed_hydrogens=False),
-            "fixed_hydrogen_inchi": molecule.to_inchi(fixed_hydrogens=True),
-            "fixed_hydrogen_inchi_key": molecule.to_inchikey(fixed_hydrogens=True),
+            "molecular_formula": off_mol.hill_formula,
+            "standard_inchi": off_mol.to_inchi(fixed_hydrogens=False),
+            "inchi_key": off_mol.to_inchikey(fixed_hydrogens=False),
+            "fixed_hydrogen_inchi": off_mol.to_inchi(fixed_hydrogens=True),
+            "fixed_hydrogen_inchi_key": off_mol.to_inchikey(fixed_hydrogens=True),
             "unique_fixed_hydrogen_inchi_keys": unique_fixed_hydrogen_inchi_keys,
         }
 
