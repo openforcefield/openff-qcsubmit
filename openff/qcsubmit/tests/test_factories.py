@@ -450,6 +450,20 @@ def test_torsiondrive_torsion_string():
     assert torsion in reference_torsions or tuple(reversed(torsion)) in reference_torsions
 
 
+def test_create_dataset_missing_input():
+    """
+    Make sure an error is raised if the input can not be found.
+    """
+    factory = BasicDatasetFactory()
+    with pytest.raises(FileNotFoundError, match="The input missing_file.smi could not be found."):
+        _ = factory.create_dataset(
+            dataset_name="test dataset",
+            tagline="test dataset",
+            description="test dataset",
+            molecules="missing_file.smi"
+        )
+
+
 @pytest.mark.parametrize("factory_dataset_type", [
     pytest.param((BasicDatasetFactory, BasicDataset), id="BasicDatasetFactory"),
     pytest.param((OptimizationDatasetFactory, OptimizationDataset), id="OptimizationDatasetFactory"),

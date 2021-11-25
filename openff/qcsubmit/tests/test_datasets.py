@@ -204,9 +204,9 @@ def test_componetresult_directory():
 
 
 @pytest.mark.parametrize("file_name", [
-    # pytest.param("benzene.sdf", id="SDF file"),
-    # pytest.param("butane_conformers.pdb", id="PDB file"),
-    # pytest.param("tautomers_small.smi", id="SMI file"),
+    pytest.param("benzene.sdf", id="SDF file"),
+    pytest.param("butane_conformers.pdb", id="PDB file"),
+    pytest.param("tautomers_small.smi", id="SMI file"),
     pytest.param("hdf5-example.hdf5", id="HDF5 file")
 ])
 def test_componetresult_input_file(file_name):
@@ -217,7 +217,6 @@ def test_componetresult_input_file(file_name):
                              component_description={},
                              component_provenance={},
                              input_file=get_data(file_name))
-    print(result.molecules)
     assert result.n_molecules > 0
 
 
