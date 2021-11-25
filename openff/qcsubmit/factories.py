@@ -357,6 +357,8 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
                     ),
                     input_directory=molecules,
                 )
+            else:
+                raise FileNotFoundError(f"The input {molecules} could not be found.")
 
         elif isinstance(molecules, off.Molecule):
             workflow_molecules = ComponentResult(
