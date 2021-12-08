@@ -619,8 +619,8 @@ class _BaseDataset(abc.ABC, CommonBase):
         """
         # only use attributes if supplied else generate
         # Note we should only reuse attributes if making a dataset from a result so the attributes are consistent
-        if 'attributes' in kwargs:
-            attributes = kwargs.pop('attributes')
+        if "attributes" in kwargs:
+            attributes = kwargs.pop("attributes")
         else:
             attributes = MoleculeAttributes.from_openff_molecule(molecule=molecule)
 
