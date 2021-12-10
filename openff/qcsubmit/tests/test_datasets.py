@@ -659,6 +659,25 @@ def test_add_molecule_no_extras():
             assert mol.fix_symmetry == "c1"
 
 
+def test_add_molecule_from_entry_data():
+    """
+    Test adding a molecule to a dataset from the entry info which has no openff.Molecule instance.
+    """
+    dataset = BasicDataset(
+        dataset_name="Test dataset",
+        dataset_tagline="XXXXXXXX",
+        description="XXXXXXXX",
+    )
+    ethane = Molecule.from_smiles("CC")
+    ethane.generate_conformers()
+    entry = DatasetEntry(
+        off_molecule=ethane,
+        attributes=MoleculeAttributes.from_openff_molecule(ethane),
+        index="1"
+    )
+    dataset.add_molecule(molecule=None, **entry.dict())
+
+
 @pytest.mark.parametrize("dataset_data", [
     pytest.param((BasicDataset, "OpenFF Theory Benchmarking Single Point Energies v1.0", ["default"]), id="Dataset no metadata"),
     pytest.param((OptimizationDataset, "OpenFF NCI250K Boron 1", ["default"]), id="OptimizationDataset no metadata"),

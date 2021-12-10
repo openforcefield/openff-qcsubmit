@@ -595,7 +595,7 @@ class _BaseDataset(abc.ABC, CommonBase):
     def add_molecule(
         self,
         index: str,
-        molecule: off.Molecule,
+        molecule: Optional[off.Molecule],
         extras: Optional[Dict[str, Any]] = None,
         keywords: Optional[Dict[str, Any]] = None,
         **kwargs,
