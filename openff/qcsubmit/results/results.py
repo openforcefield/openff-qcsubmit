@@ -262,6 +262,8 @@ class BasicResultCollection(_BaseResultCollection):
     """A class which stores a reference to, and allows the retrieval of, data from
     a single result record stored in a QCFractal instance."""
 
+    type: Literal["BasicResultCollection"] = "BasicResultCollection"
+
     entries: Dict[str, List[BasicResult]] = Field(
         ...,
         description="The entries stored in this collection in a dictionary of the form "
@@ -406,6 +408,8 @@ class OptimizationResultCollection(_BaseResultCollection):
     """A class which stores a reference to, and allows the retrieval of, data from
     a single optimization result record stored in a QCFractal instance."""
 
+    type: Literal["OptimizationResultCollection"] = "OptimizationResultCollection"
+
     entries: Dict[str, List[OptimizationResult]] = Field(
         ...,
         description="The entries stored in this collection in a dictionary of the form "
@@ -443,16 +447,13 @@ class OptimizationResultCollection(_BaseResultCollection):
                         cmiles=entry.attributes[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
-                        inchi_key=entry.attributes.get(
-                            "fixed_hydrogen_inchi_key",
-                            # if this is missing on old records generate it
-                            Molecule.from_mapped_smiles(
-                                entry.attributes[
-                                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                                ],
-                                allow_undefined_stereo=True,
-                            ).to_inchikey(fixed_hydrogens=True),
-                        ),
+                        inchi_key=entry.attributes.get("fixed_hydrogen_inchi_key")
+                        or Molecule.from_mapped_smiles(
+                            entry.attributes[
+                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                            ],
+                            allow_undefined_stereo=True,
+                        ).to_inchikey(fixed_hydrogens=True),
                     )
                     for entry in dataset.data.records.values()
                     if entry.name in query
@@ -650,6 +651,8 @@ class TorsionDriveResultCollection(_BaseResultCollection):
     """A class which stores a reference to, and allows the retrieval of, data from
     a single torsion drive result record stored in a QCFractal instance."""
 
+    type: Literal["TorsionDriveResultCollection"] = "TorsionDriveResultCollection"
+
     entries: Dict[str, List[TorsionDriveResult]] = Field(
         ...,
         description="The entries stored in this collection in a dictionary of the form "
@@ -687,15 +690,13 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                         cmiles=entry.attributes[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
-                        inchi_key=entry.attributes.get(
-                            "fixed_hydrogen_inchi_key",
-                            Molecule.from_mapped_smiles(
-                                entry.attributes[
-                                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                                ],
-                                allow_undefined_stereo=True,
-                            ).to_inchikey(fixed_hydrogens=True),
-                        ),
+                        inchi_key=entry.attributes.get("fixed_hydrogen_inchi_key")
+                        or Molecule.from_mapped_smiles(
+                            entry.attributes[
+                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                            ],
+                            allow_undefined_stereo=True,
+                        ).to_inchikey(fixed_hydrogens=True),
                     )
                     for entry in dataset.data.records.values()
                     if entry.name in query
