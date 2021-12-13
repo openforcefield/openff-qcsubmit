@@ -443,16 +443,13 @@ class OptimizationResultCollection(_BaseResultCollection):
                         cmiles=entry.attributes[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
-                        inchi_key=entry.attributes.get(
-                            "fixed_hydrogen_inchi_key",
-                            # if this is missing on old records generate it
-                            Molecule.from_mapped_smiles(
-                                entry.attributes[
-                                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                                ],
-                                allow_undefined_stereo=True,
-                            ).to_inchikey(fixed_hydrogens=True),
-                        ),
+                        inchi_key=entry.attributes.get("fixed_hydrogen_inchi_key")
+                        or Molecule.from_mapped_smiles(
+                            entry.attributes[
+                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                            ],
+                            allow_undefined_stereo=True,
+                        ).to_inchikey(fixed_hydrogens=True),
                     )
                     for entry in dataset.data.records.values()
                     if entry.name in query
@@ -687,15 +684,13 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                         cmiles=entry.attributes[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
-                        inchi_key=entry.attributes.get(
-                            "fixed_hydrogen_inchi_key",
-                            Molecule.from_mapped_smiles(
-                                entry.attributes[
-                                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                                ],
-                                allow_undefined_stereo=True,
-                            ).to_inchikey(fixed_hydrogens=True),
-                        ),
+                        inchi_key=entry.attributes.get("fixed_hydrogen_inchi_key")
+                        or Molecule.from_mapped_smiles(
+                            entry.attributes[
+                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                            ],
+                            allow_undefined_stereo=True,
+                        ).to_inchikey(fixed_hydrogens=True),
                     )
                     for entry in dataset.data.records.values()
                     if entry.name in query
