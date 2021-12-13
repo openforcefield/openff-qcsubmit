@@ -595,7 +595,7 @@ class _BaseDataset(abc.ABC, CommonBase):
     def add_molecule(
         self,
         index: str,
-        molecule: off.Molecule,
+        molecule: Optional[off.Molecule],
         extras: Optional[Dict[str, Any]] = None,
         keywords: Optional[Dict[str, Any]] = None,
         **kwargs,
@@ -619,9 +619,10 @@ class _BaseDataset(abc.ABC, CommonBase):
         """
         # only use attributes if supplied else generate
         # Note we should only reuse attributes if making a dataset from a result so the attributes are consistent
-        attributes = kwargs.pop(
-            "attributes", MoleculeAttributes.from_openff_molecule(molecule=molecule)
-        )
+        if "attributes" in kwargs:
+            attributes = kwargs.pop("attributes")
+        else:
+            attributes = MoleculeAttributes.from_openff_molecule(molecule=molecule)
 
         try:
             data_entry = self._entry_class()(

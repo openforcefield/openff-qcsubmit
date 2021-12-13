@@ -74,7 +74,7 @@ class DatasetEntry(DatasetConfig):
         This is needed to make sure the extras are passed into the qcschema molecule.
         """
 
-        extras = kwargs["extras"]
+        extras = kwargs.get("extras", {})
         # a place holder to check for multiple components
         molecule_ids, charges = None, None
         # if we get an off_molecule we need to convert it
