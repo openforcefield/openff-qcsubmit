@@ -652,7 +652,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
     a single torsion drive result record stored in a QCFractal instance."""
 
     type: Literal["TorsionDriveResultCollection"] = "TorsionDriveResultCollection"
-    
+
     entries: Dict[str, List[TorsionDriveResult]] = Field(
         ...,
         description="The entries stored in this collection in a dictionary of the form "
