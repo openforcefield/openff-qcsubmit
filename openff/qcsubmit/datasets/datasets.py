@@ -382,22 +382,24 @@ class _BaseDataset(abc.ABC, CommonBase):
         else:
             for spec_name, spec in self.qc_specifications.items():
                 spec_tasks = 0
-                for i, mol_chunk in enumerate(tqdm.tqdm(
-                    chunk_generator(indices, chunk_size=chunk_size),
-                    total=len(indices) / chunk_size,
-                    ncols=80,
-                    desc=f"Creating tasks for: {spec_name}",
-                    disable=not verbose,
-                )):
+                for i, mol_chunk in enumerate(
+                    tqdm.tqdm(
+                        chunk_generator(indices, chunk_size=chunk_size),
+                        total=len(indices) / chunk_size,
+                        ncols=80,
+                        desc=f"Creating tasks for: {spec_name}",
+                        disable=not verbose,
+                    )
+                ):
                     spec_kwargs = self._compute_kwargs(spec, mol_chunk)
 
                     # PERFORMANCE HACK: only call save on the first compute call to add spec,
                     # but not on subsequent calls for basic Datasets
-                    if collection.__class__.__name__ == 'Dataset':
+                    if collection.__class__.__name__ == "Dataset":
                         if i == 0:
-                            spec_kwargs['save'] = True
+                            spec_kwargs["save"] = True
                         else:
-                            spec_kwargs['save'] = False
+                            spec_kwargs["save"] = False
 
                     result = collection.compute(**spec_kwargs)
                     # datasets give a compute response, but opt and torsiondrives give ints
@@ -1048,9 +1050,7 @@ class BasicDataset(_BaseDataset):
         spec_kwargs["subset"] = indices
         return spec_kwargs
 
-    def _add_entries(
-        self, dataset: ptl.collections.Dataset
-    ) -> Tuple[List[str], int]:
+    def _add_entries(self, dataset: ptl.collections.Dataset) -> Tuple[List[str], int]:
         new_entries = 0
         indices = []
 
