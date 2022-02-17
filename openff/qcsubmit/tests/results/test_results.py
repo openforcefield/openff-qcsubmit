@@ -245,7 +245,7 @@ def test_base_smirnoff_coverage():
             "OpenFF BCC Refit Study COH v1.0",
             "resp-2-vacuum",
             91,
-            429,
+            381,
         ),
         (
             OptimizationResultCollection,

@@ -306,7 +306,12 @@ class BasicResultCollection(_BaseResultCollection):
                 )
 
             # query the database to get all of the result records requested
-            query = dataset.get_records(**dataset_specs[spec_name])
+            query = dataset.get_records(
+                **dataset_specs[spec_name],
+                status=[
+                    "COMPLETE",
+                ],
+            )
 
             entries: Dict[str, MoleculeEntry] = {
                 entry.name: entry for entry in dataset.data.records
@@ -345,8 +350,9 @@ class BasicResultCollection(_BaseResultCollection):
                             allow_undefined_stereo=True,
                         ).to_inchikey(fixed_hydrogens=True),
                     )
-                    for index, (result,) in query.dropna().iterrows()
-                    if result.status.value.upper() == "COMPLETE"
+                    for index, (result,) in query.iterrows()
+                    if isinstance(result, ResultRecord)
+                    and result.status.value.upper() == "COMPLETE"
                 }
             )
 
