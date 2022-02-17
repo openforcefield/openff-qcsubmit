@@ -557,8 +557,8 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
 
     # now make sure the constraints worked
     final_molecule = record.get_final_molecule()
-    assert pytest.approx(60, final_molecule.measure((2, 0, 1, 5)))
-    assert pytest.approx(record.get_initial_molecule().measure((0, 1)), final_molecule.measure((0, 1)))
+    assert pytest.approx(final_molecule.measure((2, 0, 1, 5)), abs=1e-2) == 60
+    assert record.get_initial_molecule().measure((0, 1)) == pytest.approx(final_molecule.measure((0, 1)))
 
 
 @pytest.mark.parametrize("specification", [

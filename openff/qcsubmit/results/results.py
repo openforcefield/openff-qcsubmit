@@ -295,7 +295,7 @@ class BasicResultCollection(_BaseResultCollection):
             client = dataset.client
 
             dataset_specs = {
-                spec: {"method": method, "basis": basis, "program": program}
+                spec: {"method": method, "basis": basis, "program": program, 'keywords': spec}
                 for _, program, method, basis, spec in dataset.data.history
             }
 
@@ -345,7 +345,7 @@ class BasicResultCollection(_BaseResultCollection):
                             allow_undefined_stereo=True,
                         ).to_inchikey(fixed_hydrogens=True),
                     )
-                    for index, (result,) in query.iterrows()
+                    for index, (result,) in query.dropna().iterrows()
                     if result.status.value.upper() == "COMPLETE"
                 }
             )
