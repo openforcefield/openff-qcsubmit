@@ -295,7 +295,12 @@ class BasicResultCollection(_BaseResultCollection):
             client = dataset.client
 
             dataset_specs = {
-                spec: {"method": method, "basis": basis, "program": program, 'keywords': spec}
+                spec: {
+                    "method": method,
+                    "basis": basis,
+                    "program": program,
+                    "keywords": spec,
+                }
                 for _, program, method, basis, spec in dataset.data.history
             }
 
