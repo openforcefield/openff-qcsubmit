@@ -198,7 +198,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         pass
 
     @abc.abstractmethod
-    def _add_entries(self, dataset: C, chunk_size: int) -> Tuple[List[str], int]:
+    def _add_entries(self, dataset: C) -> Tuple[List[str], int]:
         """Add entries to the Dataset's corresponding Collection.
 
         This method allows for handling of e.g. generating the index/name for
@@ -210,11 +210,6 @@ class _BaseDataset(abc.ABC, CommonBase):
         ----------
         collection : Collection
             Collection instance corresponding to this Dataset.
-        chunk_size : int
-            The max number of entries to submit to the QCFractal Server at a time.
-            Increase this number to yield better performance.
-            The maximum allowed size is set on a per-server basis as its
-            `query_limit`.
 
         Returns
         -------
@@ -300,7 +295,7 @@ class _BaseDataset(abc.ABC, CommonBase):
                 If the user wants to submit the compute regardless of errors set this to ``True``.
                 Mainly to override basis coverage.
             chunk_size:
-                Max number of molecules or molecules+specs to include in individual server calls.
+                Max number of entries+specs to include in individual `client.compute` calls.
                 If ``None``, will use ``query_limit`` from ``client``.
             verbose:
                 If progress bars and submission statistics should be printed ``True`` or not ``False``.
@@ -342,7 +337,7 @@ class _BaseDataset(abc.ABC, CommonBase):
             )
 
         # add the molecules to the database
-        indices, new_entries = self._add_entries(collection, chunk_size)
+        indices, new_entries = self._add_entries(collection)
         if verbose:
             print(f"Number of new entries: {new_entries}/{self.n_records}")
 
@@ -387,14 +382,25 @@ class _BaseDataset(abc.ABC, CommonBase):
         else:
             for spec_name, spec in self.qc_specifications.items():
                 spec_tasks = 0
-                for mol_chunk in tqdm.tqdm(
-                    chunk_generator(indices, chunk_size=chunk_size),
-                    total=len(indices) / chunk_size,
-                    ncols=80,
-                    desc=f"Creating tasks for: {spec_name}",
-                    disable=not verbose,
+                for i, mol_chunk in enumerate(
+                    tqdm.tqdm(
+                        chunk_generator(indices, chunk_size=chunk_size),
+                        total=len(indices) / chunk_size,
+                        ncols=80,
+                        desc=f"Creating tasks for: {spec_name}",
+                        disable=not verbose,
+                    )
                 ):
                     spec_kwargs = self._compute_kwargs(spec, mol_chunk)
+
+                    # PERFORMANCE HACK: only call save on the first compute call to add spec,
+                    # but not on subsequent calls for basic Datasets
+                    if collection.__class__.__name__ == "Dataset":
+                        if i == 0:
+                            spec_kwargs["save"] = True
+                        else:
+                            spec_kwargs["save"] = False
+
                     result = collection.compute(**spec_kwargs)
                     # datasets give a compute response, but opt and torsiondrives give ints
                     try:
@@ -402,6 +408,8 @@ class _BaseDataset(abc.ABC, CommonBase):
                     except TypeError:
                         spec_tasks += len(result.ids)
 
+                # one last call to `save` to push collection object to server
+                collection.save()
                 responses[spec_name] = spec_tasks
 
         return responses
@@ -1042,17 +1050,11 @@ class BasicDataset(_BaseDataset):
         spec_kwargs["subset"] = indices
         return spec_kwargs
 
-    def _add_entries(
-        self, dataset: ptl.collections.Dataset, chunk_size: int
-    ) -> Tuple[List[str], int]:
+    def _add_entries(self, dataset: ptl.collections.Dataset) -> Tuple[List[str], int]:
         new_entries = 0
         indices = []
 
         for i, (index, data) in enumerate(self.dataset.items()):
-
-            # if we hit the chunk size, we upload to the server
-            if (i % chunk_size) == 0:
-                dataset.save()
 
             if len(data.initial_molecules) > 1:
 
@@ -1079,7 +1081,7 @@ class BasicDataset(_BaseDataset):
                 )
                 indices.append(index)
 
-        # upload remainder molecules to the server
+        # upload collection object to server
         dataset.save()
         # we have to convert the indices to the object ids
         object_ids = [
@@ -1357,16 +1359,12 @@ class OptimizationDataset(BasicDataset):
         return spec_kwargs
 
     def _add_entries(
-        self, dataset: ptl.collections.OptimizationDataset, chunk_size: int
+        self, dataset: ptl.collections.OptimizationDataset
     ) -> Tuple[List[str], int]:
         new_entries = 0
         indices = []
 
         for i, (index, data) in enumerate(self.dataset.items()):
-
-            # if we hit the chunk size, we upload to the server
-            if (i % chunk_size) == 0:
-                dataset.save()
 
             if len(data.initial_molecules) > 1:
 
@@ -1575,15 +1573,12 @@ class TorsiondriveDataset(OptimizationDataset):
         return collection
 
     def _add_entries(
-        self, dataset: ptl.collections.TorsionDriveDataset, chunk_size: int
+        self, dataset: ptl.collections.TorsionDriveDataset
     ) -> Tuple[List[str], int]:
         new_entries = 0
         indices = []
 
         for i, (index, data) in enumerate(self.dataset.items()):
-            # if we hit the chunk size, we upload to the server
-            if (i % chunk_size) == 0:
-                dataset.save()
 
             new_entries += int(
                 self._add_entry(
