@@ -407,7 +407,7 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
 
     assert dataset.dataset_name == "new basicdataset"
     assert dataset.n_molecules == 4
-    assert dataset.n_records == 4  # the collection contains 1 duplicate so not 4 not 5.
+    assert dataset.n_records == 5  # the collection contains 1 duplicate
 
     
 def test_optimization_to_basic_result_collection(
