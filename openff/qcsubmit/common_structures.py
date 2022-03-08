@@ -339,7 +339,7 @@ class PCMSettings(ResultsConfig):
             if "cavity_Area" not in kwargs:
                 cavity_Area = (
                     self.__fields__["cavity_Area"].default
-                    * constants.bohr2angstroms**2
+                    * constants.bohr2angstroms ** 2
                 )
                 kwargs["cavity_Area"] = cavity_Area
         super(PCMSettings, self).__init__(**kwargs)

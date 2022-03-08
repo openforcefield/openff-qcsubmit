@@ -623,7 +623,12 @@ class OptimizationResultCollection(_BaseResultCollection):
             The created basic dataset.
         """
 
-        records = self.to_records()
+        records_by_cmiles = defaultdict(list)
+
+        for record, molecule in self.to_records():
+            records_by_cmiles[
+                molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
+            ].append((record, molecule))
 
         dataset = BasicDataset(
             dataset_name=dataset_name,
@@ -636,16 +641,18 @@ class OptimizationResultCollection(_BaseResultCollection):
             else {qc_spec.spec_name: qc_spec for qc_spec in qc_specs},
         )
 
-        for record, molecule in records:
+        for records in records_by_cmiles.values():
+            base_record, base_molecule = records[0]
+            base_molecule._conformers = [m.conformers[0] for _, m in records]
 
             dataset.add_molecule(
-                index=molecule.to_smiles(
+                index=base_molecule.to_smiles(
                     isomeric=True, explicit_hydrogens=False, mapped=False
                 ),
-                molecule=molecule,
-                attributes=MoleculeAttributes.from_openff_molecule(molecule),
-                extras=record.extras,
-                keywords=record.keywords,
+                molecule=base_molecule,
+                attributes=MoleculeAttributes.from_openff_molecule(base_molecule),
+                extras=base_record.extras,
+                keywords=base_record.keywords,
             )
 
         return dataset
