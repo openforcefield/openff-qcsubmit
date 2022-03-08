@@ -8,22 +8,20 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 * ``minor`` increments add features but do not break API compatibility
 * ``micro`` increments represent bugfix releases or improvements in documentation
 
-X.X.X
+Version / Date DD-MM-YYYY
+
+0.3.1 / 08-03-2022
 -----
-
-This (unreleased) release ...
-
-Behaviour Changes
-"""""""""""""""""
-
-* PR `#XXX <https://github.com/openforcefield/openff-qcsubmit/pull/XXX>`_: ...
 
 Bugfixes
 """"""""
 
-* PR `#XXX <https://github.com/openforcefield/openff-qcsubmit/pull/XXX>`_: ...
+* PR `#183 <https://github.com/openforcefield/openff-qcsubmit/pull/183>`_: Fixed a bug which stopped molecules from being added to datasets via attributes passed to ``Dataset.add_molecule``. @dotsdl
+* PR `#184 <https://github.com/openforcefield/openff-qcsubmit/pull/184>`_: Correctly create results from collections with missing ``inchi_key`` fields @jthorton
+* PR `#187 <https://github.com/openforcefield/openff-qcsubmit/pull/187>`_: Now able to make results from single point datasets with ``Nan`` records @jthorton
+
 
 New Features
 """"""""""""
 
-* PR `#XXX <https://github.com/openforcefield/openff-qcsubmit/pull/XXX>`_: ...
+* PR `#186 <https://github.com/openforcefield/openff-qcsubmit/pull/186>`_: Improved performance for submissions of large datasets by reducing the number of save calls @dotsdl
