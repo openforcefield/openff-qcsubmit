@@ -1,16 +1,17 @@
 """
 Components that aid with Fragmentation of molecules.
 """
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils import ToolkitRegistry
-from pydantic import Field
+from pydantic import Field, validator
 from qcelemental.util import which_import
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.utils import get_symmetry_classes, get_symmetry_group, get_torsion
+from openff.qcsubmit.validators import check_environments
 from openff.qcsubmit.workflow_components.base_component import (
     CustomWorkflowComponent,
     ToolkitValidator,
@@ -25,6 +26,17 @@ class FragmenterBase(ToolkitValidator, CustomWorkflowComponent):
     """A common base fragmenter class which handles tagging the targeted bond for torsion driving."""
 
     type: Literal["FragmenterBase"]
+
+    target_torsion_smarts: Optional[List[str]] = Field(
+        None,
+        description="The list of SMARTS patterns used to identify central target bonds to fragment around. By default this is any single non-termial bond.",
+    )
+
+    _check_smarts = validator(
+        "target_torsion_smarts",
+        each_item=True,
+        allow_reuse=True,
+    )(check_environments)
 
     @classmethod
     def fail_reason(cls) -> str:
@@ -152,7 +164,9 @@ class WBOFragmenter(FragmenterBase):
 
             try:
                 fragment_result = fragment_factory.fragment(
-                    molecule=molecule, toolkit_registry=toolkit_registry
+                    molecule=molecule,
+                    toolkit_registry=toolkit_registry,
+                    target_bond_smarts=self.target_torsion_smarts,
                 )
                 self._process_fragments(
                     fragments=fragment_result, component_result=result
@@ -199,7 +213,9 @@ class PfizerFragmenter(FragmenterBase):
 
             try:
                 fragment_result = fragment_factory.fragment(
-                    molecule=molecule, toolkit_registry=toolkit_registry
+                    molecule=molecule,
+                    toolkit_registry=toolkit_registry,
+                    target_bond_smarts=self.target_torsion_smarts,
                 )
                 self._process_fragments(
                     fragments=fragment_result, component_result=result
