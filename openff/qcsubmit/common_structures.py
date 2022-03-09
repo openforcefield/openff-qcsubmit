@@ -25,8 +25,8 @@ from pydantic import (
 )
 from qcelemental import constants
 from qcelemental.models.common_models import Model
-from qcelemental.models.results import WavefunctionProtocolEnum
 from qcelemental.models.procedures import TrajectoryProtocolEnum
+from qcelemental.models.results import WavefunctionProtocolEnum
 from qcportal.models.common_models import DriverEnum
 
 from openff.qcsubmit.exceptions import (
