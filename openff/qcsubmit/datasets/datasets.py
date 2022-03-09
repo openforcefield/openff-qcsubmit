@@ -1272,7 +1272,7 @@ class OptimizationDataset(BasicDataset):
             basis=spec.basis,
             keywords=keyword_id,
             program=spec.program,
-            protocols={"wavefunction": spec.store_wavefunction},
+            protocols={"trajectory": spec.optimization_trajectory},
         )
 
         return qc_spec

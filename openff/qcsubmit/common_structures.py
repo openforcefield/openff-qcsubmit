@@ -26,6 +26,7 @@ from pydantic import (
 from qcelemental import constants
 from qcelemental.models.common_models import Model
 from qcelemental.models.results import WavefunctionProtocolEnum
+from qcelemental.models.procedures import TrajectoryProtocolEnum
 from qcportal.models.common_models import DriverEnum
 
 from openff.qcsubmit.exceptions import (
@@ -389,7 +390,11 @@ class QCSpec(ResultsConfig):
     )
     store_wavefunction: WavefunctionProtocolEnum = Field(
         WavefunctionProtocolEnum.none,
-        description="The level of wavefunction detail that should be saved in QCArchive. Note that this is done for every calculation and should not be used with optimizations.",
+        description="The level of wavefunction detail that should be saved in QCArchive. Only applies to single point calculations, not optimizations or torsiondrives.",
+    )
+    optimization_trajectory: TrajectoryProtocolEnum = Field(
+        TrajectoryProtocolEnum.initial_and_final,
+        description="Portion of gradient evaluations to retain for an optimization trajectory."
     )
     implicit_solvent: Optional[PCMSettings] = Field(
         None,
@@ -427,6 +432,7 @@ class QCSpec(ResultsConfig):
         spec_name: constr(strip_whitespace=True) = "default",
         spec_description: str = "Standard OpenFF optimization quantum chemistry specification.",
         store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none,
+        optimization_trajectory: TrajectoryProtocolEnum = TrajectoryProtocolEnum.initial_and_final,
         implicit_solvent: Optional[PCMSettings] = None,
         maxiter: PositiveInt = 200,
         scf_properties: List[SCFProperties] = DefaultProperties,
@@ -520,6 +526,7 @@ class QCSpec(ResultsConfig):
             spec_name=spec_name,
             spec_description=spec_description,
             store_wavefunction=store_wavefunction,
+            optimization_trajectory=optimization_trajectory,
             implicit_solvent=implicit_solvent,
             maxiter=maxiter,
             scf_properties=scf_properties,
@@ -549,6 +556,8 @@ class QCSpec(ResultsConfig):
         )
         if "store_wavefunction" in data:
             data["store_wavefunction"] = self.store_wavefunction.value
+        if "optimization_trajectory" in data:
+            data["optimization_trajectory"] = self.optimization_trajectory.value
         if "scf_properties" in data:
             data["scf_properties"] = [prop.value for prop in self.scf_properties]
         return data
@@ -626,6 +635,7 @@ class QCSpecificationHandler(BaseModel):
         spec_name: str,
         spec_description: str,
         store_wavefunction: str = "none",
+        optimization_trajectory: str = "initial_and_final",
         overwrite: bool = False,
         implicit_solvent: Optional[PCMSettings] = None,
         maxiter: PositiveInt = 200,
@@ -647,6 +657,7 @@ class QCSpecificationHandler(BaseModel):
             spec_name: The name the spec should be stored under
             spec_description: The description of the spec
             store_wavefunction: what parts of the wavefunction that should be saved
+            optimization_trajectory: what parts of an optimization trajectory should be retained
             overwrite: If there is a spec under this name already overwrite it
             implicit_solvent: The implicit solvent settings if it is to be used.
             maxiter: The maximum number of SCF iterations that should be done.
@@ -661,6 +672,7 @@ class QCSpecificationHandler(BaseModel):
             spec_name=spec_name,
             spec_description=spec_description,
             store_wavefunction=store_wavefunction,
+            optimization_trajectory=optimization_trajectory,
             maxiter=maxiter,
             scf_properties=scf_properties or DefaultProperties,
             implicit_solvent=implicit_solvent,
