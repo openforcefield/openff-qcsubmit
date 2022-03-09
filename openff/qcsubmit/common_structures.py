@@ -394,7 +394,7 @@ class QCSpec(ResultsConfig):
     )
     optimization_trajectory: TrajectoryProtocolEnum = Field(
         TrajectoryProtocolEnum.initial_and_final,
-        description="Portion of gradient evaluations to retain for an optimization trajectory."
+        description="Portion of gradient evaluations to retain for an optimization trajectory.",
     )
     implicit_solvent: Optional[PCMSettings] = Field(
         None,
