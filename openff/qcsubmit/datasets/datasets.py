@@ -21,7 +21,7 @@ import tqdm
 from openff.toolkit import topology as off
 from pydantic import Field, constr, validator
 from qcelemental.models import AtomicInput, OptimizationInput
-from qcelemental.models.procedures import QCInputSpecification
+from qcelemental.models.procedures import QCInputSpecification, OptimizationProtocols
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from typing_extensions import Literal
 
@@ -1150,6 +1150,10 @@ class OptimizationDataset(BasicDataset):
         GeometricProcedure(),
         description="The optimization program and settings that should be used.",
     )
+    protocols: OptimizationProtocols = Field(
+        OptimizationProtocols(),
+        description="Settings for output data for an optimization.",
+    )
     dataset: Dict[str, OptimizationEntry] = {}
 
     @classmethod
@@ -1445,6 +1449,7 @@ class OptimizationDataset(BasicDataset):
                             keywords=opt_spec,
                             input_specification=qc_spec,
                             initial_molecule=molecule,
+                            protocols=self.protocols
                         )
                     )
 
