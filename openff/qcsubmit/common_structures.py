@@ -713,38 +713,6 @@ class IndexCleaner:
         return core, tag
 
 
-class ClientHandler:
-    """
-    This mixin class offers the ability to handle activating qcportal Fractal client instances.
-    """
-
-    @staticmethod
-    def _activate_client(client) -> ptl.FractalClient:
-        """
-        Make the fractal client and connect to the requested instance.
-
-        Parameters:
-            client: The name of the file containing the client information or the client instance.
-
-        Returns:
-            A qcportal.FractalClient instance.
-        """
-
-        try:
-            from qcfractal.interface import FractalClient as QCFractalClient
-        except ModuleNotFoundError:
-            QCFractalClient = None
-
-        if isinstance(client, ptl.FractalClient):
-            return client
-        elif QCFractalClient is not None and isinstance(client, QCFractalClient):
-            return client
-        elif client == "public":
-            return ptl.FractalClient()
-        else:
-            return ptl.FractalClient.from_file(client)
-
-
 class Metadata(DatasetConfig):
     """
     A general metadata class which is required to be filled in before submitting a dataset to the qcarchive.
@@ -917,7 +885,7 @@ class MoleculeAttributes(DatasetConfig):
         )
 
 
-class CommonBase(DatasetConfig, IndexCleaner, ClientHandler, QCSpecificationHandler):
+class CommonBase(DatasetConfig, IndexCleaner, QCSpecificationHandler):
     """
     A common base structure which the dataset and factory classes derive from.
     """

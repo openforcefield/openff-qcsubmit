@@ -22,7 +22,7 @@ from openff.toolkit import topology as off
 from pydantic import Field, constr, validator
 from qcelemental.models import AtomicInput, OptimizationInput
 from qcelemental.models.procedures import QCInputSpecification
-from qcportal.models.common_models import DriverEnum, QCSpecification
+from qcportal.records.singlepoint import SinglepointDriver, QCSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import (
@@ -53,9 +53,8 @@ from openff.qcsubmit.utils.visualize import molecules_to_pdf
 if TYPE_CHECKING:
 
     from openff.toolkit.typing.engines.smirnoff import ForceField
-    from qcportal import FractalClient
-    from qcportal.collections.collection import Collection
-    from qcportal.models.common_models import OptimizationSpecification
+    from qcportal import PortalClient
+    from qcportal.records.optimization import OptimizationSpecification
 
 C = TypeVar("C", bound="Collection")
 E = TypeVar("E", bound=DatasetEntry)
@@ -121,7 +120,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def _generate_collection(self, client: "FractalClient") -> C:
+    def _generate_collection(self, client: "PortalClient") -> C:
         """Generate the corresponding QCFractal Collection for this Dataset.
 
         Each QCSubmit Dataset class corresponds to and wraps
@@ -277,7 +276,7 @@ class _BaseDataset(abc.ABC, CommonBase):
 
     def submit(
         self,
-        client: Union[str, "FractalClient"],
+        client: Union[str, "PortalClient"],
         processes: Optional[int] = 1,
         ignore_errors: bool = False,
         verbose: bool = False,
@@ -317,17 +316,14 @@ class _BaseDataset(abc.ABC, CommonBase):
         # basis set coverage check
         self._get_missing_basis_coverage(raise_errors=(not ignore_errors))
 
-        # get client instance
-        target_client = self._activate_client(client)
-
         # see if collection already exists
         # if so, we'll extend it
         # if not, we'll create a new one
         try:
-            collection = target_client.get_collection(self.type, self.dataset_name)
+            collection = client.get_dataset(self.type, self.dataset_name)
         except KeyError:
             self.metadata.validate_metadata(raise_errors=not ignore_errors)
-            collection = self._generate_collection(client=target_client)
+            collection = self._generate_collection(client=client)
 
         # create specifications
         procedure_spec = self._get_procedure_spec()
@@ -987,7 +983,7 @@ class BasicDataset(_BaseDataset):
 
         return new_dataset
 
-    def _generate_collection(self, client: "FractalClient") -> ptl.collections.Dataset:
+    def _generate_collection(self, client: "PortalClient") -> ptl.collections.Dataset:
         collection = ptl.collections.Dataset(
             name=self.dataset_name,
             client=client,
@@ -1145,7 +1141,7 @@ class OptimizationDataset(BasicDataset):
     """
 
     type: Literal["OptimizationDataset"] = "OptimizationDataset"
-    driver: DriverEnum = DriverEnum.gradient
+    driver: SinglepointDriver = SinglepointDriver.gradient
     optimization_procedure: GeometricProcedure = Field(
         GeometricProcedure(),
         description="The optimization program and settings that should be used.",
@@ -1160,7 +1156,7 @@ class OptimizationDataset(BasicDataset):
     def _check_driver(cls, driver):
         """Make sure that the driver is set to gradient only and not changed."""
         if driver.value != "gradient":
-            driver = DriverEnum.gradient
+            driver = SinglepointDriver.gradient
         return driver
 
     def __add__(self, other: "OptimizationDataset") -> "OptimizationDataset":
@@ -1242,7 +1238,7 @@ class OptimizationDataset(BasicDataset):
 
         return new_dataset
 
-    def _add_keywords(self, client: "FractalClient", spec: QCSpec) -> str:
+    def _add_keywords(self, client: "PortalClient", spec: QCSpec) -> str:
         """
         Add the keywords to the client and return the index number of the keyword set.
 
@@ -1333,7 +1329,7 @@ class OptimizationDataset(BasicDataset):
             return True
 
     def _generate_collection(
-        self, client: "FractalClient"
+        self, client: "PortalClient"
     ) -> ptl.collections.OptimizationDataset:
         collection = ptl.collections.OptimizationDataset(
             name=self.dataset_name,
@@ -1559,7 +1555,7 @@ class TorsiondriveDataset(OptimizationDataset):
         return len(self.dataset)
 
     def _generate_collection(
-        self, client: "FractalClient"
+        self, client: "PortalClient"
     ) -> ptl.collections.TorsionDriveDataset:
         collection = ptl.collections.TorsionDriveDataset(
             name=self.dataset_name,
