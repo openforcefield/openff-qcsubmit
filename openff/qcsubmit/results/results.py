@@ -21,13 +21,12 @@ import qcportal
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import BaseModel, Field, validator
-from qcportal.collections import OptimizationDataset, TorsionDriveDataset
-from qcportal.collections.collection import Collection as QCCollection
-from qcportal.collections.dataset import Dataset, MoleculeEntry
-from qcportal.models import OptimizationRecord, ResultRecord, TorsionDriveRecord
-from qcportal.models.common_models import DriverEnum, ObjectId
-from qcportal.models.records import RecordBase
-from qcportal.models.rest_models import QueryStr
+from qcportal.datasets import OptimizationDataset, TorsiondriveDataset
+from qcportal.datasets import BaseDataset as QCDataset
+from qcportal.datasets.singlepoint import SinglepointDataset, SinglepointDatasetNewEntry
+from qcportal.records import OptimizationRecord, SinglepointRecord, TorsiondriveRecord
+from qcportal.records.singlepoint import SinglepointDriver
+from qcportal.records import BaseRecord
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
@@ -56,7 +55,7 @@ class _BaseResult(BaseModel, abc.ABC):
 
     type: Literal["base"]
 
-    record_id: ObjectId = Field(
+    record_id: int = Field(
         ...,
         description="The unique id assigned to the record referenced by this result.",
     )
@@ -125,7 +124,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
     @abc.abstractmethod
     def from_datasets(
         cls: T,
-        datasets: Union[QCCollection, Iterable[QCCollection]],
+        datasets: Union[QCDataset, Iterable[QCDataset]],
         spec_name: str = "default",
     ) -> T:
         """Retrieve the COMPLETE record ids referenced by the specified datasets.
@@ -168,7 +167,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
     @classmethod
     def _validate_record_types(
-        cls, records: List[ResultRecord], expected_type: Type[RecordBase]
+        cls, records: List[SinglepointRecord], expected_type: Type[BaseRecord]
     ):
         """A helper method which raises a ``RecordTypeError`` if all records in the list
         are not of the specified type."""
@@ -191,7 +190,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             )
 
     @abc.abstractmethod
-    def to_records(self) -> List[Tuple[RecordBase, Molecule]]:
+    def to_records(self) -> List[Tuple[BaseRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
         """
@@ -273,17 +272,17 @@ class BasicResultCollection(_BaseResultCollection):
     @classmethod
     def from_datasets(
         cls,
-        datasets: Union[Dataset, Iterable[Dataset]],
+        datasets: Union[SinglepointDataset, Iterable[SinglepointDataset]],
         spec_name: str = "default",
     ) -> "BasicResultCollection":
 
-        if isinstance(datasets, QCCollection):
+        if isinstance(datasets, QCDataset):
             datasets = [datasets]
 
-        if not all(isinstance(dataset, Dataset) for dataset in datasets):
+        if not all(isinstance(dataset, SinglepointDataset) for dataset in datasets):
 
             raise TypeError(
-                "A ``BasicResultCollection`` can only be created from ``Dataset`` "
+                "A ``BasicResultCollection`` can only be created from ``SinglepointDataset`` "
                 "objects."
             )
 
@@ -318,7 +317,7 @@ class BasicResultCollection(_BaseResultCollection):
                 ],
             )
 
-            entries: Dict[str, MoleculeEntry] = {
+            entries: Dict[str, SinglepointDatasetNewEntry] = {
                 entry.name: entry for entry in dataset.data.records
             }
 
@@ -356,7 +355,7 @@ class BasicResultCollection(_BaseResultCollection):
                         ).to_inchikey(fixed_hydrogens=True),
                     )
                     for index, (result,) in query.iterrows()
-                    if isinstance(result, ResultRecord)
+                    if isinstance(result, SinglepointRecord)
                     and result.status.value.upper() == "COMPLETE"
                 }
             )
@@ -382,13 +381,13 @@ class BasicResultCollection(_BaseResultCollection):
         # noinspection PyTypeChecker
         return cls.from_datasets(
             [
-                client.get_collection("Dataset", dataset_name)
+                client.get_collection("SinglepointDataset", dataset_name)
                 for dataset_name in datasets
             ],
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[ResultRecord, Molecule]]:
+    def to_records(self) -> List[Tuple[SinglepointRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 
@@ -403,7 +402,7 @@ class BasicResultCollection(_BaseResultCollection):
 
         records, _ = zip(*records_and_molecules)
 
-        self._validate_record_types(records, ResultRecord)
+        self._validate_record_types(records, SinglepointRecord)
 
         return records_and_molecules
 
@@ -434,7 +433,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         spec_name: str = "default",
     ) -> "OptimizationResultCollection":
 
-        if isinstance(datasets, QCCollection):
+        if isinstance(datasets, QCDataset):
             datasets = [datasets]
 
         if not all(isinstance(dataset, OptimizationDataset) for dataset in datasets):
@@ -520,7 +519,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         return records_and_molecules
 
     def to_basic_result_collection(
-        self, driver: Optional[QueryStr] = None
+        self, driver: Optional[Union[str, List[str]]] = None
     ) -> BasicResultCollection:
         """Returns a basic results collection which references results records which
         were created from the *final* structure of one of the optimizations in this
@@ -600,7 +599,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         dataset_name: str,
         description: str,
         tagline: str,
-        driver: DriverEnum,
+        driver: SinglepointDriver,
         metadata: Optional[Metadata] = None,
         qc_specs: Optional[List[QCSpec]] = None,
     ) -> BasicDataset:
@@ -680,18 +679,18 @@ class TorsionDriveResultCollection(_BaseResultCollection):
     @classmethod
     def from_datasets(
         cls,
-        datasets: Union[TorsionDriveDataset, Iterable[TorsionDriveDataset]],
+        datasets: Union[TorsiondriveDataset, Iterable[TorsiondriveDataset]],
         spec_name: str = "default",
     ) -> "TorsionDriveResultCollection":
 
-        if isinstance(datasets, QCCollection):
+        if isinstance(datasets, QCDataset):
             datasets = [datasets]
 
-        if not all(isinstance(dataset, TorsionDriveDataset) for dataset in datasets):
+        if not all(isinstance(dataset, TorsiondriveDataset) for dataset in datasets):
 
             raise TypeError(
                 "A ``TorsionDriveResultCollection`` can only be created from "
-                "``TorsionDriveDataset`` objects."
+                "``TorsiondriveDataset`` objects."
             )
 
         result_records = defaultdict(dict)
@@ -743,13 +742,13 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         # noinspection PyTypeChecker
         return cls.from_datasets(
             [
-                client.get_collection("TorsionDriveDataset", dataset_name)
+                client.get_collection("TorsiondriveDataset", dataset_name)
                 for dataset_name in datasets
             ],
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[TorsionDriveRecord, Molecule]]:
+    def to_records(self) -> List[Tuple[TorsiondriveRecord, Molecule]]:
 
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
@@ -766,7 +765,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
         records, _ = zip(*records_and_molecules)
 
-        self._validate_record_types(records, TorsionDriveRecord)
+        self._validate_record_types(records, TorsiondriveRecord)
 
         return records_and_molecules
 

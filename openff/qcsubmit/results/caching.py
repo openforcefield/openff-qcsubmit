@@ -9,9 +9,9 @@ from cachetools import Cache, LRUCache
 from openff.toolkit.topology import Molecule
 from openff.units import unit
 from qcportal import FractalClient
-from qcportal.models import Molecule as QCMolecule
-from qcportal.models import TorsionDriveRecord
-from qcportal.models.records import OptimizationRecord, RecordBase, ResultRecord
+from qcportal.molecules import Molecule as QCMolecule
+from qcportal.records import TorsiondriveRecord
+from qcportal.records import OptimizationRecord, RecordBase, ResultRecord
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.results import (
