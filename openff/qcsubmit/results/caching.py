@@ -23,10 +23,10 @@ if TYPE_CHECKING:
 
     R = TypeVar("R", bound=_BaseResult)
 
-S = TypeVar("S", bound=RecordBase)
+S = TypeVar("S", bound=BaseRecord)
 T = TypeVar("T")
 
-RecordAndMolecule = Tuple[RecordBase, Molecule]
+RecordAndMolecule = Tuple[BaseRecord, Molecule]
 
 _record_cache = LRUCache(maxsize=20000)
 
@@ -59,18 +59,18 @@ def batched_indices(indices: List[T], batch_size: int) -> List[List[T]]:
 
 
 @lru_cache()
-def cached_fractal_client(address: str) -> FractalClient:
+def cached_fractal_client(address: str) -> PortalClient:
     """Returns a cached copy of a fractal client."""
 
     try:
 
-        return FractalClient(address)
+        return PortalClient(address)
 
     except ConnectionRefusedError as e:
 
         # Try to handle the case when connecting to a local snowflake.
         try:
-            return FractalClient(address, verify=False)
+            return PortalClient(address, verify=False)
         except ConnectionRefusedError:
             raise e
 
@@ -82,7 +82,7 @@ def _cached_client_query(
     query_cache: Cache,
     cache_predicate: Optional[Callable[[Any], bool]] = None,
 ) -> List[S]:
-    """A helper method to cache calls to ``FractalClient.query_XXX`` methods.
+    """A helper method to cache calls to ``PortalClient.query_XXX`` methods.
 
     Args:
         client_address: The address of the running QCFractal instance to query.
@@ -141,7 +141,7 @@ def _cached_client_query(
 
 
 def cached_query_procedures(client_address: str, record_ids: List[str]) -> List[S]:
-    """A cached version of ``FractalClient.query_procedures``.
+    """A cached version of ``PortalClient.query_procedures``.
 
     Args:
         client_address: The address of the running QCFractal instance to query.
@@ -163,7 +163,7 @@ def cached_query_procedures(client_address: str, record_ids: List[str]) -> List[
 def cached_query_molecules(
     client_address: str, molecule_ids: List[str]
 ) -> List[QCMolecule]:
-    """A cached version of ``FractalClient.query_molecules``.
+    """A cached version of ``PortalClient.query_molecules``.
 
     Args:
         client_address: The address of the running QCFractal instance to query.
@@ -245,7 +245,7 @@ def _cached_query_single_structure_results(
 
 def cached_query_basic_results(
     client_address: str, results: List["BasicResult"]
-) -> List[Tuple[ResultRecord, Molecule]]:
+) -> List[Tuple[SinglepointRecord, Molecule]]:
     """Returns the QC record and corresponding molecule object associated with each
     of the specified result entries.
 
@@ -284,7 +284,7 @@ def cached_query_optimization_results(
 
 
 def _cached_torsion_drive_molecule_ids(
-    client_address: str, qc_records: List[TorsionDriveRecord]
+    client_address: str, qc_records: List[TorsiondriveRecord]
 ) -> Dict[Tuple[str, Tuple[int, ...]], str]:
 
     client_address = client_address.rstrip("/")
@@ -347,7 +347,7 @@ def _cached_torsion_drive_molecule_ids(
 
 def cached_query_torsion_drive_results(
     client_address: str, results: List["TorsionDriveResult"]
-) -> List[Tuple[TorsionDriveRecord, Molecule]]:
+) -> List[Tuple[TorsiondriveRecord, Molecule]]:
     """Returns the QC record and corresponding molecule object associated with each
     of the specified result entries.
 
@@ -364,7 +364,7 @@ def cached_query_torsion_drive_results(
 
     logger.debug(f"retrieving records from {client_address}")
 
-    qc_records: Dict[str, TorsionDriveRecord] = {
+    qc_records: Dict[str, TorsiondriveRecord] = {
         qc_record.id: qc_record
         for qc_record in cached_query_procedures(
             client_address, [result.record_id for result in results]
@@ -397,7 +397,7 @@ def cached_query_torsion_drive_results(
 
         grid_ids = [*qc_record.minimum_positions]
         # order the ids so the conformers follow the torsiondrive scan range
-        grid_ids.sort(key=lambda s: tuple(float(x) for x in s.strip("[]").split(", ")))
+        grid_ids.sort(key=lambda x: float(x[1:-1]))
 
         qc_grid_molecules = [
             qc_molecules[molecule_ids[(qc_record.id, grid_id)]] for grid_id in grid_ids
