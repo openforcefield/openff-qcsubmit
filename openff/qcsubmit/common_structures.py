@@ -26,7 +26,7 @@ from pydantic import (
 from qcelemental import constants
 from qcelemental.models.common_models import Model
 from qcelemental.models.results import WavefunctionProtocolEnum
-from qcportal.models.common_models import DriverEnum
+from qcportal.records.singlepoint import SinglepointDriver
 
 from openff.qcsubmit.exceptions import (
     DatasetInputError,
@@ -890,8 +890,8 @@ class CommonBase(DatasetConfig, IndexCleaner, QCSpecificationHandler):
     A common base structure which the dataset and factory classes derive from.
     """
 
-    driver: DriverEnum = Field(
-        DriverEnum.energy,
+    driver: SinglepointDriver = Field(
+        SinglepointDriver.energy,
         description="The type of single point calculations which will be computed. Note some services require certain calculations for example optimizations require graident calculations.",
     )
     priority: str = Field(
