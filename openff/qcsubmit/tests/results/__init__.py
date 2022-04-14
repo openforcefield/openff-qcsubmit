@@ -27,7 +27,7 @@ from openff.qcsubmit.results import (
 from openff.qcsubmit.results.results import _BaseResult
 
 
-class _FractalClient(BaseModel):
+class _PortalClient(BaseModel):
 
     address: str
 
@@ -75,7 +75,7 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
                     basis="sto-3g",
                     molecule=entry.record_id,
                     status=RecordStatusEnum.complete,
-                    client=_FractalClient(address=address),
+                    client=_PortalClient(address=address),
                 ),
                 molecules[address][int(entry.record_id) - 1]
             )
@@ -123,7 +123,7 @@ def mock_optimization_result_collection(
                     final_molecule=ObjectId(entry.record_id),
                     status=RecordStatusEnum.complete,
                     energies=[numpy.random.random()],
-                    client=_FractalClient(address=address),
+                    client=_PortalClient(address=address),
                 ),
                 molecules[address][int(entry.record_id) - 1],
             )
@@ -176,7 +176,7 @@ def mock_torsion_drive_result_collection(
                         )
                     ],
                     status=RecordStatusEnum.complete,
-                    client=_FractalClient(address=address),
+                    client=_PortalClient(address=address),
                     keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
                     final_energy_dict={},
                     optimization_history={},

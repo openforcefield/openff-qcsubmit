@@ -144,7 +144,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
     @abc.abstractmethod
     def from_server(
         cls: T,
-        client: qcportal.FractalClient,
+        client: qcportal.PortalClient,
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> T:
@@ -370,7 +370,7 @@ class BasicResultCollection(_BaseResultCollection):
     @classmethod
     def from_server(
         cls,
-        client: qcportal.FractalClient,
+        client: qcportal.PortalClient,
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> "BasicResultCollection":
@@ -481,7 +481,7 @@ class OptimizationResultCollection(_BaseResultCollection):
     @classmethod
     def from_server(
         cls,
-        client: qcportal.FractalClient,
+        client: qcportal.PortalClient,
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> "OptimizationResultCollection":
@@ -731,7 +731,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
     @classmethod
     def from_server(
         cls,
-        client: qcportal.FractalClient,
+        client: qcportal.PortalClient,
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> "TorsionDriveResultCollection":

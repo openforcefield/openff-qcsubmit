@@ -686,7 +686,7 @@ def test_dataset_update(dataset_data):
     """
     import qcportal as ptl
     dataset_type, dataset_name, specs = dataset_data
-    client = ptl.FractalClient()
+    client = ptl.PortalClient()
     # set up the dataset
     dataset = dataset_type(dataset_name=dataset_name, dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     assert bool(dataset.metadata.elements) is False

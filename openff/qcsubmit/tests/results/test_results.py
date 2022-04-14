@@ -8,7 +8,7 @@ from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
 from pydantic import ValidationError
-from qcportal import FractalClient
+from qcportal import PortalClient
 from qcportal.models import Molecule as QCMolecule
 from qcportal.models import (
     ObjectId,
@@ -370,8 +370,8 @@ def test_to_records(collection, record, monkeypatch):
 
         return [qc_molecule]
 
-    monkeypatch.setattr(FractalClient, "query_procedures", mock_query_procedures)
-    monkeypatch.setattr(FractalClient, "query_molecules", mock_query_molecules)
+    monkeypatch.setattr(PortalClient, "query_procedures", mock_query_procedures)
+    monkeypatch.setattr(PortalClient, "query_molecules", mock_query_molecules)
 
     records_and_molecules = collection.to_records()
     assert len(records_and_molecules) == 1
@@ -432,8 +432,8 @@ def test_optimization_to_basic_result_collection(
             )
         ]
 
-    monkeypatch.setattr(FractalClient, "_automodel_request", mock_automodel_request)
-    monkeypatch.setattr(FractalClient, "query_results", mock_query_results)
+    monkeypatch.setattr(PortalClient, "_automodel_request", mock_automodel_request)
+    monkeypatch.setattr(PortalClient, "query_results", mock_query_results)
 
     basic_collection = optimization_result_collection.to_basic_result_collection(
         "hessian"
