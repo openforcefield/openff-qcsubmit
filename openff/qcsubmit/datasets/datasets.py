@@ -758,12 +758,6 @@ class _BaseDataset(abc.ABC, CommonBase):
         if not raise_errors:
             return basis_report
 
-    def _get_spec_keywords(self, spec: QCSpec) -> ptl.models.KeywordSet:
-        """
-        Build a keyword set which is specific to this QC specification and accounts for implicit solvent when requested.
-        """
-        return ptl.models.KeywordSet(values=spec.qc_keywords)
-
     def export_dataset(self, file_name: str, compression: Optional[str] = None) -> None:
         """
         Export the dataset to file so that it can be used to make another dataset quickly.
@@ -1023,14 +1017,12 @@ class BasicDataset(_BaseDataset):
         Returns:
             ``True`` if the specification successfully added, ``False`` otherwise.
         """
-        # generate the keyword set
-        kw = self._get_spec_keywords(spec=spec)
         try:
             # try and add the keywords; if present then continue
             dataset.add_keywords(
                 alias=spec.spec_name,
                 program=spec.program,
-                keyword=kw,
+                keyword=spec.qc_keywords,
                 default=False,
             )
             dataset.save()
@@ -1246,8 +1238,7 @@ class OptimizationDataset(BasicDataset):
             kw_id: The keyword index number in the client.
         """
 
-        kw = self._get_spec_keywords(spec=spec)
-        kw_id = client.add_keywords([kw])[0]
+        kw_id = client.add_keywords([spec.qc_keywords])[0]
         return kw_id
 
     def get_qc_spec(self, spec_name: str, keyword_id: str) -> QCSpecification:
