@@ -407,6 +407,91 @@ class BasicResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
+    def to_hdf5(self, filename: str):
+        """
+        Write the dataset to a custom HDF5 file format suitable for ML purposes, the format is compact where
+        possible to avoid repeated redundant information.
+        """
+        import h5py
+        import numpy as np
+        import tqdm
+        from openmm import unit
+
+        all_records_and_molecules = {
+            record.id: [record, molecule] for record, molecule in self.to_records()
+        }
+        entries_by_inchikey = defaultdict(list)
+
+        for entries in self.entries.values():
+            for entry in entries:
+                entries_by_inchikey[entry.inchi_key].append(entry)
+
+        f = h5py.File(filename, "w")
+        for inchikey, entries in tqdm.tqdm(
+            entries_by_inchikey.items(),
+            ncols=80,
+            desc="Creating HDF5 Dataset",
+            total=len(entries_by_inchikey),
+        ):
+            group = f.create_group(name=inchikey)
+            energies = []
+            gradients = []
+            conformations = []
+            for entry in entries:
+                record, molecule = all_records_and_molecules[entry.record_id]
+                energies.append(
+                    record.return_result
+                    if record.driver == "energy"
+                    else record.properties.return_energy
+                )
+                gradients.append(
+                    record.return_result
+                    if record.driver == "gradient"
+                    else record.properties.return_gradient
+                )
+                conformations.extend(
+                    [c.value_in_unit(unit=unit.bohr) for c in molecule.conformers]
+                )
+            ds_energy = group.create_dataset(
+                "energies", data=np.array(energies), dtype=np.float64, chunks=True
+            )
+            ds_energy.attrs["units"] = "hartree"
+            ds_gradient = group.create_dataset(
+                "gradients", data=gradients, dtype=np.float64, chunks=True
+            )
+            ds_gradient.attrs["units"] = "hartree / bohr"
+            ds_conformers = group.create_dataset(
+                "conformations",
+                data=np.array(conformations),
+                dtype=np.float64,
+                chunks=True,
+            )
+            ds_conformers.attrs["units"] = "bohr"
+            # now add the molecule information
+            record, molecule = all_records_and_molecules[entries[0].record_id]
+            # mapped smiles to remake the molecule in the correct order
+            group.create_dataset(
+                "smiles",
+                data=[molecule.to_smiles(mapped=True)],
+                dtype=h5py.string_dtype(encoding="utf-8"),
+            )
+            group.create_dataset(
+                "atomic_numbers",
+                data=[atom.atomic_number for atom in molecule.atoms],
+                dtype=np.int16,
+            )
+            group.create_dataset(
+                "charge",
+                data=[molecule.total_charge.value_in_unit(unit.elementary_charge)],
+                dtype=np.int16,
+            )
+            group.create_dataset(
+                "specification",
+                data=[f"{record.method}:{str(record.basis)}"],
+                dtype=h5py.string_dtype(encoding="utf-8"),
+            )
+        f.close()
+
 
 class OptimizationResult(_BaseResult):
     """A class which stores a reference to, and allows the retrieval of, data from
