@@ -20,8 +20,8 @@ dependencies:
 
   - qcengine >=0.25
   - qcelemental >=0.25.1
-  - qcfractal >=0.15.7
-  - qcfractal-core >=0.15.7
+#  - qcfractal >=0.15.7
+#  - qcfractal-core >=0.15.7
 
   - openeye-toolkits
 
@@ -40,7 +40,7 @@ dependencies:
   - rdkit
   - pydantic
   - pyyaml
-  - qcportal>=0.15.7
+#  - qcportal>=0.15.7
   - torsiondrive
   - basis_set_exchange
   - typing-extensions
