@@ -381,7 +381,7 @@ class BasicResultCollection(_BaseResultCollection):
         # noinspection PyTypeChecker
         return cls.from_datasets(
             [
-                client.get_collection("SinglepointDataset", dataset_name)
+                client.get_dataset("SinglepointDataset", dataset_name)
                 for dataset_name in datasets
             ],
             spec_name,
@@ -492,7 +492,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         # noinspection PyTypeChecker
         return cls.from_datasets(
             [
-                client.get_collection("OptimizationDataset", dataset_name)
+                client.get_dataset("OptimizationDataset", dataset_name)
                 for dataset_name in datasets
             ],
             spec_name,
@@ -742,7 +742,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         # noinspection PyTypeChecker
         return cls.from_datasets(
             [
-                client.get_collection("TorsiondriveDataset", dataset_name)
+                client.get_dataset("TorsiondriveDataset", dataset_name)
                 for dataset_name in datasets
             ],
             spec_name,

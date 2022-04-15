@@ -74,7 +74,7 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
     fractal_compute_server.await_results()
 
     # make sure of the results are complete
-    ds = client.get_collection("Dataset", dataset.dataset_name)
+    ds = client.get_dataset("Dataset", dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -155,7 +155,7 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
     fractal_compute_server.await_results()
 
     # make sure of the results are complete
-    ds = client.get_collection("Dataset", dataset.dataset_name)
+    ds = client.get_dataset("Dataset", dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -234,7 +234,7 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
     fractal_compute_server.await_results()
 
     # make sure of the results are complete
-    ds = client.get_collection("Dataset", dataset.dataset_name)
+    ds = client.get_dataset("Dataset", dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -303,7 +303,7 @@ def test_adding_specifications(fractal_compute_server):
     fractal_compute_server.await_services()
 
     # grab the collection
-    ds = client.get_collection(opt_dataset.type, opt_dataset.dataset_name)
+    ds = client.get_dataset(opt_dataset.type, opt_dataset.dataset_name)
 
     # now try and add the specification again this should return True
     assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
@@ -387,7 +387,7 @@ def test_adding_compute(fractal_compute_server, dataset_data):
     fractal_compute_server.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = client.get_collection(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(dataset.type, dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -483,7 +483,7 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
     fractal_compute_server.await_results()
 
     # make sure of the results are complete
-    ds = client.get_collection("Dataset", dataset.dataset_name)
+    ds = client.get_dataset("Dataset", dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -548,7 +548,7 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     fractal_compute_server.await_results()
 
     # make sure of the results are complete
-    ds = client.get_collection("OptimizationDataset", dataset.dataset_name)
+    ds = client.get_dataset("OptimizationDataset", dataset.dataset_name)
     record = ds.get_record(ds.df.index[0], "default")
     assert "constraints" in record.keywords
     assert record.status.value == "COMPLETE"
@@ -602,7 +602,7 @@ def test_optimization_submissions(fractal_compute_server, specification):
     fractal_compute_server.await_results()
 
     # make sure of the results are complete
-    ds = client.get_collection("OptimizationDataset", dataset.dataset_name)
+    ds = client.get_dataset("OptimizationDataset", dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -680,7 +680,7 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
     fractal_compute_server.await_results()
 
     # make sure of the results are complete
-    ds = client.get_collection("OptimizationDataset", dataset.dataset_name)
+    ds = client.get_dataset("OptimizationDataset", dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -748,7 +748,7 @@ def test_torsiondrive_scan_keywords(fractal_compute_server):
     fractal_compute_server.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = client.get_collection("TorsionDriveDataset", dataset.dataset_name)
+    ds = client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
 
     # get the entry
     record = ds.get_record(ds.df.index[0], "openff-1.1.0")
@@ -779,7 +779,7 @@ def test_torsiondrive_constraints(fractal_compute_server):
     fractal_compute_server.await_services(max_iter=50)
 
     # make sure the result is complete
-    ds = client.get_collection("TorsionDriveDataset", dataset.dataset_name)
+    ds = client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
 
     record = ds.get_record(ds.df.index[0], "uff")
     opt = client.query_procedures(id=record.optimization_history['[-150]'])[0]
@@ -836,7 +836,7 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
     fractal_compute_server.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = client.get_collection("TorsionDriveDataset", dataset.dataset_name)
+    ds = client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -941,7 +941,7 @@ def test_index_not_changed(fractal_compute_server, factory_type):
     dataset.submit(client=client)
 
     # pull the dataset and make sure our index is present
-    ds = client.get_collection(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(dataset.type, dataset.dataset_name)
 
     if dataset.type == "DataSet":
         query = ds.get_records(method="openff-1.0.0", basis="smirnoff", program="openmm")
@@ -1016,7 +1016,7 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     # make sure all expected index get submitted
     dataset.submit(client=client)
     # grab the dataset and check the history
-    ds = client.get_collection(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(dataset.type, dataset.dataset_name)
     assert ds.data.history == {"default"}
 
     # now make another dataset to expand the compute
@@ -1033,7 +1033,7 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     dataset.submit(client=client)
 
     # now grab the dataset again and check the tasks list
-    ds = client.get_collection(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(dataset.type, dataset.dataset_name)
     assert ds.data.history == {"default", "parsley2"}
     # make sure a record has been made
     entry = ds.get_entry(ds.df.index[0])

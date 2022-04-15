@@ -5,16 +5,17 @@ from openff.toolkit.topology import Molecule
 from openff.units import unit
 from pydantic import BaseModel
 from qcelemental.models import DriverEnum
-from qcportal.models import (
-    ObjectId,
+from qcelemental.models.procedures import TDKeywords
+
+from qcportal.records import (
+    SinglepointRecord,
     OptimizationRecord,
-    OptimizationSpecification,
-    QCSpecification,
-    ResultRecord,
-    TorsionDriveRecord,
+    TorsiondriveRecord,
 )
-from qcportal.models.records import RecordStatusEnum
-from qcportal.models.torsiondrive import TDKeywords
+
+from qcportal.records.optimization.models import OptimizationSpecification
+from qcportal.records.singlepoint.models import QCSpecification
+from qcportal.records.models import RecordStatusEnum
 
 from openff.qcsubmit.results import (
     BasicResult,
@@ -52,7 +53,7 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
         entries={
             address: [
                 BasicResult(
-                    record_id=ObjectId(str(i + 1)),
+                    record_id=i + 1,
                     cmiles=molecule.to_smiles(mapped=True),
                     inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                 )
@@ -67,7 +68,7 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
         "to_records",
         lambda self: [
             (
-                ResultRecord(
+                SinglepointRecord(
                     id=entry.record_id,
                     program="psi4",
                     driver=DriverEnum.gradient,
@@ -95,7 +96,7 @@ def mock_optimization_result_collection(
         entries={
             address: [
                 OptimizationResult(
-                    record_id=ObjectId(str(i + 1)),
+                    record_id=i + 1,
                     cmiles=molecule.to_smiles(mapped=True),
                     inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                 )
@@ -119,8 +120,8 @@ def mock_optimization_result_collection(
                         basis="sto-3g",
                         program="psi4",
                     ),
-                    initial_molecule=ObjectId(entry.record_id),
-                    final_molecule=ObjectId(entry.record_id),
+                    initial_molecule=entry.record_id,
+                    final_molecule=entry.record_id,
                     status=RecordStatusEnum.complete,
                     energies=[numpy.random.random()],
                     client=_PortalClient(address=address),
@@ -143,7 +144,7 @@ def mock_torsion_drive_result_collection(
         entries={
             address: [
                 TorsionDriveResult(
-                    record_id=ObjectId(str(i + 1)),
+                    record_id=i + 1,
                     cmiles=molecule.to_smiles(mapped=True),
                     inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                 )
@@ -158,7 +159,7 @@ def mock_torsion_drive_result_collection(
         "to_records",
         lambda self: [
             (
-                TorsionDriveRecord(
+                TorsiondriveRecord(
                     id=entry.record_id,
                     qc_spec=QCSpecification(
                         driver=DriverEnum.gradient,
@@ -170,7 +171,7 @@ def mock_torsion_drive_result_collection(
                         program="geometric", keywords={}
                     ),
                     initial_molecule=[
-                        ObjectId(i + 1)
+                        i + 1
                         for i in range(
                             molecules[address][int(entry.record_id) - 1].n_conformers
                         )
@@ -203,7 +204,7 @@ def mock_torsion_drive_result_collection(
         return return_value
 
     monkeypatch.setattr(
-        TorsionDriveRecord, "get_final_molecules", lambda self: get_molecules(self)
+        TorsiondriveRecord, "get_final_molecules", lambda self: get_molecules(self)
     )
 
     return collection

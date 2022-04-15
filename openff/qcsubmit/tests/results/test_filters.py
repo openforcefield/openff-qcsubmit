@@ -6,8 +6,7 @@ from openff.toolkit.topology import Molecule
 from openff.units import unit
 from pydantic import ValidationError
 from qcelemental.models import DriverEnum
-from qcportal.models import ObjectId, ResultRecord
-from qcportal.models.records import RecordStatusEnum
+from qcportal.records import SinglepointRecord, RecordStatusEnum
 
 from openff.qcsubmit.results import (
     BasicResult,
@@ -25,7 +24,7 @@ from openff.qcsubmit.results.filters import (
     MinimumConformersFilter,
     RecordStatusFilter,
     ResultFilter,
-    ResultRecordFilter,
+    SinglepointRecordFilter,
     SMARTSFilter,
     SMILESFilter,
     UnperceivableStereoFilter,
@@ -75,7 +74,7 @@ def test_apply_cmiles_filter(basic_result_collection):
 
 
 def test_apply_record_filter(basic_result_collection):
-    class DummyFilter(ResultRecordFilter):
+    class DummyFilter(SinglepointRecordFilter):
         def _filter_function(self, result, record, molecule) -> bool:
             return record.client.address == "http://localhost:442"
 
@@ -223,17 +222,17 @@ def test_torsion_drive_record_filter_apply(
 def test_connectivity_filter():
 
     result = BasicResult(
-        record_id=ObjectId("1"),
+        record_id=1,
         cmiles="[Cl:1][Cl:2]",
         inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
     )
-    record = ResultRecord(
-        id=ObjectId("1"),
+    record = SinglepointRecord(
+        id=1,
         program="psi4",
         driver=DriverEnum.gradient,
         method="scf",
         basis="sto-3g",
-        molecule=ObjectId("1"),
+        molecule=1,
         status=RecordStatusEnum.complete,
     )
 
@@ -254,13 +253,13 @@ def test_connectivity_filter():
 
 def test_record_status_filter():
 
-    record = ResultRecord(
-        id=ObjectId("1"),
+    record = SinglepointRecord(
+        id=1,
         program="psi4",
         driver=DriverEnum.gradient,
         method="scf",
         basis="sto-3g",
-        molecule=ObjectId("1"),
+        molecule=1,
         status=RecordStatusEnum.complete,
     )
 
@@ -273,7 +272,7 @@ def test_record_status_filter():
 
 def test_charge_filter():
 
-    record = BasicResult(record_id=ObjectId("1"), cmiles="[N+:1](=[O:2])([O-:3])[O-:4]", inchi_key="NHNBFGGVMKEFGY-UHFFFAOYSA-N")
+    record = BasicResult(record_id=1, cmiles="[N+:1](=[O:2])([O-:3])[O-:4]", inchi_key="NHNBFGGVMKEFGY-UHFFFAOYSA-N")
     charge_filter = ChargeFilter(charges_to_include=[-1, 0])
 
     assert charge_filter._filter_function(entry=record) is True
@@ -536,7 +535,7 @@ def test_unperceivable_stereo_filter(toolkits, n_expected, public_client):
         entries={
             "https://api.qcarchive.molssi.org:443/": [
                 OptimizationResult(
-                    record_id=ObjectId("19095884"),
+                    record_id=19095884,
                     cmiles=(
                         "[H:37][c:1]1[c:3]([c:8]([c:6]([c:9]([c:4]1[H:40])[S:36]"
                         "(=[O:32])(=[O:33])[N:29]2[C:17]([C:21]([C:18]2([H:53])[H:54])"

@@ -85,7 +85,7 @@ def test_cached_query_molecule(public_client):
     [
         (
             BasicResult(
-                record_id=ObjectId("32651863"),
+                record_id=2651863,
                 cmiles="[H:3][C:1]([H:4])([H:5])[O:2][H:6]",
                 inchi_key="",
             ),
@@ -93,7 +93,7 @@ def test_cached_query_molecule(public_client):
         ),
         (
             OptimizationResult(
-                record_id=ObjectId("25724668"),
+                record_id=25724668,
                 cmiles="[C:1]([H:2])([H:3])([H:4])[H:5]",
                 inchi_key="",
             ),
@@ -114,7 +114,7 @@ def test_record_to_molecule(
 
     assert molecule.n_conformers == 1
 
-    if isinstance(record, ResultRecord):
+    if isinstance(record, SinglepointRecord):
         expected_qc_molecule = record.get_molecule()
     elif isinstance(record, OptimizationRecord):
         expected_qc_molecule = record.get_final_molecule()
@@ -140,7 +140,7 @@ def test_cached_query_torsion_drive_results(public_client):
     assert len(_grid_id_cache) == 0
 
     result = TorsionDriveResult(
-        record_id=ObjectId("36633243"),
+        record_id=36633243,
         cmiles="[H:6][N:5]([H:7])[C:3](=[O:4])[C:1]#[N:2]",
         inchi_key="",
     )

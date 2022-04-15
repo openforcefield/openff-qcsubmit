@@ -9,20 +9,19 @@ from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
 from pydantic import ValidationError
 from qcportal import PortalClient
-from qcportal.models import Molecule as QCMolecule
-from qcportal.models import (
-    ObjectId,
+from qcportal.molecules import Molecule as QCMolecule
+from qcportal.records import (
+    SinglepointRecord,
     OptimizationRecord,
-    ResultRecord,
-    TorsionDriveRecord,
+    TorsiondriveRecord,
+    RecordStatusEnum
 )
-from qcportal.models.common_models import (
-    DriverEnum,
-    OptimizationSpecification,
-    QCSpecification,
-)
-from qcportal.models.records import RecordStatusEnum
-from qcportal.models.torsiondrive import TDKeywords
+from qcelemental.models import DriverEnum
+
+from qcportal.records.optimization import OptimizationSpecification
+from qcportal.records.singlepoint import QCSpecification
+
+from qcelemental.models.procedures import TDKeywords
 
 from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
@@ -56,7 +55,7 @@ class MockServerInfo:
 def test_base_molecule_property():
 
     record = BasicResult(
-        record_id=ObjectId("1"),
+        record_id=1,
         cmiles="[Cl:2][H:1]",
         inchi_key="VEXZGXHMUGYJMC-UHFFFAOYSA-N",
     )
@@ -72,7 +71,7 @@ def test_base_molecule_property():
         (
             [
                 BasicResult(
-                    record_id=ObjectId("1"),
+                    record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
                 )
@@ -82,7 +81,7 @@ def test_base_molecule_property():
         (
             [
                 BasicResult(
-                    record_id=ObjectId("1"),
+                    record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
                 )
@@ -107,14 +106,14 @@ def test_base_n_results_property():
         entries={
             "http://localhost:442": [
                 BasicResult(
-                    record_id=ObjectId("1"),
+                    record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
                 )
             ],
             "http://localhost:443": [
                 BasicResult(
-                    record_id=ObjectId("1"),
+                    record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
                 )
@@ -131,19 +130,19 @@ def test_base_n_molecules_property():
         entries={
             "http://localhost:442": [
                 BasicResult(
-                    record_id=ObjectId("1"),
+                    record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
                 )
             ],
             "http://localhost:443": [
                 BasicResult(
-                    record_id=ObjectId("1"),
+                    record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
                 ),
                 BasicResult(
-                    record_id=ObjectId("2"),
+                    record_id=2,
                     cmiles="[Cl:1][Cl:2]",
                     inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
                 ),
@@ -157,12 +156,12 @@ def test_base_n_molecules_property():
 def test_base_validate_record_types():
 
     records = [
-        ResultRecord(
+        SinglepointRecord(
             program="psi4",
             driver=DriverEnum.gradient,
             method="scf",
             basis="sto-3g",
-            molecule=ObjectId("1"),
+            molecule=1,
             status=RecordStatusEnum.complete,
         ),
         OptimizationRecord(
@@ -170,12 +169,12 @@ def test_base_validate_record_types():
             qc_spec=QCSpecification(
                 driver=DriverEnum.gradient, method="scf", basis="sto-3g", program="psi4"
             ),
-            initial_molecule=ObjectId("1"),
+            initial_molecule=1,
             status=RecordStatusEnum.complete,
         ),
     ]
 
-    _BaseResultCollection._validate_record_types(records[:1], ResultRecord)
+    _BaseResultCollection._validate_record_types(records[:1], SinglepointRecord)
     _BaseResultCollection._validate_record_types(records[1:], OptimizationRecord)
 
     with pytest.raises(RecordTypeError, match="The collection contained a records"):
@@ -213,7 +212,7 @@ def test_base_smirnoff_coverage():
         entries={
             "http://localhost:442": [
                 TorsionDriveResult(
-                    record_id=ObjectId(str(i + 1)),
+                    record_id=i + 1,
                     cmiles=smiles,
                     inchi_key=Molecule.from_smiles(smiles).to_inchikey(),
                 )
@@ -280,20 +279,20 @@ def test_collection_from_server(
                 entries={
                     "https://api.qcarchive.molssi.org:443/": [
                         BasicResult(
-                            record_id=ObjectId("1"),
+                            record_id=1,
                             cmiles="[Cl:1][Cl:2]",
                             inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
                         )
                     ]
                 }
             ),
-            ResultRecord(
-                id=ObjectId("1"),
+            SinglepointRecord(
+                id=1,
                 program="psi4",
                 driver=DriverEnum.gradient,
                 method="scf",
                 basis="sto-3g",
-                molecule=ObjectId("1"),
+                molecule=1,
                 status=RecordStatusEnum.complete,
             ),
         ),
@@ -302,7 +301,7 @@ def test_collection_from_server(
                 entries={
                     "https://api.qcarchive.molssi.org:443/": [
                         OptimizationResult(
-                            record_id=ObjectId("1"),
+                            record_id=1,
                             cmiles="[Cl:1][Cl:2]",
                             inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
                         )
@@ -311,14 +310,14 @@ def test_collection_from_server(
             ),
             OptimizationRecord(
                 program="psi4",
-                id=ObjectId("1"),
+                id=1,
                 qc_spec=QCSpecification(
                     driver=DriverEnum.gradient,
                     method="scf",
                     basis="sto-3g",
                     program="psi4",
                 ),
-                initial_molecule=ObjectId("1"),
+                initial_molecule=1,
                 status=RecordStatusEnum.complete,
             ),
         ),
@@ -327,15 +326,15 @@ def test_collection_from_server(
                 entries={
                     "https://api.qcarchive.molssi.org:443/": [
                         TorsionDriveResult(
-                            record_id=ObjectId("1"),
+                            record_id=1,
                             cmiles="[Cl:1][Cl:2]",
                             inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
                         )
                     ]
                 }
             ),
-            TorsionDriveRecord(
-                id=ObjectId("1"),
+            TorsiondriveRecord(
+                id=1,
                 qc_spec=QCSpecification(
                     driver=DriverEnum.gradient,
                     method="scf",
@@ -345,7 +344,7 @@ def test_collection_from_server(
                 optimization_spec=OptimizationSpecification(
                     program="geometric", keywords={}
                 ),
-                initial_molecule=[ObjectId("1")],
+                initial_molecule=[1],
                 status=RecordStatusEnum.complete,
                 keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
                 final_energy_dict={},
@@ -380,7 +379,7 @@ def test_to_records(collection, record, monkeypatch):
 
     assert isinstance(record, record.__class__)
 
-    if not isinstance(record, TorsionDriveRecord):
+    if not isinstance(record, TorsiondriveRecord):
         assert molecule.n_conformers == 1
 
 
@@ -421,8 +420,8 @@ def test_optimization_to_basic_result_collection(
         assert "driver" in kwargs and kwargs["driver"] == "hessian"
 
         return [
-            ResultRecord(
-                id=ObjectId("1"),
+            SinglepointRecord(
+                id=1,
                 program=kwargs["program"],
                 driver=getattr(DriverEnum, kwargs["driver"]),
                 method=kwargs["method"],
@@ -489,7 +488,7 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
         entries={
             "http://localhost:442": [
                 TorsionDriveResult(
-                    record_id=ObjectId(str(i + 1)),
+                    record_id=i + 1,
                     cmiles=molecule.to_smiles(mapped=True),
                     inchi_key=molecule.to_inchikey(),
                 )
@@ -503,7 +502,7 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
         "to_records",
         lambda self: [
             (
-                TorsionDriveRecord(
+                TorsiondriveRecord(
                     id=entry.record_id,
                     qc_spec=QCSpecification(
                         driver=DriverEnum.gradient,
@@ -514,7 +513,7 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
                     optimization_spec=OptimizationSpecification(
                         program="geometric", keywords={}
                     ),
-                    initial_molecule=[ObjectId(1)],
+                    initial_molecule=[1],
                     status=RecordStatusEnum.complete,
                     client=public_client,
                     keywords=TDKeywords(
