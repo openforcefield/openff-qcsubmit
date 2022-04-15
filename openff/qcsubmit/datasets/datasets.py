@@ -71,7 +71,7 @@ class _BaseDataset(abc.ABC, CommonBase):
     )
     dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = Field(
         ...,
-        description="The tagline should be a short description of the dataset which will be displayed by the QCArchive client when the collections are listed.",
+        description="The tagline should be a short description of the dataset which will be displayed by the QCArchive client when the datasets are listed.",
     )
     type: Literal["_BaseDataset"] = Field(
         "_BaseDataset",
@@ -977,8 +977,8 @@ class BasicDataset(_BaseDataset):
 
         return new_dataset
 
-    def _generate_collection(self, client: "PortalClient") -> ptl.collections.Dataset:
-        collection = ptl.collections.Dataset(
+    def _generate_collection(self, client: "PortalClient") -> ptl.datasets.SinglepointDataset:
+        collection = ptl.datasets.SinglepointDataset(
             name=self.dataset_name,
             client=client,
             default_driver=self.driver,
@@ -995,13 +995,13 @@ class BasicDataset(_BaseDataset):
         """Needed for `submit` usage."""
         return None
 
-    def _get_indices(self, collection: ptl.collections.Dataset):
+    def _get_indices(self, collection: ptl.datasets.SinglepointDataset):
         return [e.molecule_id for e in collection.data.records]
 
     def _add_dataset_specification(
         self,
         spec: QCSpec,
-        dataset: ptl.collections.Dataset,
+        dataset: ptl.datasets.SinglepointDataset,
         procedure_spec: Optional["OptimizationSpecification"] = None,
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
@@ -1038,7 +1038,7 @@ class BasicDataset(_BaseDataset):
         spec_kwargs["subset"] = indices
         return spec_kwargs
 
-    def _add_entries(self, dataset: ptl.collections.Dataset) -> Tuple[List[str], int]:
+    def _add_entries(self, dataset: ptl.datasets.SinglepointDataset) -> Tuple[List[str], int]:
         new_entries = 0
         indices = []
 
@@ -1081,7 +1081,7 @@ class BasicDataset(_BaseDataset):
     def _add_entry(
         self,
         molecule: qcel.models.Molecule,
-        dataset: ptl.collections.Dataset,
+        dataset: ptl.datasets.SinglepointDataset,
         name: str,
         data: DatasetEntry,
     ) -> bool:
@@ -1267,7 +1267,7 @@ class OptimizationDataset(BasicDataset):
     def _add_dataset_specification(
         self,
         spec: QCSpec,
-        dataset: ptl.collections.OptimizationDataset,
+        dataset: ptl.datasets.OptimizationDataset,
         procedure_spec: Optional["OptimizationSpecification"] = None,
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
@@ -1321,8 +1321,8 @@ class OptimizationDataset(BasicDataset):
 
     def _generate_collection(
         self, client: "PortalClient"
-    ) -> ptl.collections.OptimizationDataset:
-        collection = ptl.collections.OptimizationDataset(
+    ) -> ptl.datasets.OptimizationDataset:
+        collection = ptl.datasets.OptimizationDataset(
             name=self.dataset_name,
             client=client,
             tagline=self.dataset_tagline,
@@ -1346,7 +1346,7 @@ class OptimizationDataset(BasicDataset):
         return spec_kwargs
 
     def _add_entries(
-        self, dataset: ptl.collections.OptimizationDataset
+        self, dataset: ptl.datasets.OptimizationDataset
     ) -> Tuple[List[str], int]:
         new_entries = 0
         indices = []
@@ -1386,7 +1386,7 @@ class OptimizationDataset(BasicDataset):
     def _add_entry(
         self,
         molecule: qcel.models.Molecule,
-        dataset: ptl.collections.OptimizationDataset,
+        dataset: ptl.datasets.OptimizationDataset,
         name: str,
         data: OptimizationEntry,
     ) -> bool:
@@ -1449,7 +1449,7 @@ class TorsiondriveDataset(OptimizationDataset):
     """
 
     dataset: Dict[str, TorsionDriveEntry] = {}
-    type: Literal["TorsionDriveDataset"] = "TorsionDriveDataset"
+    type: Literal["TorsiondriveDataset"] = "TorsiondriveDataset"
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )
@@ -1547,8 +1547,8 @@ class TorsiondriveDataset(OptimizationDataset):
 
     def _generate_collection(
         self, client: "PortalClient"
-    ) -> ptl.collections.TorsionDriveDataset:
-        collection = ptl.collections.TorsionDriveDataset(
+    ) -> ptl.datasets.TorsiondriveDataset:
+        collection = ptl.datasets.TorsiondriveDataset(
             name=self.dataset_name,
             client=client,
             tagline=self.dataset_tagline,
@@ -1560,7 +1560,7 @@ class TorsiondriveDataset(OptimizationDataset):
         return collection
 
     def _add_entries(
-        self, dataset: ptl.collections.TorsionDriveDataset
+        self, dataset: ptl.datasets.TorsiondriveDataset
     ) -> Tuple[List[str], int]:
         new_entries = 0
         indices = []
@@ -1582,7 +1582,7 @@ class TorsiondriveDataset(OptimizationDataset):
     def _add_entry(
         self,
         molecule: qcel.models.Molecule,
-        dataset: ptl.collections.TorsionDriveDataset,
+        dataset: ptl.datasets.TorsiondriveDataset,
         name: str,
         data: TorsionDriveEntry,
     ) -> bool:
