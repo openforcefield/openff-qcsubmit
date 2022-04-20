@@ -107,11 +107,63 @@ intersphinx_mapping = {
 # Set up mathjax.
 mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
 
+# sphinx-notfound-page
+# https://github.com/readthedocs/sphinx-notfound-page
+# Renders a 404 page with absolute links
+import importlib
+
+if importlib.util.find_spec("notfound"):
+    extensions.append("notfound.extension")
+
+    notfound_context = {
+        "title": "404: File Not Found",
+        "body": """
+    <h1>404: File Not Found</h1>
+    <p>
+        Sorry, we couldn't find that page. This often happens as a result of
+        following an outdated link. Please check the latest stable version
+        of the docs, unless you're sure you want an earlier version, and
+        try using the search box or the navigation menu on the left.
+    </p>
+    <p>
+    </p>
+    """,
+    }
+
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = "sphinx_rtd_theme"
 
-html_theme_options = {"prev_next_buttons_location": None, "sticky_navigation": False}
+# The theme to use for HTML and HTML Help pages.  See the documentation for
+# a list of builtin themes.
+#
+extensions.append("openff_sphinx_theme")
+html_theme = "openff_sphinx_theme"
+
+html_sidebars = {
+    "**": ["globaltoc.html", "localtoc.html", "searchbox.html"],
+}
+
+# Theme options are theme-specific and customize the look and feel of a
+# theme further.
+html_theme_options = {
+    # Repository integration
+    # Set the repo url for the link to appear
+    "repo_url": "https://github.com/openforcefield/openff-qcsubmit",
+    # The name of the repo. If must be set if repo_url is set
+    "repo_name": "openff-qcsubmit",
+    # Must be one of github, gitlab or bitbucket
+    "repo_type": "github",
+    # Colour for sidebar captions and other accents. One of
+    # openff-blue, openff-toolkit-blue, openff-dataset-yellow,
+    # openff-evaluator-orange, aquamarine, lilac, amaranth, grape,
+    # violet, pink, pale-green, green, crimson, eggplant, turquoise,
+    # or a tuple of three ints in the range [0, 255] corresponding to
+    # a position in RGB space.
+    "color_accent": "openff-dataset-yellow",
+    "html_minify": False,
+    "html_prettify": False,
+    "css_minify": False,
+}
 
 html_static_path = ["_static"]
 
