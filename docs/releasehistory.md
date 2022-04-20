@@ -13,9 +13,9 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 
 ### Bugfixes
 
-* [PR #183:] Fixed a bug which stopped molecules from being added to datasets via attributes passed to ``Dataset.add_molecule``. [@dotsdl]
-* [PR #184:] Correctly create results from collections with missing ``inchi_key`` fields [@jthorton]
-* [PR #187:] Now able to make results from single point datasets with ``Nan`` records [@jthorton]
+* [PR #183:] Fixed a bug which stopped molecules from being added to datasets via attributes passed to `Dataset.add_molecule`. [@dotsdl]
+* [PR #184:] Correctly create results from collections with missing `inchi_key` fields [@jthorton]
+* [PR #187:] Now able to make results from single point datasets with `Nan` records [@jthorton]
 * [PR #192:] now keep all conformers for molecules. [@jthorton]
 
 ### New Features
