@@ -4,9 +4,10 @@ OpenFF QCSubmit
 
 *An automated framework for contributing quantum chemical datasets to, and retrieving from, QCFractal instances.*
 
-The main purpose of the ``openff-qcsubmit`` is to facilitate curating and contributing new quantum chemical (QC)
-datasets to the `QCArchive <https://qcarchive.molssi.org/>`_ (or any other `QCFractal <http://docs.qcarchive.molssi.org/projects/qcfractal/en/latest/>`_
-instance), as well as to retrieve already computed datasets.
+QCSubmit helps to curate and contribute new quantum chemical (QC) datasets to the
+`QCArchive <https://qcarchive.molssi.org/>`_ (or any other
+`QCFractal <http://docs.qcarchive.molssi.org/projects/qcfractal/en/latest/>`_ instance), as well as to retrieve
+already computed datasets.
 
 .. warning:: ``openff-qcsubmit`` is still pre-alpha. It is not fully tested and the API is still in flux.
 

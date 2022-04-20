@@ -4,7 +4,7 @@ Installation
 Installing using conda
 ----------------------
 
-The recommended way to install ``openff-qcsubmit`` is via the ``conda`` package manger:
+The recommended way to install QCSubmit is via the ``conda`` package manger:
 
 .. code-block:: bash
 
@@ -13,8 +13,7 @@ The recommended way to install ``openff-qcsubmit`` is via the ``conda`` package 
 Optional dependencies
 """""""""""""""""""""
 
-If you have access to the OpenEye toolkits (namely ``oechem``, ``oequacpac``, ``oeomega`` and ``oedepict``) we recommend
-installing these also as these can speed up various operations performed by this framework significantly:
+If you have access to the OpenEye toolkits (namely ``oechem``, ``oequacpac``, ``oeomega`` and ``oedepict``), we recommend installing these also as these can speed up various operations performed by this framework significantly:
 
 .. code-block:: bash
 
@@ -23,8 +22,7 @@ installing these also as these can speed up various operations performed by this
 Installing from source
 ----------------------
 
-To install ``openff-qcsubmit`` from source begin by cloning the repository from `github
-<https://github.com/openforcefield/openff-qcsubmit>`_:
+To install ``openff-qcsubmit`` from source, begin by cloning the repository from `github <https://github.com/openforcefield/openff-qcsubmit>`_:
 
 .. code-block:: bash
 
@@ -38,7 +36,7 @@ Create a custom conda environment which contains the required dependencies and a
     conda env create --name openff-qcsubmit --file devtools/conda-envs/meta.yaml
     conda activate openff-qcsubmit
 
-Finally, install ``openff-qcsubmit`` itself:
+Finally, install the ``openff-qcsubmit`` package into the current environment:
 
 .. code-block:: bash
 
