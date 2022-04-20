@@ -14,7 +14,7 @@ In these cases, the docs can be built locally by doing the following::
 
     git clone https://github.com/openforcefield/openff-qcsubmit.git
     cd openff-qcsubmit
-    conda env create --name openff-qcsubmit-docs --file devtools/conda-envs/docs.yml
+    conda env create --name openff-qcsubmit-docs --file devtools/conda-envs/docs.yaml
     conda activate openff-qcsubmit-docs
     rm -rf docs/api/generated docs/_build/html && sphinx-build -b html -j auto docs docs/_build/html
 
