@@ -11,4 +11,4 @@ formats:
     - pdf
 
 conda:
-  environment: docs/environment.yml
+  environment: devtools/docs.yml
