@@ -45,6 +45,7 @@ extensions = [
     "nbsphinx_link",
     "sphinxcontrib.bibtex",
     "sphinxcontrib.autodoc_pydantic",
+    "myst_parser",
 ]
 
 source_suffix = ".rst"
@@ -106,6 +107,14 @@ intersphinx_mapping = {
 
 # Set up mathjax.
 mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+
+myst_enable_extensions = [
+    "deflist",
+    "smartquotes",
+    "replacements",
+    "dollarmath",
+    "colon_fence",
+]
 
 # sphinx-notfound-page
 # https://github.com/readthedocs/sphinx-notfound-page

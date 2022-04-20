@@ -15,6 +15,7 @@ dependencies:
   - sphinx_rtd_theme
   - sphinxcontrib-bibtex
   - sphinx-notfound-page
+  - myst-parser
   - pandoc
   - ipython
 
