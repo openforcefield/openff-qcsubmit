@@ -2,7 +2,7 @@
 The procedure settings controllers
 """
 
-from typing import Dict
+from typing import Dict, Any
 
 from pydantic import BaseModel, Field, validator
 from qcportal.records.optimization import OptimizationSpecification
@@ -101,7 +101,7 @@ class GeometricProcedure(BaseModel):
     )
     _coordsys_check = validator("coordsys", pre=True, allow_reuse=True)(literal_lower)
 
-    def get_optimzation_spec(self) -> OptimizationSpecification:
+    def get_optimzation_keywords(self) -> Dict[str, Any]:
         """
         Create the optimization specification to be used in qcarchive.
 
@@ -112,11 +112,7 @@ class GeometricProcedure(BaseModel):
         if self.constraints is not None:
             exclude.add("constraints")
 
-        opt_spec = OptimizationSpecification(
-            program=self.program, keywords=self.dict(exclude=exclude)
-        )
-
-        return opt_spec
+        return self.dict(exclude=exclude)
 
     @classmethod
     def from_opt_spec(
