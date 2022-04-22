@@ -160,32 +160,38 @@ def test_base_validate_record_types():
         SinglepointRecord.from_datamodel(
             SinglepointRecord._DataModel(
                 specification=QCSpecification(
-            program="psi4",
-            driver=DriverEnum.gradient,
-            method="scf",
-            basis="sto-3g",
-            ),
-            molecule_id=1,
-            status=RecordStatusEnum.complete,
-            is_service=False,
-            created_on=datetime.datetime(2022,4,21,0,0,0),
-            modified_on=datetime.datetime(2022,4,21,0,0,0),
-            compute_history=list(),
-        )),
-        OptimizationRecord.from_datamodel(OptimizationRecord._DataModel(
-            specification=OptimizationSpecification(
-                program="geometric",
-                qc_specification=QCSpecification(
-                    driver=DriverEnum.gradient, method="scf", basis="sto-3g", program="psi4"
-                )
-            ),
-            initial_molecule_id=1,
-            status=RecordStatusEnum.complete,
-            is_service=False,
-            created_on=datetime.datetime(2022,4,21,0,0,0),
-            modified_on=datetime.datetime(2022,4,21,0,0,0),
-            compute_history=list(),
-        )),
+                    program="psi4",
+                    driver=DriverEnum.gradient,
+                    method="scf",
+                    basis="sto-3g",
+                ),
+                molecule_id=1,
+                status=RecordStatusEnum.complete,
+                is_service=False,
+                created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                compute_history=list(),
+            )
+        ),
+        OptimizationRecord.from_datamodel(
+            OptimizationRecord._DataModel(
+                specification=OptimizationSpecification(
+                    program="geometric",
+                    qc_specification=QCSpecification(
+                        driver=DriverEnum.gradient,
+                        method="scf",
+                        basis="sto-3g",
+                        program="psi4",
+                    ),
+                ),
+                initial_molecule_id=1,
+                status=RecordStatusEnum.complete,
+                is_service=False,
+                created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                compute_history=list(),
+            )
+        ),
     ]
 
     _BaseResultCollection._validate_record_types(records[:1], SinglepointRecord)
@@ -309,12 +315,12 @@ def test_collection_from_server(
                         method="scf",
                         basis="sto-3g",
                     ),
-                molecule_id=1,
-                status=RecordStatusEnum.complete,
-                is_service=False,
-                created_on=datetime.datetime(2022,4,21,0,0,0),
-                modified_on=datetime.datetime(2022,4,21,0,0,0),
-                compute_history=list(),
+                    molecule_id=1,
+                    status=RecordStatusEnum.complete,
+                    is_service=False,
+                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    compute_history=list(),
                 )
             ),
         ),
@@ -332,22 +338,24 @@ def test_collection_from_server(
             ),
             OptimizationRecord.from_datamodel(
                 OptimizationRecord._DataModel(
-                specification=OptimizationSpecification(
-                    program="geometric",
-                    qc_specification=QCSpecification(
-                        driver=DriverEnum.gradient,
-                        method="scf",
-                        basis="sto-3g",
-                        program="psi4",
-                    )),
-                id=1,
-                initial_molecule_id=1,
-                status=RecordStatusEnum.complete,
-                is_service=False,
-                created_on=datetime.datetime(2022,4,21,0,0,0),
-                modified_on=datetime.datetime(2022,4,21,0,0,0),
-                compute_history=list(),
-            )),
+                    specification=OptimizationSpecification(
+                        program="geometric",
+                        qc_specification=QCSpecification(
+                            driver=DriverEnum.gradient,
+                            method="scf",
+                            basis="sto-3g",
+                            program="psi4",
+                        ),
+                    ),
+                    id=1,
+                    initial_molecule_id=1,
+                    status=RecordStatusEnum.complete,
+                    is_service=False,
+                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    compute_history=list(),
+                )
+            ),
         ),
         (
             TorsionDriveResultCollection(
@@ -364,40 +372,33 @@ def test_collection_from_server(
             TorsiondriveRecord.from_datamodel(
                 TorsiondriveRecord._DataModel(
                     specification=TorsiondriveSpecification(
-                        program='torsiondrive',
+                        program="torsiondrive",
                         keywords=TorsiondriveKeywords(dihedrals=[], grid_spacing=[]),
                         optimization_specification=OptimizationSpecification(
-                            program='geometric',
+                            program="geometric",
                             keywords={},
                             qc_specification=QCSpecification(
                                 driver=DriverEnum.gradient,
                                 method="scf",
                                 basis="sto-3g",
                                 program="psi4",
-                            ))),
-                initial_molecules=[],
-                id=1,
-                qc_spec=QCSpecification(
-                    driver=DriverEnum.gradient,
-                    method="scf",
-                    basis="sto-3g",
-                    program="psi4",
-                ),
-                optimization_spec=OptimizationSpecification(
-                    program="geometric", keywords={}
-                ),
-                initial_molecule=[1],
-                status=RecordStatusEnum.complete,
-                is_service=False,
-                created_on=datetime.datetime(2022,4,21,0,0,0),
-                modified_on=datetime.datetime(2022,4,21,0,0,0),
-                compute_history=list(),
-            )),
+                            ),
+                        ),
+                    ),
+                    initial_molecules=[],
+                    id=1,
+                    status=RecordStatusEnum.complete,
+                    is_service=False,
+                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    compute_history=list(),
+                )
+            ),
         ),
     ],
 )
 def test_to_records(collection, record, monkeypatch):
-    def mock_query_procedures(*args, **kwargs):
+    def mock_query_optimizations(*args, **kwargs):
         return [record]
 
     def mock_query_molecules(*args, **kwargs):
@@ -411,7 +412,7 @@ def test_to_records(collection, record, monkeypatch):
 
         return [qc_molecule]
 
-    monkeypatch.setattr(PortalClient, "query_procedures", mock_query_procedures)
+    monkeypatch.setattr(PortalClient, "query_optimizations", mock_query_optimizations)
     monkeypatch.setattr(PortalClient, "query_molecules", mock_query_molecules)
 
     records_and_molecules = collection.to_records()
@@ -433,9 +434,9 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
     dataset = optimization_result_collection.create_basic_dataset(
         dataset_name="new basicdataset",
         description="test new optimizationdataset",
-        tagline='new optimization dataset',
+        tagline="new optimization dataset",
         driver="energy",
-        qc_specs=[QCSpec(spec_name="some-name", basis="6-31G")]
+        qc_specifications=[QCSpec(spec_name="some-name", basis="6-31G")],
     )
 
     assert len(dataset.qc_specifications) == 1
@@ -446,15 +447,14 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
     assert dataset.n_molecules == 4
     assert dataset.n_records == 5  # the collection contains 1 duplicate
 
-    
+
 def test_optimization_to_basic_result_collection(
     optimization_result_collection, monkeypatch
 ):
-
-    def mock_automodel_request(*args, **kwargs):
+    def mock_auto_request(*args, **kwargs):
         return MockServerInfo()
 
-    def mock_query_results(*args, **kwargs):
+    def mock_query_records(*args, **kwargs):
 
         assert "program" in kwargs and kwargs["program"] == "psi4"
         assert "method" in kwargs and kwargs["method"] == "scf"
@@ -473,8 +473,8 @@ def test_optimization_to_basic_result_collection(
             )
         ]
 
-    monkeypatch.setattr(PortalClient, "_automodel_request", mock_automodel_request)
-    monkeypatch.setattr(PortalClient, "query_results", mock_query_results)
+    monkeypatch.setattr(PortalClient, "_auto_request", mock_auto_request)
+    monkeypatch.setattr(PortalClient, "query_records", mock_query_records)
 
     basic_collection = optimization_result_collection.to_basic_result_collection(
         "hessian"
@@ -544,26 +544,33 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
         "to_records",
         lambda self: [
             (
-                TorsiondriveRecord(
-                    id=entry.record_id,
-                    qc_spec=QCSpecification(
-                        driver=DriverEnum.gradient,
-                        method="scf",
-                        basis="sto-3g",
-                        program="psi4",
-                    ),
-                    optimization_spec=OptimizationSpecification(
-                        program="geometric", keywords={}
-                    ),
-                    initial_molecule=[1],
-                    status=RecordStatusEnum.complete,
-                    client=public_client,
-                    keywords=TDKeywords(
-                        dihedrals=[dihedrals[int(entry.record_id) - 1]], grid_spacing=[]
-                    ),
-                    final_energy_dict={},
-                    optimization_history={},
-                    minimum_positions={},
+                TorsiondriveRecord.from_datamodel(
+                    TorsiondriveRecord._DataModel(
+                        specification=TorsiondriveSpecification(
+                            program="torsiondrive",
+                            keywords=TorsiondriveKeywords(
+                                dihedrals=[dihedrals[int(entry.record_id) - 1]],
+                                grid_spacing=[],
+                            ),
+                            optimization_specification=OptimizationSpecification(
+                                program="geometric",
+                                keywords={},
+                                qc_specification=QCSpecification(
+                                    driver=DriverEnum.gradient,
+                                    method="scf",
+                                    basis="sto-3g",
+                                    program="psi4",
+                                ),
+                            ),
+                        ),
+                        id=entry.record_id,
+                        initial_molecules=[],
+                        status=RecordStatusEnum.complete,
+                    is_service=False,
+                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    compute_history=list(),
+                    )
                 ),
                 molecule,
             )

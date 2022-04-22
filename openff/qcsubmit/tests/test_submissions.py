@@ -1,7 +1,7 @@
 """
 Test submissions to a local qcarchive instance using different compute backends, RDKit, OpenMM, PSI4
 
-Here we use the qcfractal fractal_compute_server fixture to set up the database.
+Here we use the qcfractal snowflake fixture to set up the database.
 """
 
 import pytest
@@ -35,10 +35,10 @@ from openff.qcsubmit.utils import get_data
     pytest.param(({"method": "smirnoff99Frosst-1.1.0", "basis": "smirnoff", "program": "openmm"}, "energy"), id="SMIRNOFF smirnoff99Frosst-1.1.0 energy"),
     pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit UFF gradient")
 ])
-def test_basic_submissions_single_spec(fractal_compute_server, specification):
+def test_basic_submissions_single_spec(snowflake, specification):
     """Test submitting a basic dataset to a snowflake server."""
 
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
 
     qc_spec, driver = specification
 
@@ -71,7 +71,7 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    snowflake.await_results()
 
     # make sure of the results are complete
     ds = client.get_dataset("Dataset", dataset.dataset_name)
@@ -117,10 +117,10 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
             assert result.return_result is not None
 
 
-def test_basic_submissions_multiple_spec(fractal_compute_server):
+def test_basic_submissions_multiple_spec(snowflake):
     """Test submitting a basic dataset to a snowflake server with multiple qcspecs."""
 
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
 
     qc_specs = [{"method": "openff-1.0.0", "basis": "smirnoff", "program": "openmm", "spec_name": "openff"},
                 {"method": "gaff-2.11", "basis": "antechamber", "program": "openmm", "spec_name": "gaff"}]
@@ -152,7 +152,7 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    snowflake.await_results()
 
     # make sure of the results are complete
     ds = client.get_dataset("Dataset", dataset.dataset_name)
@@ -195,10 +195,10 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
             assert result.return_result is not None
 
 
-def test_basic_submissions_single_pcm_spec(fractal_compute_server):
+def test_basic_submissions_single_pcm_spec(snowflake):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
 
     program = "psi4"
     if not has_program(program):
@@ -231,7 +231,7 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    snowflake.await_results()
 
     # make sure of the results are complete
     ds = client.get_dataset("Dataset", dataset.dataset_name)
@@ -277,7 +277,7 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
             assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
 
 
-def test_adding_specifications(fractal_compute_server):
+def test_adding_specifications(snowflake):
     """
     Test adding specifications to datasets.
     Here we are testing multiple scenarios:
@@ -285,7 +285,7 @@ def test_adding_specifications(fractal_compute_server):
     2) Adding a spec with the same name as another but with different options
     3) overwrite a spec which was added but never used.
     """
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
     mol = Molecule.from_smiles("CO")
     # make a dataset
     factory = OptimizationDatasetFactory()
@@ -299,8 +299,8 @@ def test_adding_specifications(fractal_compute_server):
 
     # submit the optimizations and let the compute run
     opt_dataset.submit(client=client)
-    fractal_compute_server.await_results()
-    fractal_compute_server.await_services()
+    snowflake.await_results()
+    snowflake.await_services()
 
     # grab the collection
     ds = client.get_dataset(opt_dataset.type, opt_dataset.dataset_name)
@@ -342,11 +342,11 @@ def test_adding_specifications(fractal_compute_server):
     pytest.param((OptimizationDatasetFactory, OptimizationDataset), id="OptimizationDataset"),
     pytest.param((TorsiondriveDatasetFactory, TorsiondriveDataset), id="TorsiondriveDataset")
 ])
-def test_adding_compute(fractal_compute_server, dataset_data):
+def test_adding_compute(snowflake, dataset_data):
     """
     Test adding new compute to each of the dataset types using none psi4 programs.
     """
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
     mol = Molecule.from_smiles("CO")
     factory_type, dataset_type = dataset_data
     # make and clear out the qc specs
@@ -365,8 +365,8 @@ def test_adding_compute(fractal_compute_server, dataset_data):
     # now submit again
     dataset.submit(client=client)
     # make sure that the compute has finished
-    fractal_compute_server.await_results()
-    fractal_compute_server.await_services(max_iter=50)
+    snowflake.await_results()
+    snowflake.await_services(max_iter=50)
 
     # now lets make a dataset with new compute and submit it
     # transfer the metadata to compare the elements
@@ -383,8 +383,8 @@ def test_adding_compute(fractal_compute_server, dataset_data):
     assert compute_dataset.dataset == {}
     compute_dataset.submit(client=client)
     # make sure that the compute has finished
-    fractal_compute_server.await_results()
-    fractal_compute_server.await_services(max_iter=50)
+    snowflake.await_results()
+    snowflake.await_services(max_iter=50)
 
     # make sure of the results are complete
     ds = client.get_dataset(dataset.type, dataset.dataset_name)
@@ -450,7 +450,7 @@ def test_adding_compute(fractal_compute_server, dataset_data):
                 assert record.error is None
 
 
-def test_basic_submissions_wavefunction(fractal_compute_server):
+def test_basic_submissions_wavefunction(snowflake):
     """
     Test submitting a basic dataset with a wavefunction protocol and make sure it is executed.
     """
@@ -458,7 +458,7 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
     if not has_program("psi4"):
         pytest.skip("Program psi4 not found.")
 
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
@@ -480,7 +480,7 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    snowflake.await_results()
 
     # make sure of the results are complete
     ds = client.get_dataset("Dataset", dataset.dataset_name)
@@ -525,11 +525,11 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
             assert orbitals.shape is not None
 
 
-def test_optimization_submissions_with_constraints(fractal_compute_server):
+def test_optimization_submissions_with_constraints(snowflake):
     """
     Make sure that the constraints are added to the optimization and enforced.
     """
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
     ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
     dataset = OptimizationDataset(dataset_name="Test optimizations with constraint", description="Test optimization dataset with constraints", dataset_tagline="Testing optimization datasets")
     # add just mm spec
@@ -545,7 +545,7 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    snowflake.await_results()
 
     # make sure of the results are complete
     ds = client.get_dataset("OptimizationDataset", dataset.dataset_name)
@@ -566,10 +566,10 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     pytest.param(({"method": "openff_unconstrained-1.0.0", "basis": "smirnoff", "program": "openmm"}, "gradient"), id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
     pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit UFF gradient")
 ])
-def test_optimization_submissions(fractal_compute_server, specification):
+def test_optimization_submissions(snowflake, specification):
     """Test submitting an Optimization dataset to a snowflake server."""
 
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
 
     qc_spec, driver = specification
     program = qc_spec["program"]
@@ -599,7 +599,7 @@ def test_optimization_submissions(fractal_compute_server, specification):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    snowflake.await_results()
 
     # make sure of the results are complete
     ds = client.get_dataset("OptimizationDataset", dataset.dataset_name)
@@ -642,10 +642,10 @@ def test_optimization_submissions(fractal_compute_server, specification):
                 assert "SCF QUADRUPOLE XX" in result.extras["qcvars"].keys()
 
 
-def test_optimization_submissions_with_pcm(fractal_compute_server):
+def test_optimization_submissions_with_pcm(snowflake):
     """Test submitting an Optimization dataset to a snowflake server with PCM."""
 
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
 
     program = "psi4"
     if not has_program(program):
@@ -677,7 +677,7 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    snowflake.await_results()
 
     # make sure of the results are complete
     ds = client.get_dataset("OptimizationDataset", dataset.dataset_name)
@@ -720,12 +720,12 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
             assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
 
 
-def test_torsiondrive_scan_keywords(fractal_compute_server):
+def test_torsiondrive_scan_keywords(snowflake):
     """
     Test running torsiondrives with unique keyword settings which overwrite the global grid spacing and scan range.
     """
 
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
     molecules = Molecule.from_smiles("CO")
     factory = TorsiondriveDatasetFactory()
     scan_enum = workflow_components.ScanEnumerator()
@@ -745,7 +745,7 @@ def test_torsiondrive_scan_keywords(fractal_compute_server):
 
     # now submit
     dataset.submit(client=client)
-    fractal_compute_server.await_services(max_iter=50)
+    snowflake.await_services(max_iter=50)
 
     # make sure of the results are complete
     ds = client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
@@ -758,12 +758,12 @@ def test_torsiondrive_scan_keywords(fractal_compute_server):
     assert record.keywords.dihedral_ranges != dataset.dihedral_ranges
 
 
-def test_torsiondrive_constraints(fractal_compute_server):
+def test_torsiondrive_constraints(snowflake):
     """
     Make sure constraints are correctly passed to optimisations in torsiondrives.
     """
 
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
     molecule = Molecule.from_file(get_data("TRP.mol2"))
     dataset = TorsiondriveDataset(dataset_name="Torsiondrive constraints", dataset_tagline="Testing torsiondrive constraints", description="Testing torsiondrive constraints.")
     dataset.clear_qcspecs()
@@ -776,7 +776,7 @@ def test_torsiondrive_constraints(fractal_compute_server):
     entry.add_constraint(constraint="freeze", constraint_type="dihedral", indices=[8, 10, 13, 14])
 
     dataset.submit(client=client, processes=1)
-    fractal_compute_server.await_services(max_iter=50)
+    snowflake.await_services(max_iter=50)
 
     # make sure the result is complete
     ds = client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
@@ -798,12 +798,12 @@ def test_torsiondrive_constraints(fractal_compute_server):
     pytest.param(({"method": "openff_unconstrained-1.1.0", "basis": "smirnoff", "program": "openmm"}, "gradient"), id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
     pytest.param(({"method": "mmff94", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit mmff94 gradient")
 ])
-def test_torsiondrive_submissions(fractal_compute_server, specification):
+def test_torsiondrive_submissions(snowflake, specification):
     """
     Test submitting a torsiondrive dataset and computing it.
     """
 
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
 
     qc_spec, driver = specification
     program = qc_spec["program"]
@@ -833,7 +833,7 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_services(max_iter=50)
+    snowflake.await_services(max_iter=50)
 
     # make sure of the results are complete
     ds = client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
@@ -877,11 +877,11 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
     pytest.param(OptimizationDatasetFactory, id="OptimizationDataset ignore_errors"),
     pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset ignore_errors"),
 ])
-def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys):
+def test_ignore_errors_all_datasets(snowflake, factory_type, capsys):
     """
     For each dataset make sure that when the basis is not fully covered the dataset raises warning errors, and verbose information
     """
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
     # molecule containing boron
     molecule = Molecule.from_smiles("OB(O)C1=CC=CC=C1")
     scan_enum = workflow_components.ScanEnumerator()
@@ -913,13 +913,13 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
     pytest.param(BasicDatasetFactory, id="Basicdataset"),
     pytest.param(OptimizationDatasetFactory, id="Optimizationdataset")
 ])
-def test_index_not_changed(fractal_compute_server, factory_type):
+def test_index_not_changed(snowflake, factory_type):
     """
     Make sure that when we submit molecules from a dataset/optimizationdataset with one input conformer that the index is not changed.
     """
     factory = factory_type()
     factory.clear_qcspecs()
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley",
                         spec_description="standard parsley spec")
@@ -954,12 +954,12 @@ def test_index_not_changed(fractal_compute_server, factory_type):
     pytest.param(OptimizationDatasetFactory, id="OptimizationDataset index clash"),
     pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset index clash"),
 ])
-def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys):
+def test_adding_dataset_entry_fail(snowflake, factory_type, capsys):
     """
     Make sure that the new entries is not incremented if we can not add a molecule to the server due to a name clash.
     TODO add basic dataset into the testing if the api changes to return an error when adding the same index twice
     """
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
     molecule = Molecule.from_smiles("CO")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
@@ -992,11 +992,11 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
     pytest.param(OptimizationDatasetFactory, id="OptimizationDataset expand compute"),
     pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset expand compute"),
 ])
-def test_expanding_compute(fractal_compute_server, factory_type):
+def test_expanding_compute(snowflake, factory_type):
     """
     Make sure that if we expand the compute of a dataset tasks are generated.
     """
-    client = PortalClient(fractal_compute_server)
+    client = PortalClient(snowflake)
     molecule = Molecule.from_smiles("CC")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()

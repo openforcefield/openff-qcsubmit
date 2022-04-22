@@ -542,10 +542,10 @@ class OptimizationResultCollection(_BaseResultCollection):
         for record, molecule in records_and_molecules:
 
             spec = (
-                record.qc_spec.program,
-                record.qc_spec.method,
-                record.qc_spec.basis,
-                record.qc_spec.keywords,
+                record.specification.qc_specification.program,
+                record.specification.qc_specification.method,
+                record.specification.qc_specification.basis,
+                record.specification.qc_specification.keywords,
             )
 
             final_molecule_ids[record.client.address][spec].append(
@@ -601,7 +601,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         tagline: str,
         driver: SinglepointDriver,
         metadata: Optional[Metadata] = None,
-        qc_specs: Optional[List[QCSpec]] = None,
+        qc_specifications: Optional[List[QCSpec]] = None,
     ) -> BasicDataset:
         """Create a basic dataset from the results of the current dataset.
 
@@ -615,7 +615,7 @@ class OptimizationResultCollection(_BaseResultCollection):
             description: The description that should be given to the new dataset.
             driver: The driver to be used on the basic dataset.
             metadata: The metadata for the new dataset.
-            qc_specs: The QC specifications to be used on the new dataset. If no value
+            qc_specifications: The QC specifications to be used on the new dataset. If no value
                 is provided, the default OpenFF QCSpec will be added.
 
         Returns:
@@ -636,8 +636,8 @@ class OptimizationResultCollection(_BaseResultCollection):
             driver=driver,
             metadata={} if metadata is None else metadata,
             qc_specifications={"default": QCSpec()}
-            if qc_specs is None
-            else {qc_spec.spec_name: qc_spec for qc_spec in qc_specs},
+            if qc_specifications is None
+            else {qc_specification.spec_name: qc_specification for qc_specification in qc_specifications},
         )
 
         for records in records_by_cmiles.values():
@@ -651,7 +651,7 @@ class OptimizationResultCollection(_BaseResultCollection):
                 molecule=base_molecule,
                 attributes=MoleculeAttributes.from_openff_molecule(base_molecule),
                 extras=base_record.extras,
-                keywords=base_record.keywords,
+                keywords=base_record.specification.keywords,
             )
 
         return dataset
@@ -830,7 +830,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         records_and_molecules = self.to_records()
 
         molecules = [
-            (molecule, tuple(record.keywords.dihedrals[0]))
+            (molecule, tuple(record.specification.keywords.dihedrals[0]))
             for record, molecule in records_and_molecules
         ]
 
