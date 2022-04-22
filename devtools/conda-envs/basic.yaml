@@ -35,6 +35,7 @@ dependencies:
   - basis_set_exchange
   - typing-extensions
   - h5py>=3.6.0
+  - psycopg2        # for qcfractal to pip-install without issue
 
   # Optional
   - openmmforcefields

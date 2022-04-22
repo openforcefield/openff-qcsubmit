@@ -2,6 +2,8 @@
 Test the results packages when collecting from the public qcarchive.
 """
 
+import datetime
+
 import numpy
 import pytest
 from openff.toolkit.topology import Molecule
@@ -18,10 +20,9 @@ from qcportal.records import (
 )
 from qcelemental.models import DriverEnum
 
+from qcportal.records.torsiondrive import TorsiondriveSpecification, TorsiondriveKeywords
 from qcportal.records.optimization import OptimizationSpecification
 from qcportal.records.singlepoint import QCSpecification
-
-from qcelemental.models.procedures import TDKeywords
 
 from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
@@ -156,22 +157,35 @@ def test_base_n_molecules_property():
 def test_base_validate_record_types():
 
     records = [
-        SinglepointRecord(
+        SinglepointRecord.from_datamodel(
+            SinglepointRecord._DataModel(
+                specification=QCSpecification(
             program="psi4",
             driver=DriverEnum.gradient,
             method="scf",
             basis="sto-3g",
-            molecule=1,
-            status=RecordStatusEnum.complete,
-        ),
-        OptimizationRecord(
-            program="psi4",
-            qc_spec=QCSpecification(
-                driver=DriverEnum.gradient, method="scf", basis="sto-3g", program="psi4"
             ),
-            initial_molecule=1,
+            molecule_id=1,
             status=RecordStatusEnum.complete,
-        ),
+            is_service=False,
+            created_on=datetime.datetime(2022,4,21,0,0,0),
+            modified_on=datetime.datetime(2022,4,21,0,0,0),
+            compute_history=list(),
+        )),
+        OptimizationRecord.from_datamodel(OptimizationRecord._DataModel(
+            specification=OptimizationSpecification(
+                program="geometric",
+                qc_specification=QCSpecification(
+                    driver=DriverEnum.gradient, method="scf", basis="sto-3g", program="psi4"
+                )
+            ),
+            initial_molecule_id=1,
+            status=RecordStatusEnum.complete,
+            is_service=False,
+            created_on=datetime.datetime(2022,4,21,0,0,0),
+            modified_on=datetime.datetime(2022,4,21,0,0,0),
+            compute_history=list(),
+        )),
     ]
 
     _BaseResultCollection._validate_record_types(records[:1], SinglepointRecord)
@@ -286,14 +300,22 @@ def test_collection_from_server(
                     ]
                 }
             ),
-            SinglepointRecord(
-                id=1,
-                program="psi4",
-                driver=DriverEnum.gradient,
-                method="scf",
-                basis="sto-3g",
-                molecule=1,
+            SinglepointRecord.from_datamodel(
+                SinglepointRecord._DataModel(
+                    id=1,
+                    specification=QCSpecification(
+                        program="psi4",
+                        driver=DriverEnum.gradient,
+                        method="scf",
+                        basis="sto-3g",
+                    ),
+                molecule_id=1,
                 status=RecordStatusEnum.complete,
+                is_service=False,
+                created_on=datetime.datetime(2022,4,21,0,0,0),
+                modified_on=datetime.datetime(2022,4,21,0,0,0),
+                compute_history=list(),
+                )
             ),
         ),
         (
@@ -308,18 +330,24 @@ def test_collection_from_server(
                     ]
                 }
             ),
-            OptimizationRecord(
-                program="psi4",
+            OptimizationRecord.from_datamodel(
+                OptimizationRecord._DataModel(
+                specification=OptimizationSpecification(
+                    program="geometric",
+                    qc_specification=QCSpecification(
+                        driver=DriverEnum.gradient,
+                        method="scf",
+                        basis="sto-3g",
+                        program="psi4",
+                    )),
                 id=1,
-                qc_spec=QCSpecification(
-                    driver=DriverEnum.gradient,
-                    method="scf",
-                    basis="sto-3g",
-                    program="psi4",
-                ),
-                initial_molecule=1,
+                initial_molecule_id=1,
                 status=RecordStatusEnum.complete,
-            ),
+                is_service=False,
+                created_on=datetime.datetime(2022,4,21,0,0,0),
+                modified_on=datetime.datetime(2022,4,21,0,0,0),
+                compute_history=list(),
+            )),
         ),
         (
             TorsionDriveResultCollection(
@@ -333,7 +361,21 @@ def test_collection_from_server(
                     ]
                 }
             ),
-            TorsiondriveRecord(
+            TorsiondriveRecord.from_datamodel(
+                TorsiondriveRecord._DataModel(
+                    specification=TorsiondriveSpecification(
+                        program='torsiondrive',
+                        keywords=TorsiondriveKeywords(dihedrals=[], grid_spacing=[]),
+                        optimization_specification=OptimizationSpecification(
+                            program='geometric',
+                            keywords={},
+                            qc_specification=QCSpecification(
+                                driver=DriverEnum.gradient,
+                                method="scf",
+                                basis="sto-3g",
+                                program="psi4",
+                            ))),
+                initial_molecules=[],
                 id=1,
                 qc_spec=QCSpecification(
                     driver=DriverEnum.gradient,
@@ -346,11 +388,11 @@ def test_collection_from_server(
                 ),
                 initial_molecule=[1],
                 status=RecordStatusEnum.complete,
-                keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
-                final_energy_dict={},
-                optimization_history={},
-                minimum_positions={},
-            ),
+                is_service=False,
+                created_on=datetime.datetime(2022,4,21,0,0,0),
+                modified_on=datetime.datetime(2022,4,21,0,0,0),
+                compute_history=list(),
+            )),
         ),
     ],
 )
