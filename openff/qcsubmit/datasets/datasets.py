@@ -26,6 +26,7 @@ from qcportal.datasets.optimization import OptimizationDatasetNewEntry
 from qcportal.datasets.singlepoint import SinglepointDatasetNewEntry
 from qcportal.datasets.torsiondrive import TorsiondriveDatasetNewEntry
 from qcportal.records.singlepoint import SinglepointDriver, QCSpecification
+from qcportal.records.optimization import OptimizationSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import (
@@ -53,7 +54,6 @@ from openff.qcsubmit.utils.visualize import molecules_to_pdf
 if TYPE_CHECKING:
 
     from openff.toolkit.typing.engines.smirnoff import ForceField
-    from qcportal.records.optimization import OptimizationSpecification
 
 C = TypeVar("C", bound="Collection")
 E = TypeVar("E", bound=DatasetEntry)
