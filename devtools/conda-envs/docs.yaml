@@ -14,6 +14,8 @@ dependencies:
   - nbsphinx-link
   - sphinx_rtd_theme
   - sphinxcontrib-bibtex
+  - sphinx-notfound-page
+  - myst-parser
   - pandoc
   - ipython
 
@@ -30,3 +32,4 @@ dependencies:
 
   - pip:
       - autodoc_pydantic
+      - git+https://github.com/openforcefield/openff-sphinx-theme.git@main
