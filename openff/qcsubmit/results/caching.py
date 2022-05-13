@@ -80,6 +80,7 @@ def _cached_client_query(
     query_ids: List[T],
     query_name: str,
     query_cache: Cache,
+    query_limit: int,
     cache_predicate: Optional[Callable[[Any], bool]] = None,
 ) -> List[S]:
     """A helper method to cache calls to ``PortalClient.query_XXX`` methods.
@@ -90,6 +91,7 @@ def _cached_client_query(
         query_name: The name of the query function.
         query_cache: The cache associated with a query. Records should be indexable
             by ``query_cache[(client_address, query_id)]``.
+        query_limit: The query limit for the particular query name.
         cache_predicate: A function which returns whether and object should be added
             to the cache.
 
@@ -117,7 +119,7 @@ def _cached_client_query(
 
     logger.debug(f"starting {query_name} to {client_address}")
 
-    batch_query_ids = batched_indices(missing_query_ids, client.query_limit)
+    batch_query_ids = batched_indices(missing_query_ids, query_limit)
     logger.debug(f"query split into {len(batch_query_ids)} batches")
 
     for i, batch_ids in enumerate(batch_query_ids):
@@ -150,12 +152,17 @@ def cached_query_procedures(client_address: str, record_ids: List[str]) -> List[
     Returns:
         The returned records.
     """
+    client_address = client_address.rstrip("/")
+    client = cached_fractal_client(client_address)
+
+    query_limit = client.api_limits['get_records']
 
     return _cached_client_query(
         client_address,
         record_ids,
         "query_procedures",
         _record_cache,
+        query_limit,
         lambda record: record.status.value.upper() == "COMPLETE",
     )
 
@@ -172,12 +179,17 @@ def cached_query_molecules(
     Returns:
         The returned molecules.
     """
+    client_address = client_address.rstrip("/")
+    client = cached_fractal_client(client_address)
+
+    query_limit = client.api_limits['get_molecules']
 
     return _cached_client_query(
         client_address,
         molecule_ids,
         "query_molecules",
         _molecule_cache,
+        query_limit,
     )
 
 
@@ -283,68 +295,6 @@ def cached_query_optimization_results(
     )
 
 
-def _cached_torsion_drive_molecule_ids(
-    client_address: str, qc_records: List[TorsiondriveRecord]
-) -> Dict[Tuple[str, Tuple[int, ...]], str]:
-
-    client_address = client_address.rstrip("/")
-
-    optimization_ids = {
-        (qc_record.id, grid_id): qc_record.optimization_history[grid_id][minimum_idx]
-        for qc_record in qc_records
-        for grid_id, minimum_idx in qc_record.minimum_positions.items()
-    }
-
-    missing_optimization_ids = {
-        grid_tuple: optimization_id
-        for grid_tuple, optimization_id in optimization_ids.items()
-        if (client_address, *grid_tuple) not in _grid_id_cache
-    }
-
-    client = cached_fractal_client(client_address)
-
-    batched_missing_ids = batched_indices(
-        [*missing_optimization_ids.values()], client.query_limit
-    )
-
-    logger.debug(
-        f"retrieving associated optimizations from {client_address} in "
-        f"{len(batched_missing_ids)} batches"
-    )
-
-    qc_optimizations = {}
-
-    for i, batch_ids in enumerate(batched_missing_ids):
-
-        logger.debug(f"starting batch query {i}")
-
-        qc_optimizations.update(
-            {record.id: record for record in client.query_procedures(batch_ids)}
-        )
-
-        logger.debug(f"finished batch query {i}")
-
-    logger.debug("finished retrieving associated optimizations")
-
-    found_molecule_ids = {
-        grid_tuple: _grid_id_cache[(client_address, *grid_tuple)]
-        for grid_tuple, optimization_id in optimization_ids.items()
-        if (client_address, *grid_tuple) in _grid_id_cache
-    }
-
-    for grid_tuple, optimization_id in missing_optimization_ids.items():
-
-        qc_optimization = qc_optimizations[optimization_id]
-        found_molecule_ids[grid_tuple] = qc_optimization.final_molecule
-
-        if qc_optimization.status.value.upper() != "COMPLETE":
-            continue
-
-        _grid_id_cache[(client_address, *grid_tuple)] = qc_optimization.final_molecule
-
-    return found_molecule_ids
-
-
 def cached_query_torsion_drive_results(
     client_address: str, results: List["TorsionDriveResult"]
 ) -> List[Tuple[TorsiondriveRecord, Molecule]]:
@@ -370,48 +320,27 @@ def cached_query_torsion_drive_results(
             client_address, [result.record_id for result in results]
         )
     }
-
-    logger.debug(f"finished retrieving records from {client_address}")
-
-    logger.debug("retrieving associated grid molecule ids")
-
-    molecule_ids = _cached_torsion_drive_molecule_ids(
-        client_address, [*qc_records.values()]
-    )
-
-    logger.debug("finished retrieving associated grid molecule ids")
-    logger.debug("retrieving associated grid molecules")
-
-    qc_molecules = {
-        molecule.id: molecule
-        for molecule in cached_query_molecules(client_address, [*molecule_ids.values()])
-    }
-
-    logger.debug("finished retrieving associated grid molecules")
-
     return_values = []
 
     for result in results:
 
         qc_record = qc_records[result.record_id]
 
-        grid_ids = [*qc_record.minimum_positions]
-        # order the ids so the conformers follow the torsiondrive scan range
-        grid_ids.sort(key=lambda x: float(x[1:-1]))
+        qc_grid_molecules = [(grid_point, opt.final_molecule)
+                             for grid_point, opt in qc_record.minimum_optimizations.items()]
 
-        qc_grid_molecules = [
-            qc_molecules[molecule_ids[(qc_record.id, grid_id)]] for grid_id in grid_ids
-        ]
+        ## order the ids so the conformers follow the torsiondrive scan range
+        qc_grid_molecules.sort(key=lambda x: float(x[0][1:-1]))
 
         molecule: Molecule = Molecule.from_mapped_smiles(
             result.cmiles, allow_undefined_stereo=True
         )
         molecule._conformers = [
             numpy.array(qc_molecule.geometry, float).reshape(-1, 3) * unit.bohr
-            for qc_molecule in qc_grid_molecules
+            for _, qc_molecule in qc_grid_molecules
         ]
 
-        molecule.properties["grid_ids"] = grid_ids
+        molecule.properties["grid_ids"] = [x[0] for x in qc_grid_molecules]
 
         return_values.append((qc_record, molecule))
 

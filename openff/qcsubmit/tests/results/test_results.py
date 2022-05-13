@@ -171,6 +171,7 @@ def test_base_validate_record_types():
                 created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                 modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                 compute_history=list(),
+                id=1,
             )
         ),
         OptimizationRecord.from_datamodel(
@@ -190,6 +191,7 @@ def test_base_validate_record_types():
                 created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                 modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                 compute_history=list(),
+                id=1,
             )
         ),
     ]

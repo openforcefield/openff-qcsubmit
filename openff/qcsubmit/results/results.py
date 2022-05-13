@@ -518,6 +518,8 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
+
+    # NOTE: no longer using `driver` here
     def to_basic_result_collection(
         self, driver: Optional[Union[str, List[str]]] = None
     ) -> BasicResultCollection:
@@ -536,61 +538,26 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         records_and_molecules = self.to_records()
 
-        final_molecule_ids = defaultdict(lambda: defaultdict(list))
-        final_molecules = defaultdict(dict)
+        result_records = defaultdict(list)
 
+        # will be inefficient at the moment
         for record, molecule in records_and_molecules:
-
-            spec = (
-                record.specification.qc_specification.program,
-                record.specification.qc_specification.method,
-                record.specification.qc_specification.basis,
-                record.specification.qc_specification.keywords,
-            )
-
-            final_molecule_ids[record.client.address][spec].append(
-                record.final_molecule
-            )
-            final_molecules[record.client.address][record.final_molecule] = molecule
+            result_records[record.client.address].append((record.trajectory[-1], molecule))
 
         result_entries = defaultdict(list)
 
-        for client_address in final_molecule_ids:
+        for client_address in result_records:
 
-            client = cached_fractal_client(client_address)
-
-            result_records = [
-                record
-                for (
-                    program,
-                    method,
-                    basis,
-                    keywords,
-                ), molecules_ids in final_molecule_ids[client_address].items()
-                for batch_ids in batched_indices(molecules_ids, client.query_limit)
-                for record in client.query_results(
-                    molecule=batch_ids,
-                    driver=driver,
-                    program=program,
-                    method=method,
-                    basis=basis,
-                    keywords=keywords,
-                )
-            ]
-
-            for record in result_records:
-
-                molecule = final_molecules[client_address][record.molecule]
-
+            for record, molecule in result_records[client_address]:
                 result_entries[client_address].append(
-                    BasicResult(
-                        record_id=record.id,
-                        cmiles=molecule.to_smiles(
-                            isomeric=True, explicit_hydrogens=True, mapped=True
-                        ),
-                        inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
+                        BasicResult(
+                            record_id=record.id,
+                            cmiles=molecule.to_smiles(
+                                isomeric=True, explicit_hydrogens=True, mapped=True
+                            ),
+                            inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
+                        )
                     )
-                )
 
         return BasicResultCollection(entries=result_entries)
 
