@@ -17,6 +17,11 @@ from typing import (
     Union,
 )
 
+try:
+    from openmm import unit
+except ImportError:
+    from simtk import unit
+import numpy
 import qcportal
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
@@ -24,7 +29,7 @@ from pydantic import BaseModel, Field, validator
 from qcportal.datasets import OptimizationDataset, TorsiondriveDataset
 from qcportal.datasets import BaseDataset as QCDataset
 from qcportal.datasets.singlepoint import SinglepointDataset, SinglepointDatasetNewEntry
-from qcportal.records import OptimizationRecord, SinglepointRecord, TorsiondriveRecord
+from qcportal.records import OptimizationRecord, SinglepointRecord, TorsiondriveRecord, RecordStatusEnum
 from qcportal.records.singlepoint import SinglepointDriver
 from qcportal.records import BaseRecord
 from typing_extensions import Literal
@@ -257,6 +262,7 @@ class BasicResult(_BaseResult):
     type: Literal["basic"] = "basic"
 
 
+# TODO - SinglepointResultCollection
 class BasicResultCollection(_BaseResultCollection):
     """A class which stores a reference to, and allows the retrieval of, data from
     a single result record stored in a QCFractal instance."""
@@ -280,72 +286,27 @@ class BasicResultCollection(_BaseResultCollection):
             datasets = [datasets]
 
         if not all(isinstance(dataset, SinglepointDataset) for dataset in datasets):
-
-            raise TypeError(
-                "A ``BasicResultCollection`` can only be created from ``SinglepointDataset`` "
-                "objects."
-            )
+            raise TypeError("A ``BasicResultCollection`` can only be created from ``SinglepointDataset`` objects.")
 
         result_records = defaultdict(dict)
-        molecules = {}
 
         for dataset in datasets:
 
             client = dataset.client
-
-            dataset_specs = {
-                spec: {
-                    "method": method,
-                    "basis": basis,
-                    "program": program,
-                    "keywords": spec,
-                }
-                for _, program, method, basis, spec in dataset.data.history
-            }
+            dataset_specs = dataset.specifications
 
             if spec_name not in dataset_specs:
-                raise KeyError(
-                    f"The {dataset.data.name} dataset does not contain a '{spec_name}' "
-                    f"compute specification"
-                )
-
-            # query the database to get all of the result records requested
-            query = dataset.get_records(
-                **dataset_specs[spec_name],
-                status=[
-                    "COMPLETE",
-                ],
-            )
-
-            entries: Dict[str, SinglepointDatasetNewEntry] = {
-                entry.name: entry for entry in dataset.data.records
-            }
-
-            # Query the server for the molecules associated with these entries.
-            # We only try to pull down ones which haven't already been retrieved.
-            molecules.update(
-                {
-                    molecule.id: molecule
-                    for molecule in cached_query_molecules(
-                        client.address,
-                        [
-                            entry.molecule_id
-                            for entry in entries.values()
-                            if entry.molecule_id not in molecules
-                        ],
-                    )
-                }
-            )
+                raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
 
             result_records[client.address].update(
                 {
-                    result.id: BasicResult(
-                        record_id=result.id,
-                        cmiles=molecules[entries[index].molecule_id].extras[
+                    record.id: BasicResult(
+                        record_id=record.id,
+                        cmiles=dataset.entries[entry_name].molecule.extras[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
                         inchi_key=Molecule.from_mapped_smiles(
-                            molecules[entries[index].molecule_id].extras[
+                            dataset.entries[entry_name].molecule.extras[
                                 "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                             ],
                             # Undefined stereochemistry is not expected however there
@@ -354,16 +315,15 @@ class BasicResultCollection(_BaseResultCollection):
                             allow_undefined_stereo=True,
                         ).to_inchikey(fixed_hydrogens=True),
                     )
-                    for index, (result,) in query.iterrows()
-                    if isinstance(result, SinglepointRecord)
-                    and result.status.value.upper() == "COMPLETE"
+                    for entry_name, spec_name, record in dataset.records
+                    if record.status == RecordStatusEnum.complete
                 }
             )
 
         return cls(
             entries={
-                address: [*entries.values()]
-                for address, entries in result_records.items()
+                address: [*records.values()]
+                for address, records in result_records.items()
             }
         )
 
@@ -381,7 +341,7 @@ class BasicResultCollection(_BaseResultCollection):
         # noinspection PyTypeChecker
         return cls.from_datasets(
             [
-                client.get_dataset("SinglepointDataset", dataset_name)
+                client.get_dataset("singlepoint", dataset_name)
                 for dataset_name in datasets
             ],
             spec_name,
@@ -394,15 +354,24 @@ class BasicResultCollection(_BaseResultCollection):
         Each molecule will contain the conformer referenced by the record.
         """
 
-        records_and_molecules = [
-            result
-            for client_address, entries in self.entries.items()
-            for result in cached_query_basic_results(client_address, entries)
-        ]
+        records_and_molecules = []
 
-        records, _ = zip(*records_and_molecules)
+        for client_address, records in self.entries:
+            client = cached_fractal_client(address=client_address)
 
-        self._validate_record_types(records, SinglepointRecord)
+            for record in records:
+                rec = client.get_singlepoints(record.id, include_molecule=True)
+
+                # OpenFF molecule
+                molecule: Molecule = Molecule.from_mapped_smiles(
+                    record.cmiles, allow_undefined_stereo=True
+                )
+
+                molecule.add_conformer(
+                    numpy.array(rec.molecule.geometry, float).reshape(-1, 3) * unit.bohr
+                )
+
+                records_and_molecules.append((rec, molecule))
 
         return records_and_molecules
 

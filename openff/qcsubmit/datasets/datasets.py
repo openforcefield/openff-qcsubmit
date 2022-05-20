@@ -738,6 +738,8 @@ class _BaseDataset(abc.ABC, CommonBase):
         return inchikey
 
 
+
+# TODO: SinglepointDataset
 class BasicDataset(_BaseDataset):
     """
     The general QCFractal dataset class which contains all of the molecules and information about them prior to
@@ -798,19 +800,18 @@ class BasicDataset(_BaseDataset):
         return new_dataset
 
     def _generate_collection(self, client: "PortalClient") -> ptl.datasets.SinglepointDataset:
-        # TODO: Change to call client.add_dataset
-        collection = ptl.datasets.SinglepointDataset(
+
+        return client.add_dataset(
+            dataset_type="singlepoint",
             name=self.dataset_name,
-            client=client,
-            default_driver=self.driver,
-            default_program="psi4",
             tagline=self.dataset_tagline,
             tags=self.dataset_tags,
             description=self.description,
             provenance=self.provenance,
+            default_tag=self.compute_tag,
+            default_priority=self.priority,
             metadata=self.metadata.dict(),
         )
-        return collection
 
     def _get_specifications(self) -> Dict[str, QCSpecification]:
         """Needed for `submit` usage."""
@@ -887,7 +888,7 @@ class BasicDataset(_BaseDataset):
 class OptimizationDataset(BasicDataset):
     """
     An optimisation dataset class which handles submission of settings differently from the basic dataset, and creates
-    optimization datasets in the public or local qcarcive instance.
+    optimization datasets in the public or local qcarchive instance.
     """
 
     type: Literal["OptimizationDataset"] = "OptimizationDataset"
@@ -904,10 +905,8 @@ class OptimizationDataset(BasicDataset):
 
     @validator("driver")
     def _check_driver(cls, driver):
-        """Make sure that the driver is set to gradient only and not changed."""
-        if driver.value != "gradient":
-            driver = SinglepointDriver.gradient
-        return driver
+        """Make sure that the driver is set to deferred only and not changed."""
+        return SinglepointDriver.deferred
 
     def __add__(self, other: "OptimizationDataset") -> "OptimizationDataset":
         """
@@ -988,97 +987,21 @@ class OptimizationDataset(BasicDataset):
 
         return new_dataset
 
-    #def get_qc_spec(self, spec_name: str, keyword_id: str) -> QCSpecification:
-    #    """
-    #    Create the QC specification for the computation.
-
-    #    Args:
-    #        spec_name: The name of the spec we want to convert to a QCSpecification
-    #        keyword_id: The string of the keyword set id number.
-
-    #    Returns:
-    #        The dictionary representation of the QC specification
-    #    """
-    #    spec = self.qc_specifications[spec_name]
-    #    qc_spec = QCSpecification(
-    #        driver=self.driver,
-    #        method=spec.method,
-    #        basis=spec.basis,
-    #        keywords=keyword_id,
-    #        program=spec.program,
-    #        protocols={"wavefunction": spec.store_wavefunction},
-    #    )
-
-    #    return qc_spec
-
-    #def _add_dataset_specification(
-    #    self,
-    #    spec: QCSpec,
-    #    dataset: ptl.datasets.OptimizationDataset,
-    #    procedure_spec: Optional["OptimizationSpecification"] = None,
-    #) -> bool:
-    #    """Add the given compute spec to this Datasets's corresponding Collection.
-
-    #    Args:
-    #        spec:
-    #            The QCSpec we are trying to add to the collection
-    #        dataset:
-    #            The QCArchive dataset this specification should be added to
-    #        procedure_spec:
-    #            The qcportal style optimization spec
-
-    #    Raises:
-    #        QCSpecificationError: If a specification with the same name is already added to the collection but has different settings.
-
-    #    Note:
-    #        If a specification is already stored under this name in the collection we have options:
-    #        - If a spec with the same name but different details has been added and used we must raise an error to change the name of the new spec
-    #        - If the spec has been added and has not been used then overwrite it.
-    #    """
-    #    # build the qcportal version of our spec
-    #    kw_id = self._add_keywords(client=dataset.client, spec=spec)
-    #    qcportal_spec = self.get_qc_spec(spec_name=spec.spec_name, keyword_id=kw_id)
-
-    #    # see if the spec is in the history
-    #    if spec.spec_name.lower() in dataset.data.history:
-    #        collection_spec = dataset.get_specification(name=spec.spec_name)
-    #        # check they are the same
-    #        if (
-    #            collection_spec.optimization_spec == procedure_spec
-    #            and qcportal_spec == collection_spec.qc_spec
-    #        ):
-    #            # the spec is already there and is the same so just skip adding it
-    #            return True
-    #        else:
-    #            raise QCSpecificationError(
-    #                f"A specification with the name {spec.spec_name} is already registered with the collection but has different settings and has already been used and should not be overwriten. "
-    #                f"Please change the name of this specification to continue."
-    #            )
-
-    #    else:
-    #        # the spec either has not been added or has not been used so set the new default
-    #        dataset.add_specification(
-    #            name=spec.spec_name,
-    #            optimization_spec=procedure_spec,
-    #            qc_spec=qcportal_spec,
-    #            description=spec.spec_description,
-    #            overwrite=True,
-    #        )
-    #        return True
-
     def _generate_collection(
         self, client: "PortalClient"
     ) -> ptl.datasets.OptimizationDataset:
-        collection = ptl.datasets.OptimizationDataset(
+
+        return client.add_dataset(
+            dataset_type="optimization",
             name=self.dataset_name,
-            client=client,
             tagline=self.dataset_tagline,
             tags=self.dataset_tags,
             description=self.description,
             provenance=self.provenance,
+            default_tag=self.compute_tag,
+            default_priority=self.priority,
             metadata=self.metadata.dict(),
         )
-        return collection
 
     def _get_specifications(self) -> Dict[str, OptimizationSpecification]:
         opt_kw = self.optimization_procedure.get_optimzation_keywords()
@@ -1164,7 +1087,7 @@ class OptimizationDataset(BasicDataset):
 class TorsiondriveDataset(OptimizationDataset):
     """
     An torsiondrive dataset class which handles submission of settings differently from the basic dataset, and creates
-    torsiondrive datasets in the public or local qcarcive instance.
+    torsiondrive datasets in the public or local qcarchive instance.
 
     Important:
         The dihedral_ranges for the whole dataset can be defined here or if different scan ranges are required on a case
@@ -1271,16 +1194,18 @@ class TorsiondriveDataset(OptimizationDataset):
     def _generate_collection(
         self, client: "PortalClient"
     ) -> ptl.datasets.TorsiondriveDataset:
-        collection = ptl.datasets.TorsiondriveDataset(
+
+        return client.add_dataset(
+            dataset_type="torsiondrive",
             name=self.dataset_name,
-            client=client,
             tagline=self.dataset_tagline,
             tags=self.dataset_tags,
             description=self.description,
             provenance=self.provenance,
+            default_tag=self.compute_tag,
+            default_priority=self.priority,
             metadata=self.metadata.dict(),
         )
-        return collection
 
     def _get_entries(self) -> List[TorsiondriveDatasetNewEntry]:
 
