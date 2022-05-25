@@ -295,30 +295,34 @@ class BasicResultCollection(_BaseResultCollection):
             client = dataset.client
             dataset_specs = dataset.specifications
 
+            # Fetch all entries for use later
+            dataset.fetch_entries(include=['molecule'])
+
             if spec_name not in dataset_specs:
                 raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
 
-            result_records[client.address].update(
-                {
-                    record.id: BasicResult(
-                        record_id=record.id,
-                        cmiles=dataset.entries[entry_name].molecule.extras[
+            for entry_name, spec_name, record in dataset.iterate_records(specification_names=spec_name,
+                                                                         status=RecordStatusEnum.complete):
+                entry = dataset.get_entry(entry_name)
+                molecule = entry.molecule
+
+                br = BasicResult(
+                    record_id=record.id,
+                    cmiles=molecule.extras[
+                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                    ],
+                    inchi_key=Molecule.from_mapped_smiles(
+                        molecule.extras[
                             "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                         ],
-                        inchi_key=Molecule.from_mapped_smiles(
-                            dataset.entries[entry_name].molecule.extras[
-                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                            ],
-                            # Undefined stereochemistry is not expected however there
-                            # may be some TK specific edge cases we don't want
-                            # exceptions for such as OE and nitrogen stereochemistry.
-                            allow_undefined_stereo=True,
-                        ).to_inchikey(fixed_hydrogens=True),
+                        # Undefined stereochemistry is not expected however there
+                        # may be some TK specific edge cases we don't want
+                        # exceptions for such as OE and nitrogen stereochemistry.
+                        allow_undefined_stereo=True,
+                     ).to_inchikey(fixed_hydrogens=True),
                     )
-                    for entry_name, spec_name, record in dataset.records
-                    if record.status == RecordStatusEnum.complete
-                }
-            )
+
+                result_records[client.address][record.id] = br
 
         return cls(
             entries={
@@ -356,11 +360,11 @@ class BasicResultCollection(_BaseResultCollection):
 
         records_and_molecules = []
 
-        for client_address, records in self.entries:
+        for client_address, records in self.entries.items():
             client = cached_fractal_client(address=client_address)
 
             for record in records:
-                rec = client.get_singlepoints(record.id, include_molecule=True)
+                rec = client.get_singlepoints(record.record_id, include=['molecule'])
 
                 # OpenFF molecule
                 molecule: Molecule = Molecule.from_mapped_smiles(
