@@ -293,12 +293,11 @@ class BasicResultCollection(_BaseResultCollection):
         for dataset in datasets:
 
             client = dataset.client
-            dataset_specs = dataset.specifications
 
             # Fetch all entries for use later
             dataset.fetch_entries(include=['molecule'])
 
-            if spec_name not in dataset_specs:
+            if spec_name not in dataset.specifications:
                 raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
 
             for entry_name, spec_name, record in dataset.iterate_records(specification_names=spec_name,
@@ -306,22 +305,17 @@ class BasicResultCollection(_BaseResultCollection):
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.molecule
 
-                br = BasicResult(
-                    record_id=record.id,
-                    cmiles=molecule.extras[
-                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                    ],
-                    inchi_key=Molecule.from_mapped_smiles(
-                        molecule.extras[
-                            "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                        ],
-                        # Undefined stereochemistry is not expected however there
-                        # may be some TK specific edge cases we don't want
-                        # exceptions for such as OE and nitrogen stereochemistry.
-                        allow_undefined_stereo=True,
-                     ).to_inchikey(fixed_hydrogens=True),
-                    )
+                cmiles = molecule.extras["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                inchi_key = molecule.attributes.get("fixed_hydrogen_inchi_key")
 
+                # Undefined stereochemistry is not expected however there
+                # may be some TK specific edge cases we don't want
+                # exceptions for such as OE and nitrogen stereochemistry.
+                if inchi_key is None:
+                    tmp_mol=Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
+                    inchi_key=tmp_mol.to_inchikey(fixed_hydrogens=True)
+
+                br = BasicResult(record_id=record.id, cmiles=cmiles, inchi_key=inchi_key)
                 result_records[client.address][record.id] = br
 
         return cls(
@@ -421,28 +415,29 @@ class OptimizationResultCollection(_BaseResultCollection):
         for dataset in datasets:
 
             client = dataset.client
-            query = dataset.query(spec_name)
 
-            result_records[client.address].update(
-                {
-                    query[entry.name].id: OptimizationResult(
-                        record_id=query[entry.name].id,
-                        cmiles=entry.attributes[
-                            "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                        ],
-                        inchi_key=entry.attributes.get("fixed_hydrogen_inchi_key")
-                        or Molecule.from_mapped_smiles(
-                            entry.attributes[
-                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                            ],
-                            allow_undefined_stereo=True,
-                        ).to_inchikey(fixed_hydrogens=True),
-                    )
-                    for entry in dataset.data.records.values()
-                    if entry.name in query
-                    and query[entry.name].status.value.upper() == "COMPLETE"
-                }
-            )
+            # Fetch all entries for use later
+            dataset.fetch_entries(include=['initial_molecule'])
+
+            if spec_name not in dataset.specifications:
+                raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
+
+
+            for entry_name, spec_name, record in dataset.iterate_records(specification_names=spec_name,
+                                                                         status=RecordStatusEnum.complete):
+
+                entry = dataset.get_entry(entry_name)
+                molecule = entry.initial_molecule
+
+                cmiles = molecule.extras["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                inchi_key = molecule.attributes.get("fixed_hydrogen_inchi_key")
+
+                if inchi_key is None:
+                    tmp_mol = Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
+                    inchi_key=tmp_mol.to_inchikey(fixed_hydrogens=True)
+
+                opt_rec = OptimizationResult(record_id=record.id, cmiles=cmiles, inchi_key=inchi_key)
+                result_records[client.address][record.id] = opt_rec
 
         return cls(
             entries={
@@ -465,7 +460,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         # noinspection PyTypeChecker
         return cls.from_datasets(
             [
-                client.get_dataset("OptimizationDataset", dataset_name)
+                client.get_dataset("Optimization", dataset_name)
                 for dataset_name in datasets
             ],
             spec_name,
@@ -479,23 +474,30 @@ class OptimizationResultCollection(_BaseResultCollection):
         record.
         """
 
-        records_and_molecules = [
-            result
-            for client_address, entries in self.entries.items()
-            for result in cached_query_optimization_results(client_address, entries)
-        ]
+        records_and_molecules = []
 
-        records, _ = zip(*records_and_molecules)
+        for client_address, records in self.entries.items():
+            client = cached_fractal_client(address=client_address)
 
-        self._validate_record_types(records, OptimizationRecord)
+            for record in records:
+                rec = client.get_optimizations(record.record_id, include=['initial_molecule'])
+
+                # OpenFF molecule
+                molecule: Molecule = Molecule.from_mapped_smiles(
+                    record.cmiles, allow_undefined_stereo=True
+                )
+
+                molecule.add_conformer(
+                    numpy.array(rec.initial_molecule.geometry, float).reshape(-1, 3) * unit.bohr
+                )
+
+                records_and_molecules.append((rec, molecule))
 
         return records_and_molecules
 
 
     # NOTE: no longer using `driver` here
-    def to_basic_result_collection(
-        self, driver: Optional[Union[str, List[str]]] = None
-    ) -> BasicResultCollection:
+    def to_basic_result_collection(self) -> BasicResultCollection:
         """Returns a basic results collection which references results records which
         were created from the *final* structure of one of the optimizations in this
         collection, and used the same program, method, and basis as the parent
@@ -638,28 +640,27 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         for dataset in datasets:
 
             client = dataset.client
-            query = dataset.query(spec_name)
 
-            result_records[client.address].update(
-                {
-                    query[entry.name].id: TorsionDriveResult(
-                        record_id=query[entry.name].id,
-                        cmiles=entry.attributes[
-                            "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                        ],
-                        inchi_key=entry.attributes.get("fixed_hydrogen_inchi_key")
-                        or Molecule.from_mapped_smiles(
-                            entry.attributes[
-                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                            ],
-                            allow_undefined_stereo=True,
-                        ).to_inchikey(fixed_hydrogens=True),
-                    )
-                    for entry in dataset.data.records.values()
-                    if entry.name in query
-                    and query[entry.name].status.value.upper() == "COMPLETE"
-                }
-            )
+            # Fetch all entries for use later
+            dataset.fetch_entries()
+
+            if spec_name not in dataset.specifications:
+                raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
+
+            for entry_name, spec_name, record in dataset.iterate_records(specification_names=spec_name,
+                                                                         status=RecordStatusEnum.complete):
+
+                entry = dataset.get_entry(entry_name)
+
+                cmiles = entry.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
+
+                if inchi_key is None:
+                    tmp_mol = Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
+                    inchi_key = tmp_mol.to_inchikey(fixed_hydrogens=True)
+
+                td_rec = TorsionDriveResult(record_id=record.id, cmiles=cmiles, inchi_key=inchi_key)
+                result_records[client.address][record.id] = td_rec
 
         return cls(
             entries={
@@ -697,17 +698,38 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         record.
         """
 
-        records_and_molecules = [
-            result
-            for client_address, entries in self.entries.items()
-            for result in cached_query_torsion_drive_results(client_address, entries)
-        ]
+        records_and_molecules = []
 
-        records, _ = zip(*records_and_molecules)
+        for client_address, records in self.entries.items():
+            client = cached_fractal_client(address=client_address)
 
-        self._validate_record_types(records, TorsiondriveRecord)
+            for record in records:
+                rec = client.get_torsiondrives(record.record_id)
+
+                # OpenFF molecule
+                molecule: Molecule = Molecule.from_mapped_smiles(
+                    record.cmiles, allow_undefined_stereo=True
+                )
+
+                # Map of torsion drive keys to minimum optimization
+                qc_grid_molecules = [(k, v.final_molecule) for k,v in rec.minimum_optimizations.items()]
+
+                # order the ids so the conformers follow the torsiondrive scan range
+                # x[0] is the torsiondrive key, ie "[90]"
+                # [1:-1] strips off brackets from the angle
+                qc_grid_molecules.sort(key=lambda x: float(x[0][1:-1]))
+
+                molecule._conformers = [
+                    numpy.array(qc_molecule.geometry, float).reshape(-1, 3) * unit.bohr
+                    for _, qc_molecule in qc_grid_molecules
+                ]
+
+                molecule.properties["grid_ids"] = [x[0] for x in qc_grid_molecules]
+
+                records_and_molecules.append((rec, molecule))
 
         return records_and_molecules
+
 
     def create_optimization_dataset(
         self,
