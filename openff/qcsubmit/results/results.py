@@ -429,8 +429,8 @@ class OptimizationResultCollection(_BaseResultCollection):
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.initial_molecule
 
-                cmiles = molecule.extras["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
-                inchi_key = molecule.attributes.get("fixed_hydrogen_inchi_key")
+                cmiles = entry.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                inchi_key = molecule.extras.get("fixed_hydrogen_inchi_key")
 
                 if inchi_key is None:
                     tmp_mol = Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
@@ -683,7 +683,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         # noinspection PyTypeChecker
         return cls.from_datasets(
             [
-                client.get_dataset("TorsiondriveDataset", dataset_name)
+                client.get_dataset("Torsiondrive", dataset_name)
                 for dataset_name in datasets
             ],
             spec_name,
