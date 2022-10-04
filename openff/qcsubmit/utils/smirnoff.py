@@ -206,13 +206,11 @@ def split_openff_molecule(molecule: Molecule) -> List[Molecule]:
 
 def combine_openff_molecules(molecules: List[Molecule]) -> Molecule:
     """
-    For a given set of openff molecules combine them into a single structure assuming the conformers are compatible..
+    Combine a list of molecules with equal numbers of conformers into one.
     """
 
     master_mol = copy.deepcopy(molecules.pop(0))
-    conformers = [
-        conformer.to(unit.angstrom) for conformer in master_mol.conformers
-    ]
+    conformers = [*master_mol.conformers]
     master_mol._conformers = []
     index_map = {}
     for molecule in molecules:
@@ -231,10 +229,10 @@ def combine_openff_molecules(molecules: List[Molecule]) -> Molecule:
             master_mol.add_bond(**bond_data)
         for i, conformer in enumerate(molecule.conformers):
             conformers[i] = numpy.vstack(
-                [conformers[i], conformer.to(unit.angstrom)]
+                [conformers[i], conformer]
             )
 
     for conformer in conformers:
-        master_mol.add_conformer(conformer * unit.angstrom)
+        master_mol.add_conformer(conformer)
 
     return master_mol
