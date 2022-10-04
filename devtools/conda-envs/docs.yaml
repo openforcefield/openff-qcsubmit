@@ -1,5 +1,7 @@
 name: qcsubmit
 channels:
+  # Avoids crashing RTD machines by pulling an empty cudatoolkit pacakge
+  - jaimergp/label/unsupported-cudatoolkit-shim
   - conda-forge
 
 dependencies:
@@ -10,6 +12,7 @@ dependencies:
   - setuptools
 
   # Sphinx specific
+  - sphinx >=4.4,<5.0
   - nbsphinx
   - nbsphinx-link
   - sphinx_rtd_theme
@@ -30,6 +33,7 @@ dependencies:
   - basis_set_exchange
   - typing-extensions
   - cachetools
+  - openmm
 
   - pip:
       - autodoc_pydantic
