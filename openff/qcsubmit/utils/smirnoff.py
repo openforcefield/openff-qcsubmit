@@ -227,9 +227,7 @@ def combine_openff_molecules(molecules: List[Molecule]) -> Molecule:
             }
             master_mol.add_bond(**bond_data)
         for i, conformer in enumerate(molecule.conformers):
-            conformers[i] = numpy.vstack(
-                [conformers[i], conformer]
-            )
+            conformers[i] = numpy.vstack([conformers[i], conformer])
 
     for conformer in conformers:
         master_mol.add_conformer(conformer)
