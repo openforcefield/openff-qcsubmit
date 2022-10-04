@@ -4,13 +4,9 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import openff.toolkit.topology as off
+from openff.units import unit
 import tqdm
 from pydantic import Field, validator
-
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
 
 from openff.qcsubmit.common_structures import DatasetConfig, ResultsConfig
 from openff.qcsubmit.validators import check_environments

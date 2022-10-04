@@ -8,12 +8,8 @@ import numpy as np
 import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
+from openff.units import unit
 from pydantic import ValidationError
-
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
 
 from openff.qcsubmit.common_structures import MoleculeAttributes, QCSpec
 from openff.qcsubmit.constraints import Constraints, PositionConstraintSet

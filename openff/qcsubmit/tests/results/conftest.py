@@ -1,11 +1,7 @@
 import numpy as np
 import pytest
 from openff.toolkit.topology import Molecule
-
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
+from openff.units import unit
 
 from openff.qcsubmit.results import (
     BasicResultCollection,

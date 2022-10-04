@@ -4,15 +4,11 @@ from typing import Dict, Iterable, List, Tuple
 
 import numpy
 
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
-
 import networkx as nx
 import numpy as np
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
+from openff.units import unit
 from tqdm import tqdm
 
 

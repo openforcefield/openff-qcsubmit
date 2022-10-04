@@ -13,6 +13,7 @@ from openff.toolkit.utils import (
     RDKitToolkitWrapper,
     UndefinedStereochemistryError,
 )
+from openff.units import unit
 from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
 from qcportal.models.records import (
@@ -22,10 +23,6 @@ from qcportal.models.records import (
     ResultRecord,
 )
 
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.results.results import (
