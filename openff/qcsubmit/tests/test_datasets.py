@@ -1364,7 +1364,10 @@ def test_basicdataset_add_molecules_conformers():
     for mol in dataset.molecules:
         assert butane.is_isomorphic_with(mol)
         for i in range(butane.n_conformers):
-            assert mol.conformers[i].flatten().tolist() == pytest.approx(butane.conformers[i].flatten().tolist())
+            assert (
+                mol.conformers[i].m_as(unit.angstrom)
+                == pytest.approx(butane.conformers[i].m_as(unit.angstrom))
+            )
 
 
 def test_basic_dataset_coverage_reporter():
