@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import networkx as nx
 import numpy as np
 import openff.toolkit.topology as off
-from openff.units import unit
 import qcelemental as qcel
 import qcelemental.models
+from openff.units import unit
 from pydantic import Field, validator
 from typing_extensions import Literal
 

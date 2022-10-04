@@ -4,8 +4,8 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import openff.toolkit.topology as off
-from openff.units import unit
 import tqdm
+from openff.units import unit
 from pydantic import Field, validator
 
 from openff.qcsubmit.common_structures import DatasetConfig, ResultsConfig

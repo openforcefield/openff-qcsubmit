@@ -22,7 +22,6 @@ from qcportal.models.records import (
     RecordStatusEnum,
     ResultRecord,
 )
-
 from typing_extensions import Literal
 
 from openff.qcsubmit.results.results import (

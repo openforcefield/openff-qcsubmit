@@ -13,7 +13,6 @@ from openff.toolkit.utils import (
 from openff.units import unit
 from pydantic import Field, root_validator, validator
 from rdkit.Chem.rdMolAlign import AlignMol
-
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties

@@ -2,9 +2,8 @@ import copy
 from collections import defaultdict
 from typing import Dict, Iterable, List, Tuple
 
-import numpy
-
 import networkx as nx
+import numpy
 import numpy as np
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
