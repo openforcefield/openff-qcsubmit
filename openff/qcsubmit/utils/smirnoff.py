@@ -211,7 +211,7 @@ def combine_openff_molecules(molecules: List[Molecule]) -> Molecule:
 
     master_mol = copy.deepcopy(molecules.pop(0))
     conformers = [
-        conformer.in_units_of(unit.angstrom) for conformer in master_mol.conformers
+        conformer.to(unit.angstrom) for conformer in master_mol.conformers
     ]
     master_mol._conformers = []
     index_map = {}
@@ -231,7 +231,7 @@ def combine_openff_molecules(molecules: List[Molecule]) -> Molecule:
             master_mol.add_bond(**bond_data)
         for i, conformer in enumerate(molecule.conformers):
             conformers[i] = numpy.vstack(
-                [conformers[i], conformer.in_units_of(unit.angstrom)]
+                [conformers[i], conformer.to(unit.angstrom)]
             )
 
     for conformer in conformers:

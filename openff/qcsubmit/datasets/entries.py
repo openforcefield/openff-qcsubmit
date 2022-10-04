@@ -143,7 +143,7 @@ class DatasetEntry(DatasetConfig):
         if include_conformers:
             for conformer in self.initial_molecules:
                 geometry = unit.Quantity(np.array(conformer.geometry), unit.bohr)
-                molecule.add_conformer(geometry.in_units_of(unit.angstrom))
+                molecule.add_conformer(geometry.to(unit.angstrom))
         return molecule
 
 
