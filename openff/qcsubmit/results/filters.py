@@ -610,7 +610,7 @@ class ChargeFilter(CMILESResultFilter):
         molecule: Molecule = Molecule.from_mapped_smiles(
             entry.cmiles, allow_undefined_stereo=True
         )
-        total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+        total_charge = molecule.total_charge.m_as(unit.elementary_charge)
 
         if self.charges_to_include is not None:
 
@@ -681,7 +681,7 @@ class HydrogenBondFilter(ResultRecordFilter):
 
         conformers = numpy.array(
             [
-                conformer.value_in_unit(unit.nanometers).tolist()
+                conformer.m_as(unit.nanometers).tolist()
                 for conformer in molecule.conformers
             ]
         )

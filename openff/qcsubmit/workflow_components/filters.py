@@ -763,7 +763,7 @@ class ChargeFilter(ToolkitValidator, CustomWorkflowComponent):
         result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
-            total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+            total_charge = molecule.total_charge.m_as(unit.elementary_charge)
 
             if (
                 self.charges_to_include is not None

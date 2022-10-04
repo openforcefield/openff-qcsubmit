@@ -744,11 +744,9 @@ class ComponentResult:
                 for conformer in molecule.conformers:
                     new_conformer = np.zeros((molecule.n_atoms, 3))
                     for i in range(molecule.n_atoms):
-                        new_conformer[i] = conformer[mapping[i]].value_in_unit(
-                            unit.angstrom
-                        )
+                        new_conformer[i] = conformer[mapping[i]].m_as(unit.angstrom)
 
-                    new_conf = unit.Quantity(value=new_conformer, unit=unit.angstrom)
+                    new_conf = unit.Quantity(new_conformer, unit.angstrom)
 
                     # check if the conformer is already on the molecule
                     for old_conformer in self._molecules[molecule_hash].conformers:
