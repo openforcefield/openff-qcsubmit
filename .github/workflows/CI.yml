@@ -48,6 +48,7 @@ jobs:
           environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
           extra-specs: |
             python=${{ matrix.python-version }}
+          channel-priority: "flexible"
 
       - name: License OpenEye
 
