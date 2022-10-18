@@ -40,6 +40,8 @@ dependencies:
 
   # Optional
   - openmmforcefields >=0.9.0
-  - openff-fragmenter-base
-#  - pip:
-#      - git+https://github.com/openforcefield/openff-fragmenter.git@master
+  - openff-fragmenter-base >=0.2.0
+
+  - pip:
+    - git+https://github.com/openforcefield/openff-toolkit.git@main
+    - git+https://github.com/MolSSI/QCEngine@master
