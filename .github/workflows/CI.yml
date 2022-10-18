@@ -10,6 +10,10 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+defaults:
+  run:
+    shell: bash -l {0}
+
 jobs:
   test:
 
@@ -20,9 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - 3.7
-          # - 3.8
-          # - 3.9
+          - 3.8
         cfg:
           - os: ubuntu-latest
             conda-env: basic
@@ -40,24 +42,15 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Setup Conda Environment
-        uses: conda-incubator/setup-miniconda@v2.1.1
+        uses: mamba-org/provision-with-micromamba@main
+
         with:
-          python-version: ${{ matrix.python-version }}
           environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
-
-          channels: openeye,conda-forge,defaults
-
-          activate-environment: test
-          auto-update-conda: true
-          auto-activate-base: false
-          show-channel-urls: true
-          mamba-version: "*"
-          miniforge-version: latest
-          miniforge-variant: Mambaforge
-          use-mamba: true
+          extra-specs: |
+            python=${{ matrix.python-version }}
 
       - name: License OpenEye
-        shell: bash -l {0}
+
         run: |
           echo "${SECRET_OE_LICENSE}" > ${OE_LICENSE}
           python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
@@ -65,18 +58,15 @@ jobs:
           SECRET_OE_LICENSE: ${{ secrets.OE_LICENSE }}
 
       - name: Install Package
-        shell: bash -l {0}
         run: |
           python setup.py develop --no-deps
 
       - name: Conda Environment Information
-        shell: bash -l {0}
         run: |
           conda info
           conda list
 
       - name: Run Tests
-        shell: bash -l {0}
         run: |
           pytest -v --cov=openff --cov-config=setup.cfg openff/qcsubmit/tests/ --cov-report=xml
 
