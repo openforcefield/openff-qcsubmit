@@ -23,7 +23,7 @@ dependencies:
   - ipython
 
     # Standard dependencies
-  - openff-toolkit-base >= 0.11
+  - openff-toolkit-base >= 0.11.2
   - openff-units
 #  - rdkit                MOCKED
   - pydantic
@@ -38,4 +38,3 @@ dependencies:
   - pip:
     - autodoc_pydantic
     - git+https://github.com/openforcefield/openff-sphinx-theme.git@main
-    - git+https://github.com/openforcefield/openff-toolkit.git@main
