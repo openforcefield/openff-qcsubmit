@@ -24,7 +24,7 @@ dependencies:
 #  - rdkit                MOCKED
   - pydantic
   - pyyaml
-  - qcportal
+  - qcportal >=0.15
   - torsiondrive
   - basis_set_exchange
   - typing-extensions

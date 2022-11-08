@@ -1738,7 +1738,6 @@ def test_remove_qcspec():
 
 
 @pytest.mark.parametrize("qc_spec", [
-    pytest.param(({"method": "hf", "basis": "DZVP", "program": "bad_program"}, True), id="Bad method Error"),
     pytest.param(({"method": "gfn1xtb", "basis": "bad", "program": "xtb"}, True), id="Bad basis xtb Error"),
     pytest.param(({"method": "ani1x", "basis": "ani1x", "program": "torchani"}, True), id="Bad basis torchani Error"),
     pytest.param(({"method": "parsley", "basis": "smirnoff", "program": "openmm"}, True), id="Bad method smirnoff Error"),
