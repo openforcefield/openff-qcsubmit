@@ -20,7 +20,7 @@ dependencies:
   - ipython
 
     # Standard dependencies
-  - openff-toolkit-base
+  - openff-toolkit-base =0.10.6
 #  - rdkit                MOCKED
   - pydantic
   - pyyaml
