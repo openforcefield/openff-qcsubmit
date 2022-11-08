@@ -32,8 +32,7 @@ dependencies:
 
   ### Core dependencies.
 
-  - openff-toolkit-base >= 0.11.2
-  - openff-units
+  - openff-toolkit-base >= 0.11.3
   - rdkit
   - pydantic
   - pyyaml

@@ -486,10 +486,9 @@ class QCSpec(ResultsConfig):
             "torchani": {None: ani_methods},
             "xtb": {None: xtb_methods},
             "rdkit": {None: rdkit_methods},
-            "psi4": {},
         }
 
-        if program.lower() != "psi4":
+        if program.lower() in settings:
             # make sure PCM is not set
             if implicit_solvent is not None:
                 raise QCSpecificationError(

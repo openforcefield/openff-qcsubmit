@@ -24,11 +24,10 @@ dependencies:
 
     # Standard dependencies
   - openff-toolkit-base >= 0.11.2
-  - openff-units
 #  - rdkit                MOCKED
   - pydantic
   - pyyaml
-  - qcportal
+  - qcportal >=0.15
   - torsiondrive
   - basis_set_exchange
   - typing-extensions
