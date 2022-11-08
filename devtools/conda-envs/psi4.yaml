@@ -1,9 +1,9 @@
 name: test
 
 channels:
+  - psi4
   - openeye
   - conda-forge
-  - psi4/label/dev
   - defaults
 
 dependencies:
@@ -22,14 +22,18 @@ dependencies:
   - qcelemental >=0.23.0
   - qcfractal >=0.15.7
   - qcfractal-core >=0.15.7
-  - psi4 =1.4a2.dev1058+670a850
-  - gau2grid =2.0.3
+
+  # Psi4 dependencies
+  - psi4 =1.5
+  - libint2=*=hc9558a2_9
+  - intel-openmp!=2019.5
+  - gau2grid >=2.0
 
   - openeye-toolkits
 
   ### Core dependencies.
 
-  - openff-toolkit-base
+  - openff-toolkit-base =0.10.6
   - rdkit
   - pydantic
   - pyyaml
