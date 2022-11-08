@@ -1,4 +1,4 @@
-name: test
+name: qcsubmit-test-psi4
 
 channels:
   - psi4
