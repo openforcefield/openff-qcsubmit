@@ -34,7 +34,6 @@ dependencies:
   ### Core dependencies.
 
   - openff-toolkit-base >= 0.11.3
-  - importlib_metadata <5
   - rdkit
   - pydantic
   - pyyaml
@@ -46,8 +45,6 @@ dependencies:
   - h5py>=3.6.0
 
   # Optional
-  - openmmforcefields >=0.9.0  # can not install ambertools with psi4
+  - openmmforcefields >=0.9.0
   - openff-fragmenter-base >=0.2.0
   - openmm
-  - pip:
-    - git+https://github.com/MolSSI/QCEngine@master

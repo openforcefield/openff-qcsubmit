@@ -29,7 +29,6 @@ dependencies:
   # openmmforcefields brings in the full toolkit; if that is ever re-packaged
   # this should be changed to openff-toolkit-base
   - openff-toolkit >= 0.11.3
-  - importlib_metadata <5
   - rdkit
   - pydantic
   - pyyaml
@@ -43,6 +42,3 @@ dependencies:
   # Optional
   - openmmforcefields
   - openff-fragmenter-base >=0.2.0
-
-  - pip:
-    - git+https://github.com/MolSSI/QCEngine@master
