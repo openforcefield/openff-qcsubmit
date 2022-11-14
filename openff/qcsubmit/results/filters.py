@@ -13,6 +13,7 @@ from openff.toolkit.utils import (
     RDKitToolkitWrapper,
     UndefinedStereochemistryError,
 )
+from openff.units import unit
 from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
 from qcportal.models.records import (
@@ -21,11 +22,6 @@ from qcportal.models.records import (
     RecordStatusEnum,
     ResultRecord,
 )
-
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.results.results import (
@@ -613,7 +609,7 @@ class ChargeFilter(CMILESResultFilter):
         molecule: Molecule = Molecule.from_mapped_smiles(
             entry.cmiles, allow_undefined_stereo=True
         )
-        total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+        total_charge = molecule.total_charge.m_as(unit.elementary_charge)
 
         if self.charges_to_include is not None:
 
@@ -684,7 +680,7 @@ class HydrogenBondFilter(ResultRecordFilter):
 
         conformers = numpy.array(
             [
-                conformer.value_in_unit(unit.nanometers).tolist()
+                conformer.m_as(unit.nanometers).tolist()
                 for conformer in molecule.conformers
             ]
         )

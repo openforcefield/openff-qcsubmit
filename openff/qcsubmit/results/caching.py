@@ -7,15 +7,11 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Ty
 import numpy
 from cachetools import Cache, LRUCache
 from openff.toolkit.topology import Molecule
+from openff.units import unit
 from qcportal import FractalClient
 from qcportal.models import Molecule as QCMolecule
 from qcportal.models import TorsionDriveRecord
 from qcportal.models.records import OptimizationRecord, RecordBase, ResultRecord
-
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.results import (

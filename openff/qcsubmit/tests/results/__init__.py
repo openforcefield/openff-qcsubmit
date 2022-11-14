@@ -2,6 +2,7 @@ import copy
 
 import numpy
 from openff.toolkit.topology import Molecule
+from openff.units import unit
 from pydantic import BaseModel
 from qcelemental.models import DriverEnum
 from qcportal.models import (
@@ -14,11 +15,6 @@ from qcportal.models import (
 )
 from qcportal.models.records import RecordStatusEnum
 from qcportal.models.torsiondrive import TDKeywords
-
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
 
 from openff.qcsubmit.results import (
     BasicResult,

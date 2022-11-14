@@ -9,13 +9,9 @@ import numpy as np
 import openff.toolkit.topology as off
 import qcelemental as qcel
 import qcelemental.models
+from openff.units import unit
 from pydantic import Field, validator
 from typing_extensions import Literal
-
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
 
 from openff.qcsubmit.common_structures import (
     DatasetConfig,
@@ -95,7 +91,7 @@ class DatasetEntry(DatasetConfig):
             charges = [
                 sum(
                     [
-                        off_molecule.atoms[atom].formal_charge.value_in_unit(
+                        off_molecule.atoms[atom].formal_charge.m_as(
                             unit.elementary_charge
                         )
                         for atom in graph
@@ -146,8 +142,8 @@ class DatasetEntry(DatasetConfig):
         molecule.name = self.index
         if include_conformers:
             for conformer in self.initial_molecules:
-                geometry = unit.Quantity(np.array(conformer.geometry), unit=unit.bohr)
-                molecule.add_conformer(geometry.in_units_of(unit.angstrom))
+                geometry = unit.Quantity(np.array(conformer.geometry), unit.bohr)
+                molecule.add_conformer(geometry.to(unit.angstrom))
         return molecule
 
 

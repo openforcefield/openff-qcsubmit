@@ -1,5 +1,7 @@
 name: qcsubmit
 channels:
+  # Avoids crashing RTD machines by pulling an empty cudatoolkit pacakge
+  - jaimergp/label/unsupported-cudatoolkit-shim
   - conda-forge
 
 dependencies:
@@ -10,6 +12,7 @@ dependencies:
   - setuptools
 
   # Sphinx specific
+  - sphinx >=4.4,<5.0
   - nbsphinx
   - nbsphinx-link
   - sphinx_rtd_theme
@@ -20,7 +23,7 @@ dependencies:
   - ipython
 
     # Standard dependencies
-  - openff-toolkit-base =0.10.6
+  - openff-toolkit-base >= 0.11.2
 #  - rdkit                MOCKED
   - pydantic
   - pyyaml
@@ -29,7 +32,8 @@ dependencies:
   - basis_set_exchange
   - typing-extensions
   - cachetools
+  - openmm
 
   - pip:
-      - autodoc_pydantic
-      - git+https://github.com/openforcefield/openff-sphinx-theme.git@main
+    - autodoc_pydantic
+    - git+https://github.com/openforcefield/openff-sphinx-theme.git@main

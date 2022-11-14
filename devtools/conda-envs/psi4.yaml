@@ -1,15 +1,15 @@
-name: test
+name: qcsubmit-test-psi4
 
 channels:
   - psi4
-  - openeye
   - conda-forge
+  - openeye
   - defaults
 
 dependencies:
 
   # Base depends
-  - python
+  - python>=3.8
   - pip
 
   # Testing
@@ -18,10 +18,12 @@ dependencies:
   - codecov
   - requests-mock
 
-  - qcengine >=0.20.0
-  - qcelemental >=0.23.0
+  - qcengine >=0.25
+  - qcelemental >=0.25.1
   - qcfractal >=0.15.7
   - qcfractal-core >=0.15.7
+
+  - openeye-toolkits
 
   # Psi4 dependencies
   - psi4 =1.5
@@ -29,11 +31,12 @@ dependencies:
   - intel-openmp!=2019.5
   - gau2grid >=2.0
 
-  - openeye-toolkits
-
   ### Core dependencies.
 
-  - openff-toolkit-base =0.10.6
+  - openff-toolkit-base >= 0.11.3
+  # argcomplete (brought in via BSE) pulls down totally incorrect builds of `importlib_metadata`,
+  - importlib_metadata >=4
+  - importlib-metadata >=4
   - rdkit
   - pydantic
   - pyyaml
@@ -45,8 +48,6 @@ dependencies:
   - h5py>=3.6.0
 
   # Optional
-  - openmmforcefields >=0.9.0  # can not install ambertools with psi4
-  - openff-fragmenter-base
-  - openmm <7.6
-#  - pip:
-#      - git+https://github.com/openforcefield/openff-fragmenter.git@master
+  - openmmforcefields >=0.9.0
+  - openff-fragmenter-base >=0.2.0
+  - openmm

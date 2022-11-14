@@ -10,13 +10,9 @@ from openff.toolkit.utils import (
     RDKitToolkitWrapper,
     ToolkitRegistry,
 )
+from openff.units import unit
 from pydantic import Field, root_validator, validator
 from rdkit.Chem.rdMolAlign import AlignMol
-
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
@@ -766,7 +762,7 @@ class ChargeFilter(ToolkitValidator, CustomWorkflowComponent):
         result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
-            total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
+            total_charge = molecule.total_charge.m_as(unit.elementary_charge)
 
             if (
                 self.charges_to_include is not None

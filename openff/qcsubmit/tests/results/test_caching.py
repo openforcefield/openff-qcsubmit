@@ -4,12 +4,8 @@ import numpy
 import pytest
 import requests_mock
 from openff.toolkit.topology import Molecule
+from openff.units import unit
 from qcportal.models import ObjectId, OptimizationRecord, ResultRecord
-
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
 
 from openff.qcsubmit.results import BasicResult, OptimizationResult, TorsionDriveResult
 from openff.qcsubmit.results.caching import (
@@ -126,7 +122,7 @@ def test_record_to_molecule(
         raise RuntimeError()
 
     assert numpy.allclose(
-        molecule.conformers[0].value_in_unit(unit.bohr),
+        molecule.conformers[0].m_as(unit.bohr),
         expected_qc_molecule.geometry.reshape((molecule.n_atoms, 3))
     )
 
@@ -168,7 +164,7 @@ def test_cached_query_torsion_drive_results(public_client):
     for grid_id, conformer in zip(molecule.properties["grid_ids"], molecule.conformers):
 
         assert numpy.allclose(
-            conformer.value_in_unit(unit.bohr),
+            conformer.m_as(unit.bohr),
             expected_qc_molecules[grid_id].geometry.reshape((molecule.n_atoms, 3))
         )
 
