@@ -29,6 +29,9 @@ dependencies:
   # openmmforcefields brings in the full toolkit; if that is ever re-packaged
   # this should be changed to openff-toolkit-base
   - openff-toolkit >= 0.11.3
+  # argcomplete (brought it via BSE) pulls down totally incorrect builds of `importlib_metadata`,
+  - importlib_metadata >=4
+  - importlib-metadata >=4
   - rdkit
   - pydantic
   - pyyaml

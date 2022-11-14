@@ -34,6 +34,9 @@ dependencies:
   ### Core dependencies.
 
   - openff-toolkit-base >= 0.11.3
+  # argcomplete (brought it via BSE) pulls down totally incorrect builds of `importlib_metadata`,
+  - importlib_metadata >=4
+  - importlib-metadata >=4
   - rdkit
   - pydantic
   - pyyaml
