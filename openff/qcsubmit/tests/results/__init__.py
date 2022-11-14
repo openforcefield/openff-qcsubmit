@@ -7,16 +7,10 @@ from openff.units import unit
 from pydantic import BaseModel
 from qcelemental.models import DriverEnum
 from qcelemental.models.procedures import TDKeywords
-
-from qcportal.records import (
-    SinglepointRecord,
-    OptimizationRecord,
-    TorsiondriveRecord,
-)
-
+from qcportal.records import OptimizationRecord, SinglepointRecord, TorsiondriveRecord
+from qcportal.records.models import RecordStatusEnum
 from qcportal.records.optimization.models import OptimizationSpecification
 from qcportal.records.singlepoint.models import QCSpecification
-from qcportal.records.models import RecordStatusEnum
 
 from openff.qcsubmit.results import (
     BasicResult,

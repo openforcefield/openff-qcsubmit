@@ -2,7 +2,7 @@
 The procedure settings controllers
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 from pydantic import BaseModel, Field, validator
 from qcportal.records.optimization import OptimizationSpecification

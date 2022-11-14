@@ -25,15 +25,11 @@ from qcportal import PortalClient, PortalRequestError
 from qcportal.datasets.optimization import OptimizationDatasetNewEntry
 from qcportal.datasets.singlepoint import SinglepointDatasetNewEntry
 from qcportal.datasets.torsiondrive import TorsiondriveDatasetNewEntry
-from qcportal.records.singlepoint import SinglepointDriver, QCSpecification
 from qcportal.records.optimization import OptimizationSpecification
+from qcportal.records.singlepoint import QCSpecification, SinglepointDriver
 from typing_extensions import Literal
 
-from openff.qcsubmit.common_structures import (
-    CommonBase,
-    Metadata,
-    MoleculeAttributes,
-)
+from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets.entries import (
     DatasetEntry,
@@ -150,7 +146,6 @@ class _BaseDataset(abc.ABC, CommonBase):
         """
         raise NotImplementedError()
 
-
     @abc.abstractmethod
     def _get_entries(self) -> List[Any]:
         """Add entries to the Dataset's corresponding Collection.
@@ -166,7 +161,6 @@ class _BaseDataset(abc.ABC, CommonBase):
             List of new entries to add to the dataset on the server
         """
         pass
-
 
     @abc.abstractmethod
     def to_tasks(self) -> Dict[str, List[Union[AtomicInput, OptimizationInput]]]:
@@ -198,7 +192,6 @@ class _BaseDataset(abc.ABC, CommonBase):
                 If the chosen basis set does not cover some of the elements in the dataset.
 
         """
-
 
         # pre submission checks
         # make sure we have some QCSpec to submit
@@ -738,7 +731,6 @@ class _BaseDataset(abc.ABC, CommonBase):
         return inchikey
 
 
-
 # TODO: SinglepointDataset
 class BasicDataset(_BaseDataset):
     """
@@ -799,7 +791,9 @@ class BasicDataset(_BaseDataset):
 
         return new_dataset
 
-    def _generate_collection(self, client: "PortalClient") -> ptl.datasets.SinglepointDataset:
+    def _generate_collection(
+        self, client: "PortalClient"
+    ) -> ptl.datasets.SinglepointDataset:
 
         return client.add_dataset(
             dataset_type="singlepoint",
@@ -817,7 +811,7 @@ class BasicDataset(_BaseDataset):
         """Needed for `submit` usage."""
 
         ret = {}
-        for spec_name,spec in self.qc_specifications.items():
+        for spec_name, spec in self.qc_specifications.items():
             ret[spec_name] = QCSpecification(
                 driver=self.driver,
                 method=spec.method,
@@ -828,7 +822,6 @@ class BasicDataset(_BaseDataset):
             )
 
         return ret
-
 
     def _get_entries(self) -> List[SinglepointDatasetNewEntry]:
 
@@ -844,13 +837,16 @@ class BasicDataset(_BaseDataset):
 
                 for j, molecule in enumerate(entry.initial_molecules):
                     name = index + f"-{tag + j}"
-                    entries.append(SinglepointDatasetNewEntry(name=name, molecule=molecule))
+                    entries.append(
+                        SinglepointDatasetNewEntry(name=name, molecule=molecule)
+                    )
             else:
                 entries.append(
                     SinglepointDatasetNewEntry(
                         name=entry_name,
                         molecule=entry.initial_molecules[0],
-                    ))
+                    )
+                )
 
         return entries
 
@@ -1008,7 +1004,7 @@ class OptimizationDataset(BasicDataset):
 
         ret = {}
 
-        for spec_name,spec in self.qc_specifications.items():
+        for spec_name, spec in self.qc_specifications.items():
             qc_spec = QCSpecification(
                 driver=self.driver,
                 method=spec.method,
@@ -1021,7 +1017,7 @@ class OptimizationDataset(BasicDataset):
             ret[spec_name] = OptimizationSpecification(
                 program=self.optimization_procedure.program,
                 qc_specification=qc_spec,
-                keywords=opt_kw
+                keywords=opt_kw,
             )
 
         return ret
@@ -1040,16 +1036,20 @@ class OptimizationDataset(BasicDataset):
 
                 for j, molecule in enumerate(entry.initial_molecules):
                     name = index + f"-{tag + j}"
-                    entries.append(OptimizationDatasetNewEntry(name=name, initial_molecule=molecule))
+                    entries.append(
+                        OptimizationDatasetNewEntry(
+                            name=name, initial_molecule=molecule
+                        )
+                    )
             else:
                 entries.append(
                     OptimizationDatasetNewEntry(
                         name=entry_name,
                         initial_molecule=entry.initial_molecules[0],
-                    ))
+                    )
+                )
 
         return entries
-
 
     def to_tasks(self) -> Dict[str, List[OptimizationInput]]:
         """
@@ -1222,14 +1222,15 @@ class TorsiondriveDataset(OptimizationDataset):
 
             td_keywords.update(entry.keywords.dict(exclude_defaults=True))
 
-            entries.append(TorsiondriveDatasetNewEntry(
-                name=entry_name,
-                initial_molecules=entry.initial_molecules,
-                torsiondrive_keywords=td_keywords
-            ))
+            entries.append(
+                TorsiondriveDatasetNewEntry(
+                    name=entry_name,
+                    initial_molecules=entry.initial_molecules,
+                    torsiondrive_keywords=td_keywords,
+                )
+            )
 
         return entries
-
 
     def to_tasks(self) -> Dict[str, List[OptimizationInput]]:
         """Build a list of QCEngine procedure tasks which correspond to this dataset."""

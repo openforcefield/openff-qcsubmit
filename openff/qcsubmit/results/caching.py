@@ -155,7 +155,7 @@ def cached_query_procedures(client_address: str, record_ids: List[str]) -> List[
     client_address = client_address.rstrip("/")
     client = cached_fractal_client(client_address)
 
-    query_limit = client.api_limits['get_records']
+    query_limit = client.api_limits["get_records"]
 
     return _cached_client_query(
         client_address,
@@ -182,7 +182,7 @@ def cached_query_molecules(
     client_address = client_address.rstrip("/")
     client = cached_fractal_client(client_address)
 
-    query_limit = client.api_limits['get_molecules']
+    query_limit = client.api_limits["get_molecules"]
 
     return _cached_client_query(
         client_address,
@@ -326,11 +326,14 @@ def cached_query_torsion_drive_results(
 
         qc_record = qc_records[result.record_id]
 
-        qc_grid_molecules = [(grid_point, opt.final_molecule)
-                             for grid_point, opt in qc_record.minimum_optimizations.items()]
-
-        ## order the ids so the conformers follow the torsiondrive scan range
-        qc_grid_molecules.sort(key=lambda x: float(x[0][1:-1]))
+        qc_grid_molecules = [
+            (grid_point, opt.final_molecule)
+            for grid_point, opt in qc_record.minimum_optimizations.items()
+        ]
+        # order the ids so the conformers follow the torsiondrive scan range
+        qc_grid_molecules.sort(
+            key=lambda s: tuple(float(x) for x in s.strip("[]").split(", "))
+        )
 
         molecule: Molecule = Molecule.from_mapped_smiles(
             result.cmiles, allow_undefined_stereo=True

@@ -10,11 +10,13 @@ from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
 from pydantic import ValidationError
+from qcelemental.models import DriverEnum
 from qcportal import PortalClient
 from qcportal.molecules import Molecule as QCMolecule
 from qcportal.records import (
-    SinglepointRecord,
     OptimizationRecord,
+    RecordStatusEnum,
+    SinglepointRecord,
     TorsiondriveRecord,
     RecordStatusEnum
 )
@@ -23,6 +25,10 @@ from qcelemental.models import DriverEnum
 from qcportal.records.torsiondrive import TorsiondriveSpecification, TorsiondriveKeywords
 from qcportal.records.optimization import OptimizationSpecification
 from qcportal.records.singlepoint import QCSpecification
+from qcportal.records.torsiondrive import (
+    TorsiondriveKeywords,
+    TorsiondriveSpecification,
+)
 
 from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError

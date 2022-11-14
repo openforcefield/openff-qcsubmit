@@ -230,7 +230,12 @@ class LowestEnergyFilter(SinglepointRecordGroupFilter):
     def _filter_function(
         self,
         entries: List[
-            Tuple["_BaseResult", Union[SinglepointRecord, OptimizationRecord], Molecule, str]
+            Tuple[
+                "_BaseResult",
+                Union[SinglepointRecord, OptimizationRecord],
+                Molecule,
+                str,
+            ]
         ],
     ) -> List[Tuple["_BaseResult", str]]:
         """Only return the lowest energy entry or final molecule."""
@@ -362,7 +367,12 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
     def _filter_function(
         self,
         entries: List[
-            Tuple["_BaseResult", Union[SinglepointRecord, OptimizationRecord], Molecule, str]
+            Tuple[
+                "_BaseResult",
+                Union[SinglepointRecord, OptimizationRecord],
+                Molecule,
+                str,
+            ]
         ],
     ) -> List[Tuple["_BaseResult", str]]:
 
@@ -436,7 +446,12 @@ class MinimumConformersFilter(SinglepointRecordGroupFilter):
     def _filter_function(
         self,
         entries: List[
-            Tuple["_BaseResult", Union[SinglepointRecord, OptimizationRecord], Molecule, str]
+            Tuple[
+                "_BaseResult",
+                Union[SinglepointRecord, OptimizationRecord],
+                Molecule,
+                str,
+            ]
         ],
     ) -> List[Tuple["_BaseResult", str]]:
 
@@ -609,7 +624,7 @@ class ChargeFilter(CMILESResultFilter):
         molecule: Molecule = Molecule.from_mapped_smiles(
             entry.cmiles, allow_undefined_stereo=True
         )
-        total_charge = molecule.total_charge.m_as(unit.elementary_charge)
+        total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
 
         if self.charges_to_include is not None:
 
@@ -680,7 +695,7 @@ class HydrogenBondFilter(SinglepointRecordFilter):
 
         conformers = numpy.array(
             [
-                conformer.m_as(unit.nanometers).tolist()
+                conformer.value_in_unit(unit.nanometers).tolist()
                 for conformer in molecule.conformers
             ]
         )

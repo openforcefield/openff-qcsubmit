@@ -21,17 +21,23 @@ try:
     from openmm import unit
 except ImportError:
     from simtk import unit
+
 import numpy
 import qcportal
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import BaseModel, Field, validator
-from qcportal.datasets import OptimizationDataset, TorsiondriveDataset
 from qcportal.datasets import BaseDataset as QCDataset
+from qcportal.datasets import OptimizationDataset, TorsiondriveDataset
 from qcportal.datasets.singlepoint import SinglepointDataset, SinglepointDatasetNewEntry
-from qcportal.records import OptimizationRecord, SinglepointRecord, TorsiondriveRecord, RecordStatusEnum
+from qcportal.records import (
+    BaseRecord,
+    OptimizationRecord,
+    RecordStatusEnum,
+    SinglepointRecord,
+    TorsiondriveRecord,
+)
 from qcportal.records.singlepoint import SinglepointDriver
-from qcportal.records import BaseRecord
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
@@ -286,7 +292,9 @@ class BasicResultCollection(_BaseResultCollection):
             datasets = [datasets]
 
         if not all(isinstance(dataset, SinglepointDataset) for dataset in datasets):
-            raise TypeError("A ``BasicResultCollection`` can only be created from ``SinglepointDataset`` objects.")
+            raise TypeError(
+                "A ``BasicResultCollection`` can only be created from ``SinglepointDataset`` objects."
+            )
 
         result_records = defaultdict(dict)
 
@@ -295,27 +303,36 @@ class BasicResultCollection(_BaseResultCollection):
             client = dataset.client
 
             # Fetch all entries for use later
-            dataset.fetch_entries(include=['molecule'])
+            dataset.fetch_entries(include=["molecule"])
 
             if spec_name not in dataset.specifications:
-                raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
+                raise KeyError(
+                    f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification"
+                )
 
-            for entry_name, spec_name, record in dataset.iterate_records(specification_names=spec_name,
-                                                                         status=RecordStatusEnum.complete):
+            for entry_name, spec_name, record in dataset.iterate_records(
+                specification_names=spec_name, status=RecordStatusEnum.complete
+            ):
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.molecule
 
-                cmiles = molecule.extras["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                cmiles = molecule.extras[
+                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                ]
                 inchi_key = molecule.attributes.get("fixed_hydrogen_inchi_key")
 
                 # Undefined stereochemistry is not expected however there
                 # may be some TK specific edge cases we don't want
                 # exceptions for such as OE and nitrogen stereochemistry.
                 if inchi_key is None:
-                    tmp_mol=Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
-                    inchi_key=tmp_mol.to_inchikey(fixed_hydrogens=True)
+                    tmp_mol = Molecule.from_mapped_smiles(
+                        cmiles, allow_undefined_stereo=True
+                    )
+                    inchi_key = tmp_mol.to_inchikey(fixed_hydrogens=True)
 
-                br = BasicResult(record_id=record.id, cmiles=cmiles, inchi_key=inchi_key)
+                br = BasicResult(
+                    record_id=record.id, cmiles=cmiles, inchi_key=inchi_key
+                )
                 result_records[client.address][record.id] = br
 
         return cls(
@@ -358,7 +375,7 @@ class BasicResultCollection(_BaseResultCollection):
             client = cached_fractal_client(address=client_address)
 
             for record in records:
-                rec = client.get_singlepoints(record.record_id, include=['molecule'])
+                rec = client.get_singlepoints(record.record_id, include=["molecule"])
 
                 # OpenFF molecule
                 molecule: Molecule = Molecule.from_mapped_smiles(
@@ -417,26 +434,34 @@ class OptimizationResultCollection(_BaseResultCollection):
             client = dataset.client
 
             # Fetch all entries for use later
-            dataset.fetch_entries(include=['initial_molecule'])
+            dataset.fetch_entries(include=["initial_molecule"])
 
             if spec_name not in dataset.specifications:
-                raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
+                raise KeyError(
+                    f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification"
+                )
 
-
-            for entry_name, spec_name, record in dataset.iterate_records(specification_names=spec_name,
-                                                                         status=RecordStatusEnum.complete):
+            for entry_name, spec_name, record in dataset.iterate_records(
+                specification_names=spec_name, status=RecordStatusEnum.complete
+            ):
 
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.initial_molecule
 
-                cmiles = entry.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                cmiles = entry.attributes[
+                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                ]
                 inchi_key = molecule.extras.get("fixed_hydrogen_inchi_key")
 
                 if inchi_key is None:
-                    tmp_mol = Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
-                    inchi_key=tmp_mol.to_inchikey(fixed_hydrogens=True)
+                    tmp_mol = Molecule.from_mapped_smiles(
+                        cmiles, allow_undefined_stereo=True
+                    )
+                    inchi_key = tmp_mol.to_inchikey(fixed_hydrogens=True)
 
-                opt_rec = OptimizationResult(record_id=record.id, cmiles=cmiles, inchi_key=inchi_key)
+                opt_rec = OptimizationResult(
+                    record_id=record.id, cmiles=cmiles, inchi_key=inchi_key
+                )
                 result_records[client.address][record.id] = opt_rec
 
         return cls(
@@ -480,7 +505,9 @@ class OptimizationResultCollection(_BaseResultCollection):
             client = cached_fractal_client(address=client_address)
 
             for record in records:
-                rec = client.get_optimizations(record.record_id, include=['initial_molecule'])
+                rec = client.get_optimizations(
+                    record.record_id, include=["initial_molecule"]
+                )
 
                 # OpenFF molecule
                 molecule: Molecule = Molecule.from_mapped_smiles(
@@ -488,13 +515,13 @@ class OptimizationResultCollection(_BaseResultCollection):
                 )
 
                 molecule.add_conformer(
-                    numpy.array(rec.initial_molecule.geometry, float).reshape(-1, 3) * unit.bohr
+                    numpy.array(rec.initial_molecule.geometry, float).reshape(-1, 3)
+                    * unit.bohr
                 )
 
                 records_and_molecules.append((rec, molecule))
 
         return records_and_molecules
-
 
     # NOTE: no longer using `driver` here
     def to_basic_result_collection(self) -> BasicResultCollection:
@@ -517,7 +544,9 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         # will be inefficient at the moment
         for record, molecule in records_and_molecules:
-            result_records[record.client.address].append((record.trajectory[-1], molecule))
+            result_records[record.client.address].append(
+                (record.trajectory[-1], molecule)
+            )
 
         result_entries = defaultdict(list)
 
@@ -525,14 +554,14 @@ class OptimizationResultCollection(_BaseResultCollection):
 
             for record, molecule in result_records[client_address]:
                 result_entries[client_address].append(
-                        BasicResult(
-                            record_id=record.id,
-                            cmiles=molecule.to_smiles(
-                                isomeric=True, explicit_hydrogens=True, mapped=True
-                            ),
-                            inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
-                        )
+                    BasicResult(
+                        record_id=record.id,
+                        cmiles=molecule.to_smiles(
+                            isomeric=True, explicit_hydrogens=True, mapped=True
+                        ),
+                        inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                     )
+                )
 
         return BasicResultCollection(entries=result_entries)
 
@@ -579,7 +608,10 @@ class OptimizationResultCollection(_BaseResultCollection):
             metadata={} if metadata is None else metadata,
             qc_specifications={"default": QCSpec()}
             if qc_specifications is None
-            else {qc_specification.spec_name: qc_specification for qc_specification in qc_specifications},
+            else {
+                qc_specification.spec_name: qc_specification
+                for qc_specification in qc_specifications
+            },
         )
 
         for records in records_by_cmiles.values():
@@ -645,21 +677,30 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             dataset.fetch_entries()
 
             if spec_name not in dataset.specifications:
-                raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
+                raise KeyError(
+                    f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification"
+                )
 
-            for entry_name, spec_name, record in dataset.iterate_records(specification_names=spec_name,
-                                                                         status=RecordStatusEnum.complete):
+            for entry_name, spec_name, record in dataset.iterate_records(
+                specification_names=spec_name, status=RecordStatusEnum.complete
+            ):
 
                 entry = dataset.get_entry(entry_name)
 
-                cmiles = entry.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                cmiles = entry.attributes[
+                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                ]
                 inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
 
                 if inchi_key is None:
-                    tmp_mol = Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
+                    tmp_mol = Molecule.from_mapped_smiles(
+                        cmiles, allow_undefined_stereo=True
+                    )
                     inchi_key = tmp_mol.to_inchikey(fixed_hydrogens=True)
 
-                td_rec = TorsionDriveResult(record_id=record.id, cmiles=cmiles, inchi_key=inchi_key)
+                td_rec = TorsionDriveResult(
+                    record_id=record.id, cmiles=cmiles, inchi_key=inchi_key
+                )
                 result_records[client.address][record.id] = td_rec
 
         return cls(
@@ -712,7 +753,9 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                 )
 
                 # Map of torsion drive keys to minimum optimization
-                qc_grid_molecules = [(k, v.final_molecule) for k,v in rec.minimum_optimizations.items()]
+                qc_grid_molecules = [
+                    (k, v.final_molecule) for k, v in rec.minimum_optimizations.items()
+                ]
 
                 # order the ids so the conformers follow the torsiondrive scan range
                 # x[0] is the torsiondrive key, ie "[90]"
@@ -729,7 +772,6 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                 records_and_molecules.append((rec, molecule))
 
         return records_and_molecules
-
 
     def create_optimization_dataset(
         self,
