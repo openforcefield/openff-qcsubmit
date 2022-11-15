@@ -10,6 +10,13 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 <!--## Version / Date DD-MM-YYYY -->
 
 
+## 0.4.0 / 11-15-2022
+
+### New Features
+
+* [PR #204:] Compatibility OpenFF Toolkit 0.11.x (#204) [@Yoshanuikabundi]
+
+
 ## 0.3.2 / 08-11-2022
 
 ### New Features
@@ -41,6 +48,7 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 [PR #193:]: https://github.com/openforcefield/openff-qcsubmit/pull/193
 [PR #198:]: https://github.com/openforcefield/openff-qcsubmit/pull/198
 [PR #202:]: https://github.com/openforcefield/openff-qcsubmit/pull/202
+[PR #204:]: https://github.com/openforcefield/openff-qcsubmit/pull/204
 [PR #206:]: https://github.com/openforcefield/openff-qcsubmit/pull/206
 
 [@jthorton]: https://github.com/jthorton
