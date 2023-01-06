@@ -125,7 +125,7 @@ def get_torsion(bond: off.Bond) -> Tuple[int, int, int, int]:
                 if atom not in terminal_atoms:
                     terminal_atoms[atom] = neighbour
                 # If the neighbour is heavier than the current terminal atom, replace it
-                if neighbour.atomic_number > terminal_atoms.get(atom).atomic_number:
+                elif neighbour.atomic_number > terminal_atoms.get(atom).atomic_number:
                     terminal_atoms[atom] = neighbour
 
     # build out the torsion
