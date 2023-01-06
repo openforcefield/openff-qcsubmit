@@ -15,7 +15,6 @@ dependencies:
   - pytest
   - pytest-cov
   - pytest-xdist
-  - codecov
   - requests-mock
 
   - qcengine >=0.25
@@ -28,18 +27,13 @@ dependencies:
 
   # openmmforcefields brings in the full toolkit; if that is ever re-packaged
   # this should be changed to openff-toolkit-base
-  - openff-toolkit >= 0.11.3
-  # argcomplete (brought in via BSE) pulls down totally incorrect builds of `importlib_metadata`,
-  - importlib_metadata >=4
-  - importlib-metadata >=4
-  - rdkit
+  - openff-toolkit >= 0.12
   - pydantic
   - pyyaml
   - qcportal>=0.15.7
   - torsiondrive
   - basis_set_exchange
   - typing-extensions
-  - cachetools
   - h5py>=3.6.0
 
   # Optional
