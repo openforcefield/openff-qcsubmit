@@ -115,17 +115,19 @@ def get_torsion(bond: off.Bond) -> Tuple[int, int, int, int]:
         If there is more than one possible combination of atoms the heaviest set are selected to be restrained.
     """
 
-    atoms = [bond.atom1, bond.atom2]
-    terminal_atoms = {}
+    atoms: List[off.Atom] = [bond.atom1, bond.atom2]
+    terminal_atoms: Dict[off.Atom, off.atom] = dict()
 
     for atom in atoms:
         for neighbour in atom.bonded_atoms:
             if neighbour not in atoms:
-                if (
-                    neighbour.atomic_number
-                    > terminal_atoms.get(atom, off.Atom(0, 0, False)).atomic_number
-                ):
+                # If we have not seen any possible terminal atoms for this atom, add the neighbour
+                if atom not in terminal_atoms:
                     terminal_atoms[atom] = neighbour
+                # If the neighbour is heavier than the current terminal atom, replace it
+                elif neighbour.atomic_number > terminal_atoms.get(atom).atomic_number:
+                    terminal_atoms[atom] = neighbour
+
     # build out the torsion
     return tuple(
         [
