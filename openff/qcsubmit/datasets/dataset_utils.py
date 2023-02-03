@@ -100,7 +100,7 @@ def update_specification_and_metadata(
     if "elements" in metadata:
         dataset.metadata = metadata
 
-    if dataset.type == "DataSet":
+    if dataset.type == "singlepoint":
         if not dataset.metadata.elements:
             # now grab the elements
             elements = set()

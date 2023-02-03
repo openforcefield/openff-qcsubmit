@@ -5,7 +5,7 @@ The procedure settings controllers
 from typing import Any, Dict
 
 from pydantic import BaseModel, Field, validator
-from qcportal.records.optimization import OptimizationSpecification
+from qcportal.optimization import OptimizationSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit.validators import literal_lower, literal_upper

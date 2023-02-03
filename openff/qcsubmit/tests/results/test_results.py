@@ -484,9 +484,7 @@ def test_optimization_to_basic_result_collection(
     monkeypatch.setattr(PortalClient, "_auto_request", mock_auto_request)
     monkeypatch.setattr(PortalClient, "query_records", mock_query_records)
 
-    basic_collection = optimization_result_collection.to_basic_result_collection(
-        "hessian"
-    )
+    basic_collection = optimization_result_collection.to_basic_result_collection()
 
     assert basic_collection.n_results == 2
     assert basic_collection.n_molecules == 2

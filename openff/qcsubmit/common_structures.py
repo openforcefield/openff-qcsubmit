@@ -26,7 +26,7 @@ from pydantic import (
 from qcelemental import constants
 from qcelemental.models.common_models import Model
 from qcelemental.models.results import WavefunctionProtocolEnum
-from qcportal.records.singlepoint import SinglepointDriver
+from qcportal.singlepoint import SinglepointDriver
 
 from openff.qcsubmit.exceptions import (
     DatasetInputError,
@@ -408,12 +408,8 @@ class QCSpec(ResultsConfig):
         ],
         description="The SCF properties which should be extracted after every single point calculation.",
     )
-    keywords: Optional[
-        Dict[
-            str, Union[StrictStr, StrictInt, StrictFloat, StrictBool, List[StrictFloat]]
-        ]
-    ] = Field(
-        None,
+    keywords: Dict[str, Union[StrictStr, StrictInt, StrictFloat, StrictBool, List[StrictFloat]]] = Field(
+        {},
         description="An optional set of program specific computational keywords that "
         "should be passed to the program. These may include, for example, DFT grid "
         "settings.",
@@ -512,6 +508,9 @@ class QCSpec(ResultsConfig):
                 raise QCSpecificationError(
                     f"The method {method} is not supported for the program {program} with basis {basis}, please chose from {allowed_methods}"
                 )
+
+        if keywords is None:
+            keywords = {}
         super().__init__(
             method=method,
             basis=basis,

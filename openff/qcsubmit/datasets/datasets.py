@@ -22,11 +22,9 @@ from pydantic import Field, constr, validator
 from qcelemental.models import AtomicInput, OptimizationInput
 from qcelemental.models.procedures import QCInputSpecification
 from qcportal import PortalClient, PortalRequestError
-from qcportal.datasets.optimization import OptimizationDatasetNewEntry
-from qcportal.datasets.singlepoint import SinglepointDatasetNewEntry
-from qcportal.datasets.torsiondrive import TorsiondriveDatasetNewEntry
-from qcportal.records.optimization import OptimizationSpecification
-from qcportal.records.singlepoint import QCSpecification, SinglepointDriver
+from qcportal.optimization import OptimizationSpecification, OptimizationDatasetNewEntry
+from qcportal.singlepoint import QCSpecification, SinglepointDriver, SinglepointDatasetNewEntry
+from qcportal.torsiondrive import TorsiondriveDatasetNewEntry
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes
@@ -204,14 +202,14 @@ class _BaseDataset(abc.ABC, CommonBase):
         # if not, we'll create a new one
         try:
             collection = client.get_dataset(self.type, self.dataset_name)
-        except PortalRequestError:
+        except PortalRequestError as e:
             self.metadata.validate_metadata(raise_errors=not ignore_errors)
             collection = self._generate_collection(client=client)
 
         # create specifications
         # TODO - check if specifications already exist
         specs = self._get_specifications()
-        for spec_name, spec in specs:
+        for spec_name, spec in specs.items():
             # Send the new specifications to the server
             collection.add_specification(name=spec_name, specification=spec)
 
@@ -745,7 +743,7 @@ class BasicDataset(_BaseDataset):
         The molecules in this dataset are all expanded so that different conformers are unique submissions.
     """
 
-    type: Literal["DataSet"] = "DataSet"
+    type: Literal["singlepoint"] = "singlepoint"
 
     @classmethod
     def _entry_class(cls) -> Type[DatasetEntry]:
@@ -793,7 +791,7 @@ class BasicDataset(_BaseDataset):
 
     def _generate_collection(
         self, client: "PortalClient"
-    ) -> ptl.datasets.SinglepointDataset:
+    ) -> ptl.singlepoint.SinglepointDataset:
 
         return client.add_dataset(
             dataset_type="singlepoint",
@@ -887,8 +885,8 @@ class OptimizationDataset(BasicDataset):
     optimization datasets in the public or local qcarchive instance.
     """
 
-    type: Literal["OptimizationDataset"] = "OptimizationDataset"
-    driver: SinglepointDriver = SinglepointDriver.gradient
+    type: Literal["OptimizationDataset"] = "optimization"
+    driver: SinglepointDriver = SinglepointDriver.deferred
     optimization_procedure: GeometricProcedure = Field(
         GeometricProcedure(),
         description="The optimization program and settings that should be used.",
@@ -985,7 +983,7 @@ class OptimizationDataset(BasicDataset):
 
     def _generate_collection(
         self, client: "PortalClient"
-    ) -> ptl.datasets.OptimizationDataset:
+    ) -> ptl.optimization.OptimizationDataset:
 
         return client.add_dataset(
             dataset_type="optimization",
@@ -1193,7 +1191,7 @@ class TorsiondriveDataset(OptimizationDataset):
 
     def _generate_collection(
         self, client: "PortalClient"
-    ) -> ptl.datasets.TorsiondriveDataset:
+    ) -> ptl.torsiondrive.TorsiondriveDataset:
 
         return client.add_dataset(
             dataset_type="torsiondrive",

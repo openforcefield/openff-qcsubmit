@@ -2,6 +2,7 @@
 A module which contains convenience classes for referencing, retrieving and filtering
 results from a QCFractal instance.
 """
+from __future__ import annotations
 import abc
 from collections import defaultdict
 from typing import (
@@ -27,17 +28,11 @@ import qcportal
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import BaseModel, Field, validator
-from qcportal.datasets import BaseDataset as QCDataset
-from qcportal.datasets import OptimizationDataset, TorsiondriveDataset
-from qcportal.datasets.singlepoint import SinglepointDataset, SinglepointDatasetNewEntry
-from qcportal.records import (
-    BaseRecord,
-    OptimizationRecord,
-    RecordStatusEnum,
-    SinglepointRecord,
-    TorsiondriveRecord,
-)
-from qcportal.records.singlepoint import SinglepointDriver
+from qcportal.dataset_models import BaseDataset as QCPDataset
+from qcportal.optimization import OptimizationRecord, OptimizationDataset
+from qcportal.torsiondrive import TorsiondriveRecord, TorsiondriveDataset
+from qcportal.singlepoint import SinglepointRecord, SinglepointDataset, SinglepointDriver, SinglepointDatasetNewEntry
+from qcportal.record_models import BaseRecord, RecordStatusEnum
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
@@ -135,7 +130,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
     @abc.abstractmethod
     def from_datasets(
         cls: T,
-        datasets: Union[QCDataset, Iterable[QCDataset]],
+        datasets: Union[QCPDataset, Iterable[QCPDataset]],
         spec_name: str = "default",
     ) -> T:
         """Retrieve the COMPLETE record ids referenced by the specified datasets.
@@ -176,9 +171,9 @@ class _BaseResultCollection(BaseModel, abc.ABC):
         """
         raise NotImplementedError()
 
-    @classmethod
+    @staticmethod
     def _validate_record_types(
-        cls, records: List[SinglepointRecord], expected_type: Type[BaseRecord]
+        records: List[SinglepointRecord], expected_type: Type[BaseRecord]
     ):
         """A helper method which raises a ``RecordTypeError`` if all records in the list
         are not of the specified type."""
@@ -260,7 +255,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
         return smirnoff_coverage(unique_molecules, force_field, verbose)
 
-
+# TODO - SinglepointResult?
 class BasicResult(_BaseResult):
     """A class which stores a reference to, and allows the retrieval of, data from
     a single result record stored in a QCFractal instance."""
@@ -268,7 +263,7 @@ class BasicResult(_BaseResult):
     type: Literal["basic"] = "basic"
 
 
-# TODO - SinglepointResultCollection
+# TODO - SinglepointResultCollection?
 class BasicResultCollection(_BaseResultCollection):
     """A class which stores a reference to, and allows the retrieval of, data from
     a single result record stored in a QCFractal instance."""
@@ -286,9 +281,9 @@ class BasicResultCollection(_BaseResultCollection):
         cls,
         datasets: Union[SinglepointDataset, Iterable[SinglepointDataset]],
         spec_name: str = "default",
-    ) -> "BasicResultCollection":
+    ) -> BasicResultCollection:
 
-        if isinstance(datasets, QCDataset):
+        if isinstance(datasets, QCPDataset):
             datasets = [datasets]
 
         if not all(isinstance(dataset, SinglepointDataset) for dataset in datasets):
@@ -302,8 +297,9 @@ class BasicResultCollection(_BaseResultCollection):
 
             client = dataset.client
 
-            # Fetch all entries for use later
-            dataset.fetch_entries(include=["molecule"])
+            # Fetch all entries for use later. These get stored internally
+            # in the dataset class
+            dataset.fetch_entries()
 
             if spec_name not in dataset.specifications:
                 raise KeyError(
@@ -316,10 +312,14 @@ class BasicResultCollection(_BaseResultCollection):
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.molecule
 
-                cmiles = molecule.extras[
-                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                ]
-                inchi_key = molecule.attributes.get("fixed_hydrogen_inchi_key")
+                cmiles = molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
+                if not cmiles:
+                    cmiles = molecule.extras.get("canonical_isomeric_explicit_hydrogen_mapped_smiles")
+                if not cmiles:
+                    print(f"MISSING CMILES! entry = {entry_name}")
+                    continue
+
+                inchi_key = entry.attributes.get('fixed_hydrogen_inchi_key')
 
                 # Undefined stereochemistry is not expected however there
                 # may be some TK specific edge cases we don't want
@@ -348,7 +348,7 @@ class BasicResultCollection(_BaseResultCollection):
         client: qcportal.PortalClient,
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
-    ) -> "BasicResultCollection":
+    ) -> BasicResultCollection:
 
         if isinstance(datasets, str):
             datasets = [datasets]
@@ -374,6 +374,7 @@ class BasicResultCollection(_BaseResultCollection):
         for client_address, records in self.entries.items():
             client = cached_fractal_client(address=client_address)
 
+            # TODO - batching/chunking (maybe in portal?)
             for record in records:
                 rec = client.get_singlepoints(record.record_id, include=["molecule"])
 
@@ -417,7 +418,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         spec_name: str = "default",
     ) -> "OptimizationResultCollection":
 
-        if isinstance(datasets, QCDataset):
+        if isinstance(datasets, QCPDataset):
             datasets = [datasets]
 
         if not all(isinstance(dataset, OptimizationDataset) for dataset in datasets):
@@ -433,8 +434,9 @@ class OptimizationResultCollection(_BaseResultCollection):
 
             client = dataset.client
 
-            # Fetch all entries for use later
-            dataset.fetch_entries(include=["initial_molecule"])
+            # Fetch all entries for use later. These get stored internally
+            # in the dataset class
+            dataset.fetch_entries()
 
             if spec_name not in dataset.specifications:
                 raise KeyError(
@@ -477,7 +479,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         client: qcportal.PortalClient,
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
-    ) -> "OptimizationResultCollection":
+    ) -> OptimizationResultCollection:
 
         if isinstance(datasets, str):
             datasets = [datasets]
@@ -504,6 +506,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         for client_address, records in self.entries.items():
             client = cached_fractal_client(address=client_address)
 
+            # TODO - batching/chunking (maybe in portal?)
             for record in records:
                 rec = client.get_optimizations(
                     record.record_id, include=["initial_molecule"]
@@ -523,15 +526,11 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
-    # NOTE: no longer using `driver` here
     def to_basic_result_collection(self) -> BasicResultCollection:
         """Returns a basic results collection which references results records which
         were created from the *final* structure of one of the optimizations in this
         collection, and used the same program, method, and basis as the parent
         optimization record.
-
-        Args:
-            driver: Optionally specify the driver to filter by.
 
         Returns:
             The results collection referencing records created from the final optimized
@@ -542,10 +541,9 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         result_records = defaultdict(list)
 
-        # will be inefficient at the moment
         for record, molecule in records_and_molecules:
             result_records[record.client.address].append(
-                (record.trajectory[-1], molecule)
+                (record.trajectory_element(-1), molecule)
             )
 
         result_entries = defaultdict(list)
@@ -593,7 +591,7 @@ class OptimizationResultCollection(_BaseResultCollection):
             The created basic dataset.
         """
 
-        records_by_cmiles = defaultdict(list)
+        records_by_cmiles: Dict[str, List[Tuple[OptimizationRecord, Molecule]]] = defaultdict(list)
 
         for record, molecule in self.to_records():
             records_by_cmiles[
@@ -657,7 +655,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         spec_name: str = "default",
     ) -> "TorsionDriveResultCollection":
 
-        if isinstance(datasets, QCDataset):
+        if isinstance(datasets, QCPDataset):
             datasets = [datasets]
 
         if not all(isinstance(dataset, TorsiondriveDataset) for dataset in datasets):
@@ -673,7 +671,8 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
             client = dataset.client
 
-            # Fetch all entries for use later
+            # Fetch all entries for use later. These get stored internally
+            # in the dataset class
             dataset.fetch_entries()
 
             if spec_name not in dataset.specifications:
@@ -758,9 +757,9 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                 ]
 
                 # order the ids so the conformers follow the torsiondrive scan range
-                # x[0] is the torsiondrive key, ie "[90]"
-                # [1:-1] strips off brackets from the angle
-                qc_grid_molecules.sort(key=lambda x: float(x[0][1:-1]))
+                # x[0] is the torsiondrive key, ie Tuple[float]
+                # We can sort by the whole tuple (although there should only be one value)
+                qc_grid_molecules.sort(key=lambda x: x[0])
 
                 molecule._conformers = [
                     numpy.array(qc_molecule.geometry, float).reshape(-1, 3) * unit.bohr

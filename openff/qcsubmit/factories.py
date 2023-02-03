@@ -6,7 +6,7 @@ import tqdm
 from openff.toolkit import topology as off
 from openff.toolkit.utils import GLOBAL_TOOLKIT_REGISTRY, ToolkitRegistry
 from pydantic import Field, validator
-from qcportal.records.singlepoint import SinglepointDriver
+from qcportal.singlepoint import SinglepointDriver
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import CommonBase, Metadata
