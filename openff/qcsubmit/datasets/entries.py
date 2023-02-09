@@ -266,7 +266,6 @@ class TorsionDriveEntry(OptimizationEntry):
             return self.keywords.additional_keywords
 
     def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
-
         super().__init__(off_molecule, **kwargs)
         # now validate the torsions check proper first
         off_molecule = self.get_off_molecule(include_conformers=False)

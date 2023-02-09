@@ -63,11 +63,9 @@ def cached_fractal_client(address: str) -> FractalClient:
     """Returns a cached copy of a fractal client."""
 
     try:
-
         return FractalClient(address)
 
     except ConnectionRefusedError as e:
-
         # Try to handle the case when connecting to a local snowflake.
         try:
             return FractalClient(address, verify=False)
@@ -121,11 +119,9 @@ def _cached_client_query(
     logger.debug(f"query split into {len(batch_query_ids)} batches")
 
     for i, batch_ids in enumerate(batch_query_ids):
-
         logger.debug(f"starting batch query {i}")
 
         for query in getattr(client, query_name)(batch_ids):
-
             found_queries.append(query)
 
             if cache_predicate is not None and not cache_predicate(query):
@@ -226,7 +222,6 @@ def _cached_query_single_structure_results(
     return_values = []
 
     for result in results:
-
         qc_record = qc_records[result.record_id]
         qc_molecule = qc_molecules[qc_record_to_molecule_id[result.record_id]]
 
@@ -286,7 +281,6 @@ def cached_query_optimization_results(
 def _cached_torsion_drive_molecule_ids(
     client_address: str, qc_records: List[TorsionDriveRecord]
 ) -> Dict[Tuple[str, Tuple[int, ...]], str]:
-
     client_address = client_address.rstrip("/")
 
     optimization_ids = {
@@ -315,7 +309,6 @@ def _cached_torsion_drive_molecule_ids(
     qc_optimizations = {}
 
     for i, batch_ids in enumerate(batched_missing_ids):
-
         logger.debug(f"starting batch query {i}")
 
         qc_optimizations.update(
@@ -333,7 +326,6 @@ def _cached_torsion_drive_molecule_ids(
     }
 
     for grid_tuple, optimization_id in missing_optimization_ids.items():
-
         qc_optimization = qc_optimizations[optimization_id]
         found_molecule_ids[grid_tuple] = qc_optimization.final_molecule
 
@@ -392,7 +384,6 @@ def cached_query_torsion_drive_results(
     return_values = []
 
     for result in results:
-
         qc_record = qc_records[result.record_id]
 
         grid_ids = [*qc_record.minimum_positions]
