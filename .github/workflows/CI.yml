@@ -60,7 +60,7 @@ jobs:
 
       - name: Install Package
         run: |
-          python setup.py develop --no-deps
+          python -m pip install .
 
       - name: Conda Environment Information
         run: |
