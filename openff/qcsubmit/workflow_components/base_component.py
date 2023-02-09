@@ -135,11 +135,9 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         if (
             processors is None or processors > 1
         ) and self.properties().process_parallel:
-
             from multiprocessing.pool import Pool
 
             with Pool(processes=processors) as pool:
-
                 # Assumes to process in batches of 1 for now
                 work_list = [
                     pool.apply_async(self._apply, ([molecule], toolkit_registry))

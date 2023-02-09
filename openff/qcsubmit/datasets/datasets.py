@@ -51,7 +51,6 @@ from openff.qcsubmit.utils.smirnoff import smirnoff_coverage
 from openff.qcsubmit.utils.visualize import molecules_to_pdf
 
 if TYPE_CHECKING:
-
     from openff.toolkit.typing.engines.smirnoff import ForceField
     from qcportal import FractalClient
     from qcportal.collections.collection import Collection
@@ -353,7 +352,6 @@ class _BaseDataset(abc.ABC, CommonBase):
             from multiprocessing.pool import Pool
 
             with Pool(processes=processes) as pool:
-
                 # add compute specs to the collection
                 for spec_name, spec in self.qc_specifications.items():
                     spec_tasks = 0
@@ -590,7 +588,6 @@ class _BaseDataset(abc.ABC, CommonBase):
             ]
             self.filtered_molecules[component].molecules.extend(filter_mols)
         else:
-
             filter_data = FilterEntry(
                 off_molecules=molecules,
                 component=component,
@@ -853,7 +850,6 @@ class _BaseDataset(abc.ABC, CommonBase):
         molecules = []
 
         for data in self.dataset.values():
-
             off_mol = data.get_off_molecule(include_conformers=False)
             off_mol.name = None
 
@@ -1055,9 +1051,7 @@ class BasicDataset(_BaseDataset):
         indices = []
 
         for i, (index, data) in enumerate(self.dataset.items()):
-
             if len(data.initial_molecules) > 1:
-
                 # check if the index has a number tag
                 # if so, start from this tag
                 index, tag = self._clean_index(index=index)
@@ -1365,9 +1359,7 @@ class OptimizationDataset(BasicDataset):
         indices = []
 
         for i, (index, data) in enumerate(self.dataset.items()):
-
             if len(data.initial_molecules) > 1:
-
                 # check if the index has a number tag
                 # if so, start from this tag
                 index, tag = self._clean_index(index=index)
@@ -1579,7 +1571,6 @@ class TorsiondriveDataset(OptimizationDataset):
         indices = []
 
         for i, (index, data) in enumerate(self.dataset.items()):
-
             new_entries += int(
                 self._add_entry(
                     data.initial_molecules, dataset=dataset, name=data.index, data=data

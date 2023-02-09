@@ -99,9 +99,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
     @validator("entries")
     def _validate_entries(cls, values):
-
         for client_address, entries in values.items():
-
             record_ids = {entry.record_id for entry in entries}
             assert len(entries) == len(
                 record_ids
@@ -178,7 +176,6 @@ class _BaseResultCollection(BaseModel, abc.ABC):
         ]
 
         if len(incorrect_types) > 0:
-
             incorrect_types_dict = defaultdict(set)
 
             for record in incorrect_types:
@@ -276,12 +273,10 @@ class BasicResultCollection(_BaseResultCollection):
         datasets: Union[Dataset, Iterable[Dataset]],
         spec_name: str = "default",
     ) -> "BasicResultCollection":
-
         if isinstance(datasets, QCCollection):
             datasets = [datasets]
 
         if not all(isinstance(dataset, Dataset) for dataset in datasets):
-
             raise TypeError(
                 "A ``BasicResultCollection`` can only be created from ``Dataset`` "
                 "objects."
@@ -291,7 +286,6 @@ class BasicResultCollection(_BaseResultCollection):
         molecules = {}
 
         for dataset in datasets:
-
             client = dataset.client
 
             dataset_specs = {
@@ -375,7 +369,6 @@ class BasicResultCollection(_BaseResultCollection):
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> "BasicResultCollection":
-
         if isinstance(datasets, str):
             datasets = [datasets]
 
@@ -433,12 +426,10 @@ class OptimizationResultCollection(_BaseResultCollection):
         datasets: Union[OptimizationDataset, Iterable[OptimizationDataset]],
         spec_name: str = "default",
     ) -> "OptimizationResultCollection":
-
         if isinstance(datasets, QCCollection):
             datasets = [datasets]
 
         if not all(isinstance(dataset, OptimizationDataset) for dataset in datasets):
-
             raise TypeError(
                 "A ``OptimizationResultCollection`` can only be created from "
                 "``OptimizationDataset`` objects."
@@ -447,7 +438,6 @@ class OptimizationResultCollection(_BaseResultCollection):
         result_records = defaultdict(dict)
 
         for dataset in datasets:
-
             client = dataset.client
             query = dataset.query(spec_name)
 
@@ -486,7 +476,6 @@ class OptimizationResultCollection(_BaseResultCollection):
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> "OptimizationResultCollection":
-
         if isinstance(datasets, str):
             datasets = [datasets]
 
@@ -541,7 +530,6 @@ class OptimizationResultCollection(_BaseResultCollection):
         final_molecules = defaultdict(dict)
 
         for record, molecule in records_and_molecules:
-
             spec = (
                 record.qc_spec.program,
                 record.qc_spec.method,
@@ -557,7 +545,6 @@ class OptimizationResultCollection(_BaseResultCollection):
         result_entries = defaultdict(list)
 
         for client_address in final_molecule_ids:
-
             client = cached_fractal_client(client_address)
 
             result_records = [
@@ -580,7 +567,6 @@ class OptimizationResultCollection(_BaseResultCollection):
             ]
 
             for record in result_records:
-
                 molecule = final_molecules[client_address][record.molecule]
 
                 result_entries[client_address].append(
@@ -683,12 +669,10 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         datasets: Union[TorsionDriveDataset, Iterable[TorsionDriveDataset]],
         spec_name: str = "default",
     ) -> "TorsionDriveResultCollection":
-
         if isinstance(datasets, QCCollection):
             datasets = [datasets]
 
         if not all(isinstance(dataset, TorsionDriveDataset) for dataset in datasets):
-
             raise TypeError(
                 "A ``TorsionDriveResultCollection`` can only be created from "
                 "``TorsionDriveDataset`` objects."
@@ -697,7 +681,6 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         result_records = defaultdict(dict)
 
         for dataset in datasets:
-
             client = dataset.client
             query = dataset.query(spec_name)
 
@@ -736,7 +719,6 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> "TorsionDriveResultCollection":
-
         if isinstance(datasets, str):
             datasets = [datasets]
 
@@ -750,7 +732,6 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         )
 
     def to_records(self) -> List[Tuple[TorsionDriveRecord, Molecule]]:
-
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 

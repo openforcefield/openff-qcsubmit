@@ -164,7 +164,6 @@ class ElementFilter(ToolkitValidator, CustomWorkflowComponent):
         return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply_init(self, result: ComponentResult) -> None:
-
         try:
             from openmm.app import Element
         except ImportError:
@@ -278,7 +277,6 @@ class CoverageFilter(ToolkitValidator, CustomWorkflowComponent):
         return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply_init(self, result: ComponentResult) -> None:
-
         self._cache["forcefield"] = ForceField(self.forcefield)
 
     def _apply(
@@ -485,7 +483,6 @@ class SmartsFilter(ToolkitValidator, CustomWorkflowComponent):
         result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
-
             if self.allowed_substructures is not None:
                 for substructure in self.allowed_substructures:
                     if molecule.chemical_environment_matches(
@@ -535,7 +532,6 @@ class RMSDCutoffConformerFilter(ToolkitValidator, CustomWorkflowComponent):
         return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _prune_conformers(self, molecule: Molecule) -> None:
-
         no_conformers: int = molecule.n_conformers
 
         # This will be used to determined whether it should be pruned
@@ -550,10 +546,8 @@ class RMSDCutoffConformerFilter(ToolkitValidator, CustomWorkflowComponent):
         rmsd = []
         # This begins the pairwise RMSD pruner
         if no_conformers > 1 and self.cutoff >= 0.0:
-
             # The reference conformer for RMSD calculation
             for j in range(no_conformers - 1):
-
                 # A previous loop has determine this specific conformer
                 # is too close to another, so we can entirely skip it
                 if not uniq[j]:
@@ -562,7 +556,6 @@ class RMSDCutoffConformerFilter(ToolkitValidator, CustomWorkflowComponent):
                 # since k starts from j+1, we are only looking at the
                 # upper triangle of the comparisons (j < k)
                 for k in range(j + 1, no_conformers):
-
                     rmsd_i = AlignMol(rdmol, rdmol, k, j)
                     rmsd.append(rmsd_i)
 
@@ -596,7 +589,6 @@ class RMSDCutoffConformerFilter(ToolkitValidator, CustomWorkflowComponent):
         result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
-
             if molecule.n_conformers == 0:
                 result.filter_molecule(molecule)
             else:
