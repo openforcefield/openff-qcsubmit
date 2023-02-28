@@ -1915,7 +1915,8 @@ def test_torsiondrivedataset_torsion_indices():
 
 @pytest.mark.parametrize("dataset_type, program", [
     pytest.param(BasicDataset, "psi4", id="basic"),
-    pytest.param(OptimizationDataset, "geometric", id="optimization")
+    pytest.param(OptimizationDataset, "geometric", id="optimization"),
+    pytest.param(TorsiondriveDataset, "torsiondrive", id="Torsiondrive")
 ])
 def test_dataset_tasks(dataset_type, program):
     """
