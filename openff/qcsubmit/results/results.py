@@ -3,6 +3,7 @@ A module which contains convenience classes for referencing, retrieving and filt
 results from a QCFractal instance.
 """
 from __future__ import annotations
+
 import abc
 from collections import defaultdict
 from typing import (
@@ -29,10 +30,15 @@ from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import BaseModel, Field, validator
 from qcportal.dataset_models import BaseDataset as QCPDataset
-from qcportal.optimization import OptimizationRecord, OptimizationDataset
-from qcportal.torsiondrive import TorsiondriveRecord, TorsiondriveDataset
-from qcportal.singlepoint import SinglepointRecord, SinglepointDataset, SinglepointDriver, SinglepointDatasetNewEntry
+from qcportal.optimization import OptimizationDataset, OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
+from qcportal.singlepoint import (
+    SinglepointDataset,
+    SinglepointDatasetNewEntry,
+    SinglepointDriver,
+    SinglepointRecord,
+)
+from qcportal.torsiondrive import TorsiondriveDataset, TorsiondriveRecord
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
@@ -104,9 +110,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
     @validator("entries")
     def _validate_entries(cls, values):
-
         for client_address, entries in values.items():
-
             record_ids = {entry.record_id for entry in entries}
             assert len(entries) == len(
                 record_ids
@@ -183,7 +187,6 @@ class _BaseResultCollection(BaseModel, abc.ABC):
         ]
 
         if len(incorrect_types) > 0:
-
             incorrect_types_dict = defaultdict(set)
 
             for record in incorrect_types:
@@ -255,6 +258,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
         return smirnoff_coverage(unique_molecules, force_field, verbose)
 
+
 # TODO - SinglepointResult?
 class BasicResult(_BaseResult):
     """A class which stores a reference to, and allows the retrieval of, data from
@@ -282,7 +286,6 @@ class BasicResultCollection(_BaseResultCollection):
         datasets: Union[SinglepointDataset, Iterable[SinglepointDataset]],
         spec_name: str = "default",
     ) -> BasicResultCollection:
-
         if isinstance(datasets, QCPDataset):
             datasets = [datasets]
 
@@ -294,7 +297,6 @@ class BasicResultCollection(_BaseResultCollection):
         result_records = defaultdict(dict)
 
         for dataset in datasets:
-
             client = dataset.client
 
             # Fetch all entries for use later. These get stored internally
@@ -312,14 +314,18 @@ class BasicResultCollection(_BaseResultCollection):
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.molecule
 
-                cmiles = molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
+                cmiles = (
+                    molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
+                )
                 if not cmiles:
-                    cmiles = molecule.extras.get("canonical_isomeric_explicit_hydrogen_mapped_smiles")
+                    cmiles = molecule.extras.get(
+                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                    )
                 if not cmiles:
                     print(f"MISSING CMILES! entry = {entry_name}")
                     continue
 
-                inchi_key = entry.attributes.get('fixed_hydrogen_inchi_key')
+                inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
 
                 # Undefined stereochemistry is not expected however there
                 # may be some TK specific edge cases we don't want
@@ -349,7 +355,6 @@ class BasicResultCollection(_BaseResultCollection):
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> BasicResultCollection:
-
         if isinstance(datasets, str):
             datasets = [datasets]
 
@@ -417,12 +422,10 @@ class OptimizationResultCollection(_BaseResultCollection):
         datasets: Union[OptimizationDataset, Iterable[OptimizationDataset]],
         spec_name: str = "default",
     ) -> "OptimizationResultCollection":
-
         if isinstance(datasets, QCPDataset):
             datasets = [datasets]
 
         if not all(isinstance(dataset, OptimizationDataset) for dataset in datasets):
-
             raise TypeError(
                 "A ``OptimizationResultCollection`` can only be created from "
                 "``OptimizationDataset`` objects."
@@ -431,7 +434,6 @@ class OptimizationResultCollection(_BaseResultCollection):
         result_records = defaultdict(dict)
 
         for dataset in datasets:
-
             client = dataset.client
 
             # Fetch all entries for use later. These get stored internally
@@ -446,7 +448,6 @@ class OptimizationResultCollection(_BaseResultCollection):
             for entry_name, spec_name, record in dataset.iterate_records(
                 specification_names=spec_name, status=RecordStatusEnum.complete
             ):
-
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.initial_molecule
 
@@ -480,7 +481,6 @@ class OptimizationResultCollection(_BaseResultCollection):
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> OptimizationResultCollection:
-
         if isinstance(datasets, str):
             datasets = [datasets]
 
@@ -549,7 +549,6 @@ class OptimizationResultCollection(_BaseResultCollection):
         result_entries = defaultdict(list)
 
         for client_address in result_records:
-
             for record, molecule in result_records[client_address]:
                 result_entries[client_address].append(
                     BasicResult(
@@ -591,7 +590,9 @@ class OptimizationResultCollection(_BaseResultCollection):
             The created basic dataset.
         """
 
-        records_by_cmiles: Dict[str, List[Tuple[OptimizationRecord, Molecule]]] = defaultdict(list)
+        records_by_cmiles: Dict[
+            str, List[Tuple[OptimizationRecord, Molecule]]
+        ] = defaultdict(list)
 
         for record, molecule in self.to_records():
             records_by_cmiles[
@@ -654,12 +655,10 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         datasets: Union[TorsiondriveDataset, Iterable[TorsiondriveDataset]],
         spec_name: str = "default",
     ) -> "TorsionDriveResultCollection":
-
         if isinstance(datasets, QCPDataset):
             datasets = [datasets]
 
         if not all(isinstance(dataset, TorsiondriveDataset) for dataset in datasets):
-
             raise TypeError(
                 "A ``TorsionDriveResultCollection`` can only be created from "
                 "``TorsiondriveDataset`` objects."
@@ -668,7 +667,6 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         result_records = defaultdict(dict)
 
         for dataset in datasets:
-
             client = dataset.client
 
             # Fetch all entries for use later. These get stored internally
@@ -683,7 +681,6 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             for entry_name, spec_name, record in dataset.iterate_records(
                 specification_names=spec_name, status=RecordStatusEnum.complete
             ):
-
                 entry = dataset.get_entry(entry_name)
 
                 cmiles = entry.attributes[
@@ -716,7 +713,6 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         datasets: Union[str, Iterable[str]],
         spec_name: str = "default",
     ) -> "TorsionDriveResultCollection":
-
         if isinstance(datasets, str):
             datasets = [datasets]
 
@@ -730,7 +726,6 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         )
 
     def to_records(self) -> List[Tuple[TorsiondriveRecord, Molecule]]:
-
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 

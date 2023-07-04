@@ -18,11 +18,7 @@ from qcportal.records import (
     RecordStatusEnum,
     SinglepointRecord,
     TorsiondriveRecord,
-    RecordStatusEnum
 )
-from qcelemental.models import DriverEnum
-
-from qcportal.records.torsiondrive import TorsiondriveSpecification, TorsiondriveKeywords
 from qcportal.records.optimization import OptimizationSpecification
 from qcportal.records.singlepoint import QCSpecification
 from qcportal.records.torsiondrive import (

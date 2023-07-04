@@ -17,8 +17,8 @@ from openff.units import unit
 from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
 from qcportal.records import (
-    OptimizationRecord,
     BaseRecord,
+    OptimizationRecord,
     RecordStatusEnum,
     SinglepointRecord,
 )
@@ -113,7 +113,6 @@ class CMILESResultFilter(ResultFilter, abc.ABC):
         raise NotImplementedError()
 
     def _apply(self, result_collection: "T") -> "T":
-
         result_collection.entries = {
             address: [*filter(self._filter_function, entries)]
             for address, entries in result_collection.entries.items()
@@ -136,7 +135,6 @@ class SinglepointRecordFilter(ResultFilter, abc.ABC):
         raise NotImplementedError()
 
     def _apply(self, result_collection: "T") -> "T":
-
         all_records_and_molecules = defaultdict(list)
 
         for record, molecule in result_collection.to_records():
@@ -145,7 +143,6 @@ class SinglepointRecordFilter(ResultFilter, abc.ABC):
         filtered_results = {}
 
         for address, entries in result_collection.entries.items():
-
             entries_by_id = {entry.record_id: entry for entry in entries}
 
             records_and_molecules = all_records_and_molecules[address]
@@ -184,7 +181,6 @@ class SinglepointRecordGroupFilter(ResultFilter, abc.ABC):
         raise NotImplementedError()
 
     def _apply(self, result_collection: "T") -> "T":
-
         # do nothing for torsiondrives
         if isinstance(result_collection, TorsionDriveResultCollection):
             return result_collection
@@ -203,7 +199,6 @@ class SinglepointRecordGroupFilter(ResultFilter, abc.ABC):
         filtered_results = defaultdict(list)
 
         for entries in entries_by_inchikey.values():
-
             results_and_addresses = self._filter_function(
                 [
                     (entry, *all_records_and_molecules[entry.record_id])
@@ -305,9 +300,7 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
         rmsd_matrix = numpy.zeros((n_conformers, n_conformers))
 
         for i, j in itertools.combinations(conformer_ids, 2):
-
             if self.check_automorphs:
-
                 rmsd_matrix[i, j] = AllChem.GetBestRMS(
                     rdkit_molecule,
                     rdkit_molecule,
@@ -316,7 +309,6 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
                 )
 
             else:
-
                 rmsd_matrix[i, j] = AllChem.GetConformerRMS(
                     rdkit_molecule,
                     conformer_ids[i],
@@ -342,7 +334,6 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
         rmsd_matrix = numpy.zeros((n_conformers, n_conformers))
 
         for i, j in itertools.combinations([*oe_conformers], 2):
-
             rmsd_matrix[i, j] = oechem.OERMSD(
                 oe_conformers[i],
                 oe_conformers[j],
@@ -375,7 +366,6 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
             ]
         ],
     ) -> List[Tuple["_BaseResult", str]]:
-
         # Sanity check that all molecules look as we expect.
         assert all(molecule.n_conformers == 1 for _, _, molecule, _ in entries)
 
@@ -402,7 +392,6 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
         n_selected = 1
 
         for i in range(min(molecule.n_conformers, self.max_conformers - 1)):
-
             distances = rmsd_matrix[closed_list[: i + 1], :].sum(axis=0)
 
             # Exclude already selected conformers or conformers which are too similar
@@ -454,7 +443,6 @@ class MinimumConformersFilter(SinglepointRecordGroupFilter):
             ]
         ],
     ) -> List[Tuple["_BaseResult", str]]:
-
         # Sanity check that all molecules look as we expect.
         assert all(molecule.n_conformers == 1 for _, _, molecule, _ in entries)
 
@@ -487,7 +475,6 @@ class SMILESFilter(CMILESResultFilter):
 
     @root_validator
     def _validate_mutually_exclusive(cls, values):
-
         smiles_to_include = values.get("smiles_to_include")
         smiles_to_exclude = values.get("smiles_to_exclude")
 
@@ -508,7 +495,6 @@ class SMILESFilter(CMILESResultFilter):
         )
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
-
         return (
             entry.inchi_key in self._inchi_keys_to_include
             if self._inchi_keys_to_include is not None
@@ -516,7 +502,6 @@ class SMILESFilter(CMILESResultFilter):
         )
 
     def _apply(self, result_collection: "T") -> "T":
-
         self._inchi_keys_to_include = (
             None
             if self.smiles_to_include is None
@@ -555,7 +540,6 @@ class SMARTSFilter(CMILESResultFilter):
 
     @root_validator
     def _validate_mutually_exclusive(cls, values):
-
         smarts_to_include = values.get("smarts_to_include")
         smarts_to_exclude = values.get("smarts_to_exclude")
 
@@ -570,13 +554,11 @@ class SMARTSFilter(CMILESResultFilter):
         return values
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
-
         molecule: Molecule = Molecule.from_mapped_smiles(
             entry.cmiles, allow_undefined_stereo=True
         )
 
         if self.smarts_to_include is not None:
-
             return any(
                 len(molecule.chemical_environment_matches(smarts)) > 0
                 for smarts in self.smarts_to_include
@@ -620,14 +602,12 @@ class ChargeFilter(CMILESResultFilter):
         return values
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
-
         molecule: Molecule = Molecule.from_mapped_smiles(
             entry.cmiles, allow_undefined_stereo=True
         )
         total_charge = molecule.total_charge.value_in_unit(unit.elementary_charge)
 
         if self.charges_to_include is not None:
-
             return total_charge in self.charges_to_include
 
         return total_charge not in self.charges_to_exclude
@@ -690,7 +670,6 @@ class HydrogenBondFilter(SinglepointRecordFilter):
     def _filter_function(
         self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
     ) -> bool:
-
         import mdtraj
 
         conformers = numpy.array(
@@ -738,7 +717,6 @@ class ConnectivityFilter(SinglepointRecordFilter):
     def _filter_function(
         self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
     ) -> bool:
-
         qc_molecules = [
             molecule.to_qcschema(conformer=i) for i in range(molecule.n_conformers)
         ]
@@ -749,7 +727,6 @@ class ConnectivityFilter(SinglepointRecordFilter):
         }
 
         for qc_molecule in qc_molecules:
-
             actual_connectivity = {
                 tuple(sorted(connection))
                 for connection in guess_connectivity(
@@ -778,7 +755,6 @@ class RecordStatusFilter(SinglepointRecordFilter):
     def _filter_function(
         self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
     ) -> bool:
-
         return record.status.value.upper() == self.status.value.upper()
 
 
@@ -799,13 +775,10 @@ class UnperceivableStereoFilter(SinglepointRecordFilter):
     )
 
     def _filter_function(self, result, record, molecule) -> bool:
-
         has_stereochemistry = True
 
         try:
-
             for toolkit_name in self.toolkits:
-
                 if toolkit_name == "openeye":
                     toolkit_registry = OpenEyeToolkitWrapper()
                 elif toolkit_name == "rdkit":
@@ -814,12 +787,10 @@ class UnperceivableStereoFilter(SinglepointRecordFilter):
                     raise NotImplementedError()
 
                 for conformer in molecule.conformers:
-
                     stereo_molecule = copy.deepcopy(molecule)
                     stereo_molecule._conformers = [conformer]
 
                     with NamedTemporaryFile(suffix=".sdf") as file:
-
                         stereo_molecule.to_file(file.name, "SDF")
                         stereo_molecule.from_file(
                             file.name, toolkit_registry=toolkit_registry

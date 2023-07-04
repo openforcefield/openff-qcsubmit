@@ -10,10 +10,10 @@ from openff.toolkit.topology import Molecule
 from openff.units import unit
 from qcportal import PortalClient
 from qcportal.molecules import Molecule as QCMolecule
-from qcportal.record_models import BaseRecord
 from qcportal.optimization import OptimizationRecord
-from qcportal.torsiondrive import TorsiondriveRecord
+from qcportal.record_models import BaseRecord
 from qcportal.singlepoint import SinglepointRecord
+from qcportal.torsiondrive import TorsiondriveRecord
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.results import (
@@ -65,11 +65,9 @@ def cached_fractal_client(address: str) -> PortalClient:
     """Returns a cached copy of a fractal client."""
 
     try:
-
         return PortalClient(address)
 
     except ConnectionRefusedError as e:
-
         # Try to handle the case when connecting to a local snowflake.
         try:
             return PortalClient(address, verify=False)
@@ -125,11 +123,9 @@ def _cached_client_query(
     logger.debug(f"query split into {len(batch_query_ids)} batches")
 
     for i, batch_ids in enumerate(batch_query_ids):
-
         logger.debug(f"starting batch query {i}")
 
         for query in getattr(client, query_name)(batch_ids):
-
             found_queries.append(query)
 
             if cache_predicate is not None and not cache_predicate(query):
@@ -240,7 +236,6 @@ def _cached_query_single_structure_results(
     return_values = []
 
     for result in results:
-
         qc_record = qc_records[result.record_id]
         qc_molecule = qc_molecules[qc_record_to_molecule_id[result.record_id]]
 
@@ -325,7 +320,6 @@ def cached_query_torsion_drive_results(
     return_values = []
 
     for result in results:
-
         qc_record = qc_records[result.record_id]
 
         qc_grid_molecules = [

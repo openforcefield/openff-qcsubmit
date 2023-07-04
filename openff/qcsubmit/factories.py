@@ -526,7 +526,6 @@ class BasicDatasetFactory(BaseDatasetFactory):
     def _process_molecule(
         self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry
     ) -> None:
-
         # always put the cmiles in the extras from what we have just calculated to ensure correct order
         extras = molecule.properties.get("extras", {})
 

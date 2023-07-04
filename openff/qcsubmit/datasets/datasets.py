@@ -22,8 +22,12 @@ from pydantic import Field, constr, validator
 from qcelemental.models import AtomicInput, OptimizationInput
 from qcelemental.models.procedures import QCInputSpecification
 from qcportal import PortalClient, PortalRequestError
-from qcportal.optimization import OptimizationSpecification, OptimizationDatasetNewEntry
-from qcportal.singlepoint import QCSpecification, SinglepointDriver, SinglepointDatasetNewEntry
+from qcportal.optimization import OptimizationDatasetNewEntry, OptimizationSpecification
+from qcportal.singlepoint import (
+    QCSpecification,
+    SinglepointDatasetNewEntry,
+    SinglepointDriver,
+)
 from qcportal.torsiondrive import TorsiondriveDatasetNewEntry
 from typing_extensions import Literal
 
@@ -46,7 +50,6 @@ from openff.qcsubmit.utils.smirnoff import smirnoff_coverage
 from openff.qcsubmit.utils.visualize import molecules_to_pdf
 
 if TYPE_CHECKING:
-
     from openff.toolkit.typing.engines.smirnoff import ForceField
 
 C = TypeVar("C", bound="Collection")
@@ -397,7 +400,6 @@ class _BaseDataset(abc.ABC, CommonBase):
             ]
             self.filtered_molecules[component].molecules.extend(filter_mols)
         else:
-
             filter_data = FilterEntry(
                 off_molecules=molecules,
                 component=component,
@@ -654,7 +656,6 @@ class _BaseDataset(abc.ABC, CommonBase):
         molecules = []
 
         for data in self.dataset.values():
-
             off_mol = data.get_off_molecule(include_conformers=False)
             off_mol.name = None
 
@@ -792,7 +793,6 @@ class BasicDataset(_BaseDataset):
     def _generate_collection(
         self, client: "PortalClient"
     ) -> ptl.singlepoint.SinglepointDataset:
-
         return client.add_dataset(
             dataset_type="singlepoint",
             name=self.dataset_name,
@@ -822,13 +822,10 @@ class BasicDataset(_BaseDataset):
         return ret
 
     def _get_entries(self) -> List[SinglepointDatasetNewEntry]:
-
         entries: List[SinglepointDatasetNewEntry] = []
 
         for entry_name, entry in self.dataset.items():
-
             if len(entry.initial_molecules) > 1:
-
                 # check if the index has a number tag
                 # if so, start from this tag
                 index, tag = self._clean_index(index=entry_name)
@@ -984,7 +981,6 @@ class OptimizationDataset(BasicDataset):
     def _generate_collection(
         self, client: "PortalClient"
     ) -> ptl.optimization.OptimizationDataset:
-
         return client.add_dataset(
             dataset_type="optimization",
             name=self.dataset_name,
@@ -1021,13 +1017,10 @@ class OptimizationDataset(BasicDataset):
         return ret
 
     def _get_entries(self) -> List[OptimizationDatasetNewEntry]:
-
         entries: List[OptimizationDatasetNewEntry] = []
 
         for entry_name, entry in self.dataset.items():
-
             if len(entry.initial_molecules) > 1:
-
                 # check if the index has a number tag
                 # if so, start from this tag
                 index, tag = self._clean_index(index=entry_name)
@@ -1192,7 +1185,6 @@ class TorsiondriveDataset(OptimizationDataset):
     def _generate_collection(
         self, client: "PortalClient"
     ) -> ptl.torsiondrive.TorsiondriveDataset:
-
         return client.add_dataset(
             dataset_type="torsiondrive",
             name=self.dataset_name,
@@ -1206,7 +1198,6 @@ class TorsiondriveDataset(OptimizationDataset):
         )
 
     def _get_entries(self) -> List[TorsiondriveDatasetNewEntry]:
-
         entries: List[TorsiondriveDatasetNewEntry] = []
 
         for entry_name, entry in self.dataset.items():
