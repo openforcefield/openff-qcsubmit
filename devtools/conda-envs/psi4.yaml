@@ -2,6 +2,7 @@ name: qcsubmit-test-psi4
 
 channels:
   - psi4
+  - qcarchive/label/next
   - conda-forge
   - openeye
   - defaults
@@ -20,8 +21,9 @@ dependencies:
 
   - qcengine >=0.25
   - qcelemental >=0.25.1
-#  - qcfractal >=0.15.7
-#  - qcfractal-core >=0.15.7
+  - qcfractal>0.49
+  - qcarchivetesting>0.49
+  - qcportal>=0.49
 
   - openeye-toolkits
 
@@ -40,7 +42,6 @@ dependencies:
   - rdkit
   - pydantic
   - pyyaml
-#  - qcportal>=0.15.7
   - torsiondrive
   - basis_set_exchange
   - typing-extensions

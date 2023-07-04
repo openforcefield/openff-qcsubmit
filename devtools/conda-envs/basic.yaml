@@ -22,6 +22,8 @@ dependencies:
   - qcelemental >=0.25.1
   - qcfractal>0.49
   - qcarchivetesting>0.49
+  - qcportal>=0.49
+
   - postgresql
 
   - openeye-toolkits
@@ -33,7 +35,6 @@ dependencies:
   - openff-toolkit >= 0.12
   - pydantic
   - pyyaml
-  - qcportal>=0.49
   - torsiondrive
   - basis_set_exchange
   - typing-extensions
