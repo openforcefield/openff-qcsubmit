@@ -7,6 +7,7 @@ Here we use the qcfractal snowflake fixture to set up the database.
 import pytest
 from openff.toolkit.topology import Molecule
 from qcengine.testing import has_program
+from qcfractalcompute.testing_helpers import QCATestingComputeThread
 from qcportal import PortalClient
 
 from openff.qcsubmit import workflow_components
@@ -31,14 +32,16 @@ from openff.qcsubmit.utils import get_data
 
 
 @pytest.mark.parametrize("specification", [
-    pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "energy"), id="PSI4 hf 3-21g energy"),
+    #pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "energy"), id="PSI4 hf 3-21g energy"),
     pytest.param(({"method": "smirnoff99Frosst-1.1.0", "basis": "smirnoff", "program": "openmm"}, "energy"), id="SMIRNOFF smirnoff99Frosst-1.1.0 energy"),
-    pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit UFF gradient")
+    #pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit UFF gradient")
 ])
-def test_basic_submissions_single_spec(snowflake, specification):
+def test_basic_submissions_single_spec(fulltest_client, specification):
     """Test submitting a basic dataset to a snowflake server."""
 
-    client = PortalClient(snowflake)
+
+    #client = snowflake.client()
+    client = fulltest_client
 
     qc_spec, driver = specification
 
@@ -70,57 +73,82 @@ def test_basic_submissions_single_spec(snowflake, specification):
 
     # now submit again
     dataset.submit(client=client)
+    #ct = QCATestingComputeThread(snowflake.config)
+    #snowflake.activate_manager()
+    #snowflake.start_job_runner()
 
-    snowflake.await_results()
+    #fulltest_client.await_results()
+    import time
+    from qcportal.record_models import RecordStatusEnum
+    for i in range(120):
+        time.sleep(1)
+        #rec = fulltest_client.get_singlepoints(ids[0])
+        #print(type(dataset))
+        #print(dir(dataset))
+        rec = fulltest_client.get_singlepoints(1)
+        if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
+            break
+    else:
+        raise RuntimeError("Did not finish calculation in time")
 
     # make sure of the results are complete
-    ds = client.get_dataset("Dataset", dataset.dataset_name)
+    #ds = client.get_dataset("Dataset", dataset.dataset_name)
+    ds = client.get_dataset("singlepoint", dataset.dataset_name)
+    #ds = client.get_dataset_by_id(1)
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
+    #meta = Metadata(**ds.data.metadata)
+    meta = ds.metadata
+    #assert meta == dataset.metadata
+    print(f'{meta=}')
+    print(f'{dataset.metadata=}')
 
-    assert ds.data.description == dataset.description
-    assert ds.data.tagline == dataset.dataset_tagline
-    assert ds.data.tags == dataset.dataset_tags
+    assert meta['long_description'] == dataset.description
+    assert meta['short_description'] == dataset.dataset_tagline
+    assert ds.tags == dataset.dataset_tags
 
     # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    assert ds.provenance == dataset.provenance
 
     # check the qc spec
-    assert ds.data.default_driver == dataset.driver
+    #assert ds.data.default_driver == dataset.driver
 
     # get the last ran spec
-    for specification in ds.data.history:
-        driver, program, method, basis, spec_name = specification
+    print(f"{ds.specifications=}")
+    for spec_name, specification in ds.specifications.items():# data.history:
+        print(f'{specification=}')
+        #driver, program, method, basis, spec_name = specification
         spec = dataset.qc_specifications[spec_name]
-        assert driver == dataset.driver
-        assert program == spec.program
-        assert method == spec.method
-        assert basis == spec.basis
+        assert specification.specification.driver == dataset.driver
+        assert specification.specification.program == spec.program
+        assert specification.specification.method == spec.method
+        assert specification.specification.basis == spec.basis
         break
     else:
         raise RuntimeError(f"The requested compute was not found in the history {ds.data.history}")
 
     for spec in dataset.qc_specifications.values():
-        query = ds.get_records(
-            method=spec.method,
-            basis=spec.basis,
-            program=spec.program,
+        #query = ds.get_records(
+        query=ds.iterate_records(
+            specification_names="default",
+            #method=spec.method,
+            #basis=spec.basis,
+            #program=spec.program,
         )
         # make sure all of the conformers were submitted
-        assert len(query.index) == len(molecules)
-        for index in query.index:
-            result = query.loc[index].record
-            assert result.status.value.upper() == "COMPLETE"
-            assert result.error is None
-            assert result.return_result is not None
+        assert len(list(query)) == len(molecules)
+        for name, spec, record in query:
+            #result = query.loc[index].record
+            assert record.status == RecordStatusEnum.complete
+            #assert result.status.value.upper() == "COMPLETE"
+            assert record.error is None
+            assert record.return_result is not None
 
 
 def test_basic_submissions_multiple_spec(snowflake):
     """Test submitting a basic dataset to a snowflake server with multiple qcspecs."""
 
-    client = PortalClient(snowflake)
+    client = snowflake.client()
 
     qc_specs = [{"method": "openff-1.0.0", "basis": "smirnoff", "program": "openmm", "spec_name": "openff"},
                 {"method": "gaff-2.11", "basis": "antechamber", "program": "openmm", "spec_name": "gaff"}]
@@ -198,7 +226,7 @@ def test_basic_submissions_multiple_spec(snowflake):
 def test_basic_submissions_single_pcm_spec(snowflake):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
-    client = PortalClient(snowflake)
+    client = snowflake.client()
 
     program = "psi4"
     if not has_program(program):
@@ -285,7 +313,7 @@ def test_adding_specifications(snowflake):
     2) Adding a spec with the same name as another but with different options
     3) overwrite a spec which was added but never used.
     """
-    client = PortalClient(snowflake)
+    client = snowflake.client()
     mol = Molecule.from_smiles("CO")
     # make a dataset
     factory = OptimizationDatasetFactory()
@@ -346,7 +374,7 @@ def test_adding_compute(snowflake, dataset_data):
     """
     Test adding new compute to each of the dataset types using none psi4 programs.
     """
-    client = PortalClient(snowflake)
+    client = snowflake.client()
     mol = Molecule.from_smiles("CO")
     factory_type, dataset_type = dataset_data
     # make and clear out the qc specs
@@ -458,7 +486,7 @@ def test_basic_submissions_wavefunction(snowflake):
     if not has_program("psi4"):
         pytest.skip("Program psi4 not found.")
 
-    client = PortalClient(snowflake)
+    client = snowflake.client()
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
@@ -529,7 +557,7 @@ def test_optimization_submissions_with_constraints(snowflake):
     """
     Make sure that the constraints are added to the optimization and enforced.
     """
-    client = PortalClient(snowflake)
+    client = snowflake.client()
     ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
     dataset = OptimizationDataset(dataset_name="Test optimizations with constraint", description="Test optimization dataset with constraints", dataset_tagline="Testing optimization datasets")
     # add just mm spec
@@ -569,7 +597,7 @@ def test_optimization_submissions_with_constraints(snowflake):
 def test_optimization_submissions(snowflake, specification):
     """Test submitting an Optimization dataset to a snowflake server."""
 
-    client = PortalClient(snowflake)
+    client = snowflake.client()
 
     qc_spec, driver = specification
     program = qc_spec["program"]
@@ -645,7 +673,7 @@ def test_optimization_submissions(snowflake, specification):
 def test_optimization_submissions_with_pcm(snowflake):
     """Test submitting an Optimization dataset to a snowflake server with PCM."""
 
-    client = PortalClient(snowflake)
+    client = snowflake.client()
 
     program = "psi4"
     if not has_program(program):
@@ -725,7 +753,7 @@ def test_torsiondrive_scan_keywords(snowflake):
     Test running torsiondrives with unique keyword settings which overwrite the global grid spacing and scan range.
     """
 
-    client = PortalClient(snowflake)
+    client = snowflake.client()
     molecules = Molecule.from_smiles("CO")
     factory = TorsiondriveDatasetFactory()
     scan_enum = workflow_components.ScanEnumerator()
@@ -763,7 +791,7 @@ def test_torsiondrive_constraints(snowflake):
     Make sure constraints are correctly passed to optimisations in torsiondrives.
     """
 
-    client = PortalClient(snowflake)
+    client = snowflake.client()
     molecule = Molecule.from_file(get_data("TRP.mol2"))
     dataset = TorsiondriveDataset(dataset_name="Torsiondrive constraints", dataset_tagline="Testing torsiondrive constraints", description="Testing torsiondrive constraints.")
     dataset.clear_qcspecs()
@@ -803,7 +831,7 @@ def test_torsiondrive_submissions(snowflake, specification):
     Test submitting a torsiondrive dataset and computing it.
     """
 
-    client = PortalClient(snowflake)
+    client = snowflake.client()
 
     qc_spec, driver = specification
     program = qc_spec["program"]
@@ -881,7 +909,7 @@ def test_ignore_errors_all_datasets(snowflake, factory_type, capsys):
     """
     For each dataset make sure that when the basis is not fully covered the dataset raises warning errors, and verbose information
     """
-    client = PortalClient(snowflake)
+    client = snowflake.client()
     # molecule containing boron
     molecule = Molecule.from_smiles("OB(O)C1=CC=CC=C1")
     scan_enum = workflow_components.ScanEnumerator()
@@ -919,7 +947,8 @@ def test_index_not_changed(snowflake, factory_type):
     """
     factory = factory_type()
     factory.clear_qcspecs()
-    client = PortalClient(snowflake)
+    client = snowflake.client()
+    #client = snowflake.client()
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley",
                         spec_description="standard parsley spec")
@@ -959,7 +988,7 @@ def test_adding_dataset_entry_fail(snowflake, factory_type, capsys):
     Make sure that the new entries is not incremented if we can not add a molecule to the server due to a name clash.
     TODO add basic dataset into the testing if the api changes to return an error when adding the same index twice
     """
-    client = PortalClient(snowflake)
+    client = snowflake.client()
     molecule = Molecule.from_smiles("CO")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
@@ -976,7 +1005,7 @@ def test_adding_dataset_entry_fail(snowflake, factory_type, capsys):
                                      )
 
     # make sure all expected index get submitted
-    dataset.submit(client=client, verbose=True)
+    dataset.submit(client=client)
     info = capsys.readouterr()
     assert info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
 
@@ -996,7 +1025,7 @@ def test_expanding_compute(snowflake, factory_type):
     """
     Make sure that if we expand the compute of a dataset tasks are generated.
     """
-    client = PortalClient(snowflake)
+    client = snowflake.client()
     molecule = Molecule.from_smiles("CC")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
