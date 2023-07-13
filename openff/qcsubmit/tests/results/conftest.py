@@ -16,7 +16,6 @@ from openff.qcsubmit.tests.results import (
 
 
 def _smiles_to_molecule(smiles: str) -> Molecule:
-
     molecule: Molecule = Molecule.from_smiles(smiles, allow_undefined_stereo=True)
     molecule.generate_conformers(n_conformers=1)
 
@@ -45,7 +44,8 @@ def tautomer_basic_result_collection(monkeypatch) -> BasicResultCollection:
 
     smiles = {
         "http://localhost:442": [
-            _smiles_to_molecule(smiles) for smiles in ["Oc1nnccn1", "C1=NC(=O)NN=C1", "C1=CN=NC(=O)N1"]
+            _smiles_to_molecule(smiles)
+            for smiles in ["Oc1nnccn1", "C1=NC(=O)NN=C1", "C1=CN=NC(=O)N1"]
         ]
     }
     return mock_basic_result_collection(smiles, monkeypatch)
@@ -116,16 +116,14 @@ def optimization_result_collection(monkeypatch) -> OptimizationResultCollection:
 
 
 @pytest.fixture()
-def optimization_result_collection_duplicates(monkeypatch) -> OptimizationResultCollection:
+def optimization_result_collection_duplicates(
+    monkeypatch,
+) -> OptimizationResultCollection:
     """Create a collection with duplicate enetries accross different addresses which can be reduced to a single entry."""
 
     smiles = {
-        "http://localhost:442": [
-            _smiles_to_molecule(smiles="CCCO")
-        ],
-        "http://localhost:443": [
-            _smiles_to_molecule(smiles="CCCO")
-        ]
+        "http://localhost:442": [_smiles_to_molecule(smiles="CCCO")],
+        "http://localhost:443": [_smiles_to_molecule(smiles="CCCO")],
     }
     return mock_optimization_result_collection(smiles, monkeypatch)
 

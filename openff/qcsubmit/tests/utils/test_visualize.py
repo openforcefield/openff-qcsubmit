@@ -14,7 +14,6 @@ from openff.qcsubmit.utils.visualize import (
     "create_function", [molecules_to_pdf, _create_openeye_pdf, _create_rdkit_pdf]
 )
 def test_create_pdf_function(tmpdir, create_function):
-
     molecules = [
         Molecule.from_smiles("C"),
         Molecule.from_smiles("CC"),
@@ -31,7 +30,6 @@ def test_create_pdf_function(tmpdir, create_function):
 
 
 def test_molecules_to_pdf_bad_toolkit():
-
     with pytest.raises(ValueError, match="is not supported, chose"):
         # noinspection PyTypeChecker
         molecules_to_pdf([], "", toolkit="fake-toolkit")
