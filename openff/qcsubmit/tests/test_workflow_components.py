@@ -40,15 +40,20 @@ def get_container(molecules: [Molecule]) -> ComponentResult:
     """
 
     return ComponentResult(
-        component_name="intial", component_description={"description": "initial filter"}, molecules=molecules,
-        component_provenance={"test": "test component"})
+        component_name="intial",
+        component_description={"description": "initial filter"},
+        molecules=molecules,
+        component_provenance={"test": "test component"},
+    )
 
 
 def get_stereoisomers():
     """
     Get a set of molecules that all have some undefined stereochemistry.
     """
-    mols = Molecule.from_file(get_data("stereoisomers.smi"), allow_undefined_stereo=True)
+    mols = Molecule.from_file(
+        get_data("stereoisomers.smi"), allow_undefined_stereo=True
+    )
 
     return mols
 
@@ -58,7 +63,9 @@ def get_tautomers():
     Get a set of molecules that all have tautomers
     """
 
-    mols = Molecule.from_file(get_data("tautomers_small.smi"), allow_undefined_stereo=True)
+    mols = Molecule.from_file(
+        get_data("tautomers_small.smi"), allow_undefined_stereo=True
+    )
 
     return mols
 
@@ -80,7 +87,9 @@ def test_register_component_replace():
     gen = workflow_components.StandardConformerGenerator
 
     with pytest.raises(ComponentRegisterError):
-        register_component(component=workflow_components.StandardConformerGenerator, replace=False)
+        register_component(
+            component=workflow_components.StandardConformerGenerator, replace=False
+        )
 
     # now register using replace with a new default
     register_component(component=gen, replace=True)
@@ -97,9 +106,12 @@ def test_register_component_error():
         register_component(component=charge_filter)
 
 
-@pytest.mark.parametrize("component", [
-    pytest.param(workflow_components.SmartsFilter, id="Class instance"),
-])
+@pytest.mark.parametrize(
+    "component",
+    [
+        pytest.param(workflow_components.SmartsFilter, id="Class instance"),
+    ],
+)
 def test_deregister_component(component):
     """
     Make sure we can deregister components via name or class.
@@ -148,7 +160,6 @@ def test_custom_component():
         test = CustomWorkflowComponent()
 
     class TestComponent(CustomWorkflowComponent):
-
         component_name: Literal["TestComponent"] = "TestComponent"
 
         @classmethod
@@ -163,7 +174,9 @@ def test_custom_component():
         def properties(cls) -> ComponentProperties:
             return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
-        def _apply(self, molecules: List[Molecule], toolkit_registry) -> ComponentResult:
+        def _apply(
+            self, molecules: List[Molecule], toolkit_registry
+        ) -> ComponentResult:
             pass
 
         def provenance(self, toolkit_registry) -> Dict:
@@ -178,7 +191,11 @@ def test_custom_component():
     assert test.description() == "Test component"
     assert test.fail_reason() == "Test fail"
     assert {"test": "version1"} == test.provenance(GLOBAL_TOOLKIT_REGISTRY)
-    assert TestComponent.info() == {"name": "TestComponent", "description": "Test component", "fail_reason": "Test fail"}
+    assert TestComponent.info() == {
+        "name": "TestComponent",
+        "description": "Test component",
+        "fail_reason": "Test fail",
+    }
 
 
 def test_toolkit_mixin():
@@ -204,7 +221,9 @@ def test_toolkit_mixin():
         def properties(cls) -> ComponentProperties:
             return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
-        def _apply(self, molecules: List[Molecule], toolkit_registry) -> ComponentResult:
+        def _apply(
+            self, molecules: List[Molecule], toolkit_registry
+        ) -> ComponentResult:
             pass
 
     test = TestClass()
@@ -261,10 +280,17 @@ def test_weight_filter_validator():
     assert "openff-toolkit" in weight.provenance(GLOBAL_TOOLKIT_REGISTRY)
 
 
-@pytest.mark.parametrize("toolkits", [
-    pytest.param(ToolkitRegistry(toolkit_precedence=[RDKitToolkitWrapper()]), id="rdkit"),
-    pytest.param(ToolkitRegistry(toolkit_precedence=[OpenEyeToolkitWrapper()]), id="openeye")
-])
+@pytest.mark.parametrize(
+    "toolkits",
+    [
+        pytest.param(
+            ToolkitRegistry(toolkit_precedence=[RDKitToolkitWrapper()]), id="rdkit"
+        ),
+        pytest.param(
+            ToolkitRegistry(toolkit_precedence=[OpenEyeToolkitWrapper()]), id="openeye"
+        ),
+    ],
+)
 def test_weight_filter_apply(toolkits):
     """
     Make sure the weight filter returns molecules within the limits. As the backend function choice is handled by qcsubmit
@@ -289,21 +315,48 @@ def test_weight_filter_apply_no_toolkit():
     with pytest.raises(ModuleNotFoundError):
         weight = workflow_components.MolecularWeightFilter()
         molecules = get_tautomers()
-        _ = weight.apply(molecules=molecules, toolkit_registry=ToolkitRegistry(), processors=1)
+        _ = weight.apply(
+            molecules=molecules, toolkit_registry=ToolkitRegistry(), processors=1
+        )
 
 
 @pytest.mark.parametrize(
     "data",
     [
-        pytest.param((workflow_components.ElementFilter, "allowed_elements", [1, 10, 100]), id="ElementFilter"),
-        pytest.param((workflow_components.MolecularWeightFilter, "minimum_weight", 1), id="WeightFilter"),
-        pytest.param((workflow_components.StandardConformerGenerator, "max_conformers", 1), id="StandardConformers"),
-        pytest.param((workflow_components.EnumerateTautomers, "max_tautomers", 2), id="EnumerateTautomers"),
-        pytest.param((workflow_components.EnumerateStereoisomers, "undefined_only", True), id="EnumerateStereoisomers"),
-        pytest.param((workflow_components.RotorFilter, "maximum_rotors", 3), id="RotorFilter"),
-        pytest.param((workflow_components.WBOFragmenter, "threshold", 0.5), id="WBOFragmenter"),
-        pytest.param((workflow_components.EnumerateProtomers, "max_states", 5), id="EnumerateProtomers"),
-        pytest.param((workflow_components.RMSDCutoffConformerFilter, "cutoff", 1.2), id="RMSDCutoffConformerFilter")
+        pytest.param(
+            (workflow_components.ElementFilter, "allowed_elements", [1, 10, 100]),
+            id="ElementFilter",
+        ),
+        pytest.param(
+            (workflow_components.MolecularWeightFilter, "minimum_weight", 1),
+            id="WeightFilter",
+        ),
+        pytest.param(
+            (workflow_components.StandardConformerGenerator, "max_conformers", 1),
+            id="StandardConformers",
+        ),
+        pytest.param(
+            (workflow_components.EnumerateTautomers, "max_tautomers", 2),
+            id="EnumerateTautomers",
+        ),
+        pytest.param(
+            (workflow_components.EnumerateStereoisomers, "undefined_only", True),
+            id="EnumerateStereoisomers",
+        ),
+        pytest.param(
+            (workflow_components.RotorFilter, "maximum_rotors", 3), id="RotorFilter"
+        ),
+        pytest.param(
+            (workflow_components.WBOFragmenter, "threshold", 0.5), id="WBOFragmenter"
+        ),
+        pytest.param(
+            (workflow_components.EnumerateProtomers, "max_states", 5),
+            id="EnumerateProtomers",
+        ),
+        pytest.param(
+            (workflow_components.RMSDCutoffConformerFilter, "cutoff", 1.2),
+            id="RMSDCutoffConformerFilter",
+        ),
     ],
 )
 def test_to_from_object(data):
@@ -334,9 +387,19 @@ def test_rmsd_filter():
     rmsd_filter = workflow_components.RMSDCutoffConformerFilter(cutoff=1)
     mol = Molecule.from_smiles("CCCC")
     # make a lot of conformers for the molecule
-    mol.generate_conformers(n_conformers=1000, rms_cutoff=0.05 * unit.angstrom, toolkit_registry=RDKitToolkitWrapper())
+    mol.generate_conformers(
+        n_conformers=1000,
+        rms_cutoff=0.05 * unit.angstrom,
+        toolkit_registry=RDKitToolkitWrapper(),
+    )
     ref_mol = copy.deepcopy(mol)
-    result = rmsd_filter.apply([mol, ], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = rmsd_filter.apply(
+        [
+            mol,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
     # now make sure the number of conformers is different
     assert result.molecules[0].n_conformers != ref_mol.n_conformers
 
@@ -347,7 +410,13 @@ def test_rmsd_filter_no_conformers():
     """
     rmsd_filter = workflow_components.RMSDCutoffConformerFilter(cutoff=1)
     mol = Molecule.from_smiles("CCCC")
-    result = rmsd_filter.apply([mol, ], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = rmsd_filter.apply(
+        [
+            mol,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
     # now make sure the number of conformers is different
     assert result.n_molecules == 0
     assert result.n_filtered == 1
@@ -366,7 +435,11 @@ def test_conformer_apply():
     # remove duplicates from the set
     molecule_container = get_container(mols)
 
-    result = conf_gen.apply(molecule_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = conf_gen.apply(
+        molecule_container.molecules,
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
 
     assert result.component_name == conf_gen.type
     assert result.component_description == conf_gen.dict()
@@ -388,7 +461,9 @@ def test_elementfilter_apply():
 
     mols = get_tautomers()
 
-    result = elem_filter.apply(mols, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = elem_filter.apply(
+        mols, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
 
     assert result.component_name == elem_filter.type
     assert result.component_description == elem_filter.dict()
@@ -427,13 +502,20 @@ def test_enumerating_stereoisomers_apply():
 
     mols = get_stereoisomers()
 
-    result = enumerate_stereo.apply(mols, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = enumerate_stereo.apply(
+        mols, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
     for mol in mols:
         assert mol in result.molecules
 
     # make sure no molecules have undefined stereo
     for molecule in result.molecules:
-        assert Molecule.from_smiles(molecule.to_smiles(), toolkit_registry=RDKitToolkitWrapper()) == molecule
+        assert (
+            Molecule.from_smiles(
+                molecule.to_smiles(), toolkit_registry=RDKitToolkitWrapper()
+            )
+            == molecule
+        )
         assert molecule.n_conformers >= 1
 
 
@@ -442,19 +524,33 @@ def test_enumerating_stereoisomers_poor_input():
     Test stereoisomer enumeration with an impossible stereochemistry.
     """
 
-    molecule = Molecule.from_smiles("C=CCn1c([C@@H]2C[C@@H]3CC[C@@H]2O3)nnc1N1CCN(c2ccccc2)CC1")
+    molecule = Molecule.from_smiles(
+        "C=CCn1c([C@@H]2C[C@@H]3CC[C@@H]2O3)nnc1N1CCN(c2ccccc2)CC1"
+    )
     enumerate_stereo = workflow_components.EnumerateStereoisomers()
     # the molecule should fail conformer generation
     enumerate_stereo.undefined_only = True
     enumerate_stereo.rationalise = True
 
-    result = enumerate_stereo.apply(molecules=[molecule, ], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = enumerate_stereo.apply(
+        molecules=[
+            molecule,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
     assert result.n_molecules == 0
     assert result.n_filtered == 1
 
     # now turn of rationalise
     enumerate_stereo.rationalise = False
-    result = enumerate_stereo.apply([molecule, ], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = enumerate_stereo.apply(
+        [
+            molecule,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
     assert molecule in result.molecules
     assert result.n_molecules == 1
 
@@ -463,15 +559,30 @@ def test_enumerating_stereoisomers_poor_input():
     enumerate_stereo.undefined_only = False
     # make sure the input is missing and new isomers are found
 
-    result = enumerate_stereo.apply([molecule, ], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = enumerate_stereo.apply(
+        [
+            molecule,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
     assert molecule not in result.molecules
     assert molecule in result.filtered
 
 
-@pytest.mark.parametrize("data", [
-    pytest.param(("[H]C(=C([H])Cl)Cl", True), id="Molecule with missing stereo"),
-    pytest.param(("[H]c1c(c(c(c(c1N([C@@]([H])(O[H])SC([H])([H])[C@]([H])(C(=O)N([H])C([H])([H])C(=O)O[H])N([H])C(=O)C([H])([H])C([H])([H])[C@@]([H])(C(=O)O[H])N([H])[H])O[H])[H])[H])I)[H]", False), id="Molecule with good stereo")
-])
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(("[H]C(=C([H])Cl)Cl", True), id="Molecule with missing stereo"),
+        pytest.param(
+            (
+                "[H]c1c(c(c(c(c1N([C@@]([H])(O[H])SC([H])([H])[C@]([H])(C(=O)N([H])C([H])([H])C(=O)O[H])N([H])C(=O)C([H])([H])C([H])([H])[C@@]([H])(C(=O)O[H])N([H])[H])O[H])[H])[H])I)[H]",
+                False,
+            ),
+            id="Molecule with good stereo",
+        ),
+    ],
+)
 def test_check_missing_stereo(data):
     """
     Make sure that molecules with missing stereo chem are correctly identified.
@@ -490,7 +601,9 @@ def test_enumerating_tautomers_apply():
 
     mols = get_tautomers()
 
-    result = enumerate_tauts.apply(mols, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = enumerate_tauts.apply(
+        mols, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
 
     # check the input molecule is present
     for mol in mols:
@@ -517,8 +630,14 @@ def test_enumerating_protomers_apply():
     enumerate_protomers = workflow_components.EnumerateProtomers(max_states=2)
     assert enumerate_protomers.is_available()
 
-    mol = Molecule.from_smiles('Oc2ccc(c1ccncc1)cc2')
-    result = enumerate_protomers.apply([mol, ], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    mol = Molecule.from_smiles("Oc2ccc(c1ccncc1)cc2")
+    result = enumerate_protomers.apply(
+        [
+            mol,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
 
     assert mol in result.molecules
     # this means that the parent molecule was included
@@ -536,7 +655,11 @@ def test_coverage_filter_remove():
     # we have to remove duplicated records
     # remove duplicates from the set
     molecule_container = get_container(mols)
-    result = coverage_filter.apply(molecule_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = coverage_filter.apply(
+        molecule_container.molecules,
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
 
     forcefield = ForceField("openff_unconstrained-1.0.0.offxml")
     # now see if any molecules do not have b83
@@ -560,7 +683,11 @@ def test_coverage_filter_allowed():
     # we have to remove duplicated records
     # remove duplicates from the set
     molecule_container = get_container(mols)
-    result = coverage_filter.apply(molecule_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = coverage_filter.apply(
+        molecule_container.molecules,
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
 
     forcefield = ForceField("openff_unconstrained-1.0.0.offxml")
     # now see if any molecules do not have b83
@@ -591,7 +718,11 @@ def test_coverage_allowed_no_match():
     # we have to remove duplicated records
     # remove duplicates from the set
     molecule_container = get_container(mols)
-    result = coverage_filter.apply(molecule_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = coverage_filter.apply(
+        molecule_container.molecules,
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
 
     # make sure all molecules have been removed as none have the made up id
     assert result.n_molecules == 0
@@ -614,12 +745,24 @@ def test_wbo_fragmentation_apply():
     assert fragmenter.is_available()
     # check that a molecule with no rotatable bonds fails if we dont want the parent back
     benzene = Molecule.from_file(get_data("benzene.sdf"), "sdf")
-    result = fragmenter.apply([benzene, ], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = fragmenter.apply(
+        [
+            benzene,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
     assert result.n_molecules == 0
 
     # now try a molecule which should give fragments
     diphenhydramine = Molecule.from_smiles("O(CCN(C)C)C(c1ccccc1)c2ccccc2")
-    result = fragmenter.apply([diphenhydramine, ], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = fragmenter.apply(
+        [
+            diphenhydramine,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
     assert result.n_molecules == 4
     for molecule in result.molecules:
         assert "dihedrals" in molecule.properties
@@ -632,7 +775,13 @@ def test_pfizer_fragmentation_apply():
     assert fragmenter.is_available()
     # now try a molecule which should give fragments
     diphenhydramine = Molecule.from_smiles("O(CCN(C)C)C(c1ccccc1)c2ccccc2")
-    result = fragmenter.apply([diphenhydramine, ], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = fragmenter.apply(
+        [
+            diphenhydramine,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
     assert result.n_molecules == 4
     for molecule in result.molecules:
         assert "dihedrals" in molecule.properties
@@ -650,7 +799,11 @@ def test_rotor_filter_maximum():
 
     # we have to remove duplicated records
     molecule_container = get_container(mols)
-    result = rotor_filter.apply(molecule_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = rotor_filter.apply(
+        molecule_container.molecules,
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
     for molecule in result.molecules:
         assert len(molecule.find_rotatable_bonds()) <= rotor_filter.maximum_rotors
 
@@ -666,7 +819,9 @@ def test_rotor_filter_minimum():
 
     mols = get_tautomers()
     mol_container = get_container(mols)
-    result = rotor_filter.apply(mol_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = rotor_filter.apply(
+        mol_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
     for molecule in result.molecules:
         assert len(molecule.find_rotatable_bonds()) >= rotor_filter.minimum_rotors
     for molecule in result.filtered:
@@ -683,10 +838,16 @@ def test_rotor_filter_validation():
     rotor_filter.minimum_rotors = 4
     mols = get_tautomers()
     mol_container = get_container(mols)
-    rotor_filter.apply(mol_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    rotor_filter.apply(
+        mol_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
     rotor_filter.minimum_rotors = 5
     with pytest.raises(ValueError):
-        rotor_filter.apply(mol_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+        rotor_filter.apply(
+            mol_container.molecules,
+            processors=1,
+            toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+        )
 
 
 def test_rotor_filter_fail():
@@ -700,7 +861,11 @@ def test_rotor_filter_fail():
     mols = get_tautomers()
 
     molecule_container = get_container(mols)
-    result = rotor_filter.apply(molecule_container.molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = rotor_filter.apply(
+        molecule_container.molecules,
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
     for molecule in result.molecules:
         assert len(molecule.find_rotatable_bonds()) <= rotor_filter.maximum_rotors
     for molecule in result.filtered:
@@ -715,7 +880,9 @@ def test_smarts_filter_validator():
     from openff.toolkit.typing.chemistry import SMIRKSParsingError
 
     with pytest.raises(ValidationError):
-        workflow_components.SmartsFilter(allowed_substructures=["[C:1]"], filtered_substructures=["[N:1]"])
+        workflow_components.SmartsFilter(
+            allowed_substructures=["[C:1]"], filtered_substructures=["[N:1]"]
+        )
 
     with pytest.raises(SMIRKSParsingError):
         workflow_components.SmartsFilter(allowed_substructures=[1, 2, 3, 4])
@@ -726,14 +893,18 @@ def test_smarts_filter_validator():
 
     with pytest.raises(SMIRKSParsingError):
         # make sure each item is checked
-        workflow_components.SmartsFilter(allowed_substructures=["[C:1]-[C:2]", "ksbfsb"])
+        workflow_components.SmartsFilter(
+            allowed_substructures=["[C:1]-[C:2]", "ksbfsb"]
+        )
 
     with pytest.raises(SMIRKSParsingError):
         # good smarts with no tagged atoms.
         workflow_components.SmartsFilter(allowed_substructures=["[C]=[C]"])
 
     # a good search string
-    smart_filter = workflow_components.SmartsFilter(allowed_substructures=["[C:1]=[C:2]"])
+    smart_filter = workflow_components.SmartsFilter(
+        allowed_substructures=["[C:1]=[C:2]"]
+    )
     assert len(smart_filter.allowed_substructures) == 1
 
 
@@ -743,12 +914,16 @@ def test_smarts_filter_allowed():
     """
 
     # this should only allow C, H, N, O containing molecules through similar to the element filter
-    filter = workflow_components.SmartsFilter(allowed_substructures=["[C:1]", "[c:1]", "[H:1]", "[O:1]", "[N:1]"])
+    filter = workflow_components.SmartsFilter(
+        allowed_substructures=["[C:1]", "[c:1]", "[H:1]", "[O:1]", "[N:1]"]
+    )
     allowed_elements = [1, 6, 7, 8]
 
     molecules = get_tautomers()
 
-    result = filter.apply(molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = filter.apply(
+        molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
 
     assert result.component_name == filter.type
     assert result.component_description == filter.dict()
@@ -772,7 +947,9 @@ def test_smarts_filter_allowed_no_match():
 
     molecules = get_tautomers()
 
-    result = filter.apply(molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = filter.apply(
+        molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
     assert result.n_molecules == 0
 
 
@@ -781,12 +958,25 @@ def test_smarts_filter_remove():
     Make sure we can correctly remove any molecules which have unwanted substructures.
     """
 
-    filter = workflow_components.SmartsFilter(filtered_substructures=["[Cl:1]", "[F:1]", "[P:1]", "[Br:1]", "[S:1]", "[I:1]", "[B:1]", "[#7:1]"])
+    filter = workflow_components.SmartsFilter(
+        filtered_substructures=[
+            "[Cl:1]",
+            "[F:1]",
+            "[P:1]",
+            "[Br:1]",
+            "[S:1]",
+            "[I:1]",
+            "[B:1]",
+            "[#7:1]",
+        ]
+    )
     allowed_elements = [1, 6, 8]
 
     molecules = get_tautomers()
 
-    result = filter.apply(molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = filter.apply(
+        molecules, processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
 
     assert result.component_name == filter.type
     assert result.component_description == filter.dict()
@@ -805,7 +995,10 @@ def test_scan_filter_mutually_exclusive():
     Make sure an error is raised when both options are passed.
     """
     with pytest.raises(ValidationError):
-        workflow_components.ScanFilter(scans_to_include=["[*:1]~[*:2]:[*:3]~[*:4]"], scans_to_exclude=["[*:1]~[*:2]-[CH3:3]-[H:4]"])
+        workflow_components.ScanFilter(
+            scans_to_include=["[*:1]~[*:2]:[*:3]~[*:4]"],
+            scans_to_exclude=["[*:1]~[*:2]-[CH3:3]-[H:4]"],
+        )
 
 
 def test_scan_filter_no_torsions():
@@ -815,9 +1008,13 @@ def test_scan_filter_no_torsions():
 
     molecule = Molecule.from_smiles("CC")
 
-    filter = workflow_components.ScanFilter(scans_to_include=["[*:1]~[*:2]-[CH3:3]-[H:4]"])
+    filter = workflow_components.ScanFilter(
+        scans_to_include=["[*:1]~[*:2]-[CH3:3]-[H:4]"]
+    )
 
-    result = filter.apply(molecules=[molecule], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = filter.apply(
+        molecules=[molecule], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
     assert result.n_molecules == 0
 
 
@@ -834,9 +1031,13 @@ def test_scan_filter_include():
     ethanol.properties["dihedrals"] = t_indexer
 
     # only keep the C-C scan
-    filter = workflow_components.ScanFilter(scans_to_include=["[#1:1]~[#6:2]-[#6:3]-[#1:4]"])
+    filter = workflow_components.ScanFilter(
+        scans_to_include=["[#1:1]~[#6:2]-[#6:3]-[#1:4]"]
+    )
 
-    result = filter.apply(molecules=[ethanol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = filter.apply(
+        molecules=[ethanol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
 
     assert result.n_molecules == 1
     assert (0, 1) in ethanol.properties["dihedrals"].torsions
@@ -855,9 +1056,13 @@ def test_scan_filter_exclude():
     ethanol.properties["dihedrals"] = t_indexer
 
     # only keep the C-C scan
-    filter = workflow_components.ScanFilter(scans_to_exclude=["[#1:1]~[#6:2]-[#6:3]-[#1:4]"])
+    filter = workflow_components.ScanFilter(
+        scans_to_exclude=["[#1:1]~[#6:2]-[#6:3]-[#1:4]"]
+    )
 
-    result = filter.apply(molecules=[ethanol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = filter.apply(
+        molecules=[ethanol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
 
     assert result.n_molecules == 1
     assert (1, 2) in ethanol.properties["dihedrals"].torsions
@@ -870,9 +1075,13 @@ def test_scan_enumerator_no_scans():
     mol = Molecule.from_smiles("CC")
 
     scan_tagger = workflow_components.ScanEnumerator()
-    scan_tagger.add_torsion_scan(smarts="[*:1]~[#8:1]-[#6:3]~[*:4]", scan_rage=(-40, 40), scan_increment=15)
+    scan_tagger.add_torsion_scan(
+        smarts="[*:1]~[#8:1]-[#6:3]~[*:4]", scan_rage=(-40, 40), scan_increment=15
+    )
 
-    result = scan_tagger.apply([mol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = scan_tagger.apply(
+        [mol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
 
     assert result.n_molecules == 0
     assert result.n_filtered == 1
@@ -885,9 +1094,13 @@ def test_scan_enumerator_1d():
     mol = Molecule.from_smiles("CCC")
 
     scan_tagger = workflow_components.ScanEnumerator()
-    scan_tagger.add_torsion_scan(smarts="[*:1]~[#6:2]-[#6:3]~[*:4]", scan_rage=(-60, 60), scan_increment=20)
+    scan_tagger.add_torsion_scan(
+        smarts="[*:1]~[#6:2]-[#6:3]~[*:4]", scan_rage=(-60, 60), scan_increment=20
+    )
 
-    result = scan_tagger.apply([mol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = scan_tagger.apply(
+        [mol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
 
     assert result.n_molecules == 1
     indexer = mol.properties["dihedrals"]
@@ -904,7 +1117,9 @@ def test_scan_enumerator_unique():
     scan_tagger = workflow_components.ScanEnumerator()
     scan_tagger.add_torsion_scan(smarts="[*:1]~[#6:2]-[#6:3]~[*:4]")
 
-    result = scan_tagger.apply(molecules=[mol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = scan_tagger.apply(
+        molecules=[mol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
 
     assert result.n_molecules == 1
     indexer = mol.properties["dihedrals"]
@@ -919,12 +1134,17 @@ def test_scan_enumerator_2d():
     mol = Molecule.from_smiles("COc1ccc(cc1)N")
 
     scan_tagger = workflow_components.ScanEnumerator()
-    scan_tagger.add_double_torsion(smarts1="[*:1]-[#7X3+0:2]-[#6:3]@[#6,#7:4]", smarts2="[#7X3+0:1](-[*:3])(-[*:4])-[#6:2]@[#6,#7]",
-                                   scan_range1=(-165, 180),
-                                   scan_range2=(-60, 60),
-                                   scan_increments=[15, 4])
+    scan_tagger.add_double_torsion(
+        smarts1="[*:1]-[#7X3+0:2]-[#6:3]@[#6,#7:4]",
+        smarts2="[#7X3+0:1](-[*:3])(-[*:4])-[#6:2]@[#6,#7]",
+        scan_range1=(-165, 180),
+        scan_range2=(-60, 60),
+        scan_increments=[15, 4],
+    )
 
-    result = scan_tagger.apply([mol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = scan_tagger.apply(
+        [mol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
     assert result.n_molecules == 1
     indexer = mol.properties["dihedrals"]
     assert indexer.n_double_torsions == 1
@@ -941,9 +1161,16 @@ def test_improper_enumerator():
 
     scan_tagger = workflow_components.ScanEnumerator()
     # even though there is more than one improper make sure we only get one scan back
-    scan_tagger.add_improper_torsion(smarts="[#6:1](-[#1:2])(:[#6:3]):[#6:4]", central_smarts="[#6:1]", scan_range=(-40, 40), scan_increment=4)
+    scan_tagger.add_improper_torsion(
+        smarts="[#6:1](-[#1:2])(:[#6:3]):[#6:4]",
+        central_smarts="[#6:1]",
+        scan_range=(-40, 40),
+        scan_increment=4,
+    )
 
-    result = scan_tagger.apply([mol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = scan_tagger.apply(
+        [mol], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
 
     assert result.n_molecules == 1
     indexer = mol.properties["dihedrals"]
@@ -957,7 +1184,9 @@ def test_formal_charge_filter_exclusive():
     """
 
     with pytest.raises(ValidationError):
-        workflow_components.ChargeFilter(charges_to_include=[0, 1], charges_to_exclude=[-1])
+        workflow_components.ChargeFilter(
+            charges_to_include=[0, 1], charges_to_exclude=[-1]
+        )
 
 
 def test_formal_charge_filter():
@@ -969,11 +1198,15 @@ def test_formal_charge_filter():
 
     # filter out the molecule
     charge_filter = workflow_components.ChargeFilter(charges_to_exclude=[-1, 0])
-    result = charge_filter.apply([molecule], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = charge_filter.apply(
+        [molecule], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
     assert result.n_molecules == 0
     assert result.n_filtered == 1
 
     # now allow it through
     charge_filter = workflow_components.ChargeFilter(charges_to_include=[-1])
-    result = charge_filter.apply([molecule], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = charge_filter.apply(
+        [molecule], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
     assert result.n_molecules == 1

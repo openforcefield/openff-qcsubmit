@@ -42,7 +42,6 @@ from openff.qcsubmit.tests import does_not_raise
 
 
 class MockServerInfo:
-
     def dict(self):
         return {
             "name": "Mock",
@@ -54,7 +53,6 @@ class MockServerInfo:
 
 
 def test_base_molecule_property():
-
     record = BasicResult(
         record_id=ObjectId("1"),
         cmiles="[Cl:2][H:1]",
@@ -93,7 +91,6 @@ def test_base_molecule_property():
     ],
 )
 def test_base_validate_entries(entries, expected_raises):
-
     with expected_raises:
         collection = BasicResultCollection(entries={"http://localhost:443": entries})
 
@@ -102,7 +99,6 @@ def test_base_validate_entries(entries, expected_raises):
 
 
 def test_base_n_results_property():
-
     collection = BasicResultCollection(
         entries={
             "http://localhost:442": [
@@ -126,7 +122,6 @@ def test_base_n_results_property():
 
 
 def test_base_n_molecules_property():
-
     collection = BasicResultCollection(
         entries={
             "http://localhost:442": [
@@ -155,7 +150,6 @@ def test_base_n_molecules_property():
 
 
 def test_base_validate_record_types():
-
     records = [
         ResultRecord(
             program="psi4",
@@ -185,7 +179,6 @@ def test_base_validate_record_types():
 def test_base_filter(basic_result_collection):
     class DummyFilter(ResultFilter):
         def _apply(self, result_collection):
-
             result_collection.entries = {
                 "http://localhost:442": result_collection.entries[
                     "http://localhost:442"
@@ -208,7 +201,6 @@ def test_base_filter(basic_result_collection):
 
 
 def test_base_smirnoff_coverage():
-
     collection = TorsionDriveResultCollection(
         entries={
             "http://localhost:442": [
@@ -360,7 +352,6 @@ def test_to_records(collection, record, monkeypatch):
         return [record]
 
     def mock_query_molecules(*args, **kwargs):
-
         molecule: Molecule = Molecule.from_smiles("[Cl:1][Cl:2]")
         molecule.add_conformer(numpy.arange(6).reshape((2, 3)) * unit.angstrom)
 
@@ -392,9 +383,9 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
     dataset = optimization_result_collection.create_basic_dataset(
         dataset_name="new basicdataset",
         description="test new optimizationdataset",
-        tagline='new optimization dataset',
+        tagline="new optimization dataset",
         driver="energy",
-        qc_specs=[QCSpec(spec_name="some-name", basis="6-31G")]
+        qc_specs=[QCSpec(spec_name="some-name", basis="6-31G")],
     )
 
     assert len(dataset.qc_specifications) == 1
@@ -405,16 +396,14 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
     assert dataset.n_molecules == 4
     assert dataset.n_records == 5  # the collection contains 1 duplicate
 
-    
+
 def test_optimization_to_basic_result_collection(
     optimization_result_collection, monkeypatch
 ):
-
     def mock_automodel_request(*args, **kwargs):
         return MockServerInfo()
 
     def mock_query_results(*args, **kwargs):
-
         assert "program" in kwargs and kwargs["program"] == "psi4"
         assert "method" in kwargs and kwargs["method"] == "scf"
         assert "basis" in kwargs and kwargs["basis"] == "sto-3g"
@@ -475,7 +464,6 @@ def test_optimization_to_basic_result_collection(
 
 
 def test_torsion_smirnoff_coverage(public_client, monkeypatch):
-
     molecule: Molecule = Molecule.from_mapped_smiles(
         "[H:1][C:2]([H:7])([H:8])"
         "[C:3]([H:9])([H:10])"
