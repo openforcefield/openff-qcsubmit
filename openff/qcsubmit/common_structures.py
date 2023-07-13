@@ -6,7 +6,7 @@ import getpass
 import re
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import qcportal as ptl
@@ -35,9 +35,10 @@ from openff.qcsubmit.exceptions import (
 )
 from openff.qcsubmit.utils.smirnoff import split_openff_molecule
 
-
 if TYPE_CHECKING:
     from pydantic import AbstractSetIntStr
+
+
 class DatasetConfig(BaseModel):
     """
     The basic configurations for all datasets.
