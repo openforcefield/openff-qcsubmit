@@ -155,7 +155,6 @@ class WBOFragmenter(FragmenterBase):
         result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
-
             fragment_factory = WBOFragmenter(
                 threshold=self.threshold,
                 keep_non_rotor_ring_substituents=self.keep_non_rotor_ring_substituents,
@@ -208,7 +207,6 @@ class PfizerFragmenter(FragmenterBase):
         result = self._create_result(toolkit_registry=toolkit_registry)
 
         for molecule in molecules:
-
             fragment_factory = PfizerFragmenter()
 
             try:

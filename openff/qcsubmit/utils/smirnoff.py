@@ -41,7 +41,6 @@ def smirnoff_coverage(
         ncols=80,
         disable=not verbose,
     ):
-
         full_labels = force_field.label_molecules(molecule.to_topology())[0]
 
         for handler_name, parameter_labels in full_labels.items():
@@ -94,7 +93,6 @@ def smirnoff_torsion_coverage(
         desc="Assigning Parameters",
         disable=not verbose,
     ):
-
         smiles = molecule.to_smiles(isomeric=False, mapped=False)
 
         if smiles in labelled_molecules:
@@ -113,7 +111,6 @@ def smirnoff_torsion_coverage(
         desc="Summarising",
         disable=not verbose,
     ):
-
         smiles = molecule.to_smiles(isomeric=False, mapped=False)
         full_labels = labelled_molecules[smiles]
 
@@ -127,7 +124,6 @@ def smirnoff_torsion_coverage(
 
         for handler_name, parameter_labels in full_labels.items():
             for indices, parameter in parameter_labels.items():
-
                 if handler_name not in {
                     "Bonds",
                     "Angles",

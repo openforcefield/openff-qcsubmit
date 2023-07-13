@@ -10,7 +10,6 @@ class QCSubmitException(Exception):
     header = "QCSubmit Base Error"
 
     def __init__(self, message: str):
-
         super().__init__(message)
 
         self.raw_message = message
@@ -130,7 +129,6 @@ class MolecularComplexError(QCSubmitException):
 
 
 class ConstraintError(QCSubmitException):
-
     error_type = "constraint_error"
     header = "Constraint Error"
 
