@@ -28,16 +28,13 @@ from openff.qcsubmit.results.results import _BaseResult
 
 
 class _FractalClient(BaseModel):
-
     address: str
 
 
 def _mock_molecule(entry: _BaseResult, n_conformers: int = 1) -> Molecule:
-
     molecule: Molecule = Molecule.from_smiles(entry.cmiles)
 
     for _ in range(n_conformers):
-
         molecule.add_conformer(
             numpy.arange(molecule.n_atoms * 3).reshape((molecule.n_atoms, 3))
             * unit.angstrom
@@ -47,7 +44,6 @@ def _mock_molecule(entry: _BaseResult, n_conformers: int = 1) -> Molecule:
 
 
 def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollection:
-
     collection = BasicResultCollection(
         entries={
             address: [
@@ -77,7 +73,7 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
                     status=RecordStatusEnum.complete,
                     client=_FractalClient(address=address),
                 ),
-                molecules[address][int(entry.record_id) - 1]
+                molecules[address][int(entry.record_id) - 1],
             )
             for address, entries in self.entries.items()
             for entry in entries
@@ -90,7 +86,6 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
 def mock_optimization_result_collection(
     molecules, monkeypatch
 ) -> OptimizationResultCollection:
-
     collection = OptimizationResultCollection(
         entries={
             address: [
@@ -138,7 +133,6 @@ def mock_optimization_result_collection(
 def mock_torsion_drive_result_collection(
     molecules, monkeypatch
 ) -> TorsionDriveResultCollection:
-
     collection = TorsionDriveResultCollection(
         entries={
             address: [
@@ -190,11 +184,9 @@ def mock_torsion_drive_result_collection(
     )
 
     def get_molecules(self):
-
         return_value = []
 
         for molecule_id in self.initial_molecule:
-
             molecule = copy.deepcopy(molecules[self.client.address][int(self.id) - 1])
             molecule._conformers = [molecule.conformers[int(molecule_id) - 1]]
 

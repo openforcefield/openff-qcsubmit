@@ -9,10 +9,13 @@ from openff.qcsubmit.common_structures import PCMSettings, QCSpec
 from openff.qcsubmit.exceptions import PCMSettingError, QCSpecificationError
 
 
-@pytest.mark.parametrize("data", [
-    pytest.param(("ANGSTROM", None), id="angstrom"),
-    pytest.param(("bohr", PCMSettingError), id="Bhor not supported")
-])
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(("ANGSTROM", None), id="angstrom"),
+        pytest.param(("bohr", PCMSettingError), id="Bhor not supported"),
+    ],
+)
 def test_pcm_units(data):
     """
     Make sure proper units are validated.
@@ -27,10 +30,13 @@ def test_pcm_units(data):
         assert pcm.medium_Solvent == "H2O"
 
 
-@pytest.mark.parametrize("data", [
-    pytest.param((1998, None), id="1998"),
-    pytest.param((2020, PCMSettingError), id="2020 not valid.")
-])
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param((1998, None), id="1998"),
+        pytest.param((2020, PCMSettingError), id="2020 not valid."),
+    ],
+)
 def test_pcm_codata(data):
     """
     Make sure an accptable codata value is passed and an error is raised if not.
@@ -58,10 +64,13 @@ def test_pcm_cavity():
     assert pcm.cavity_Type == "GePol"
 
 
-@pytest.mark.parametrize("data", [
-    pytest.param(("uff", None), id="UFF"),
-    pytest.param(("openff", PCMSettingError), id="Openff error")
-])
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(("uff", None), id="UFF"),
+        pytest.param(("openff", PCMSettingError), id="Openff error"),
+    ],
+)
 def test_pcm_radiisets(data):
     """
     Make sure only valid radii are allowed
@@ -89,10 +98,13 @@ def test_pcm_cavity_mode():
     assert pcm.cavity_Mode == "Implicit"
 
 
-@pytest.mark.parametrize("data", [
-    pytest.param(("IEFPCM", None), id="IEFPCM"),
-    pytest.param(("BadSolver", PCMSettingError), id="BadSolver error")
-])
+@pytest.mark.parametrize(
+    "data",
+    [
+        pytest.param(("IEFPCM", None), id="IEFPCM"),
+        pytest.param(("BadSolver", PCMSettingError), id="BadSolver error"),
+    ],
+)
 def test_pcm_solver(data):
     """
     Make sure only IEFPCM and CPCM solvers are allowed.
@@ -100,19 +112,24 @@ def test_pcm_solver(data):
     solver, error = data
     if error is not None:
         with pytest.raises(error):
-            _ = PCMSettings(units="au", medium_Solvent="water", medium_SolverType=solver)
+            _ = PCMSettings(
+                units="au", medium_Solvent="water", medium_SolverType=solver
+            )
     else:
         pcm = PCMSettings(units="au", medium_Solvent="water", medium_SolverType=solver)
         assert pcm.medium_SolverType == solver
 
 
-@pytest.mark.parametrize("solvent_data", [
-    pytest.param(("Water", "H2O", None), id="Water"),
-    pytest.param(("DMSO", "DMSO", None), id="DMSO"),
-    pytest.param(("1,2-dichloroethane", "C2H4CL2", None), id="1,2-dichloroethane"),
-    pytest.param(("THF", "THF", None), id="THF"),
-    pytest.param(("explicit", "explicit", PCMSettingError), id="Bad solvent")
-])
+@pytest.mark.parametrize(
+    "solvent_data",
+    [
+        pytest.param(("Water", "H2O", None), id="Water"),
+        pytest.param(("DMSO", "DMSO", None), id="DMSO"),
+        pytest.param(("1,2-dichloroethane", "C2H4CL2", None), id="1,2-dichloroethane"),
+        pytest.param(("THF", "THF", None), id="THF"),
+        pytest.param(("explicit", "explicit", PCMSettingError), id="Bad solvent"),
+    ],
+)
 def test_pcm_solvent(solvent_data):
     """
     Make sure solvents can be accepted as either names or chemical formula but are always converted to formula.
@@ -139,7 +156,7 @@ def test_pcm_unit_conversion_defaults():
 
     pcm2 = PCMSettings(units="angstrom", medium_Solvent="water")
     assert pcm2.medium_ProbeRadius == pcm.medium_ProbeRadius * constants.bohr2angstroms
-    assert pcm2.cavity_Area == pcm.cavity_Area * constants.bohr2angstroms ** 2
+    assert pcm2.cavity_Area == pcm.cavity_Area * constants.bohr2angstroms**2
     assert pcm2.cavity_MinRadius == pcm.cavity_MinRadius * constants.bohr2angstroms
 
 
@@ -161,7 +178,10 @@ def test_pcm_default_string():
 
     pcm = PCMSettings(units="au", medium_Solvent="Water")
 
-    assert pcm.to_string() == '\n        Units = au\n        CODATA = 2010\n        Medium {\n     SolverType = IEFPCM\n     Nonequilibrium = False\n     Solvent = H2O\n     MatrixSymm = True\n     Correction = 0.0\n     DiagonalScaling = 1.07\n     ProbeRadius = 1.0}\n        Cavity {\n     Type = GePol\n     Area = 0.3\n     Scaling = True\n     RadiiSet = Bondi\n     MinRadius = 100\n     Mode = Implicit}'
+    assert (
+        pcm.to_string()
+        == "\n        Units = au\n        CODATA = 2010\n        Medium {\n     SolverType = IEFPCM\n     Nonequilibrium = False\n     Solvent = H2O\n     MatrixSymm = True\n     Correction = 0.0\n     DiagonalScaling = 1.07\n     ProbeRadius = 1.0}\n        Cavity {\n     Type = GePol\n     Area = 0.3\n     Scaling = True\n     RadiiSet = Bondi\n     MinRadius = 100\n     Mode = Implicit}"
+    )
 
 
 def test_qcspec_with_solvent():
@@ -171,7 +191,14 @@ def test_qcspec_with_solvent():
 
     # make sure an error is raised with any program that is not psi4
     with pytest.raises(QCSpecificationError):
-        _ = QCSpec(method="ani2x", basis=None, program="torchani", spec_name="ani2x", spec_description="testing ani with solvent", implicit_solvent=PCMSettings(units="au", medium_Solvent="water"))
+        _ = QCSpec(
+            method="ani2x",
+            basis=None,
+            program="torchani",
+            spec_name="ani2x",
+            spec_description="testing ani with solvent",
+            implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
+        )
 
     # now try with PSI4
     qc_spec = QCSpec(implicit_solvent=PCMSettings(units="au", medium_Solvent="water"))

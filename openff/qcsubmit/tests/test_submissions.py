@@ -30,11 +30,30 @@ from openff.qcsubmit.factories import (
 from openff.qcsubmit.utils import get_data
 
 
-@pytest.mark.parametrize("specification", [
-    pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "energy"), id="PSI4 hf 3-21g energy"),
-    pytest.param(({"method": "smirnoff99Frosst-1.1.0", "basis": "smirnoff", "program": "openmm"}, "energy"), id="SMIRNOFF smirnoff99Frosst-1.1.0 energy"),
-    pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit UFF gradient")
-])
+@pytest.mark.parametrize(
+    "specification",
+    [
+        pytest.param(
+            ({"method": "hf", "basis": "3-21g", "program": "psi4"}, "energy"),
+            id="PSI4 hf 3-21g energy",
+        ),
+        pytest.param(
+            (
+                {
+                    "method": "smirnoff99Frosst-1.1.0",
+                    "basis": "smirnoff",
+                    "program": "openmm",
+                },
+                "energy",
+            ),
+            id="SMIRNOFF smirnoff99Frosst-1.1.0 energy",
+        ),
+        pytest.param(
+            ({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"),
+            id="RDKit UFF gradient",
+        ),
+    ],
+)
 def test_basic_submissions_single_spec(fractal_compute_server, specification):
     """Test submitting a basic dataset to a snowflake server."""
 
@@ -49,15 +68,19 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver=driver)
-    factory.add_qc_spec(**qc_spec, spec_name="default",
-                        spec_description="testing the single points",
-                        overwrite=True)
+    factory.add_qc_spec(
+        **qc_spec,
+        spec_name="default",
+        spec_description="testing the single points",
+        overwrite=True,
+    )
 
-    dataset = factory.create_dataset(dataset_name=f"Test single points info {program}, {driver}",
-                                     molecules=molecules,
-                                     description="Test basics dataset",
-                                     tagline="Testing single point datasets",
-                                     )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test single points info {program}, {driver}",
+        molecules=molecules,
+        description="Test basics dataset",
+        tagline="Testing single point datasets",
+    )
 
     # force a metadata validation error
     dataset.metadata.long_description = None
@@ -100,7 +123,9 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
         assert basis == spec.basis
         break
     else:
-        raise RuntimeError(f"The requested compute was not found in the history {ds.data.history}")
+        raise RuntimeError(
+            f"The requested compute was not found in the history {ds.data.history}"
+        )
 
     for spec in dataset.qc_specifications.values():
         query = ds.get_records(
@@ -122,23 +147,34 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
 
     client = FractalClient(fractal_compute_server)
 
-    qc_specs = [{"method": "openff-1.0.0", "basis": "smirnoff", "program": "openmm", "spec_name": "openff"},
-                {"method": "gaff-2.11", "basis": "antechamber", "program": "openmm", "spec_name": "gaff"}]
+    qc_specs = [
+        {
+            "method": "openff-1.0.0",
+            "basis": "smirnoff",
+            "program": "openmm",
+            "spec_name": "openff",
+        },
+        {
+            "method": "gaff-2.11",
+            "basis": "antechamber",
+            "program": "openmm",
+            "spec_name": "gaff",
+        },
+    ]
 
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
     factory.clear_qcspecs()
     for spec in qc_specs:
-        factory.add_qc_spec(**spec,
-                            spec_description="testing the single points"
-                            )
+        factory.add_qc_spec(**spec, spec_description="testing the single points")
 
-    dataset = factory.create_dataset(dataset_name="Test single points multiple specs",
-                                     molecules=molecules,
-                                     description="Test basics dataset",
-                                     tagline="Testing single point datasets",
-                                     )
+    dataset = factory.create_dataset(
+        dataset_name="Test single points multiple specs",
+        molecules=molecules,
+        description="Test basics dataset",
+        tagline="Testing single point datasets",
+    )
 
     # force a metadata validation error
     dataset.metadata.long_description = None
@@ -207,17 +243,23 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
-    factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="default",
-                        spec_description="testing the single points with pcm",
-                        implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
-                        overwrite=True)
+    factory.add_qc_spec(
+        method="hf",
+        basis="sto-3g",
+        program=program,
+        spec_name="default",
+        spec_description="testing the single points with pcm",
+        implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
+        overwrite=True,
+    )
 
     # only use one molecule due to the time it takes to run with pcm
-    dataset = factory.create_dataset(dataset_name="Test single points with pcm water",
-                                     molecules=molecules[0],
-                                     description="Test basics dataset with pcm water",
-                                     tagline="Testing single point datasets with pcm water",
-                                     )
+    dataset = factory.create_dataset(
+        dataset_name="Test single points with pcm water",
+        molecules=molecules[0],
+        description="Test basics dataset with pcm water",
+        tagline="Testing single point datasets with pcm water",
+    )
 
     # force a metadata validation error
     dataset.metadata.long_description = None
@@ -260,7 +302,9 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
         assert basis == spec.basis
         break
     else:
-        raise RuntimeError(f"The requested compute was not found in the history {ds.data.history}")
+        raise RuntimeError(
+            f"The requested compute was not found in the history {ds.data.history}"
+        )
 
     for spec in dataset.qc_specifications.values():
         query = ds.get_records(
@@ -289,13 +333,21 @@ def test_adding_specifications(fractal_compute_server):
     mol = Molecule.from_smiles("CO")
     # make a dataset
     factory = OptimizationDatasetFactory()
-    opt_dataset = factory.create_dataset(dataset_name="Specification error check", molecules=mol,
-                                         description="test adding new compute specs to datasets",
-                                         tagline="test adding new compute specs")
+    opt_dataset = factory.create_dataset(
+        dataset_name="Specification error check",
+        molecules=mol,
+        description="test adding new compute specs to datasets",
+        tagline="test adding new compute specs",
+    )
     opt_dataset.clear_qcspecs()
     # add a new mm spec
-    opt_dataset.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm",
-                            spec_description="default openff spec", spec_name="openff-1.0.0")
+    opt_dataset.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_description="default openff spec",
+        spec_name="openff-1.0.0",
+    )
 
     # submit the optimizations and let the compute run
     opt_dataset.submit(client=client)
@@ -306,42 +358,82 @@ def test_adding_specifications(fractal_compute_server):
     ds = client.get_collection(opt_dataset.type, opt_dataset.dataset_name)
 
     # now try and add the specification again this should return True
-    assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
-                                                  procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                  dataset=ds) is True
+    assert (
+        opt_dataset._add_dataset_specification(
+            spec=opt_dataset.qc_specifications["openff-1.0.0"],
+            procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+            dataset=ds,
+        )
+        is True
+    )
 
     # now change part of the spec but keep the name the same
     opt_dataset.clear_qcspecs()
-    opt_dataset.add_qc_spec(method="openff-1.2.1", basis="smirnoff", spec_name="openff-1.0.0", program="openmm",
-                            spec_description="openff-1.2.1 with wrong name.")
+    opt_dataset.add_qc_spec(
+        method="openff-1.2.1",
+        basis="smirnoff",
+        spec_name="openff-1.0.0",
+        program="openmm",
+        spec_description="openff-1.2.1 with wrong name.",
+    )
 
     # now try and add this specification with the same name but different settings
     with pytest.raises(QCSpecificationError):
-        opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["openff-1.0.0"],
-                                               procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                               dataset=ds)
+        opt_dataset._add_dataset_specification(
+            spec=opt_dataset.qc_specifications["openff-1.0.0"],
+            procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+            dataset=ds,
+        )
 
     # now add a new specification but no compute and make sure it is overwritten
     opt_dataset.clear_qcspecs()
-    opt_dataset.add_qc_spec(method="ani1x", basis=None, program="torchani", spec_name="ani", spec_description="a ani spec")
-    assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
-                                                  procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                  dataset=ds) is True
+    opt_dataset.add_qc_spec(
+        method="ani1x",
+        basis=None,
+        program="torchani",
+        spec_name="ani",
+        spec_description="a ani spec",
+    )
+    assert (
+        opt_dataset._add_dataset_specification(
+            spec=opt_dataset.qc_specifications["ani"],
+            procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+            dataset=ds,
+        )
+        is True
+    )
 
     # now change the spec slightly and add again
     opt_dataset.clear_qcspecs()
-    opt_dataset.add_qc_spec(method="ani1ccx", basis=None, program="torchani", spec_name="ani",
-                            spec_description="a ani spec")
-    assert opt_dataset._add_dataset_specification(spec=opt_dataset.qc_specifications["ani"],
-                                                  procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-                                                  dataset=ds) is True
+    opt_dataset.add_qc_spec(
+        method="ani1ccx",
+        basis=None,
+        program="torchani",
+        spec_name="ani",
+        spec_description="a ani spec",
+    )
+    assert (
+        opt_dataset._add_dataset_specification(
+            spec=opt_dataset.qc_specifications["ani"],
+            procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
+            dataset=ds,
+        )
+        is True
+    )
 
 
-@pytest.mark.parametrize("dataset_data", [
-    pytest.param((BasicDatasetFactory, BasicDataset), id="Dataset"),
-    pytest.param((OptimizationDatasetFactory, OptimizationDataset), id="OptimizationDataset"),
-    pytest.param((TorsiondriveDatasetFactory, TorsiondriveDataset), id="TorsiondriveDataset")
-])
+@pytest.mark.parametrize(
+    "dataset_data",
+    [
+        pytest.param((BasicDatasetFactory, BasicDataset), id="Dataset"),
+        pytest.param(
+            (OptimizationDatasetFactory, OptimizationDataset), id="OptimizationDataset"
+        ),
+        pytest.param(
+            (TorsiondriveDatasetFactory, TorsiondriveDataset), id="TorsiondriveDataset"
+        ),
+    ],
+)
 def test_adding_compute(fractal_compute_server, dataset_data):
     """
     Test adding new compute to each of the dataset types using none psi4 programs.
@@ -352,15 +444,19 @@ def test_adding_compute(fractal_compute_server, dataset_data):
     # make and clear out the qc specs
     factory = factory_type()
     factory.clear_qcspecs()
-    factory.add_qc_spec(method="openff-1.0.0",
-                        basis="smirnoff",
-                        program="openmm",
-                        spec_name="default",
-                        spec_description="default spec for openff")
-    dataset = factory.create_dataset(dataset_name=f"Test adding compute to {factory_type}",
-                                     molecules=mol,
-                                     description=f"Testing adding compute to a {dataset_type} dataset",
-                                     tagline="tests for adding compute.")
+    factory.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="default",
+        spec_description="default spec for openff",
+    )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test adding compute to {factory_type}",
+        molecules=mol,
+        description=f"Testing adding compute to a {dataset_type} dataset",
+        tagline="tests for adding compute.",
+    )
 
     # now submit again
     dataset.submit(client=client)
@@ -370,14 +466,21 @@ def test_adding_compute(fractal_compute_server, dataset_data):
 
     # now lets make a dataset with new compute and submit it
     # transfer the metadata to compare the elements
-    compute_dataset = dataset_type(dataset_name=dataset.dataset_name, metadata=dataset.metadata, dataset_tagline=dataset.dataset_tagline, description=dataset.description)
+    compute_dataset = dataset_type(
+        dataset_name=dataset.dataset_name,
+        metadata=dataset.metadata,
+        dataset_tagline=dataset.dataset_tagline,
+        description=dataset.description,
+    )
     compute_dataset.clear_qcspecs()
     # now add the new compute spec
-    compute_dataset.add_qc_spec(method="uff",
-                                basis=None,
-                                program="rdkit",
-                                spec_name="rdkit",
-                                spec_description="rdkit basic spec")
+    compute_dataset.add_qc_spec(
+        method="uff",
+        basis=None,
+        program="rdkit",
+        spec_name="rdkit",
+        spec_description="rdkit basic spec",
+    )
 
     # make sure the dataset has no molecules and submit it
     assert compute_dataset.dataset == {}
@@ -463,18 +566,21 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
 
     factory = BasicDatasetFactory(driver="energy")
     factory.clear_qcspecs()
-    factory.add_qc_spec(method="hf",
-                        basis="sto-6g",
-                        program="psi4",
-                        spec_name="default",
-                        spec_description="wavefunction spec",
-                        store_wavefunction="orbitals_and_eigenvalues")
+    factory.add_qc_spec(
+        method="hf",
+        basis="sto-6g",
+        program="psi4",
+        spec_name="default",
+        spec_description="wavefunction spec",
+        store_wavefunction="orbitals_and_eigenvalues",
+    )
 
-    dataset = factory.create_dataset(dataset_name="Test single points with wavefunction",
-                                     molecules=molecules,
-                                     description="Test basics dataset",
-                                     tagline="Testing single point datasets with wavefunction",
-                                     )
+    dataset = factory.create_dataset(
+        dataset_name="Test single points with wavefunction",
+        molecules=molecules,
+        description="Test basics dataset",
+        tagline="Testing single point datasets with wavefunction",
+    )
 
     # submit the dataset
     # now submit again
@@ -531,13 +637,28 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     """
     client = FractalClient(fractal_compute_server)
     ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
-    dataset = OptimizationDataset(dataset_name="Test optimizations with constraint", description="Test optimization dataset with constraints", dataset_tagline="Testing optimization datasets")
+    dataset = OptimizationDataset(
+        dataset_name="Test optimizations with constraint",
+        description="Test optimization dataset with constraints",
+        dataset_tagline="Testing optimization datasets",
+    )
     # add just mm spec
-    dataset.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default", spec_description="mm default spec", overwrite=True)
+    dataset.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="default",
+        spec_description="mm default spec",
+        overwrite=True,
+    )
     # build some constraints
     constraints = Constraints()
-    constraints.add_set_constraint(constraint_type="dihedral", indices=[2, 0, 1, 5], value=60, bonded=True)
-    constraints.add_freeze_constraint(constraint_type="distance", indices=[0, 1], bonded=True)
+    constraints.add_set_constraint(
+        constraint_type="dihedral", indices=[2, 0, 1, 5], value=60, bonded=True
+    )
+    constraints.add_freeze_constraint(
+        constraint_type="distance", indices=[0, 1], bonded=True
+    )
     # add the molecule
     index = ethane.to_smiles()
     dataset.add_molecule(index=index, molecule=ethane, constraints=constraints)
@@ -558,14 +679,35 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     # now make sure the constraints worked
     final_molecule = record.get_final_molecule()
     assert pytest.approx(final_molecule.measure((2, 0, 1, 5)), abs=1e-2) == 60
-    assert record.get_initial_molecule().measure((0, 1)) == pytest.approx(final_molecule.measure((0, 1)))
+    assert record.get_initial_molecule().measure((0, 1)) == pytest.approx(
+        final_molecule.measure((0, 1))
+    )
 
 
-@pytest.mark.parametrize("specification", [
-    pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "gradient"), id="PSI4 hf 3-21g gradient"),
-    pytest.param(({"method": "openff_unconstrained-1.0.0", "basis": "smirnoff", "program": "openmm"}, "gradient"), id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
-    pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit UFF gradient")
-])
+@pytest.mark.parametrize(
+    "specification",
+    [
+        pytest.param(
+            ({"method": "hf", "basis": "3-21g", "program": "psi4"}, "gradient"),
+            id="PSI4 hf 3-21g gradient",
+        ),
+        pytest.param(
+            (
+                {
+                    "method": "openff_unconstrained-1.0.0",
+                    "basis": "smirnoff",
+                    "program": "openmm",
+                },
+                "gradient",
+            ),
+            id="SMIRNOFF openff_unconstrained-1.0.0 gradient",
+        ),
+        pytest.param(
+            ({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"),
+            id="RDKit UFF gradient",
+        ),
+    ],
+)
 def test_optimization_submissions(fractal_compute_server, specification):
     """Test submitting an Optimization dataset to a snowflake server."""
 
@@ -579,13 +721,16 @@ def test_optimization_submissions(fractal_compute_server, specification):
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = OptimizationDatasetFactory(driver=driver)
-    factory.add_qc_spec(**qc_spec, spec_name="default", spec_description="test", overwrite=True)
+    factory.add_qc_spec(
+        **qc_spec, spec_name="default", spec_description="test", overwrite=True
+    )
 
-    dataset = factory.create_dataset(dataset_name=f"Test optimizations info {program}, {driver}",
-                                     molecules=molecules[:2],
-                                     description="Test optimization dataset",
-                                     tagline="Testing optimization datasets",
-                                     )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test optimizations info {program}, {driver}",
+        molecules=molecules[:2],
+        description="Test optimization dataset",
+        tagline="Testing optimization datasets",
+    )
 
     # force a metadata validation error
     dataset.metadata.long_description = None
@@ -655,15 +800,22 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
     molecules = Molecule.from_smiles("C")
 
     factory = OptimizationDatasetFactory(driver="gradient")
-    factory.add_qc_spec(method="hf", basis="sto-3g", program=program, spec_name="default", spec_description="test",
-                        implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
-                        overwrite=True)
+    factory.add_qc_spec(
+        method="hf",
+        basis="sto-3g",
+        program=program,
+        spec_name="default",
+        spec_description="test",
+        implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
+        overwrite=True,
+    )
 
-    dataset = factory.create_dataset(dataset_name="Test optimizations info with pcm water",
-                                     molecules=molecules,
-                                     description="Test optimization dataset",
-                                     tagline="Testing optimization datasets",
-                                     )
+    dataset = factory.create_dataset(
+        dataset_name="Test optimizations info with pcm water",
+        molecules=molecules,
+        description="Test optimization dataset",
+        tagline="Testing optimization datasets",
+    )
 
     # force a metadata validation error
     dataset.metadata.long_description = None
@@ -732,16 +884,24 @@ def test_torsiondrive_scan_keywords(fractal_compute_server):
     scan_enum.add_torsion_scan(smarts="[*:1]~[#6:2]-[#8:3]~[*:4]")
     factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
-    factory.add_qc_spec(method="openff_unconstrained-1.1.0", basis="smirnoff", program="openmm", spec_description="scan range test", spec_name="openff-1.1.0")
-    dataset = factory.create_dataset(dataset_name="Torsiondrive scan keywords", molecules=molecules,
-                                     description="Testing scan keywords which overwrite the global settings",
-                                     tagline="Testing scan keywords which overwrite the global settings")
+    factory.add_qc_spec(
+        method="openff_unconstrained-1.1.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_description="scan range test",
+        spec_name="openff-1.1.0",
+    )
+    dataset = factory.create_dataset(
+        dataset_name="Torsiondrive scan keywords",
+        molecules=molecules,
+        description="Testing scan keywords which overwrite the global settings",
+        tagline="Testing scan keywords which overwrite the global settings",
+    )
 
     # now set the keywords
     keys = list(dataset.dataset.keys())
     entry = dataset.dataset[keys[0]]
-    entry.keywords = {"grid_spacing": [5],
-                      "dihedral_ranges": [(-10, 10)]}
+    entry.keywords = {"grid_spacing": [5], "dihedral_ranges": [(-10, 10)]}
 
     # now submit
     dataset.submit(client=client)
@@ -765,15 +925,35 @@ def test_torsiondrive_constraints(fractal_compute_server):
 
     client = FractalClient(fractal_compute_server)
     molecule = Molecule.from_file(get_data("TRP.mol2"))
-    dataset = TorsiondriveDataset(dataset_name="Torsiondrive constraints", dataset_tagline="Testing torsiondrive constraints", description="Testing torsiondrive constraints.")
+    dataset = TorsiondriveDataset(
+        dataset_name="Torsiondrive constraints",
+        dataset_tagline="Testing torsiondrive constraints",
+        description="Testing torsiondrive constraints.",
+    )
     dataset.clear_qcspecs()
-    dataset.add_qc_spec(method="uff", basis=None, program="rdkit", spec_name="uff", spec_description="tdrive constraints")
+    dataset.add_qc_spec(
+        method="uff",
+        basis=None,
+        program="rdkit",
+        spec_name="uff",
+        spec_description="tdrive constraints",
+    )
     # use a restricted range to keep the scan fast
-    dataset.add_molecule(index="1", molecule=molecule, attributes=MoleculeAttributes.from_openff_molecule(molecule=molecule), dihedrals=[(4, 6, 8, 28)], keywords={"dihedral_ranges": [(-165, -145)]})
+    dataset.add_molecule(
+        index="1",
+        molecule=molecule,
+        attributes=MoleculeAttributes.from_openff_molecule(molecule=molecule),
+        dihedrals=[(4, 6, 8, 28)],
+        keywords={"dihedral_ranges": [(-165, -145)]},
+    )
     entry = dataset.dataset["1"]
     # add the constraints
-    entry.add_constraint(constraint="freeze", constraint_type="dihedral", indices=[6, 8, 10, 13])
-    entry.add_constraint(constraint="freeze", constraint_type="dihedral", indices=[8, 10, 13, 14])
+    entry.add_constraint(
+        constraint="freeze", constraint_type="dihedral", indices=[6, 8, 10, 13]
+    )
+    entry.add_constraint(
+        constraint="freeze", constraint_type="dihedral", indices=[8, 10, 13, 14]
+    )
 
     dataset.submit(client=client, processes=1)
     fractal_compute_server.await_services(max_iter=50)
@@ -782,7 +962,7 @@ def test_torsiondrive_constraints(fractal_compute_server):
     ds = client.get_collection("TorsionDriveDataset", dataset.dataset_name)
 
     record = ds.get_record(ds.df.index[0], "uff")
-    opt = client.query_procedures(id=record.optimization_history['[-150]'])[0]
+    opt = client.query_procedures(id=record.optimization_history["[-150]"])[0]
     constraints = opt.keywords["constraints"]
     # make sure both the freeze and set constraints are passed on
     assert "set" in constraints
@@ -791,13 +971,31 @@ def test_torsiondrive_constraints(fractal_compute_server):
     assert len(constraints["freeze"]) == 2
     assert constraints["freeze"][0]["indices"] == [6, 8, 10, 13]
     # make sure the dihedral has not changed
-    assert pytest.approx(opt.get_initial_molecule().measure((6, 8, 10, 13))) == opt.get_final_molecule().measure((6, 8, 10, 13))
+    assert pytest.approx(
+        opt.get_initial_molecule().measure((6, 8, 10, 13))
+    ) == opt.get_final_molecule().measure((6, 8, 10, 13))
 
 
-@pytest.mark.parametrize("specification", [
-    pytest.param(({"method": "openff_unconstrained-1.1.0", "basis": "smirnoff", "program": "openmm"}, "gradient"), id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
-    pytest.param(({"method": "mmff94", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit mmff94 gradient")
-])
+@pytest.mark.parametrize(
+    "specification",
+    [
+        pytest.param(
+            (
+                {
+                    "method": "openff_unconstrained-1.1.0",
+                    "basis": "smirnoff",
+                    "program": "openmm",
+                },
+                "gradient",
+            ),
+            id="SMIRNOFF openff_unconstrained-1.0.0 gradient",
+        ),
+        pytest.param(
+            ({"method": "mmff94", "basis": None, "program": "rdkit"}, "gradient"),
+            id="RDKit mmff94 gradient",
+        ),
+    ],
+)
 def test_torsiondrive_submissions(fractal_compute_server, specification):
     """
     Test submitting a torsiondrive dataset and computing it.
@@ -813,13 +1011,16 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
     molecules = Molecule.from_smiles("CO")
 
     factory = TorsiondriveDatasetFactory(driver=driver)
-    factory.add_qc_spec(**qc_spec, spec_name="default", spec_description="test", overwrite=True)
+    factory.add_qc_spec(
+        **qc_spec, spec_name="default", spec_description="test", overwrite=True
+    )
 
-    dataset = factory.create_dataset(dataset_name=f"Test torsiondrives info {program}, {driver}",
-                                     molecules=molecules,
-                                     description="Test torsiondrive dataset",
-                                     tagline="Testing torsiondrive datasets",
-                                     )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test torsiondrives info {program}, {driver}",
+        molecules=molecules,
+        description="Test torsiondrive dataset",
+        tagline="Testing torsiondrive datasets",
+    )
 
     # force a metadata validation error
     dataset.metadata.long_description = None
@@ -872,11 +1073,18 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
             assert len(record.final_energy_dict) == 24
 
 
-@pytest.mark.parametrize("factory_type", [
-    pytest.param(BasicDatasetFactory, id="BasicDataset ignore_errors"),
-    pytest.param(OptimizationDatasetFactory, id="OptimizationDataset ignore_errors"),
-    pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset ignore_errors"),
-])
+@pytest.mark.parametrize(
+    "factory_type",
+    [
+        pytest.param(BasicDatasetFactory, id="BasicDataset ignore_errors"),
+        pytest.param(
+            OptimizationDatasetFactory, id="OptimizationDataset ignore_errors"
+        ),
+        pytest.param(
+            TorsiondriveDatasetFactory, id="TorsiondriveDataset ignore_errors"
+        ),
+    ],
+)
 def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys):
     """
     For each dataset make sure that when the basis is not fully covered the dataset raises warning errors, and verbose information
@@ -890,12 +1098,19 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
     factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     # add only mm specs
-    factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test ignore_error for {factory.type}",
-                                     molecules=molecule,
-                                     description="Test ignore errors dataset",
-                                     tagline="Testing ignore errors datasets",
-                                     )
+    factory.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="parsley",
+        spec_description="standard parsley spec",
+    )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test ignore_error for {factory.type}",
+        molecules=molecule,
+        description="Test ignore errors dataset",
+        tagline="Testing ignore errors datasets",
+    )
 
     # make sure the dataset raises an error here
     with pytest.raises(MissingBasisCoverageError):
@@ -906,13 +1121,18 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
         dataset.submit(client=client, ignore_errors=True, verbose=True)
 
     info = capsys.readouterr()
-    assert info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
+    assert (
+        info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
+    )
 
 
-@pytest.mark.parametrize("factory_type", [
-    pytest.param(BasicDatasetFactory, id="Basicdataset"),
-    pytest.param(OptimizationDatasetFactory, id="Optimizationdataset")
-])
+@pytest.mark.parametrize(
+    "factory_type",
+    [
+        pytest.param(BasicDatasetFactory, id="Basicdataset"),
+        pytest.param(OptimizationDatasetFactory, id="Optimizationdataset"),
+    ],
+)
 def test_index_not_changed(fractal_compute_server, factory_type):
     """
     Make sure that when we submit molecules from a dataset/optimizationdataset with one input conformer that the index is not changed.
@@ -921,17 +1141,23 @@ def test_index_not_changed(fractal_compute_server, factory_type):
     factory.clear_qcspecs()
     client = FractalClient(fractal_compute_server)
     # add only mm specs
-    factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley",
-                        spec_description="standard parsley spec")
+    factory.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="parsley",
+        spec_description="standard parsley spec",
+    )
 
     molecule = Molecule.from_smiles("C")
     # make sure we only have one conformer
     molecule.generate_conformers(n_conformers=1)
-    dataset = factory.create_dataset(dataset_name=f"Test index change for {factory.type}",
-                                     molecules=molecule,
-                                     description="Test index change dataset",
-                                     tagline="Testing index changes datasets",
-                                     )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test index change for {factory.type}",
+        molecules=molecule,
+        description="Test index change dataset",
+        tagline="Testing index changes datasets",
+    )
 
     # now change the index name to something unique
     entry = dataset.dataset.pop(list(dataset.dataset.keys())[0])
@@ -944,16 +1170,21 @@ def test_index_not_changed(fractal_compute_server, factory_type):
     ds = client.get_collection(dataset.type, dataset.dataset_name)
 
     if dataset.type == "DataSet":
-        query = ds.get_records(method="openff-1.0.0", basis="smirnoff", program="openmm")
+        query = ds.get_records(
+            method="openff-1.0.0", basis="smirnoff", program="openmm"
+        )
         assert "my_unique_index" in query.index
     else:
         assert "my_unique_index" in ds.df.index
 
 
-@pytest.mark.parametrize("factory_type", [
-    pytest.param(OptimizationDatasetFactory, id="OptimizationDataset index clash"),
-    pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset index clash"),
-])
+@pytest.mark.parametrize(
+    "factory_type",
+    [
+        pytest.param(OptimizationDatasetFactory, id="OptimizationDataset index clash"),
+        pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset index clash"),
+    ],
+)
 def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys):
     """
     Make sure that the new entries is not incremented if we can not add a molecule to the server due to a name clash.
@@ -968,30 +1199,52 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
     factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     # add only mm specs
-    factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley", spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test index clash for {factory.type}",
-                                     molecules=molecule,
-                                     description="Test ignore errors dataset",
-                                     tagline="Testing ignore errors datasets",
-                                     )
+    factory.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="parsley",
+        spec_description="standard parsley spec",
+    )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test index clash for {factory.type}",
+        molecules=molecule,
+        description="Test ignore errors dataset",
+        tagline="Testing ignore errors datasets",
+    )
 
     # make sure all expected index get submitted
     dataset.submit(client=client, verbose=True)
     info = capsys.readouterr()
-    assert info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
+    assert (
+        info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
+    )
 
     # now add a new spec and try and submit again
     dataset.clear_qcspecs()
-    dataset.add_qc_spec(method="mmff94", basis=None, program="rdkit", spec_name="mff94", spec_description="mff94 force field in rdkit")
+    dataset.add_qc_spec(
+        method="mmff94",
+        basis=None,
+        program="rdkit",
+        spec_name="mff94",
+        spec_description="mff94 force field in rdkit",
+    )
     dataset.submit(client=client, verbose=True)
     info = capsys.readouterr()
     assert info.out == f"Number of new entries: 0/{dataset.n_records}\n"
 
 
-@pytest.mark.parametrize("factory_type", [
-    pytest.param(OptimizationDatasetFactory, id="OptimizationDataset expand compute"),
-    pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset expand compute"),
-])
+@pytest.mark.parametrize(
+    "factory_type",
+    [
+        pytest.param(
+            OptimizationDatasetFactory, id="OptimizationDataset expand compute"
+        ),
+        pytest.param(
+            TorsiondriveDatasetFactory, id="TorsiondriveDataset expand compute"
+        ),
+    ],
+)
 def test_expanding_compute(fractal_compute_server, factory_type):
     """
     Make sure that if we expand the compute of a dataset tasks are generated.
@@ -1005,13 +1258,19 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     # add only mm specs
-    factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="default",
-                        spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.type}",
-                                     molecules=molecule,
-                                     description="Test compute expansion",
-                                     tagline="Testing compute expansion",
-                                     )
+    factory.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="default",
+        spec_description="standard parsley spec",
+    )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test compute expand {factory.type}",
+        molecules=molecule,
+        description="Test compute expansion",
+        tagline="Testing compute expansion",
+    )
 
     # make sure all expected index get submitted
     dataset.submit(client=client)
@@ -1022,13 +1281,19 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     # now make another dataset to expand the compute
     factory.clear_qcspecs()
     # add only mm specs
-    factory.add_qc_spec(method="openff-1.2.0", basis="smirnoff", program="openmm", spec_name="parsley2",
-                        spec_description="standard parsley spec")
-    dataset = factory.create_dataset(dataset_name=f"Test compute expand {factory.type}",
-                                     molecules=[],
-                                     description="Test compute expansion",
-                                     tagline="Testing compute expansion",
-                                     )
+    factory.add_qc_spec(
+        method="openff-1.2.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="parsley2",
+        spec_description="standard parsley spec",
+    )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test compute expand {factory.type}",
+        molecules=[],
+        description="Test compute expansion",
+        tagline="Testing compute expansion",
+    )
     # now submit again
     dataset.submit(client=client)
 
