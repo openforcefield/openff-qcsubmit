@@ -783,8 +783,8 @@ def test_optimization_submissions(fractal_compute_server, specification):
             # if we used psi4 make sure the properties were captured
             if program == "psi4":
                 result = record.get_trajectory()[0]
-                assert "CURRENT DIPOLE X" in result.extras["qcvars"].keys()
-                assert "SCF QUADRUPOLE XX" in result.extras["qcvars"].keys()
+                assert "SCF DIPOLE" in result.extras["qcvars"].keys()
+                assert "SCF QUADRUPOLE" in result.extras["qcvars"].keys()
 
 
 def test_optimization_submissions_with_pcm(fractal_compute_server):
