@@ -30,16 +30,18 @@ from openff.qcsubmit.factories import (
 )
 from openff.qcsubmit.utils import get_data
 
-def await_results(fulltest_client):
+def await_results(fulltest_client, timeout=120):
     import time
 
     from qcportal.record_models import RecordStatusEnum
-    for i in range(120):
+    for i in range(timeout):
         time.sleep(1)
         #rec = fulltest_client.get_singlepoints(ids[0])
         #print(type(dataset))
         #print(dir(dataset))
         rec = fulltest_client.get_singlepoints(1)
+        if rec.status == RecordStatusEnum.error:
+            raise RuntimeError("Calculation failed")
         if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
             break
     else:
