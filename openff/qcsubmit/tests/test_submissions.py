@@ -30,6 +30,21 @@ from openff.qcsubmit.factories import (
 )
 from openff.qcsubmit.utils import get_data
 
+def await_results(fulltest_client):
+    import time
+
+    from qcportal.record_models import RecordStatusEnum
+    for i in range(120):
+        time.sleep(1)
+        #rec = fulltest_client.get_singlepoints(ids[0])
+        #print(type(dataset))
+        #print(dir(dataset))
+        rec = fulltest_client.get_singlepoints(1)
+        if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
+            break
+    else:
+        raise RuntimeError("Did not finish calculation in time")
+
 
 @pytest.mark.parametrize("specification", [
     #pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "energy"), id="PSI4 hf 3-21g energy"),
@@ -78,19 +93,7 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
     #snowflake.start_job_runner()
 
     #fulltest_client.await_results()
-    import time
-
-    from qcportal.record_models import RecordStatusEnum
-    for i in range(120):
-        time.sleep(1)
-        #rec = fulltest_client.get_singlepoints(ids[0])
-        #print(type(dataset))
-        #print(dir(dataset))
-        rec = fulltest_client.get_singlepoints(1)
-        if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
-            break
-    else:
-        raise RuntimeError("Did not finish calculation in time")
+    await_results(fulltest_client)
 
     # make sure of the results are complete
     #ds = client.get_dataset("Dataset", dataset.dataset_name)
