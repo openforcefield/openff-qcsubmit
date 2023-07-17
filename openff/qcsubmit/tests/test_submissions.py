@@ -95,7 +95,7 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
     #snowflake.start_job_runner()
 
     #fulltest_client.await_results()
-    await_results(fulltest_client)
+    await_results(client)
 
     # make sure of the results are complete
     #ds = client.get_dataset("Dataset", dataset.dataset_name)
