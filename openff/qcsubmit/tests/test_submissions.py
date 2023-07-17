@@ -79,6 +79,7 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
 
     #fulltest_client.await_results()
     import time
+
     from qcportal.record_models import RecordStatusEnum
     for i in range(120):
         time.sleep(1)
