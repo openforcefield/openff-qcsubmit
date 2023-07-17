@@ -49,9 +49,9 @@ def await_results(fulltest_client, timeout=120):
 
 
 @pytest.mark.parametrize("specification", [
-    #pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "energy"), id="PSI4 hf 3-21g energy"),
+    pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "energy"), id="PSI4 hf 3-21g energy"),
     pytest.param(({"method": "smirnoff99Frosst-1.1.0", "basis": "smirnoff", "program": "openmm"}, "energy"), id="SMIRNOFF smirnoff99Frosst-1.1.0 energy"),
-    #pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit UFF gradient")
+    pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit UFF gradient")
 ])
 def test_basic_submissions_single_spec(fulltest_client, specification):
     """Test submitting a basic dataset to a snowflake server."""
