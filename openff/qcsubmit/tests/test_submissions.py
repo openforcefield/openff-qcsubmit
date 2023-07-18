@@ -474,7 +474,22 @@ def test_adding_compute(snowflake, dataset_data):
                 assert record.error is None
 
 
-def test_basic_submissions_wavefunction(snowflake):
+# TODO use this elsewhere
+def check_last_spec(ds, dataset):
+    for spec_name, specification in ds.specifications.items():# data.history:
+        print(f'{specification=}')
+        #driver, program, method, basis, spec_name = specification
+        spec = dataset.qc_specifications[spec_name]
+        assert specification.specification.driver == dataset.driver
+        assert specification.specification.program == spec.program
+        assert specification.specification.method == spec.method
+        assert specification.specification.basis == spec.basis
+        break
+    else:
+        raise RuntimeError(f"The requested compute was not found in the history {ds.data.history}")
+
+
+def test_basic_submissions_wavefunction(fulltest_client):
     """
     Test submitting a basic dataset with a wavefunction protocol and make sure it is executed.
     """
@@ -482,7 +497,7 @@ def test_basic_submissions_wavefunction(snowflake):
     if not has_program("psi4"):
         pytest.skip("Program psi4 not found.")
 
-    client = snowflake.client()
+    client = fulltest_client
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
@@ -504,43 +519,28 @@ def test_basic_submissions_wavefunction(snowflake):
     # now submit again
     dataset.submit(client=client)
 
-    snowflake.await_results()
+    await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_dataset("Dataset", dataset.dataset_name)
+    ds = client.get_dataset("singlepoint", dataset.dataset_name)
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
-
-    assert ds.data.description == dataset.description
-    assert ds.data.tagline == dataset.dataset_tagline
-    assert ds.data.tags == dataset.dataset_tags
-
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    check_metadata(ds, dataset)
 
     # check the qc spec
-    assert ds.data.default_driver == dataset.driver
+    #assert ds.data.default_driver == dataset.driver
 
     # get the last ran spec
-    for specification in ds.data.history:
-        driver, program, method, basis, spec_name = specification
-        spec = dataset.qc_specifications[spec_name]
-        assert driver == dataset.driver
-        assert program == spec.program
-        assert method == spec.method
-        assert basis == spec.basis
+    check_last_spec(ds, dataset)
 
     for spec in dataset.qc_specifications.values():
-        query = ds.get_records(
-            method=spec.method,
-            basis=spec.basis,
-            program=spec.program,
+        query = ds.iterate_records(
+            specification_names="default",
         )
-        for index in query.index:
-            result = query.loc[index].record
-            assert result.status.value.upper() == "COMPLETE"
+        assert len(list(query)) == len(molecules)
+        for name, spec, result in query:
+            #result = query.loc[index].record
+            assert result.status == RecordStatusEnum.complete
             assert result.error is None
             assert result.return_result is not None
             basis = result.get_wavefunction("basis")
