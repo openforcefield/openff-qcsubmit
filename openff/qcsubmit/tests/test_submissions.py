@@ -30,23 +30,25 @@ from openff.qcsubmit.factories import (
 )
 from openff.qcsubmit.utils import get_data
 
-def await_results(fulltest_client, timeout=120):
+def await_results(fulltest_client, timeout=120, check_fn=PortalClient.get_singlepoints):
     import time
 
     from qcportal.record_models import RecordStatusEnum
     for i in range(timeout):
         time.sleep(1)
-        #rec = fulltest_client.get_singlepoints(ids[0])
-        #print(type(dataset))
-        #print(dir(dataset))
-        rec = fulltest_client.get_singlepoints(1)
+        rec = check_fn(fulltest_client, 1)
+        from qcportal.record_models import OutputTypeEnum
+        from pprint import pprint
         if rec.status == RecordStatusEnum.error:
-            raise RuntimeError("Calculation failed")
+            print("stderr", rec._get_output(OutputTypeEnum.stderr))
+            print("stdout", rec._get_output(OutputTypeEnum.stdout))
+            print("error: ")
+            pprint(rec._get_output(OutputTypeEnum.error))
+            raise RuntimeError(f"calculation failed: {rec}")
         if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
             break
     else:
         raise RuntimeError("Did not finish calculation in time")
-
 
 @pytest.mark.parametrize("specification", [
     pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "energy"), id="PSI4 hf 3-21g energy"),
