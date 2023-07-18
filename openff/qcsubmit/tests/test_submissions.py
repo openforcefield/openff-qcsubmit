@@ -153,10 +153,10 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
             assert record.return_result is not None
 
 
-def test_basic_submissions_multiple_spec(snowflake):
+def test_basic_submissions_multiple_spec(fulltest_client):
     """Test submitting a basic dataset to a snowflake server with multiple qcspecs."""
 
-    client = snowflake.client()
+    client = fulltest_client
 
     qc_specs = [{"method": "openff-1.0.0", "basis": "smirnoff", "program": "openmm", "spec_name": "openff"},
                 {"method": "gaff-2.11", "basis": "antechamber", "program": "openmm", "spec_name": "gaff"}]
@@ -188,47 +188,37 @@ def test_basic_submissions_multiple_spec(snowflake):
     # now submit again
     dataset.submit(client=client)
 
-    snowflake.await_results()
+    await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_dataset("Dataset", dataset.dataset_name)
+    ds = client.get_dataset("singlepoint", dataset.dataset_name)
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
+    meta = ds.metadata
 
-    assert ds.data.description == dataset.description
-    assert ds.data.tagline == dataset.dataset_tagline
-    assert ds.data.tags == dataset.dataset_tags
+    assert meta['long_description'] == dataset.description
+    assert meta['short_description'] == dataset.dataset_tagline
+    assert ds.tags == dataset.dataset_tags
 
     # check the provenance
-    assert dataset.provenance == ds.data.provenance
-
-    # check the qc spec
-    assert ds.data.default_driver == dataset.driver
+    assert ds.provenance == dataset.provenance
 
     # get the last ran spec
-    for specification in ds.data.history:
-        driver, program, method, basis, spec_name = specification
+    for spec_name, specification in ds.specifications.items():
         spec = dataset.qc_specifications[spec_name]
-        assert driver == dataset.driver
-        assert program == spec.program
-        assert method == spec.method
-        assert basis == spec.basis
+        assert specification.specification.driver == dataset.driver
+        assert specification.specification.program == spec.program
+        assert specification.specification.method == spec.method
+        assert specification.specification.basis == spec.basis
 
     for spec in dataset.qc_specifications.values():
-        query = ds.get_records(
-            method=spec.method,
-            basis=spec.basis,
-            program=spec.program,
-        )
+        query = ds.iterate_records()
         # make sure all conformers are submitted
-        assert len(query.index) == len(molecules)
-        for index in query.index:
-            result = query.loc[index].record
-            assert result.status.value.upper() == "COMPLETE"
-            assert result.error is None
-            assert result.return_result is not None
+        assert len(list(query)) == len(qc_specs) * len(molecules)
+        for name, spec, record in query:
+            assert record.status == RecordStatusEnum.complete
+            assert record.error is None
+            assert record.return_result is not None
 
 
 def test_basic_submissions_single_pcm_spec(snowflake):
