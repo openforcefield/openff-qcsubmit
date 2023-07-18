@@ -223,10 +223,18 @@ def test_basic_submissions_multiple_spec(fulltest_client):
             assert record.return_result is not None
 
 
-def test_basic_submissions_single_pcm_spec(snowflake):
+def check_metadata(ds, dataset):
+    meta = ds.metadata
+    assert meta['long_description'] == dataset.description
+    assert meta['short_description'] == dataset.dataset_tagline
+    assert ds.tags == dataset.dataset_tags
+    assert ds.provenance == dataset.provenance
+
+
+def test_basic_submissions_single_pcm_spec(fulltest_client):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
-    client = snowflake.client()
+    client = fulltest_client
 
     program = "psi4"
     if not has_program(program):
@@ -254,55 +262,43 @@ def test_basic_submissions_single_pcm_spec(snowflake):
         dataset.submit(client=client)
 
     # re-add the description so we can submit the data
-    dataset.metadata.long_description = "Test basics dataset"
+    dataset.metadata.long_description = "Test basics dataset with pcm water"
 
     # now submit again
     dataset.submit(client=client)
 
-    snowflake.await_results()
+    await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_dataset("Dataset", dataset.dataset_name)
+    ds = client.get_dataset("singlepoint", dataset.dataset_name)
 
-    # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
-
-    assert ds.data.description == dataset.description
-    assert ds.data.tagline == dataset.dataset_tagline
-    assert ds.data.tags == dataset.dataset_tags
-
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    check_metadata(ds, dataset)
 
     # check the qc spec
-    assert ds.data.default_driver == dataset.driver
+    #assert ds.driver == dataset.driver
 
     # get the last ran spec
-    for specification in ds.data.history:
-        driver, program, method, basis, spec_name = specification
+    for spec_name, specification in ds.specifications.items():
         spec = dataset.qc_specifications[spec_name]
-        assert driver == dataset.driver
-        assert program == spec.program
-        assert method == spec.method
-        assert basis == spec.basis
+        assert specification.specification.driver == dataset.driver
+        assert specification.specification.program == spec.program
+        assert specification.specification.method == spec.method
+        assert specification.specification.basis == spec.basis
         break
     else:
         raise RuntimeError(f"The requested compute was not found in the history {ds.data.history}")
 
     for spec in dataset.qc_specifications.values():
-        query = ds.get_records(
-            method=spec.method,
-            basis=spec.basis,
-            program=spec.program,
+        query = ds.iterate_records(
+            specification_names="default",
         )
-        for index in query.index:
-            result = query.loc[index].record
-            assert result.status.value.upper() == "COMPLETE"
-            assert result.error is None
-            assert result.return_result is not None
+        assert len(list(query)) == 1 # only used 1 molecule above
+        for name, spec, record in query:
+            assert record.status == RecordStatusEnum.complete
+            assert record.error is None
+            assert record.return_result is not None
             # make sure the PCM result was captured
-            assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
+            assert record.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
 
 
 def test_adding_specifications(snowflake):
