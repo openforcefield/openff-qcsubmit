@@ -9,6 +9,7 @@ from openff.toolkit.topology import Molecule
 from qcengine.testing import has_program
 from qcfractalcompute.testing_helpers import QCATestingComputeThread
 from qcportal import PortalClient
+from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, PCMSettings
@@ -30,15 +31,16 @@ from openff.qcsubmit.factories import (
 )
 from openff.qcsubmit.utils import get_data
 
+
 def await_results(fulltest_client, timeout=120, check_fn=PortalClient.get_singlepoints):
     import time
 
-    from qcportal.record_models import RecordStatusEnum
     for i in range(timeout):
         time.sleep(1)
         rec = check_fn(fulltest_client, 1)
-        from qcportal.record_models import OutputTypeEnum
         from pprint import pprint
+
+        from qcportal.record_models import OutputTypeEnum
         if rec.status == RecordStatusEnum.error:
             print("stderr", rec._get_output(OutputTypeEnum.stderr))
             print("stdout", rec._get_output(OutputTypeEnum.stdout))
