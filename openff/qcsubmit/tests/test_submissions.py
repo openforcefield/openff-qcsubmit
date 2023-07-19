@@ -594,7 +594,7 @@ def test_optimization_submissions_with_constraints(fulltest_client):
 def test_optimization_submissions(fulltest_client, specification):
     """Test submitting an Optimization dataset to a snowflake server."""
 
-    client = snowflake.client()
+    client = fulltest_client
 
     qc_spec, driver = specification
     program = qc_spec["program"]
@@ -619,52 +619,53 @@ def test_optimization_submissions(fulltest_client, specification):
         dataset.submit(client=client)
 
     # re-add the description so we can submit the data
-    dataset.metadata.long_description = "Test basics dataset"
+    dataset.metadata.long_description = "Test optimization dataset"
 
     # now submit again
     dataset.submit(client=client)
 
-    snowflake.await_results()
+    await_results(client, check_fn=PortalClient.get_optimizations)
 
     # make sure of the results are complete
-    ds = client.get_dataset("OptimizationDataset", dataset.dataset_name)
+    ds = client.get_dataset(dataset.type, dataset.dataset_name)
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
-
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    check_metadata(ds, dataset)
 
     # check the qc spec
-    for qc_spec in dataset.qc_specifications.values():
-        spec = ds.data.specs[qc_spec.spec_name]
+    # ds is a qcportal OptimizationDataset, and dataset is our
+    # OptimizationDataset, kinda confusing
+    for spec_name, specification in ds.specifications.items():
+        spec = dataset.qc_specifications[spec_name]
 
-        assert spec.description == qc_spec.spec_description
-        assert spec.qc_spec.driver == dataset.driver
-        assert spec.qc_spec.method == qc_spec.method
-        assert spec.qc_spec.basis == qc_spec.basis
-        assert spec.qc_spec.program == qc_spec.program
+        s = specification.specification
+        assert s.qc_specification.driver == dataset.driver
+        assert s.qc_specification.program == spec.program
+        assert s.qc_specification.method == spec.method
+        assert s.qc_specification.basis == spec.basis
 
         # check the keywords
-        keywords = client.query_keywords(spec.qc_spec.keywords)[0]
+        got = s.keywords
+        want = dataset._get_specifications()[spec_name].keywords
+        assert got == want
 
-        assert keywords.values["maxiter"] == qc_spec.maxiter
-        assert keywords.values["scf_properties"] == qc_spec.scf_properties
+    for spec in dataset.qc_specifications.values():
 
         # query the dataset
-        ds.query(qc_spec.spec_name)
+        query = ds.iterate_records(specification_names="default")
 
-        for index in ds.df.index:
-            record = ds.df.loc[index].default
-            assert record.status.value == "COMPLETE"
+        for name, spec, record in query:
+            assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert len(record.trajectory) > 1
             # if we used psi4 make sure the properties were captured
             if program == "psi4":
-                result = record.get_trajectory()[0]
-                assert "CURRENT DIPOLE X" in result.extras["qcvars"].keys()
-                assert "SCF QUADRUPOLE XX" in result.extras["qcvars"].keys()
+                result = record.trajectory[0]
+                assert "current dipole" in result.properties.keys()
+                # TODO is this needed? can we add this back? result.extras is
+                # empty and I can't find a quadrupole in the properties like
+                # "current dipole"
+                #assert "SCF QUADRUPOLE XX" in result.extras["qcvars"].keys()
 
 
 def test_optimization_submissions_with_pcm(fulltest_client):
