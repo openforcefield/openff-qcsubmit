@@ -301,7 +301,7 @@ def test_basic_submissions_single_pcm_spec(fulltest_client):
             assert record.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
 
 
-def test_adding_specifications(snowflake):
+def test_adding_specifications(fulltest_client):
     """
     Test adding specifications to datasets.
     Here we are testing multiple scenarios:
@@ -309,7 +309,7 @@ def test_adding_specifications(snowflake):
     2) Adding a spec with the same name as another but with different options
     3) overwrite a spec which was added but never used.
     """
-    client = snowflake.client()
+    client = fulltest_client
     mol = Molecule.from_smiles("CO")
     # make a dataset
     factory = OptimizationDatasetFactory()
@@ -366,11 +366,11 @@ def test_adding_specifications(snowflake):
     pytest.param((OptimizationDatasetFactory, OptimizationDataset), id="OptimizationDataset"),
     pytest.param((TorsiondriveDatasetFactory, TorsiondriveDataset), id="TorsiondriveDataset")
 ])
-def test_adding_compute(snowflake, dataset_data):
+def test_adding_compute(fulltest_client, dataset_data):
     """
     Test adding new compute to each of the dataset types using none psi4 programs.
     """
-    client = snowflake.client()
+    client = fulltest_client
     mol = Molecule.from_smiles("CO")
     factory_type, dataset_type = dataset_data
     # make and clear out the qc specs
@@ -549,11 +549,11 @@ def test_basic_submissions_wavefunction(fulltest_client):
             assert orbitals.shape is not None
 
 
-def test_optimization_submissions_with_constraints(snowflake):
+def test_optimization_submissions_with_constraints(fulltest_client):
     """
     Make sure that the constraints are added to the optimization and enforced.
     """
-    client = snowflake.client()
+    client = fulltest_client
     ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
     dataset = OptimizationDataset(dataset_name="Test optimizations with constraint", description="Test optimization dataset with constraints", dataset_tagline="Testing optimization datasets")
     # add just mm spec
@@ -590,7 +590,7 @@ def test_optimization_submissions_with_constraints(snowflake):
     pytest.param(({"method": "openff_unconstrained-1.0.0", "basis": "smirnoff", "program": "openmm"}, "gradient"), id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
     pytest.param(({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit UFF gradient")
 ])
-def test_optimization_submissions(snowflake, specification):
+def test_optimization_submissions(fulltest_client, specification):
     """Test submitting an Optimization dataset to a snowflake server."""
 
     client = snowflake.client()
@@ -666,7 +666,7 @@ def test_optimization_submissions(snowflake, specification):
                 assert "SCF QUADRUPOLE XX" in result.extras["qcvars"].keys()
 
 
-def test_optimization_submissions_with_pcm(snowflake):
+def test_optimization_submissions_with_pcm(fulltest_client):
     """Test submitting an Optimization dataset to a snowflake server with PCM."""
 
     client = snowflake.client()
@@ -744,7 +744,7 @@ def test_optimization_submissions_with_pcm(snowflake):
             assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
 
 
-def test_torsiondrive_scan_keywords(snowflake):
+def test_torsiondrive_scan_keywords(fulltest_client):
     """
     Test running torsiondrives with unique keyword settings which overwrite the global grid spacing and scan range.
     """
@@ -782,7 +782,7 @@ def test_torsiondrive_scan_keywords(snowflake):
     assert record.keywords.dihedral_ranges != dataset.dihedral_ranges
 
 
-def test_torsiondrive_constraints(snowflake):
+def test_torsiondrive_constraints(fulltest_client):
     """
     Make sure constraints are correctly passed to optimisations in torsiondrives.
     """
@@ -822,7 +822,7 @@ def test_torsiondrive_constraints(snowflake):
     pytest.param(({"method": "openff_unconstrained-1.1.0", "basis": "smirnoff", "program": "openmm"}, "gradient"), id="SMIRNOFF openff_unconstrained-1.0.0 gradient"),
     pytest.param(({"method": "mmff94", "basis": None, "program": "rdkit"}, "gradient"), id="RDKit mmff94 gradient")
 ])
-def test_torsiondrive_submissions(snowflake, specification):
+def test_torsiondrive_submissions(fulltest_client, specification):
     """
     Test submitting a torsiondrive dataset and computing it.
     """
