@@ -224,6 +224,7 @@ def test_basic_submissions_multiple_spec(fulltest_client):
 
 
 def check_metadata(ds, dataset):
+    "Check the metadata, tags, and provenance of ds compared to dataset"
     meta = ds.metadata
     assert meta['long_description'] == dataset.description
     assert meta['short_description'] == dataset.dataset_tagline
