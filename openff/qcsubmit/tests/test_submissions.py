@@ -944,7 +944,7 @@ def test_index_not_changed(snowflake, factory_type):
     factory = factory_type()
     factory.clear_qcspecs()
     client = snowflake.client()
-    #client = snowflake.client()
+
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley",
                         spec_description="standard parsley spec")
@@ -970,9 +970,9 @@ def test_index_not_changed(snowflake, factory_type):
 
     if dataset.type == "DataSet":
         query = ds.get_records(method="openff-1.0.0", basis="smirnoff", program="openmm")
-        assert "my_unique_index" in query.index
+        assert "my_unique_index" in query.entry_names
     else:
-        assert "my_unique_index" in ds.df.index
+        assert "my_unique_index" in ds.entry_names
 
 
 @pytest.mark.parametrize("factory_type", [
