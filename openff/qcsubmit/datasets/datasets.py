@@ -28,7 +28,7 @@ from qcportal.singlepoint import (
     SinglepointDatasetNewEntry,
     SinglepointDriver,
 )
-from qcportal.torsiondrive import TorsiondriveDatasetNewEntry
+from qcportal.torsiondrive import TorsiondriveDatasetNewEntry, TorsiondriveSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes
@@ -1086,7 +1086,7 @@ class TorsiondriveDataset(OptimizationDataset):
     """
 
     dataset: Dict[str, TorsionDriveEntry] = {}
-    type: Literal["TorsiondriveDataset"] = "TorsiondriveDataset"
+    type: Literal["TorsiondriveDataset"] = "torsiondrive"
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )
@@ -1197,6 +1197,36 @@ class TorsiondriveDataset(OptimizationDataset):
             metadata=self.metadata.dict(),
         )
 
+    def _get_specifications(self) -> Dict[str, TorsiondriveSpecification]:
+        td_kw = dict(
+            grid_spacing=self.grid_spacing,
+            dihedral_ranges=self.dihedral_ranges,
+            energy_decrease_thresh=self.energy_decrease_thresh,
+            energy_upper_limit=self.energy_upper_limit,
+            )
+
+        ret = {}
+        for spec_name, spec in self.qc_specifications.items():
+            qc_spec = QCSpecification(
+                driver=self.driver,
+                method=spec.method,
+                basis=spec.basis,
+                keywords=spec.keywords,
+                program=spec.program,
+                protocols={"wavefunction": spec.store_wavefunction},
+                )
+            spec = OptimizationSpecification(
+                program=self.optimization_procedure.program,
+                qc_specification=qc_spec,
+                )
+            ret[spec_name] = TorsiondriveSpecification(
+                 optimization_specification=spec,
+                keywords=td_kw,
+                )
+
+        return ret
+
+
     def _get_entries(self) -> List[TorsiondriveDatasetNewEntry]:
         entries: List[TorsiondriveDatasetNewEntry] = []
 
@@ -1215,7 +1245,7 @@ class TorsiondriveDataset(OptimizationDataset):
                 TorsiondriveDatasetNewEntry(
                     name=entry_name,
                     initial_molecules=entry.initial_molecules,
-                    torsiondrive_keywords=td_keywords,
+                    additional_keywords=td_keywords,
                 )
             )
 
