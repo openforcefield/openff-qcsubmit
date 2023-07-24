@@ -1,6 +1,5 @@
 import networkx as nx
 import numpy
-import pytest
 
 from openff.qcsubmit.utils.smirnoff import (
     combine_openff_molecules,
