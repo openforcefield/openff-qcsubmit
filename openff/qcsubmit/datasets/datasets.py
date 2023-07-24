@@ -74,7 +74,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         ...,
         description="The name of the dataset, this will be the name given to the collection in QCArchive.",
     )
-    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = Field(
+    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = Field(  # noqa
         ...,
         description="The tagline should be a short description of the dataset which will be displayed by the QCArchive client when the collections are listed.",
     )
@@ -82,7 +82,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         "_BaseDataset",
         description="The dataset type corresponds to the type of collection that will be made in QCArchive.",
     )
-    description: constr(min_length=8, regex="[a-zA-Z]") = Field(
+    description: constr(min_length=8, regex="[a-zA-Z]") = Field(  # noqa
         ...,
         description="A long description of the datasets purpose and details about the molecules within.",
     )
