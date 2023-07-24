@@ -739,7 +739,6 @@ class ComponentResult:
                 self._molecules[molecule_hash].properties["dihedrals"] = current_indexer
 
             if molecule.n_conformers != 0:
-
                 # transfer the coordinates
                 for conformer in molecule.conformers:
                     new_conformer = np.zeros((molecule.n_atoms, 3))

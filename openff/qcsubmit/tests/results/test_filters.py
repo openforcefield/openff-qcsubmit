@@ -36,7 +36,6 @@ from openff.qcsubmit.tests.results import mock_optimization_result_collection
 def test_apply_filter(basic_result_collection, caplog):
     class DummyFilter(ResultFilter):
         def _apply(self, result_collection):
-
             result_collection.entries = {
                 "http://localhost:442": result_collection.entries[
                     "http://localhost:442"
@@ -56,7 +55,6 @@ def test_apply_filter(basic_result_collection, caplog):
 
 
 def test_apply_cmiles_filter(basic_result_collection):
-
     class DummyFilter(CMILESResultFilter):
         def _filter_function(self, result) -> bool:
             return result.record_id == "1"
@@ -66,7 +64,6 @@ def test_apply_cmiles_filter(basic_result_collection):
     assert filtered_collection.n_results == 2
 
     for port in [442, 443]:
-
         address = f"http://localhost:{port}"
 
         assert address in filtered_collection.entries
@@ -88,19 +85,16 @@ def test_apply_record_filter(basic_result_collection):
 
 
 def test_smiles_filter_mutual_inputs():
-
     with pytest.raises(ValidationError, match="exactly one of `smiles_to_include`"):
         SMILESFilter(smiles_to_include=["C"], smiles_to_exclude=["CC"])
 
 
 def test_smarts_filter_mutual_inputs():
-
     with pytest.raises(ValidationError, match="exactly one of `smarts_to_include`"):
         SMARTSFilter(smarts_to_include=["C"], smarts_to_exclude=["CC"])
 
 
 def test_charge_filter_mutual_inputs():
-
     with pytest.raises(ValidationError, match="exactly one of `charges_to_include`"):
         ChargeFilter(charges_to_include=[0], charges_to_exclude=[1, 2])
 
@@ -127,13 +121,11 @@ def test_charge_filter_mutual_inputs():
     ],
 )
 def test_molecule_filter_apply(result_filter, expected_ids, basic_result_collection):
-
     filtered_collection = result_filter.apply(basic_result_collection)
 
     assert {*expected_ids} == {*filtered_collection.entries}
 
     for address, entry_ids in expected_ids.items():
-
         assert entry_ids == {
             entry.record_id for entry in filtered_collection.entries[address]
         }
@@ -163,13 +155,11 @@ def test_molecule_filter_tautomers(tautomer_basic_result_collection):
 def test_basic_record_filter_apply(
     result_filter, expected_ids, h_bond_basic_result_collection
 ):
-
     filtered_collection = result_filter.apply(h_bond_basic_result_collection)
 
     assert {*expected_ids} == {*filtered_collection.entries}
 
     for address, entry_ids in expected_ids.items():
-
         assert entry_ids == {
             entry.record_id for entry in filtered_collection.entries[address]
         }
@@ -187,13 +177,11 @@ def test_basic_record_filter_apply(
 def test_optimization_record_filter_apply(
     result_filter, expected_ids, optimization_result_collection
 ):
-
     filtered_collection = result_filter.apply(optimization_result_collection)
 
     assert {*expected_ids} == {*filtered_collection.entries}
 
     for address, entry_ids in expected_ids.items():
-
         assert entry_ids == {
             entry.record_id for entry in filtered_collection.entries[address]
         }
@@ -208,20 +196,17 @@ def test_optimization_record_filter_apply(
 def test_torsion_drive_record_filter_apply(
     result_filter, expected_ids, torsion_drive_result_collection
 ):
-
     filtered_collection = result_filter.apply(torsion_drive_result_collection)
 
     assert {*expected_ids} == {*filtered_collection.entries}
 
     for address, entry_ids in expected_ids.items():
-
         assert entry_ids == {
             entry.record_id for entry in filtered_collection.entries[address]
         }
 
 
 def test_connectivity_filter():
-
     result = BasicResult(
         record_id=ObjectId("1"),
         cmiles="[Cl:1][Cl:2]",
@@ -253,7 +238,6 @@ def test_connectivity_filter():
 
 
 def test_record_status_filter():
-
     record = ResultRecord(
         id=ObjectId("1"),
         program="psi4",
@@ -272,8 +256,11 @@ def test_record_status_filter():
 
 
 def test_charge_filter():
-
-    record = BasicResult(record_id=ObjectId("1"), cmiles="[N+:1](=[O:2])([O-:3])[O-:4]", inchi_key="NHNBFGGVMKEFGY-UHFFFAOYSA-N")
+    record = BasicResult(
+        record_id=ObjectId("1"),
+        cmiles="[N+:1](=[O:2])([O-:3])[O-:4]",
+        inchi_key="NHNBFGGVMKEFGY-UHFFFAOYSA-N",
+    )
     charge_filter = ChargeFilter(charges_to_include=[-1, 0])
 
     assert charge_filter._filter_function(entry=record) is True
@@ -284,7 +271,6 @@ def test_charge_filter():
 
 
 def test_element_filter(basic_result_collection):
-
     # use mixed ints and str
     element_filter = ElementFilter(allowed_elements=[1, 6, "O"])
 
@@ -301,12 +287,13 @@ def test_element_filter(basic_result_collection):
 
 
 def test_lowest_energy_filter(optimization_result_collection_duplicates):
-
     energy_filter = LowestEnergyFilter()
 
     # should have 2 results
     assert optimization_result_collection_duplicates.n_results == 2
-    result = energy_filter.apply(result_collection=optimization_result_collection_duplicates)
+    result = energy_filter.apply(
+        result_collection=optimization_result_collection_duplicates
+    )
 
     # make sure we only have one result
     assert result.n_molecules == 1
@@ -317,7 +304,6 @@ def test_lowest_energy_filter(optimization_result_collection_duplicates):
 def test_min_conformers_filter(
     optimization_result_collection_duplicates, min_conformers, n_expected_results
 ):
-
     min_conformers_filter = MinimumConformersFilter(min_conformers=min_conformers)
 
     assert optimization_result_collection_duplicates.n_results == 2
@@ -346,7 +332,6 @@ def test_min_conformers_filter(
 def test_rmsd_conformer_filter(
     max_conformers, rmsd_tolerance, heavy_atoms_only, expected_record_ids, monkeypatch
 ):
-
     molecules = []
 
     for conformer in [
@@ -354,7 +339,6 @@ def test_rmsd_conformer_filter(
         numpy.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]]) * unit.angstrom,
         numpy.array([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]]) * unit.angstrom,
     ]:
-
         molecule = Molecule.from_smiles(smiles="Cl[H]")
         molecule._conformers = [conformer]
 
@@ -383,7 +367,6 @@ def test_rmsd_conformer_filter(
 
 
 def test_rmsd_conformer_filter_canonical_order(monkeypatch):
-
     molecule_a = Molecule.from_mapped_smiles("[Cl:1][H:2]")
     molecule_a._conformers = [
         numpy.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]) * unit.angstrom
@@ -412,7 +395,6 @@ def test_rmsd_conformer_filter_canonical_order(monkeypatch):
     ],
 )
 def test_rmsd_conformer_filter_rmsd_matrix(rmsd_function_name):
-
     molecule = Molecule.from_mapped_smiles("[O:1]=[C:2]=[O:3]")
     molecule._conformers = [
         numpy.array([[-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
@@ -450,7 +432,6 @@ def test_rmsd_conformer_filter_rmsd_matrix(rmsd_function_name):
 def test_rmsd_conformer_filter_rmsd_matrix_heavy_only(
     rmsd_function_name, heavy_atoms_only, expected_rmsd_matrix
 ):
-
     molecule = Molecule.from_smiles("Cl[H]")
     molecule._conformers = [
         numpy.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]) * unit.angstrom,
@@ -485,7 +466,6 @@ def test_rmsd_conformer_filter_rmsd_matrix_heavy_only(
 def test_rmsd_conformer_filter_rmsd_matrix_automorphs(
     rmsd_function_name, check_automorphs, expected_rmsd_matrix
 ):
-
     molecule = Molecule.from_mapped_smiles("[Br:3][C:1]([Cl:4])=[C:2]([Cl:6])[Cl:5]")
     molecule._conformers = [
         numpy.array(
@@ -528,10 +508,9 @@ def test_rmsd_conformer_filter_rmsd_matrix_automorphs(
         (["rdkit"], 1),
         (["openeye"], 0),
         (["openeye", "rdkit"], 0),
-    ]
+    ],
 )
 def test_unperceivable_stereo_filter(toolkits, n_expected, public_client):
-
     collection = OptimizationResultCollection(
         entries={
             "https://api.qcarchive.molssi.org:443/": [
@@ -548,7 +527,7 @@ def test_unperceivable_stereo_filter(toolkits, n_expected, public_client):
                         "[H:65])([H:47])[H:48])([H:43])[H:44])[H:56])[H:38])[H:41])"
                         "[H:39]"
                     ),
-                    inchi_key="GMRICROFHKBHBU-MRXNPFEDSA-N"
+                    inchi_key="GMRICROFHKBHBU-MRXNPFEDSA-N",
                 )
             ]
         }

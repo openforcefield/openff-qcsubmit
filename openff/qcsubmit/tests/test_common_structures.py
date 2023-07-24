@@ -7,16 +7,21 @@ from openff.qcsubmit.tests import does_not_raise
 
 
 def test_attributes_from_openff_molecule():
-
     mol = Molecule.from_smiles("CC")
 
     attributes = MoleculeAttributes.from_openff_molecule(mol)
 
     # now make our own cmiles
     test_cmiles = {
-        "canonical_smiles": mol.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False),
-        "canonical_isomeric_smiles": mol.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False),
-        "canonical_explicit_hydrogen_smiles": mol.to_smiles(isomeric=False, explicit_hydrogens=True, mapped=False),
+        "canonical_smiles": mol.to_smiles(
+            isomeric=False, explicit_hydrogens=False, mapped=False
+        ),
+        "canonical_isomeric_smiles": mol.to_smiles(
+            isomeric=True, explicit_hydrogens=False, mapped=False
+        ),
+        "canonical_explicit_hydrogen_smiles": mol.to_smiles(
+            isomeric=False, explicit_hydrogens=True, mapped=False
+        ),
         "canonical_isomeric_explicit_hydrogen_smiles": mol.to_smiles(
             isomeric=True, explicit_hydrogens=True, mapped=False
         ),
@@ -28,7 +33,7 @@ def test_attributes_from_openff_molecule():
         "inchi_key": mol.to_inchikey(fixed_hydrogens=False),
         "fixed_hydrogen_inchi": mol.to_inchi(fixed_hydrogens=True),
         "fixed_hydrogen_inchi_key": mol.to_inchikey(fixed_hydrogens=True),
-        "unique_fixed_hydrogen_inchi_keys": {mol.to_inchikey(fixed_hydrogens=True)}
+        "unique_fixed_hydrogen_inchi_keys": {mol.to_inchikey(fixed_hydrogens=True)},
     }
     assert test_cmiles == attributes
 
@@ -50,7 +55,9 @@ def test_attributes_from_openff_multi_component():
     """
     Make sure the unique inchi keys are updated correctly.
     """
-    mol = Molecule.from_smiles("CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5.CS(=O)(=O)O")
+    mol = Molecule.from_smiles(
+        "CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5.CS(=O)(=O)O"
+    )
 
     attributes = MoleculeAttributes.from_openff_molecule(mol)
     assert len(attributes.unique_fixed_hydrogen_inchi_keys) == 2
@@ -81,9 +88,9 @@ def test_attributes_to_openff_molecule():
                 short_description="abcdefgh",
                 long_description_url="https://github.com/openforcefield",
                 long_description="abcdefgh",
-                elements={"C", "H"}
+                elements={"C", "H"},
             ),
-            does_not_raise()
+            does_not_raise(),
         ),
         (
             Metadata(
@@ -91,21 +98,20 @@ def test_attributes_to_openff_molecule():
                 dataset_name="ABC",
                 short_description="abcdefgh",
                 long_description="abcdefgh",
-                elements={"C", "H"}
+                elements={"C", "H"},
             ),
-            does_not_raise()
+            does_not_raise(),
         ),
         (
             Metadata(),
             pytest.raises(
                 DatasetInputError,
-                match="The metadata has the following incomplete fields"
-            )
-        )
-    ]
+                match="The metadata has the following incomplete fields",
+            ),
+        ),
+    ],
 )
 def test_validate_metadata(metadata, expected_raises):
-
     with expected_raises:
         metadata.validate_metadata(raise_errors=True)
 

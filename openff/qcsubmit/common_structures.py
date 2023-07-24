@@ -6,7 +6,7 @@ import getpass
 import re
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union, TYPE_CHECKING
 
 import numpy as np
 import qcportal as ptl
@@ -36,6 +36,8 @@ from openff.qcsubmit.exceptions import (
 from openff.qcsubmit.utils.smirnoff import split_openff_molecule
 
 
+if TYPE_CHECKING:
+    from pydantic import AbstractSetIntStr
 class DatasetConfig(BaseModel):
     """
     The basic configurations for all datasets.
@@ -366,7 +368,6 @@ class PCMSettings(ResultsConfig):
 
 
 class QCSpec(ResultsConfig):
-
     method: constr(strip_whitespace=True) = Field(
         "B3LYP-D3BJ",
         description="The name of the computational model used to execute the calculation. This could be the QC method or the forcefield name.",
@@ -450,7 +451,6 @@ class QCSpec(ResultsConfig):
             gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
 
         except ModuleNotFoundError:
-
             gaff_forcefields = [
                 "gaff-1.4",
                 "gaff-1.8",
@@ -536,7 +536,6 @@ class QCSpec(ResultsConfig):
         exclude_defaults: bool = False,
         exclude_none: bool = False,
     ) -> "DictStrAny":
-
         data = super().dict(
             include=include,
             exclude=exclude,
@@ -788,7 +787,6 @@ class Metadata(DatasetConfig):
 
         empty_fields = []
         for field in self.__fields__:
-
             if field == "long_description_url":
                 # The 'long_description_url' is made optional to more easily facilitate
                 # local or private dataset submissions.

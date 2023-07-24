@@ -483,7 +483,6 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
         indexer: TorsionIndexer = molecule.properties["dihedrals"]
 
         for improper in self.improper_scans:
-
             matches = molecule.chemical_environment_matches(
                 query=improper.smarts, toolkit_registry=toolkit_registry
             )

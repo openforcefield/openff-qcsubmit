@@ -29,9 +29,7 @@ def molecules_to_pdf(
     }
 
     if toolkit is not None:
-
         if toolkit.lower() not in toolkits:
-
             raise ValueError(
                 f"The requested toolkit backend: {toolkit} is not supported, chose "
                 f"from {toolkits.keys()}"
@@ -40,7 +38,6 @@ def molecules_to_pdf(
         toolkits = {toolkit: toolkits[toolkit]}
 
     for toolkit in toolkits:
-
         available, pdf_func = toolkits[toolkit]
         if available:
             return pdf_func(molecules, file_name, columns)
@@ -77,7 +74,6 @@ def _create_openeye_pdf(molecules: List[Molecule], file_name: str, columns: int)
 
     # now we load the molecules
     for off_mol in molecules:
-
         off_mol = copy.deepcopy(off_mol)
         off_mol._conformers = []
         off_mol.name = None
@@ -88,7 +84,6 @@ def _create_openeye_pdf(molecules: List[Molecule], file_name: str, columns: int)
         disp = oedepict.OE2DMolDisplay(mol, opts)
 
         if "dihedrals" in off_mol.properties:
-
             # work out if we have a double or single torsion
             if len(off_mol.properties["dihedrals"]) == 1:
                 dihedrals = off_mol.properties["dihedrals"][0]
@@ -158,7 +153,6 @@ def _create_rdkit_pdf(molecules: List[Molecule], file_name: str, columns: int):
     tagged_atoms = []
     images = []
     for off_mol in molecules:
-
         rdkit_mol = off_mol.to_rdkit()
         AllChem.Compute2DCoords(rdkit_mol)
         rdkit_molecules.append(rdkit_mol)
