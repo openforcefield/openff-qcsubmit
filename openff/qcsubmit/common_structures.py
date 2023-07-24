@@ -55,10 +55,6 @@ if TYPE_CHECKING:
     MappingIntStrAny = Mapping[IntStr, Any]
 
 
-if TYPE_CHECKING:
-    from pydantic import AbstractSetIntStr
-
-
 class DatasetConfig(BaseModel):
     """
     The basic configurations for all datasets.

@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from openff.toolkit.typing.engines.smirnoff import ForceField
     from qcportal import FractalClient
     from qcportal.collections.collection import Collection
-    from qcportal.models.common_models import OptimizationSpecification
+    from qcportal.models.common_models import OptimizationSpecificationPortal
 
 C = TypeVar("C", bound="Collection")
 E = TypeVar("E", bound=DatasetEntry)
@@ -144,7 +144,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def _get_procedure_spec(self) -> "OptimizationSpecification":
+    def _get_procedure_spec(self) -> "OptimizationSpecificationPortal":
         """Get the procedure spec, if applicable, for this Dataset.
 
         If the dataset has no concept of procedure specs, this method
@@ -239,7 +239,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         self,
         spec: QCSpec,
         dataset: C,
-        procedure_spec: Optional["OptimizationSpecification"] = None,
+        procedure_spec: Optional["OptimizationSpecificationPortal"] = None,
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
 
@@ -1013,7 +1013,7 @@ class BasicDataset(_BaseDataset):
         self,
         spec: QCSpec,
         dataset: ptl.collections.Dataset,
-        procedure_spec: Optional["OptimizationSpecification"] = None,
+        procedure_spec: Optional["OptimizationSpecificationPortal"] = None,
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
 
@@ -1280,7 +1280,7 @@ class OptimizationDataset(BasicDataset):
         self,
         spec: QCSpec,
         dataset: ptl.collections.OptimizationDataset,
-        procedure_spec: Optional["OptimizationSpecification"] = None,
+        procedure_spec: Optional["OptimizationSpecificationPortal"] = None,
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
 
