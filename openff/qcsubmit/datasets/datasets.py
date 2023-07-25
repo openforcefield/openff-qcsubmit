@@ -1020,6 +1020,9 @@ class OptimizationDataset(BasicDataset):
         entries: List[OptimizationDatasetNewEntry] = []
 
         for entry_name, entry in self.dataset.items():
+            # TODO this probably needs even more keywords
+            opt_kw = dict(constraints = entry.constraints)
+            opt_kw.update(entry.keywords)
             if len(entry.initial_molecules) > 1:
                 # check if the index has a number tag
                 # if so, start from this tag
@@ -1029,7 +1032,8 @@ class OptimizationDataset(BasicDataset):
                     name = index + f"-{tag + j}"
                     entries.append(
                         OptimizationDatasetNewEntry(
-                            name=name, initial_molecule=molecule
+                            name=name, initial_molecule=molecule,
+                            additional_keywords=opt_kw
                         )
                     )
             else:
@@ -1037,6 +1041,7 @@ class OptimizationDataset(BasicDataset):
                     OptimizationDatasetNewEntry(
                         name=entry_name,
                         initial_molecule=entry.initial_molecules[0],
+                        additional_keywords=opt_kw
                     )
                 )
 
