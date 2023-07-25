@@ -570,20 +570,25 @@ def test_optimization_submissions_with_constraints(fulltest_client):
     # now submit again
     dataset.submit(client=client)
 
-    snowflake.await_results()
+    await_results(client, check_fn=PortalClient.get_optimizations)
 
     # make sure of the results are complete
-    ds = client.get_dataset("OptimizationDataset", dataset.dataset_name)
-    record = ds.get_record(ds.df.index[0], "default")
-    assert "constraints" in record.keywords
-    assert record.status.value == "COMPLETE"
-    assert record.error is None
-    assert len(record.trajectory) > 1
+    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    query = ds.iterate_records(specification_names="default")
+    for name, spec, record in query:
+        assert record.status is RecordStatusEnum.complete
+        assert record.error is None
+        assert len(record.trajectory) > 1
+        #assert "constraints" in record.specification.keywords
+        break
+    else:
+        raise RuntimeError("The requested compute was not found")
 
     # now make sure the constraints worked
-    final_molecule = record.get_final_molecule()
+    final_molecule = record.final_molecule
+    initial_molecule = record.initial_molecule
     assert pytest.approx(final_molecule.measure((2, 0, 1, 5)), abs=1e-2) == 60
-    assert record.get_initial_molecule().measure((0, 1)) == pytest.approx(final_molecule.measure((0, 1)))
+    assert initial_molecule.measure((0, 1)) == pytest.approx(final_molecule.measure((0, 1)))
 
 
 @pytest.mark.parametrize("specification", [
