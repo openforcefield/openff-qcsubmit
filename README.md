@@ -3,8 +3,8 @@ OpenFF QCSubmit
 
 [//]: # (Badges)
 [![CI](https://github.com/openforcefield/openff-qcsubmit/workflows/CI/badge.svg?branch=main)](https://github.com/openforcefield/openff-qcsubmit/actions)
-[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/openforcefield/openff-qcsubmit.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/openforcefield/openff-qcsubmit/context:python)
 [![codecov](https://codecov.io/gh/openforcefield/openff-qcsubmit/branch/main/graph/badge.svg)](https://codecov.io/gh/openforcefield/openff-qcsubmit/branch/main)
+[![Documentation Status](https://readthedocs.org/projects/openff-qcsubmit/badge/?version=stable)](https://docs.openforcefield.org/projects/qcsubmit/en/stable/?badge=stable)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
