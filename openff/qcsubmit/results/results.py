@@ -442,35 +442,39 @@ class OptimizationResultCollection(_BaseResultCollection):
             query = dataset.query(spec_name)
 
             for entry in dataset.data.records.values():
-                if not((entry.name in query) and
-                       (query[entry.name].status.value.upper() == "COMPLETE")):
+                if not (
+                    (entry.name in query)
+                    and (query[entry.name].status.value.upper() == "COMPLETE")
+                ):
                     continue
                 inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
                 if inchi_key is None:
                     try:
                         mol = Molecule.from_mapped_smiles(
-                                entry.attributes[
-                                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                                ],
-                                allow_undefined_stereo=True,
-                            )
+                            entry.attributes[
+                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                            ],
+                            allow_undefined_stereo=True,
+                        )
                     except ValueError:
                         continue
                     inchi_key = mol.to_inchikey(fixed_hydrogens=True)
 
-                result_records[client.address][query[entry.name].id] = OptimizationResult(
+                result_records[client.address][
+                    query[entry.name].id
+                ] = OptimizationResult(
                     record_id=query[entry.name].id,
                     cmiles=entry.attributes[
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     ],
-                    inchi_key=inchi_key
+                    inchi_key=inchi_key,
                 )
 
-            #result_records[client.address].update(
+            # result_records[client.address].update(
             #    {
             #        :
             #    }
-            #)
+            # )
 
         return cls(
             entries={
