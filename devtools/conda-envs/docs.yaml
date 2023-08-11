@@ -19,13 +19,14 @@ dependencies:
   - sphinxcontrib-bibtex
   - sphinx-notfound-page
   - myst-parser
+  - autodoc-pydantic
   - pandoc
   - ipython
 
     # Standard dependencies
-  - openff-toolkit-base >= 0.11.2
-#  - rdkit                MOCKED
-  - pydantic
+  - openff-toolkit-base =0.14.0
+  - rdkit
+  - pydantic =1
   - pyyaml
   - qcportal >=0.15
   - torsiondrive
@@ -35,5 +36,4 @@ dependencies:
   - openmm
 
   - pip:
-    - autodoc_pydantic
     - git+https://github.com/openforcefield/openff-sphinx-theme.git@main
