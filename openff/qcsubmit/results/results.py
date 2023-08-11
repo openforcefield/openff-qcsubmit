@@ -211,7 +211,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
         Example::
 
-            >>> self.filter(
+            >>> filtered_collection = self.filter(
             >>>     RecordStatusFilter(status=RecordStatusEnum.complete),
             >>>     ConnectivityFilter(tolerance=1.2),
             >>>     UnperceivableStereoFilter(),
