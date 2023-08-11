@@ -208,6 +208,16 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
         Returns:
             The collection containing only the retained entries.
+
+        Example::
+
+            >>> self.filter(
+            >>>     RecordStatusFilter(status=RecordStatusEnum.complete),
+            >>>     ConnectivityFilter(tolerance=1.2),
+            >>>     UnperceivableStereoFilter(),
+            >>>     ElementFilter(allowed_elements=elements),
+            >>>     ConformerRMSDFilter(max_conformers=max_opt_conformers),
+            >>> )
         """
 
         filtered_collection = self.copy(deep=True)
