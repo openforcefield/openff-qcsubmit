@@ -66,6 +66,8 @@ autosummary_generate = True
 
 autodoc_default_options = {
     "member-order": "bysource",
+    "members": True,
+    "inherited-members": "BaseModel",
 }
 
 autodoc_mock_imports = [
