@@ -25,7 +25,7 @@ dependencies:
 
     # Standard dependencies
   - openff-toolkit-base =0.14.0
-  - rdkit                #MOCKED
+  - rdkit
   - pydantic =1
   - pyyaml
   - qcportal >=0.15
