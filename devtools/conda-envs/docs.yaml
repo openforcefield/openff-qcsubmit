@@ -19,7 +19,7 @@ dependencies:
   - sphinxcontrib-bibtex
   - sphinx-notfound-page
   - myst-parser
-  - autodoc_pydantic
+  - autodoc-pydantic
   - pandoc
   - ipython
 
