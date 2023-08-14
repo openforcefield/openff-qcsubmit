@@ -27,7 +27,8 @@ dependencies:
 
   # openmmforcefields brings in the full toolkit; if that is ever re-packaged
   # this should be changed to openff-toolkit-base
-  - openff-toolkit >= 0.12
+  - openff-toolkit == 0.14.0
+  - openff-units >=0.2.1
   - pydantic =1
   - pyyaml
   - qcportal>=0.15.7
