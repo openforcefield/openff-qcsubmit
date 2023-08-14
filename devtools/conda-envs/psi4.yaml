@@ -1,15 +1,14 @@
 name: qcsubmit-test-psi4
 
 channels:
-  - psi4
-  - defaults
   - conda-forge
+  - conda-forge/label/libint_dev  # needed for psi4/libint2
   - openeye
 
 dependencies:
 
   # Base depends
-  - python=3.8
+  - python>=3.8
   - pip
 
   # Testing
@@ -25,15 +24,12 @@ dependencies:
 
   - openeye-toolkits
 
-  # Psi4 dependencies
-  - psi4 =1.5
-  - libint2=*=hc9558a2_9
-  - intel-openmp!=2019.5
-  - gau2grid >=2.0
+  - psi4 =1.8
 
   ### Core dependencies.
 
-  - openff-toolkit-base >= 0.11.3
+  - openff-toolkit-base == 0.14.0
+  - openff-units >=0.2.1
   - rdkit
   - pydantic =1
   - pyyaml
