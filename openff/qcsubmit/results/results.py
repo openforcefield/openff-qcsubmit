@@ -480,12 +480,6 @@ class OptimizationResultCollection(_BaseResultCollection):
                     inchi_key=inchi_key,
                 )
 
-            # result_records[client.address].update(
-            #    {
-            #        :
-            #    }
-            # )
-
         return cls(
             entries={
                 address: [*entries.values()]
