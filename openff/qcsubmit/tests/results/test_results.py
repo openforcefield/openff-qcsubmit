@@ -4,6 +4,7 @@ Test the results packages when collecting from the public qcarchive.
 
 import numpy
 import pytest
+import qcportal
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
@@ -263,6 +264,256 @@ def test_collection_from_server(
     assert result.n_molecules == n_molecules
     assert result.n_results == n_results
 
+
+# def test_collection_from_server_bad_cmiles(
+#     fractal_compute_server
+# ):
+#     """Test downloading a dataset from the QCArchive."""
+#
+#     ammonia = QCMolecule.from_data("""N        0.2264616191   -0.0503983796    0.1829774976
+# H       -0.3557514548    0.7303317785    0.4826015234
+# H        0.5276730657    0.1711722910   -0.7650694847
+# H       -0.3983832002   -0.8511056900    0.0994905233""")
+#     ammonium = QCMolecule.from_data("""N        0.0002918243    0.0000614226   -0.0001244545
+# H        0.0429113507    1.0124590397   -0.1668419838
+# H        0.6176391840   -0.4832538068   -0.6631311774
+# H       -0.9642230272   -0.3271614909   -0.1296662688
+# H        0.3033806682   -0.2021051347    0.9597639441""")
+#
+#
+#
+#     # result = collection_type.from_server(
+#     #     client=public_client,
+#     #     datasets=dataset,
+#     #     spec_name=spec,
+#     # )
+#     client = FractalClient(fractal_compute_server)
+#
+#     #ds = qcportal.collections.OptimizationDataset("testing", client=client)
+#     ds = qcportal.collections.Dataset("testing", client=client)
+#     # dataset: ptl.collections.OptimizationDataset
+#     ds.add_entry(
+#         "ammonia",
+#         ammonia,
+#         #initial_molecule=ammonia,
+#         #attributes={
+#         inchi_key= 'AZHQPEOBSZLCKD-UHFFFAOYSA-N',
+#         canonical_isomeric_explicit_hydrogen_mapped_smiles= '[N:1]([H:2])([H:3])',
+#         #            },
+#         save=False,
+#     )
+#     ds.add_entry(
+#         "ammonium",
+#         ammonium,
+#         #initial_molecule=ammonium,
+#         #attributes={
+#         inchi_key= 'AZHQPEOBSZLCKD-UHFFFAOYSA-N',
+#         canonical_isomeric_explicit_hydrogen_mapped_smiles= '[NH+:1]([H:2])([H:3])([H:4])',
+#         #            },
+#         save=False,
+#     )
+#     # spec = {'name': 'default',
+#     #         'description': 'Geometric + rdkit',
+#     #         'method': 'openff-2.1.0',
+#     #         'basis': 'smirnoff',
+#     #         'keywords': None,
+#     #         'program': 'openmm'}
+#
+#     # spec = {'name': 'default',
+#     #         'description': 'Geometric + rdkit',
+#     #         'optimization_spec': {'program': 'openmm', 'keywords': None},
+#     #         'qc_spec': {'driver': 'gradient',
+#     #                     'method': 'openff-2.1.0',
+#     #                     'basis': 'smirnoff',
+#     #                     'keywords': None,
+#     #                     'program': 'openmm'}
+#     #         }
+#     # spec = {'name': 'default',
+#     #         'description': 'Geometric + Psi4/B3LYP-D3/Def2-SVP.',
+#     #         'optimization_spec': {'program': 'geometric', 'keywords': None},
+#     #         'qc_spec': {'driver': 'gradient',
+#     #                     'method': 'b3lyp-d3',
+#     #                     'basis': 'def2-svp',
+#     #                     'keywords': None,
+#     #                     'program': 'psi4'}
+#     #         }
+#     # ds.add_specification(**spec)
+#     ds.save()
+#     #ds.compute(specification="default")  # , tag="optional_tag")
+#     ds.compute(method="openff-1.0.0", basis="smirnoss", program="openmm")
+#     ds.save()
+#     #ds.compute(specification="default")  # , tag="optional_tag")
+#     fractal_compute_server.await_results()
+#     fractal_compute_server.await_services()
+#     ds = client.get_collection("Dataset", "testing")
+#
+#     result = OptimizationResultCollection.from_server(
+#         client=client,
+#         datasets="testing",
+#         spec_name="default",
+#     )
+#
+#     assert 0, (ds.get_record("ammonia", "default"), result)
+#
+#     # assert public_client.address in result.entries
+#     #
+#     # assert result.n_molecules == n_molecules
+#     # assert result.n_results == n_results
+
+
+
+@pytest.mark.parametrize(
+    "collection, record",
+    [
+        (
+            BasicResultCollection(
+                entries={
+                    ## We shouldn't need to put a real URL here - some more mocking may make that possible
+                    "https://api.qcarchive.molssi.org:443/": [
+                        BasicResult(
+                            record_id=ObjectId("1"),
+                            cmiles="[Cl:1][Cl:2]",
+                            inchi_key="foo",
+                        ),
+                        BasicResult(
+                            record_id=ObjectId("2"),
+                            cmiles="[NH+:1]([H:2])([H:3])([H:4])",
+                            inchi_key="bar",
+                        )
+
+                    ]
+                }
+            ),
+            [
+                ResultRecord(
+                    id=ObjectId("1"),
+                    program="psi4",
+                    driver=DriverEnum.gradient,
+                    method="scf",
+                    basis="sto-3g",
+                    molecule=ObjectId("1"),
+                    status=RecordStatusEnum.complete,
+                ),
+                ResultRecord(
+                    id=ObjectId("2"),
+                    program="psi4",
+                    driver=DriverEnum.gradient,
+                    method="scf",
+                    basis="sto-3g",
+                    molecule=ObjectId("2"),
+                    status=RecordStatusEnum.complete,
+                ),
+            ],
+        ),
+        # (
+        #     OptimizationResultCollection(
+        #         entries={
+        #             "https://api.qcarchive.molssi.org:443/": [
+        #                 OptimizationResult(
+        #                     record_id=ObjectId("1"),
+        #                     cmiles="[Cl:1][Cl:2]",
+        #                     inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
+        #                 )
+        #             ]
+        #         }
+        #     ),
+        #     OptimizationRecord(
+        #         program="psi4",
+        #         id=ObjectId("1"),
+        #         qc_spec=QCSpecification(
+        #             driver=DriverEnum.gradient,
+        #             method="scf",
+        #             basis="sto-3g",
+        #             program="psi4",
+        #         ),
+        #         initial_molecule=ObjectId("1"),
+        #         status=RecordStatusEnum.complete,
+        #     ),
+        # ),
+        # (
+        #     TorsionDriveResultCollection(
+        #         entries={
+        #             "https://api.qcarchive.molssi.org:443/": [
+        #                 TorsionDriveResult(
+        #                     record_id=ObjectId("1"),
+        #                     cmiles="[Cl:1][Cl:2]",
+        #                     inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
+        #                 )
+        #             ]
+        #         }
+        #     ),
+        #     TorsionDriveRecord(
+        #         id=ObjectId("1"),
+        #         qc_spec=QCSpecification(
+        #             driver=DriverEnum.gradient,
+        #             method="scf",
+        #             basis="sto-3g",
+        #             program="psi4",
+        #         ),
+        #         optimization_spec=OptimizationSpecification(
+        #             program="geometric", keywords={}
+        #         ),
+        #         initial_molecule=[ObjectId("1")],
+        #         status=RecordStatusEnum.complete,
+        #         keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
+        #         final_energy_dict={},
+        #         optimization_history={},
+        #         minimum_positions={},
+        #     ),
+        # ),
+    ],
+)
+def test_to_records_bad_cmiles(collection, record, monkeypatch):
+    def mock_query_procedures(self, obj_id, *args, **kwargs):
+        return_result = list()
+        for id in obj_id:
+            if int(id) == 1:
+                return_result.append(record[0])
+            elif int(id) == 2:
+                return_result.append(record[1])
+            else:
+                assert 0, id
+        return return_result
+
+
+
+    def mock_query_molecules(self, obj_id, *args, **kwargs):
+        return_result = list()
+        for id in obj_id:
+            if int(id) == 1:
+                molecule: Molecule = Molecule.from_mapped_smiles("[Cl:1][Cl:2]")
+                molecule.add_conformer(numpy.arange(6).reshape((2, 3)) * unit.angstrom)
+
+                qc_molecule = QCMolecule(
+                    **molecule.to_qcschema().dict(exclude={"id"}), id=id
+                )
+                return_result.append(qc_molecule)
+            elif int(id) == 2:
+                molecule: Molecule = Molecule.from_mapped_smiles("[N:1]([H:2])([H:3])([H:4])[H:3]")
+                #molecule.add_conformer(numpy.arange(12).reshape((4, 3)) * unit.angstrom)
+                molecule.add_conformer(numpy.arange(15).reshape((5, 3)) * unit.angstrom)
+
+                qc_molecule = QCMolecule(
+                    **molecule.to_qcschema().dict(exclude={"id"}), id=id
+                )
+                return_result.append(qc_molecule)
+            else:
+                assert 0, obj_id
+        #print(obj_id, return_result)
+        return return_result
+
+    monkeypatch.setattr(FractalClient, "query_procedures", mock_query_procedures)
+    monkeypatch.setattr(FractalClient, "query_molecules", mock_query_molecules)
+
+    records_and_molecules = collection.to_records()
+    assert len(records_and_molecules) == 1
+
+    record, molecule = records_and_molecules[0]
+
+    assert isinstance(record, record.__class__)
+
+    if not isinstance(record, TorsionDriveRecord):
+        assert molecule.n_conformers == 1
 
 @pytest.mark.parametrize(
     "collection, record",
