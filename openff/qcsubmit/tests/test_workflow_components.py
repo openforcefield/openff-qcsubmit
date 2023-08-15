@@ -877,7 +877,7 @@ def test_smarts_filter_validator():
     Make sure the validator is checking the allowed and filtered fields have valid smirks strings.
     """
 
-    from openff.toolkit.typing.chemistry import SMIRKSParsingError
+    from openff.toolkit.utils.exceptions import SMIRKSParsingError
 
     with pytest.raises(ValidationError):
         workflow_components.SmartsFilter(
