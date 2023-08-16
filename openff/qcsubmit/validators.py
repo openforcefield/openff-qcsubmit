@@ -296,7 +296,11 @@ def check_environments(environment: str) -> str:
         # capability "find_smarts_matches" for args...' it would be nice for
         # chemical_environment_matches to raise a more specific exception, but
         # it just raises a ValueError
-        if 'capability "find_smarts_matches"' not in str(e):
+        s = str(e)
+        if (
+            'capability "find_smarts_matches"' not in s
+            or "Available toolkits are: []" in s
+        ):
             raise e
 
     # we've either already returned successfully, raised an unrelated
