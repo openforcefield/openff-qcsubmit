@@ -535,7 +535,9 @@ def test_from_datasets_invalid_cmiles(optimization_dataset_invalid_cmiles):
     """Test creating results from collections with invalid records."""
 
     # this mocked dataset has one valid and one invalid record
-    with pytest.warns(UserWarning, match="Skipping entry GNT-00284-0 with invalid CMILES"):
+    with pytest.warns(
+        UserWarning, match="Skipping entry GNT-00284-0 with invalid CMILES"
+    ):
         result = OptimizationResultCollection.from_datasets(
             datasets=[optimization_dataset_invalid_cmiles], spec_name="default"
         )
