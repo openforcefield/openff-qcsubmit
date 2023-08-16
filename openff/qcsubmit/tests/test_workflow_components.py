@@ -901,6 +901,14 @@ def test_smarts_filter_validator():
         # good smarts with no tagged atoms.
         workflow_components.SmartsFilter(allowed_substructures=["[C]=[C]"])
 
+    from openff.toolkit.utils import ToolkitRegistry
+    from openff.toolkit.utils.toolkit_registry import _toolkit_registry_manager
+
+    # this test is the same as above, but without any toolkit available
+    with pytest.raises(ValueError):
+        with _toolkit_registry_manager(ToolkitRegistry()):
+            workflow_components.SmartsFilter(allowed_substructures=["[C]=[C]"])
+
     # a good search string
     smart_filter = workflow_components.SmartsFilter(
         allowed_substructures=["[C:1]=[C:2]"]
