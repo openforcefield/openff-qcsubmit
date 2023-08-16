@@ -3,6 +3,7 @@ A module which contains convenience classes for referencing, retrieving and filt
 results from a QCFractal instance.
 """
 import abc
+import warnings
 from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
@@ -467,6 +468,10 @@ class OptimizationResultCollection(_BaseResultCollection):
                             allow_undefined_stereo=True,
                         )
                     except ValueError:
+                        warnings.warn(
+                            f"Skipping entry {entry.name} with invalid CMILES {entry.attributes['canonical_isomeric_explicit_hydrogen_mapped_smiles']}",
+                            UserWarning,
+                        )
                         continue
                     inchi_key = mol.to_inchikey(fixed_hydrogens=True)
 
