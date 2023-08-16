@@ -6,8 +6,8 @@ import numpy as np
 import openff.toolkit.topology as off
 import tqdm
 from openff.units import unit
-from pydantic import Field, validator
 
+from openff.qcsubmit._pydantic import Field, validator
 from openff.qcsubmit.common_structures import DatasetConfig, ResultsConfig
 from openff.qcsubmit.validators import check_environments
 

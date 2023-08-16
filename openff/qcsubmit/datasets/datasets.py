@@ -19,12 +19,12 @@ import qcelemental as qcel
 import qcportal as ptl
 import tqdm
 from openff.toolkit import topology as off
-from pydantic import Field, constr, validator
 from qcelemental.models import AtomicInput, OptimizationInput
 from qcelemental.models.procedures import QCInputSpecification
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import Field, constr, validator
 from openff.qcsubmit.common_structures import (
     CommonBase,
     Metadata,

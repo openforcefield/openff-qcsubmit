@@ -7,7 +7,6 @@ import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
-from pydantic import ValidationError
 from qcportal import FractalClient
 from qcportal.models import Molecule as QCMolecule
 from qcportal.models import (
@@ -24,6 +23,7 @@ from qcportal.models.common_models import (
 from qcportal.models.records import RecordStatusEnum
 from qcportal.models.torsiondrive import TDKeywords
 
+from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results import (

@@ -9,9 +9,9 @@ from enum import Enum
 from typing import IO, Dict, Optional, Tuple, Union
 
 import yaml
-from pydantic import BaseModel
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import BaseModel
 from openff.qcsubmit.exceptions import UnsupportedFiletypeError
 
 __all__ = [

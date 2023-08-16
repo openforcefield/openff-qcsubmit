@@ -5,10 +5,10 @@ from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
 import tqdm
 from openff.toolkit import topology as off
 from openff.toolkit.utils import GLOBAL_TOOLKIT_REGISTRY, ToolkitRegistry
-from pydantic import Field, validator
 from qcportal.models.common_models import DriverEnum
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import Field, validator
 from openff.qcsubmit.common_structures import CommonBase, Metadata
 from openff.qcsubmit.datasets import (
     BasicDataset,

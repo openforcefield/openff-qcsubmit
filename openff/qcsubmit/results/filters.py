@@ -14,7 +14,6 @@ from openff.toolkit.utils import (
     UndefinedStereochemistryError,
 )
 from openff.units import unit
-from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
 from qcportal.models.records import (
     OptimizationRecord,
@@ -24,6 +23,13 @@ from qcportal.models.records import (
 )
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import (
+    BaseModel,
+    Field,
+    PrivateAttr,
+    root_validator,
+    validator,
+)
 from openff.qcsubmit.results.results import (
     TorsionDriveResultCollection,
     _BaseResult,

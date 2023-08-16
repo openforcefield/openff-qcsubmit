@@ -3,9 +3,9 @@ from typing import List, Optional
 import simtk.unit as unit
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils import ToolkitRegistry
-from pydantic import Field
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import Field
 from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.workflow_components.base_component import (
     CustomWorkflowComponent,

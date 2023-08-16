@@ -4,11 +4,11 @@ import numpy
 import pytest
 from openff.toolkit.topology import Molecule
 from openff.units import unit
-from pydantic import ValidationError
 from qcelemental.models import DriverEnum
 from qcportal.models import ObjectId, ResultRecord
 from qcportal.models.records import RecordStatusEnum
 
+from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit.results import (
     BasicResult,
     OptimizationResult,

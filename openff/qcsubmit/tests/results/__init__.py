@@ -3,7 +3,6 @@ import copy
 import numpy
 from openff.toolkit.topology import Molecule
 from openff.units import unit
-from pydantic import BaseModel
 from qcelemental.models import DriverEnum
 from qcportal.models import (
     ObjectId,
@@ -16,6 +15,7 @@ from qcportal.models import (
 from qcportal.models.records import RecordStatusEnum
 from qcportal.models.torsiondrive import TDKeywords
 
+from openff.qcsubmit._pydantic import BaseModel
 from openff.qcsubmit.results import (
     BasicResult,
     BasicResultCollection,

@@ -31,7 +31,7 @@ dependencies:
   - openff-toolkit-base == 0.14.0
   - openff-units >=0.2.1
   - rdkit
-  - pydantic =1
+  - pydantic
   - pyyaml
   - qcportal>=0.15.7
   - torsiondrive

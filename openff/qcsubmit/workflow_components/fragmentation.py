@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils import ToolkitRegistry
-from pydantic import Field, validator
 from qcelemental.util import which_import
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import Field, validator
 from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.utils import get_symmetry_classes, get_symmetry_group, get_torsion
 from openff.qcsubmit.validators import check_environments

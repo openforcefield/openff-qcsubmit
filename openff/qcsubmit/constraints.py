@@ -3,9 +3,9 @@ Constraint base classes and methods.
 """
 from typing import List, Tuple, Union
 
-from pydantic import Field, ValidationError, validator
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import Field, ValidationError, validator
 from openff.qcsubmit.common_structures import ResultsConfig
 from openff.qcsubmit.exceptions import ConstraintError
 

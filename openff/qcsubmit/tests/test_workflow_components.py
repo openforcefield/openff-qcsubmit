@@ -12,10 +12,10 @@ from openff.toolkit.utils.toolkits import (
     RDKitToolkitWrapper,
     ToolkitRegistry,
 )
-from pydantic import ValidationError
 from typing_extensions import Literal
 
 from openff.qcsubmit import workflow_components
+from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.exceptions import (
     ComponentRegisterError,
