@@ -3,6 +3,7 @@ A module which contains convenience classes for referencing, retrieving and filt
 results from a QCFractal instance.
 """
 import abc
+import warnings
 from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
@@ -451,26 +452,38 @@ class OptimizationResultCollection(_BaseResultCollection):
             client = dataset.client
             query = dataset.query(spec_name)
 
-            result_records[client.address].update(
-                {
-                    query[entry.name].id: OptimizationResult(
-                        record_id=query[entry.name].id,
-                        cmiles=entry.attributes[
-                            "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                        ],
-                        inchi_key=entry.attributes.get("fixed_hydrogen_inchi_key")
-                        or Molecule.from_mapped_smiles(
+            for entry in dataset.data.records.values():
+                if not (
+                    (entry.name in query)
+                    and (query[entry.name].status.value.upper() == "COMPLETE")
+                ):
+                    continue
+                inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
+                if inchi_key is None:
+                    try:
+                        mol = Molecule.from_mapped_smiles(
                             entry.attributes[
                                 "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                             ],
                             allow_undefined_stereo=True,
-                        ).to_inchikey(fixed_hydrogens=True),
-                    )
-                    for entry in dataset.data.records.values()
-                    if entry.name in query
-                    and query[entry.name].status.value.upper() == "COMPLETE"
-                }
-            )
+                        )
+                    except ValueError:
+                        warnings.warn(
+                            f"Skipping entry {entry.name} with invalid CMILES {entry.attributes['canonical_isomeric_explicit_hydrogen_mapped_smiles']}",
+                            UserWarning,
+                        )
+                        continue
+                    inchi_key = mol.to_inchikey(fixed_hydrogens=True)
+
+                result_records[client.address][
+                    query[entry.name].id
+                ] = OptimizationResult(
+                    record_id=query[entry.name].id,
+                    cmiles=entry.attributes[
+                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                    ],
+                    inchi_key=inchi_key,
+                )
 
         return cls(
             entries={
