@@ -17,7 +17,7 @@ defaults:
 jobs:
   test:
 
-    name: ${{ matrix.cfg.os }}, 🐍=${{ matrix.python-version }}, program=${{ matrix.cfg.conda-env }}, pydantic=${{ matrix.cfg.pydantic-version }}
+    name: ${{ matrix.cfg.os }}, 🐍=${{ matrix.python-version }}, program=${{ matrix.cfg.conda-env }}, pydantic=${{ matrix.pydantic-version }}
     runs-on: ${{ matrix.cfg.os }}
 
     strategy:
@@ -51,7 +51,7 @@ jobs:
           environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
           extra-specs: |
             python=${{ matrix.python-version }}
-            pydantic==${{ matrix.pydantic-version }}
+            pydantic=${{ matrix.pydantic-version }}
           channel-priority: "flexible"
 
       - name: License OpenEye
