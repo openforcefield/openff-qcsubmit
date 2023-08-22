@@ -174,6 +174,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         self,
         client: "PortalClient",
         ignore_errors: bool = False,
+        find_existing: bool = True
     ) -> Dict:
         """
         Submit the dataset to a QCFractal server.
@@ -222,7 +223,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         # TODO - check if entries already exist
         collection.add_entries(entries)
 
-        return collection.submit(tag=self.compute_tag, priority=self.priority)
+        return collection.submit(tag=self.compute_tag, priority=self.priority, find_existing=find_existing)
 
     @abc.abstractmethod
     def __add__(self, other: "_BaseDataset") -> "_BaseDataset":
