@@ -5,11 +5,9 @@ import re
 from typing import List, Tuple, Union
 
 import qcelemental as qcel
+from openff.toolkit import Molecule
 from openff.toolkit import topology as off
-from openff.toolkit.typing.chemistry.environment import (
-    ChemicalEnvironment,
-    SMIRKSParsingError,
-)
+from openff.toolkit.utils.exceptions import SMIRKSParsingError
 
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.exceptions import (
@@ -288,14 +286,26 @@ def check_environments(environment: str) -> str:
     """
 
     # try and make a new chemical environment checking for parse errors
-    _ = ChemicalEnvironment(smirks=environment)
+    try:
+        _ = Molecule().chemical_environment_matches(environment)
+        # check for numeric tags in the environment
+        if re.search(":[0-9]]+", environment) is not None:
+            return environment
+    except ValueError as e:
+        # only catch an error like 'No registered toolkits can provide the
+        # capability "find_smarts_matches" for args...' it would be nice for
+        # chemical_environment_matches to raise a more specific exception, but
+        # it just raises a ValueError
+        s = str(e)
+        if (
+            'capability "find_smarts_matches"' not in s
+            or "Available toolkits are: []" in s
+        ):
+            raise e
 
-    # check for numeric tags in the environment
-    if re.search(":[0-9]]+", environment) is not None:
-        return environment
-
-    else:
-        raise SMIRKSParsingError(
-            "The smarts pattern passed had no tagged atoms please tag the atoms in the "
-            "substructure you wish to include/exclude."
-        )
+    # we've either already returned successfully, raised an unrelated
+    # exception, or failed to parse the smirks
+    raise SMIRKSParsingError(
+        "The smarts pattern passed had no tagged atoms please tag the atoms in the "
+        "substructure you wish to include/exclude."
+    )

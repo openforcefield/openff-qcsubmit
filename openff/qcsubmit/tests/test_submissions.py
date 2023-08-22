@@ -769,8 +769,8 @@ def test_optimization_submissions_with_pcm(fulltest_client):
             assert record.error is None
             assert len(record.trajectory) > 1
             result = record.get_trajectory()[0]
-            assert "CURRENT DIPOLE X" in result.extras["qcvars"].keys()
-            assert "SCF QUADRUPOLE XX" in result.extras["qcvars"].keys()
+            assert "SCF DIPOLE" in result.extras["qcvars"].keys()
+            assert "SCF QUADRUPOLE" in result.extras["qcvars"].keys()
             # make sure the PCM result was captured
             assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
 

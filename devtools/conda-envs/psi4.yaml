@@ -9,7 +9,7 @@ channels:
 dependencies:
 
   # Base depends
-  - python>=3.8
+  - python
   - pip
 
   # Testing
@@ -30,7 +30,8 @@ dependencies:
 
   ### Core dependencies.
 
-  - openff-toolkit-base = 0.14.0
+  - openff-toolkit-base >= 0.14.0
+  - openff-units >=0.2.1
   - rdkit
   - pydantic =1
   - pyyaml

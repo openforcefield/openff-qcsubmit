@@ -591,3 +591,20 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
     assert {*coverage["Angles"].values()} == {3}
 
     assert {*coverage["ProperTorsions"].values()} == {1, 3}
+
+
+def test_from_datasets_invalid_cmiles(optimization_dataset_invalid_cmiles):
+    """Test creating results from collections with invalid records."""
+
+    # this mocked dataset has one valid and one invalid record
+    with pytest.warns(
+        UserWarning, match="Skipping entry GNT-00284-0 with invalid CMILES"
+    ):
+        result = OptimizationResultCollection.from_datasets(
+            datasets=[optimization_dataset_invalid_cmiles], spec_name="default"
+        )
+    # make sure the invalid record is dropped
+    assert result.n_results == 1
+    # make sure only record id 2 is present this is the valid record
+    record = list(result.entries.values())[0][0]
+    assert record.record_id == "2"

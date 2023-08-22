@@ -5,6 +5,7 @@ results from a QCFractal instance.
 from __future__ import annotations
 
 import abc
+import warnings
 from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
@@ -219,6 +220,16 @@ class _BaseResultCollection(BaseModel, abc.ABC):
 
         Returns:
             The collection containing only the retained entries.
+
+        Example::
+
+            >>> filtered_collection = self.filter(
+            >>>     RecordStatusFilter(status=RecordStatusEnum.complete),
+            >>>     ConnectivityFilter(tolerance=1.2),
+            >>>     UnperceivableStereoFilter(),
+            >>>     ElementFilter(allowed_elements=elements),
+            >>>     ConformerRMSDFilter(max_conformers=max_opt_conformers),
+            >>> )
         """
 
         filtered_collection = self.copy(deep=True)
@@ -457,11 +468,20 @@ class OptimizationResultCollection(_BaseResultCollection):
                 inchi_key = molecule.extras.get("fixed_hydrogen_inchi_key")
 
                 if inchi_key is None:
-                    tmp_mol = Molecule.from_mapped_smiles(
-                        cmiles, allow_undefined_stereo=True
-                    )
-                    inchi_key = tmp_mol.to_inchikey(fixed_hydrogens=True)
-
+                    try:
+                        mol = Molecule.from_mapped_smiles(
+                            entry.attributes[
+                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                            ],
+                            allow_undefined_stereo=True,
+                        )
+                    except ValueError:
+                        warnings.warn(
+                            f"Skipping entry {entry.name} with invalid CMILES {entry.attributes['canonical_isomeric_explicit_hydrogen_mapped_smiles']}",
+                            UserWarning,
+                        )
+                        continue
+                    inchi_key = mol.to_inchikey(fixed_hydrogens=True)
                 opt_rec = OptimizationResult(
                     record_id=record.id, cmiles=cmiles, inchi_key=inchi_key
                 )

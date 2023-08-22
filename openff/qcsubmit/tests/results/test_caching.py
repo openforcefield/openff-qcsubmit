@@ -36,10 +36,9 @@ def test_cached_fractal_client_snowflake():
 
     from qcfractal import FractalSnowflake
 
-    snowflake = FractalSnowflake(start_server=False)
-    client = cached_fractal_client(snowflake.client().address)
-
-    assert client is not None
+    with FractalSnowflake(start_server=False) as snowflake:
+        client = cached_fractal_client(snowflake.client().address)
+        assert client is not None
 
 
 def test_cached_query_procedures(public_client):

@@ -68,6 +68,8 @@ class ResultFilter(BaseModel, abc.ABC):
 
         Returns:
             The collection containing only the retained entries.
+
+        .. seealso:: :meth:`openff.qcsubmit.results.BasicResultCollection.filter`
         """
 
         filtered_collection = self._apply(result_collection.copy(deep=True))
