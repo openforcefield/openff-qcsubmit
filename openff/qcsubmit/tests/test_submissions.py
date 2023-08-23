@@ -32,26 +32,64 @@ from openff.qcsubmit.factories import (
 from openff.qcsubmit.utils import get_data
 
 
-def await_results(fulltest_client, timeout=120, check_fn=PortalClient.get_singlepoints):
+def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, ids=[1]):
     import time
 
     for i in range(timeout):
         time.sleep(1)
-        rec = check_fn(fulltest_client, 1)
+        recs = check_fn(client, ids)
         from pprint import pprint
-        print(rec.status)
-
+        finished = 0
         from qcportal.record_models import OutputTypeEnum
-        if rec.status == RecordStatusEnum.error:
-            print("stderr", rec._get_output(OutputTypeEnum.stderr))
-            print("stdout", rec._get_output(OutputTypeEnum.stdout))
-            print("error: ")
-            pprint(rec._get_output(OutputTypeEnum.error))
-            raise RuntimeError(f"calculation failed: {rec}")
-        if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
-            break
+        for rec in recs:
+            print(rec.status)
+            if rec.status == RecordStatusEnum.error:
+                print("stderr", rec._get_output(OutputTypeEnum.stderr))
+                print("stdout", rec._get_output(OutputTypeEnum.stdout))
+                print("error: ")
+                pprint(rec._get_output(OutputTypeEnum.error))
+                raise RuntimeError(f"calculation failed: {rec}")
+            if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
+                finished += 1
+                print("exiting await_results")
+                #break
+                #return True
+        if finished == len(recs):
+            return True
     else:
         raise RuntimeError("Did not finish calculation in time")
+
+def await_services(client, max_iter=10):
+    import time
+    from qcportal.record_models import OutputTypeEnum
+
+    for x in range(1, max_iter + 1):
+        #self.logger.info("\nAwait services: Iteration {}\n".format(x))
+        #running_services = self.update_services()
+        #self.await_results()
+        recs = [*client.query_singlepoints(),
+                *client.query_optimizations()]
+        finished = 0
+        for rec in recs:
+            print(rec.status)
+            if rec.status == RecordStatusEnum.error:
+                print("stderr", rec._get_output(OutputTypeEnum.stderr))
+                print("stdout", rec._get_output(OutputTypeEnum.stdout))
+                print("error: ")
+                pprint(rec._get_output(OutputTypeEnum.error))
+                raise RuntimeError(f"calculation failed: {rec}")
+            if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
+                finished += 1
+                print("exiting await_results")
+                # break
+                # return True
+        if finished == len(recs):
+            return True
+        time.sleep(1)
+        #if running_services == 0:
+        #    break
+
+    return True
 
 @pytest.mark.parametrize("specification", [
     pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "energy"), id="PSI4 hf 3-21g energy"),
@@ -414,8 +452,7 @@ def test_adding_compute(fulltest_client, dataset_data):
     # now submit again
     dataset.submit(client=client)
     # make sure that the compute has finished
-    snowflake.await_results()
-    snowflake.await_services(max_iter=50)
+    await_services(fulltest_client)
 
     # now lets make a dataset with new compute and submit it
     # transfer the metadata to compare the elements
@@ -432,22 +469,21 @@ def test_adding_compute(fulltest_client, dataset_data):
     assert compute_dataset.dataset == {}
     compute_dataset.submit(client=client)
     # make sure that the compute has finished
-    snowflake.await_results()
-    snowflake.await_services(max_iter=50)
+    await_services(fulltest_client)
 
     # make sure of the results are complete
     ds = client.get_dataset(dataset.type, dataset.dataset_name)
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
+    meta = ds.metadata
+    check_metadata(ds, dataset)
 
-    assert ds.data.description == dataset.description
-    assert ds.data.tagline == dataset.dataset_tagline
-    assert ds.data.tags == dataset.dataset_tags
+    assert meta['long_description'] == dataset.description
+    assert meta['short_description'] == dataset.dataset_tagline
+    assert ds.tags == dataset.dataset_tags
 
     # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    assert dataset.provenance == ds.provenance
 
     # update all specs into one dataset
     dataset.add_qc_spec(**compute_dataset.qc_specifications["rdkit"].dict())
@@ -474,29 +510,26 @@ def test_adding_compute(fulltest_client, dataset_data):
                 assert result.return_result is not None
     else:
         # check the qc spec
-        for qc_spec in dataset.qc_specifications.values():
-            spec = ds.data.specs[qc_spec.spec_name]
-
-            assert spec.description == qc_spec.spec_description
-            assert spec.qc_spec.driver == dataset.driver
-            assert spec.qc_spec.method == qc_spec.method
-            assert spec.qc_spec.basis == qc_spec.basis
-            assert spec.qc_spec.program == qc_spec.program
+        for spec_name, specification in ds.specifications.items():
+            spec = dataset.qc_specifications[spec_name]
+            s = specification.specification
+            assert s.qc_specification.driver == dataset.driver
+            assert s.qc_specification.program == spec.program
+            assert s.qc_specification.method == spec.method
+            assert s.qc_specification.basis == spec.basis
 
             # check the keywords
-            keywords = client.query_keywords(spec.qc_spec.keywords)[0]
-
-            assert keywords.values["maxiter"] == qc_spec.maxiter
-            assert keywords.values["scf_properties"] == qc_spec.scf_properties
+            got = s.keywords
+            want = dataset._get_specifications()[spec_name].keywords
+            assert got == want
 
             # query the dataset
-            ds.query(qc_spec.spec_name)
+            query = ds.iterate_records(specification_names="default")
 
-            for index in ds.df.index:
-                record = ds.df.loc[index].default
-                # this will take some time so make sure it is running with no error
-                assert record.status.value == "COMPLETE", print(record.dict())
+            for name, spec, record in query:
+                assert record.status == RecordStatusEnum.complete
                 assert record.error is None
+                assert len(record.trajectory) > 1
 
 
 # TODO use this elsewhere
@@ -700,7 +733,7 @@ def test_optimization_submissions(fulltest_client, specification):
 def test_optimization_submissions_with_pcm(fulltest_client):
     """Test submitting an Optimization dataset to a snowflake server with PCM."""
 
-    client = snowflake.client()
+    #client = snowflake.client()
 
     program = "psi4"
     if not has_program(program):
@@ -724,18 +757,19 @@ def test_optimization_submissions_with_pcm(fulltest_client):
     dataset.metadata.long_description = None
 
     with pytest.raises(DatasetInputError):
-        dataset.submit(client=client)
+        dataset.submit(client=fulltest_client)
 
     # re-add the description so we can submit the data
     dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
 
-    snowflake.await_results()
+    await_results(fulltest_client)
+    #snowflake.await_results()
 
     # make sure of the results are complete
-    ds = client.get_dataset("OptimizationDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset("OptimizationDataset", dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -755,7 +789,7 @@ def test_optimization_submissions_with_pcm(fulltest_client):
         assert spec.qc_spec.program == qc_spec.program
 
         # check the keywords
-        keywords = client.query_keywords(spec.qc_spec.keywords)[0]
+        keywords = fulltest_client.query_keywords(spec.qc_spec.keywords)[0]
 
         assert keywords.values["maxiter"] == qc_spec.maxiter
         assert keywords.values["scf_properties"] == qc_spec.scf_properties
@@ -780,7 +814,7 @@ def test_torsiondrive_scan_keywords(fulltest_client):
     Test running torsiondrives with unique keyword settings which overwrite the global grid spacing and scan range.
     """
 
-    client = snowflake.client()
+    #client = snowflake.client()
     molecules = Molecule.from_smiles("CO")
     factory = TorsiondriveDatasetFactory()
     scan_enum = workflow_components.ScanEnumerator()
@@ -799,11 +833,12 @@ def test_torsiondrive_scan_keywords(fulltest_client):
                       "dihedral_ranges": [(-10, 10)]}
 
     # now submit
-    dataset.submit(client=client)
-    snowflake.await_services(max_iter=50)
+    dataset.submit(client=fulltest_client)
+    await_results(fulltest_client)
+    #snowflake.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
 
     # get the entry
     record = ds.get_record(ds.df.index[0], "openff-1.1.0")
@@ -818,7 +853,7 @@ def test_torsiondrive_constraints(fulltest_client):
     Make sure constraints are correctly passed to optimisations in torsiondrives.
     """
 
-    client = snowflake.client()
+    #client = snowflake.client()
     molecule = Molecule.from_file(get_data("TRP.mol2"))
     dataset = TorsiondriveDataset(dataset_name="Torsiondrive constraints", dataset_tagline="Testing torsiondrive constraints", description="Testing torsiondrive constraints.")
     dataset.clear_qcspecs()
@@ -830,14 +865,15 @@ def test_torsiondrive_constraints(fulltest_client):
     entry.add_constraint(constraint="freeze", constraint_type="dihedral", indices=[6, 8, 10, 13])
     entry.add_constraint(constraint="freeze", constraint_type="dihedral", indices=[8, 10, 13, 14])
 
-    dataset.submit(client=client, processes=1)
-    snowflake.await_services(max_iter=50)
+    dataset.submit(client=fulltest_client)#, processes=1)
+    await_results(fulltest_client)
+    #snowflake.await_services(max_iter=50)
 
     # make sure the result is complete
-    ds = client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
 
     record = ds.get_record(ds.df.index[0], "uff")
-    opt = client.query_procedures(id=record.optimization_history['[-150]'])[0]
+    opt = fulltest_client.query_procedures(id=record.optimization_history['[-150]'])[0]
     constraints = opt.keywords["constraints"]
     # make sure both the freeze and set constraints are passed on
     assert "set" in constraints
@@ -858,7 +894,7 @@ def test_torsiondrive_submissions(fulltest_client, specification):
     Test submitting a torsiondrive dataset and computing it.
     """
 
-    client = snowflake.client()
+    #client = snowflake.client()
 
     qc_spec, driver = specification
     program = qc_spec["program"]
@@ -880,18 +916,19 @@ def test_torsiondrive_submissions(fulltest_client, specification):
     dataset.metadata.long_description = None
 
     with pytest.raises(DatasetInputError):
-        dataset.submit(client=client)
+        dataset.submit(client=fulltest_client)
 
     # re-add the description so we can submit the data
     dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
 
-    snowflake.await_services(max_iter=50)
+    await_results(fulltest_client)
+    #snowflake.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
 
     # check the metadata
     meta = Metadata(**ds.data.metadata)
@@ -911,7 +948,7 @@ def test_torsiondrive_submissions(fulltest_client, specification):
         assert spec.qc_spec.program == qc_spec.program
 
         # check the keywords
-        keywords = client.query_keywords(spec.qc_spec.keywords)[0]
+        keywords = fulltest_client.query_keywords(spec.qc_spec.keywords)[0]
 
         assert keywords.values["maxiter"] == qc_spec.maxiter
         assert keywords.values["scf_properties"] == qc_spec.scf_properties
@@ -958,7 +995,7 @@ def test_ignore_errors_all_datasets(snowflake, factory_type, capsys):
 
     # now we want to try again and make sure warnings are raised
     with pytest.warns(UserWarning):
-        dataset.submit(client=client, ignore_errors=True, verbose=True)
+        dataset.submit(client=client, ignore_errors=True)
 
     info = capsys.readouterr()
     assert info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
@@ -968,13 +1005,13 @@ def test_ignore_errors_all_datasets(snowflake, factory_type, capsys):
     pytest.param(BasicDatasetFactory, id="Basicdataset"),
     pytest.param(OptimizationDatasetFactory, id="Optimizationdataset")
 ])
-def test_index_not_changed(snowflake, factory_type):
+def test_index_not_changed(fulltest_client, factory_type):
     """
     Make sure that when we submit molecules from a dataset/optimizationdataset with one input conformer that the index is not changed.
     """
     factory = factory_type()
     factory.clear_qcspecs()
-    client = snowflake.client()
+    #client = snowflake.client()
 
     # add only mm specs
     factory.add_qc_spec(method="openff-1.0.0", basis="smirnoff", program="openmm", spec_name="parsley",
@@ -994,10 +1031,10 @@ def test_index_not_changed(snowflake, factory_type):
     entry.index = "my_unique_index"
     dataset.dataset[entry.index] = entry
 
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
 
     # pull the dataset and make sure our index is present
-    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
 
     if dataset.type == "DataSet":
         query = ds.get_records(method="openff-1.0.0", basis="smirnoff", program="openmm")
@@ -1010,12 +1047,12 @@ def test_index_not_changed(snowflake, factory_type):
     pytest.param(OptimizationDatasetFactory, id="OptimizationDataset index clash"),
     pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset index clash"),
 ])
-def test_adding_dataset_entry_fail(snowflake, factory_type, capsys):
+def test_adding_dataset_entry_fail(fulltest_client, factory_type, capsys):
     """
     Make sure that the new entries is not incremented if we can not add a molecule to the server due to a name clash.
     TODO add basic dataset into the testing if the api changes to return an error when adding the same index twice
     """
-    client = snowflake.client()
+    #client = snowflake.client()
     molecule = Molecule.from_smiles("CO")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
@@ -1032,14 +1069,14 @@ def test_adding_dataset_entry_fail(snowflake, factory_type, capsys):
                                      )
 
     # make sure all expected index get submitted
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
     info = capsys.readouterr()
     assert info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
 
     # now add a new spec and try and submit again
     dataset.clear_qcspecs()
     dataset.add_qc_spec(method="mmff94", basis=None, program="rdkit", spec_name="mff94", spec_description="mff94 force field in rdkit")
-    dataset.submit(client=client, verbose=True)
+    dataset.submit(client=fulltest_client)
     info = capsys.readouterr()
     assert info.out == f"Number of new entries: 0/{dataset.n_records}\n"
 
@@ -1048,11 +1085,11 @@ def test_adding_dataset_entry_fail(snowflake, factory_type, capsys):
     pytest.param(OptimizationDatasetFactory, id="OptimizationDataset expand compute"),
     pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset expand compute"),
 ])
-def test_expanding_compute(snowflake, factory_type):
+def test_expanding_compute(fulltest_client, factory_type):
     """
     Make sure that if we expand the compute of a dataset tasks are generated.
     """
-    client = snowflake.client()
+    #client = snowflake.client()
     molecule = Molecule.from_smiles("CC")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
@@ -1070,9 +1107,9 @@ def test_expanding_compute(snowflake, factory_type):
                                      )
 
     # make sure all expected index get submitted
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
     # grab the dataset and check the history
-    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
     assert ds.specifications.keys() == {"default"}
 
     # now make another dataset to expand the compute
@@ -1086,10 +1123,10 @@ def test_expanding_compute(snowflake, factory_type):
                                      tagline="Testing compute expansion",
                                      )
     # now submit again
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
 
     # now grab the dataset again and check the tasks list
-    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
     assert ds.specifications.keys() == {"default", "parsley2"}
     # make sure a record has been made
 
