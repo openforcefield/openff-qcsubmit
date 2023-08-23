@@ -69,7 +69,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          python -m pytest -v --cov=openff --cov-config=setup.cfg openff/qcsubmit/tests/ --cov-report=xml
+          python -m pytest -v --cov=openff --cov-config=setup.cfg openff/qcsubmit/tests/ --cov-report=xml --ignore=openff/qcsubmit/tests/results/
 
       - name: Codecov
         uses: codecov/codecov-action@v1
