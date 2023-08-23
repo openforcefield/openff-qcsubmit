@@ -62,6 +62,7 @@ def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, i
 def await_services(client, max_iter=10):
     import time
     from qcportal.record_models import OutputTypeEnum
+    from pprint import pprint
 
     for x in range(1, max_iter + 1):
         #self.logger.info("\nAwait services: Iteration {}\n".format(x))
@@ -508,7 +509,7 @@ def test_adding_compute(fulltest_client, dataset_data):
                 assert result.status.value.upper() == "COMPLETE"
                 assert result.error is None
                 assert result.return_result is not None
-    else:
+    elif dataset.type == "OptimizationDataset":
         # check the qc spec
         for spec_name, specification in ds.specifications.items():
             spec = dataset.qc_specifications[spec_name]
@@ -517,6 +518,29 @@ def test_adding_compute(fulltest_client, dataset_data):
             assert s.qc_specification.program == spec.program
             assert s.qc_specification.method == spec.method
             assert s.qc_specification.basis == spec.basis
+
+            # check the keywords
+            got = s.keywords
+            want = dataset._get_specifications()[spec_name].keywords
+            assert got == want
+
+            # query the dataset
+            query = ds.iterate_records(specification_names="default")
+
+            for name, spec, record in query:
+                assert record.status == RecordStatusEnum.complete
+                assert record.error is None
+                assert len(record.trajectory) > 1
+
+    if dataset.type == "TorsionDriveDataset":
+        # check the qc spec
+        for spec_name, specification in ds.specifications.items():
+            spec = dataset.qc_specifications[spec_name]
+            s = specification.specification
+            assert s.optimization_specification.qc_specification.driver == dataset.driver
+            assert s.optimization_specification.program == spec.program
+            assert s.optimization_specification.method == spec.method
+            assert s.optimization_specification.basis == spec.basis
 
             # check the keywords
             got = s.keywords
