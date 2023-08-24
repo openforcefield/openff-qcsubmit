@@ -223,7 +223,10 @@ class _BaseDataset(abc.ABC, CommonBase):
         # TODO - check if entries already exist
         collection.add_entries(entries)
 
-        return collection.submit(tag=self.compute_tag, priority=self.priority, find_existing=find_existing)
+        return collection.submit(tag=self.compute_tag,
+                                 priority=self.priority,
+                                 #find_existing=find_existing
+                                 )
 
     @abc.abstractmethod
     def __add__(self, other: "_BaseDataset") -> "_BaseDataset":
