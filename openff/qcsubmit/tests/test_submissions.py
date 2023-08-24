@@ -69,7 +69,8 @@ def await_services(client, max_iter=10):
         #running_services = self.update_services()
         #self.await_results()
         recs = [*client.query_singlepoints(),
-                *client.query_optimizations()]
+                *client.query_optimizations(),
+                *client.query_torsiondrives()]
         finished = 0
         for rec in recs:
             print(rec.status)
@@ -89,8 +90,9 @@ def await_services(client, max_iter=10):
         time.sleep(1)
         #if running_services == 0:
         #    break
+    raise RuntimeError("Did not finish calculation in time")
 
-    return True
+    #return True
 
 @pytest.mark.parametrize("specification", [
     pytest.param(({"method": "hf", "basis": "3-21g", "program": "psi4"}, "energy"), id="PSI4 hf 3-21g energy"),
@@ -143,7 +145,8 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
 
     # make sure of the results are complete
     #ds = client.get_dataset("Dataset", dataset.dataset_name)
-    ds = client.get_dataset("singlepoint", dataset.dataset_name)
+    #ds = client.get_dataset("singlepoint", dataset.dataset_name)
+    ds = client.get_dataset(dataset.type, dataset.dataset_name)
     #ds = client.get_dataset_by_id(1)
 
     # check the metadata
@@ -233,7 +236,8 @@ def test_basic_submissions_multiple_spec(fulltest_client):
     await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_dataset("singlepoint", dataset.dataset_name)
+    #ds = client.get_dataset("singlepoint", dataset.dataset_name)
+    ds = client.get_dataset(dataset.type, dataset.dataset_name)
 
     # check the metadata
     meta = ds.metadata
@@ -266,8 +270,8 @@ def test_basic_submissions_multiple_spec(fulltest_client):
 def check_metadata(ds, dataset):
     "Check the metadata, tags, and provenance of ds compared to dataset"
     meta = ds.metadata
-    assert meta['long_description'] == dataset.description
-    assert meta['short_description'] == dataset.dataset_tagline
+    assert meta['long_description'] == dataset.metadata.long_description
+    assert meta['short_description'] == dataset.metadata.short_description
     assert ds.tags == dataset.dataset_tags
     assert ds.provenance == dataset.provenance
 
@@ -311,7 +315,8 @@ def test_basic_submissions_single_pcm_spec(fulltest_client):
     await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_dataset("singlepoint", dataset.dataset_name)
+    #ds = client.get_dataset("singlepoint", dataset.dataset_name)
+    ds = client.get_dataset(dataset.type, dataset.dataset_name)
 
     check_metadata(ds, dataset)
 
@@ -604,7 +609,8 @@ def test_basic_submissions_wavefunction(fulltest_client):
     await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_dataset("singlepoint", dataset.dataset_name)
+    #ds = client.get_dataset("singlepoint", dataset.dataset_name)
+    ds = client.get_dataset(dataset.type, dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds, dataset)
@@ -789,48 +795,47 @@ def test_optimization_submissions_with_pcm(fulltest_client):
     # now submit again
     dataset.submit(client=fulltest_client)
 
-    await_results(fulltest_client)
+    await_services(fulltest_client, max_iter=30)
     #snowflake.await_results()
 
     # make sure of the results are complete
-    ds = fulltest_client.get_dataset("OptimizationDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
-
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    check_metadata(ds, dataset)
 
     # check the qc spec
-    for qc_spec in dataset.qc_specifications.values():
-        spec = ds.data.specs[qc_spec.spec_name]
+    for spec_name, specification in ds.specifications.items():
+        spec = dataset.qc_specifications[spec_name]
 
-        assert spec.description == qc_spec.spec_description
-        assert spec.qc_spec.driver == dataset.driver
-        assert spec.qc_spec.method == qc_spec.method
-        assert spec.qc_spec.basis == qc_spec.basis
-        assert spec.qc_spec.program == qc_spec.program
+        s = specification.specification
+        assert s.qc_specification.driver == dataset.driver
+        assert s.qc_specification.program == spec.program
+        assert s.qc_specification.method == spec.method
+        assert s.qc_specification.basis == spec.basis
 
         # check the keywords
-        keywords = fulltest_client.query_keywords(spec.qc_spec.keywords)[0]
-
-        assert keywords.values["maxiter"] == qc_spec.maxiter
-        assert keywords.values["scf_properties"] == qc_spec.scf_properties
+        got = s.keywords
+        want = dataset._get_specifications()[spec_name].keywords
+        assert got == want
 
         # query the dataset
-        ds.query(qc_spec.spec_name)
+        query = ds.iterate_records(specification_names="default")
 
-        for index in ds.df.index:
-            record = ds.df.loc[index].default
-            assert record.status.value == "COMPLETE"
+        for name, spec, record in query:
+            assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert len(record.trajectory) > 1
-            result = record.get_trajectory()[0]
-            assert "SCF DIPOLE" in result.extras["qcvars"].keys()
-            assert "SCF QUADRUPOLE" in result.extras["qcvars"].keys()
+            result = record.trajectory
+            assert "SCF DIPOLE" in result.properties.keys()
+            assert "SCF QUADRUPOLE" in result.properties.keys()
             # make sure the PCM result was captured
             assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
+
+            #assert "SCF DIPOLE" in result.extras["qcvars"].keys()
+            #assert "SCF QUADRUPOLE" in result.extras["qcvars"].keys()
+            ## make sure the PCM result was captured
+            #assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
 
 
 def test_torsiondrive_scan_keywords(fulltest_client):
@@ -858,18 +863,25 @@ def test_torsiondrive_scan_keywords(fulltest_client):
 
     # now submit
     dataset.submit(client=fulltest_client)
-    await_results(fulltest_client)
+    await_services(fulltest_client, max_iter=30)
     #snowflake.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
+    #ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
 
     # get the entry
-    record = ds.get_record(ds.df.index[0], "openff-1.1.0")
-    assert record.keywords.grid_spacing == [5]
-    assert record.keywords.grid_spacing != dataset.grid_spacing
-    assert record.keywords.dihedral_ranges == [(-10, 10)]
-    assert record.keywords.dihedral_ranges != dataset.dihedral_ranges
+    query = ds.iterate_records(specification_names="openff-1.1.0")
+    assert len(list(query)) == 1  # only used 1 molecule above
+    for name, spec, record in query:
+        assert record.status == RecordStatusEnum.complete
+        assert record.error is None
+        assert record.return_result is not None
+    # record = ds.get_record(ds.df.index[0], "openff-1.1.0")
+        assert record.keywords.grid_spacing == [5]
+        assert record.keywords.grid_spacing != dataset.grid_spacing
+        assert record.keywords.dihedral_ranges == [(-10, 10)]
+        assert record.keywords.dihedral_ranges != dataset.dihedral_ranges
 
 
 def test_torsiondrive_constraints(fulltest_client):
@@ -890,23 +902,30 @@ def test_torsiondrive_constraints(fulltest_client):
     entry.add_constraint(constraint="freeze", constraint_type="dihedral", indices=[8, 10, 13, 14])
 
     dataset.submit(client=fulltest_client)#, processes=1)
-    await_results(fulltest_client)
+    await_services(fulltest_client, max_iter=240)
     #snowflake.await_services(max_iter=50)
 
     # make sure the result is complete
-    ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
+    #ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
 
-    record = ds.get_record(ds.df.index[0], "uff")
-    opt = fulltest_client.query_procedures(id=record.optimization_history['[-150]'])[0]
-    constraints = opt.keywords["constraints"]
-    # make sure both the freeze and set constraints are passed on
-    assert "set" in constraints
-    assert "freeze" in constraints
-    # make sure both freeze constraints are present
-    assert len(constraints["freeze"]) == 2
-    assert constraints["freeze"][0]["indices"] == [6, 8, 10, 13]
-    # make sure the dihedral has not changed
-    assert pytest.approx(opt.get_initial_molecule().measure((6, 8, 10, 13))) == opt.get_final_molecule().measure((6, 8, 10, 13))
+    #record = ds.get_record(ds.df.index[0], "uff")
+    query = ds.iterate_records(
+        specification_names="uff",
+    )
+    for name, spec, record in query:
+        #opt = fulltest_client.query_procedures(id=record.optimization_history['[-150]'])[0]
+        constraints = record.optimizations[(-150,)][0].specification.keywords['constraints']
+        #constraints = opt.keywords["constraints"]
+        # make sure both the freeze and set constraints are passed on
+        assert "set" in constraints
+        ## TODO: Possibly a Real Error - I can't find "freeze" anywhere in the results
+        assert "freeze" in constraints
+        # make sure both freeze constraints are present
+        assert len(constraints["freeze"]) == 2
+        assert constraints["freeze"][0]["indices"] == [6, 8, 10, 13]
+        # make sure the dihedral has not changed
+        assert pytest.approx(opt.get_initial_molecule().measure((6, 8, 10, 13))) == opt.get_final_molecule().measure((6, 8, 10, 13))
 
 
 @pytest.mark.parametrize("specification", [
@@ -948,28 +967,35 @@ def test_torsiondrive_submissions(fulltest_client, specification):
     # now submit again
     dataset.submit(client=fulltest_client)
 
-    await_results(fulltest_client)
+    await_services(fulltest_client)
     #snowflake.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
+    #ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
+    check_metadata(ds, dataset)
 
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    for spec_name, specification in ds.specifications.items():
+        spec = dataset.qc_specifications[spec_name]
 
-    # check the qc spec
-    for qc_spec in dataset.qc_specifications.values():
-        spec = ds.data.specs[qc_spec.spec_name]
+        s = specification.specification.optimization_specification
 
-        assert spec.description == qc_spec.spec_description
-        assert spec.qc_spec.driver == dataset.driver
-        assert spec.qc_spec.method == qc_spec.method
-        assert spec.qc_spec.basis == qc_spec.basis
-        assert spec.qc_spec.program == qc_spec.program
+        #assert s.qc_specification.spec_description == spec.description
+        assert s.qc_specification.driver == dataset.driver
+        assert s.qc_specification.program == spec.program
+        assert s.qc_specification.method == spec.method
+        assert s.qc_specification.basis == spec.basis
+
+        ## Actual Problems (TM) begin here
+        assert specification.description == spec.spec_description
+
+        # check the keywords
+        got = s.keywords
+        want = dataset._get_specifications()[spec_name].keywords
+        assert got == want
+
 
         # check the keywords
         keywords = fulltest_client.query_keywords(spec.qc_spec.keywords)[0]
