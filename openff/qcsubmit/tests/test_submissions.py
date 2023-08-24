@@ -73,7 +73,7 @@ def await_services(client, max_iter=10):
                 *client.query_torsiondrives()]
         finished = 0
         for rec in recs:
-            print(rec.status)
+            #print(rec.status)
             if rec.status == RecordStatusEnum.error:
                 print("stderr", rec._get_output(OutputTypeEnum.stderr))
                 print("stdout", rec._get_output(OutputTypeEnum.stdout))
@@ -82,7 +82,7 @@ def await_services(client, max_iter=10):
                 raise RuntimeError(f"calculation failed: {rec}")
             if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
                 finished += 1
-                print("exiting await_results")
+                print("exiting await_services")
                 # break
                 # return True
         if finished == len(recs):
@@ -458,7 +458,7 @@ def test_adding_compute(fulltest_client, dataset_data):
     # now submit again
     dataset.submit(client=client)
     # make sure that the compute has finished
-    await_services(fulltest_client)
+    await_services(fulltest_client, max_iter=30)
 
     # now lets make a dataset with new compute and submit it
     # transfer the metadata to compare the elements
@@ -475,7 +475,7 @@ def test_adding_compute(fulltest_client, dataset_data):
     assert compute_dataset.dataset == {}
     compute_dataset.submit(client=client)
     # make sure that the compute has finished
-    await_services(fulltest_client)
+    await_services(fulltest_client, max_iter=30)
 
     # make sure of the results are complete
     ds = client.get_dataset(dataset.type, dataset.dataset_name)
@@ -827,6 +827,8 @@ def test_optimization_submissions_with_pcm(fulltest_client):
             assert record.error is None
             assert len(record.trajectory) > 1
             result = record.trajectory
+
+            ## Real Problems (TM) begin here:
             assert "SCF DIPOLE" in result.properties.keys()
             assert "SCF QUADRUPOLE" in result.properties.keys()
             # make sure the PCM result was captured
