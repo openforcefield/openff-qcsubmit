@@ -411,6 +411,7 @@ class QCSpec(ResultsConfig):
         str, Union[StrictStr, StrictInt, StrictFloat, StrictBool, List[StrictFloat]]
     ] = Field(
         {},
+        #None,
         description="An optional set of program specific computational keywords that "
         "should be passed to the program. These may include, for example, DFT grid "
         "settings.",

@@ -194,6 +194,7 @@ class _BaseDataset(abc.ABC, CommonBase):
                 If the chosen basis set does not cover some of the elements in the dataset.
 
         """
+        from openff.qcsubmit.datasets import legacy_qcsubmit_ds_type_to_next_qcf_ds_type
 
         # pre submission checks
         # make sure we have some QCSpec to submit
@@ -204,8 +205,11 @@ class _BaseDataset(abc.ABC, CommonBase):
         # see if collection already exists
         # if so, we'll extend it
         # if not, we'll create a new one
+
         try:
-            collection = client.get_dataset(self.type, self.dataset_name)
+            #collection = client.get_dataset(self.type, self.dataset_name)
+            qcf_ds_type = legacy_qcsubmit_ds_type_to_next_qcf_ds_type[self.type]
+            collection = client.get_dataset(qcf_ds_type, self.dataset_name)
         except PortalRequestError as e:
             self.metadata.validate_metadata(raise_errors=not ignore_errors)
             collection = self._generate_collection(client=client)
@@ -748,7 +752,7 @@ class BasicDataset(_BaseDataset):
         The molecules in this dataset are all expanded so that different conformers are unique submissions.
     """
 
-    type: Literal["singlepoint"] = "singlepoint"
+    type: Literal["DataSet"] = "DataSet"
 
     @classmethod
     def _entry_class(cls) -> Type[DatasetEntry]:
@@ -886,7 +890,7 @@ class OptimizationDataset(BasicDataset):
     optimization datasets in the public or local qcarchive instance.
     """
 
-    type: Literal["OptimizationDataset"] = "optimization"
+    type: Literal["OptimizationDataset"] = "OptimizationDataset"
     driver: SinglepointDriver = SinglepointDriver.deferred
     optimization_procedure: GeometricProcedure = Field(
         GeometricProcedure(),
@@ -1095,7 +1099,7 @@ class TorsiondriveDataset(OptimizationDataset):
     """
 
     dataset: Dict[str, TorsionDriveEntry] = {}
-    type: Literal["TorsiondriveDataset"] = "torsiondrive"
+    type: Literal["TorsionDriveDataset"] = "TorsionDriveDataset"
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
     )

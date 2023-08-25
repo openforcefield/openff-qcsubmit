@@ -95,7 +95,9 @@ def test_load_dataset_obj(dataset):
     """
     Test the dataset util function can load any of the registered datasets
     """
-    new_dataset = load_dataset(dataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX").dict())
+    ds = dataset(dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
+    ds_dict = ds.dict()
+    new_dataset = load_dataset(ds_dict)
     assert new_dataset.type == dataset.__fields__["type"].default
 
 
@@ -633,6 +635,7 @@ def test_keywords_detected(keywords):
 
     portal_keywords = dataset._get_spec_keywords(qc_spec)
 
+    # Real Problem (TM)
     for key, expected_value in {} if keywords is None else keywords.items():
 
         assert key in portal_keywords.values
@@ -675,7 +678,10 @@ def test_add_molecule_from_entry_data():
 
 
 @pytest.mark.parametrize("dataset_data", [
-    pytest.param((BasicDataset, "OpenFF Theory Benchmarking Single Point Energies v1.0", ["default"]), id="Dataset no metadata"),
+    # TODO: There is no "default" spec in this dataset as far as I can tell. There are specs "spec_1" through "47".
+    #  The test also used this spec+dataset before, which is confusing
+    #  https://github.com/openforcefield/openff-qcsubmit/pull/195/files#diff-291559dda873efb6ed696e157cb6dc8df31dad7593d7e4e0b0e073237f4038e1L884
+    pytest.param((BasicDataset, "OpenFF Theory Benchmarking Single Point Energies v1.0", ["spec_1"]), id="Dataset no metadata"),
     pytest.param((OptimizationDataset, "OpenFF NCI250K Boron 1", ["default"]), id="OptimizationDataset no metadata"),
     pytest.param((TorsiondriveDataset, "OpenFF Fragmenter Phenyl Benchmark", ["UFF", "B3LYP-D3"]), id="TorsiondriveDataset no metadata"),
     pytest.param((TorsiondriveDataset, "OpenFF Rowley Biaryl v1.0", ["default"]), id="Torsiondrive with metadata")
@@ -1890,7 +1896,8 @@ def test_optimizationdataset_qc_spec():
     """
 
     dataset = OptimizationDataset(driver="energy", dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
-    qc_spec = dataset.get_qc_spec("default", keyword_id="0")
+    qc_spec = dataset.qc_specifications["default"]#  keyword_id="0")
+    # TODO: Possible Real Problem (TM). Do we need to find a replacement for keyword_id?
     assert qc_spec.keywords == "0"
     tags = ['program', "method", "basis", "driver"]
     for tag in tags:
