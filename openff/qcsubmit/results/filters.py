@@ -16,12 +16,18 @@ from openff.toolkit.utils import (
 from openff.units import unit
 from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
-from qcportal.records import (
-    BaseRecord,
-    OptimizationRecord,
-    RecordStatusEnum,
-    SinglepointRecord,
-)
+from qcportal.optimization import OptimizationRecord
+from qcportal.record_models import BaseRecord
+from qcportal.singlepoint import SinglepointRecord
+from qcportal.record_models import RecordStatusEnum
+
+#from qcportal.torsiondrive import TorsiondriveRecord
+#from qcportal.records import (
+#    BaseRecord,
+#    OptimizationRecord,
+#    RecordStatusEnum,
+#    SinglepointRecord,
+#)
 from typing_extensions import Literal
 
 from openff.qcsubmit.results.results import (

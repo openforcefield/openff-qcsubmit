@@ -5,8 +5,8 @@ import pytest
 import requests_mock
 from openff.toolkit.topology import Molecule
 from openff.units import unit
-from qcportal.records import OptimizationRecord, SinglepointRecord
-
+#from qcportal.records import OptimizationRecord, SinglepointRecord
+from . import OptimizationRecord, SinglepointRecord
 from openff.qcsubmit.results import BasicResult, OptimizationResult, TorsionDriveResult
 from openff.qcsubmit.results.caching import (
     _grid_id_cache,

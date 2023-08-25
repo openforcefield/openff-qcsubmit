@@ -1937,6 +1937,8 @@ def test_dataset_tasks(dataset_type, program):
         dihedrals = [get_dihedral(molecule), ]
         dataset.add_molecule(index=index, molecule=molecule, dihedrals=dihedrals)
 
+    # TODO: Error here is Actually Hard (TM) - Key change that causes it is
+    #  https://github.com/openforcefield/openff-qcsubmit/pull/195/files#diff-d122874b42b406b6e4e60be5534b58458421a3839c4920c501f03f7914a3ebc2R894
     tasks = dataset.to_tasks()
     # make sure we have a task for every molecule and spec
     assert len(tasks[program]) == dataset.n_records

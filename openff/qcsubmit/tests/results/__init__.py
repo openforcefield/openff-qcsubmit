@@ -7,10 +7,13 @@ from openff.units import unit
 from pydantic import BaseModel
 from qcelemental.models import DriverEnum
 from qcelemental.models.procedures import TDKeywords
-from qcportal.records import OptimizationRecord, SinglepointRecord, TorsiondriveRecord
-from qcportal.records.models import RecordStatusEnum
-from qcportal.records.optimization.models import OptimizationSpecification
-from qcportal.records.singlepoint.models import QCSpecification
+from qcportal.optimization import OptimizationRecord
+from qcportal.record_models import BaseRecord
+from qcportal.singlepoint import SinglepointRecord
+from qcportal.torsiondrive import (TorsiondriveRecord, TorsiondriveKeywords, TorsiondriveSpecification)
+from qcportal.record_models import RecordStatusEnum
+from qcportal.optimization import OptimizationSpecification
+from qcportal.singlepoint import QCSpecification
 
 from openff.qcsubmit.results import (
     BasicResult,
@@ -106,8 +109,8 @@ def mock_optimization_result_collection(
         "to_records",
         lambda self: [
             (
-                OptimizationRecord.from_datamodel(
-                    OptimizationRecord._DataModel(
+                OptimizationRecord.construct(
+                    OptimizationRecord.construct(
                         specification=OptimizationSpecification(
                         program="geometric",
                     qc_specification=QCSpecification(

@@ -13,18 +13,23 @@ from pydantic import ValidationError
 from qcelemental.models import DriverEnum
 from qcportal import PortalClient
 from qcportal.molecules import Molecule as QCMolecule
-from qcportal.records import (
+#from qcportal.records import (
+from . import (
     OptimizationRecord,
     RecordStatusEnum,
     SinglepointRecord,
     TorsiondriveRecord,
-)
-from qcportal.records.optimization import OptimizationSpecification
-from qcportal.records.singlepoint import QCSpecification
-from qcportal.records.torsiondrive import (
+    OptimizationSpecification,
+    QCSpecification,
     TorsiondriveKeywords,
     TorsiondriveSpecification,
 )
+#from qcportal.records.optimization import OptimizationSpecification
+#from qcportal.records.singlepoint import QCSpecification
+#from qcportal.records.torsiondrive import (
+#TorsiondriveKeywords,
+#\    TorsiondriveSpecification,
+#)
 
 from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
@@ -159,8 +164,8 @@ def test_base_n_molecules_property():
 def test_base_validate_record_types():
 
     records = [
-        SinglepointRecord.from_datamodel(
-            SinglepointRecord._DataModel(
+        SinglepointRecord.construct(
+            SinglepointRecord.construct(
                 specification=QCSpecification(
                     program="psi4",
                     driver=DriverEnum.gradient,
@@ -176,8 +181,8 @@ def test_base_validate_record_types():
                 id=1,
             )
         ),
-        OptimizationRecord.from_datamodel(
-            OptimizationRecord._DataModel(
+        OptimizationRecord.construct(
+            OptimizationRecord.construct(
                 specification=OptimizationSpecification(
                     program="geometric",
                     qc_specification=QCSpecification(
@@ -310,8 +315,10 @@ def test_collection_from_server(
                     ]
                 }
             ),
-            SinglepointRecord.from_datamodel(
-                SinglepointRecord._DataModel(
+            #SinglepointRecord.from_datamodel(
+            SinglepointRecord.construct(
+                #SinglepointRecord._DataModel(
+                SinglepointRecord.construct(
                     id=1,
                     specification=QCSpecification(
                         program="psi4",
@@ -340,8 +347,8 @@ def test_collection_from_server(
                     ]
                 }
             ),
-            OptimizationRecord.from_datamodel(
-                OptimizationRecord._DataModel(
+            OptimizationRecord.construct(
+                OptimizationRecord.construct(
                     specification=OptimizationSpecification(
                         program="geometric",
                         qc_specification=QCSpecification(
@@ -373,8 +380,8 @@ def test_collection_from_server(
                     ]
                 }
             ),
-            TorsiondriveRecord.from_datamodel(
-                TorsiondriveRecord._DataModel(
+            TorsiondriveRecord.construct(
+                TorsiondriveRecord.construct(
                     specification=TorsiondriveSpecification(
                         program="torsiondrive",
                         keywords=TorsiondriveKeywords(dihedrals=[], grid_spacing=[]),
@@ -546,8 +553,8 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
         "to_records",
         lambda self: [
             (
-                TorsiondriveRecord.from_datamodel(
-                    TorsiondriveRecord._DataModel(
+                TorsiondriveRecord.construct(
+                    TorsiondriveRecord.construct(
                         specification=TorsiondriveSpecification(
                             program="torsiondrive",
                             keywords=TorsiondriveKeywords(
