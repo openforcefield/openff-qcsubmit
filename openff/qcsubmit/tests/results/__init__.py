@@ -68,11 +68,17 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
             (
                 SinglepointRecord(
                     id=entry.record_id,
-                    program="psi4",
-                    driver=DriverEnum.gradient,
-                    method="scf",
-                    basis="sto-3g",
-                    molecule=entry.record_id,
+                    specification=QCSpecification(
+                        program="psi4",
+                        driver=DriverEnum.gradient,
+                        method="scf",
+                        basis="sto-3g"
+                    ),
+                    molecule_id=entry.record_id,
+                    is_service=False,
+                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    #compute_history=list(),
                     status=RecordStatusEnum.complete,
                     client=_PortalClient(address=address),
                 ),

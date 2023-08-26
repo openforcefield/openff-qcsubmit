@@ -59,7 +59,8 @@ def test_apply_cmiles_filter(basic_result_collection):
 
     class DummyFilter(CMILESResultFilter):
         def _filter_function(self, result) -> bool:
-            return result.record_id == "1"
+            #1/0
+            return result.record_id == 1
 
     filtered_collection = DummyFilter().apply(basic_result_collection)
 
@@ -71,13 +72,13 @@ def test_apply_cmiles_filter(basic_result_collection):
 
         assert address in filtered_collection.entries
         assert len(filtered_collection.entries[address]) == 1
-        assert filtered_collection.entries[address][0].record_id == "1"
+        assert filtered_collection.entries[address][0].record_id == 1
 
 
 def test_apply_record_filter(basic_result_collection):
     class DummyFilter(SinglepointRecordFilter):
         def _filter_function(self, result, record, molecule) -> bool:
-            return record.client.address == "http://localhost:442"
+            return record._client.address == "http://localhost:442"
 
     filtered_collection = DummyFilter().apply(basic_result_collection)
 

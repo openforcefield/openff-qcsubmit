@@ -146,7 +146,7 @@ class SinglepointRecordFilter(ResultFilter, abc.ABC):
         all_records_and_molecules = defaultdict(list)
 
         for record, molecule in result_collection.to_records():
-            all_records_and_molecules[record.client.address].append((record, molecule))
+            all_records_and_molecules[record._client.address].append((record, molecule))
 
         filtered_results = {}
 
