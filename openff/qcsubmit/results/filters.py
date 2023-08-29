@@ -194,7 +194,7 @@ class SinglepointRecordGroupFilter(ResultFilter, abc.ABC):
             return result_collection
 
         all_records_and_molecules = {
-            record.id: [record, molecule, record.client.address]
+            record.id: [record, molecule, record._client.address]
             for record, molecule in result_collection.to_records()
         }
 
@@ -245,7 +245,8 @@ class LowestEnergyFilter(SinglepointRecordGroupFilter):
         low_entry, low_energy, low_address = None, 99999999999, ""
         for entry, rec, _, address in entries:
             try:
-                energy = rec.get_final_energy()
+                #energy = rec.get_final_energy()
+                energy = rec.energies[-1]
             except AttributeError:
                 energy = rec.properties.return_energy
             if energy < low_energy:
@@ -797,9 +798,8 @@ class UnperceivableStereoFilter(SinglepointRecordFilter):
                 for conformer in molecule.conformers:
                     stereo_molecule = copy.deepcopy(molecule)
                     stereo_molecule._conformers = [conformer]
-
                     with NamedTemporaryFile(suffix=".sdf") as file:
-                        stereo_molecule.to_file(file.name, "SDF")
+                        stereo_molecule.to_file(file.name, "SDF", toolkit_registry=toolkit_registry)
                         stereo_molecule.from_file(
                             file.name, toolkit_registry=toolkit_registry
                         )

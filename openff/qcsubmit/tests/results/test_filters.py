@@ -1,3 +1,4 @@
+import datetime
 import logging
 
 import numpy
@@ -7,6 +8,7 @@ from openff.units import unit
 from pydantic import ValidationError
 from qcelemental.models import DriverEnum
 #from qcportal.records import RecordStatusEnum, SinglepointRecord
+from qcportal.singlepoint import QCSpecification
 from . import RecordStatusEnum, SinglepointRecord
 
 from openff.qcsubmit.results import (
@@ -230,12 +232,18 @@ def test_connectivity_filter():
     )
     record = SinglepointRecord(
         id=1,
-        program="psi4",
-        driver=DriverEnum.gradient,
-        method="scf",
-        basis="sto-3g",
-        molecule=1,
+        specification=QCSpecification(
+            program="psi4",
+            driver=DriverEnum.gradient,
+            method="scf",
+            basis="sto-3g"
+        ),
+        created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+        modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+        molecule_id=1,
         status=RecordStatusEnum.complete,
+        is_service=False
+       #client=_PortalClient(address=address)
     )
 
     connectivity_filter = ConnectivityFilter()
@@ -257,18 +265,26 @@ def test_record_status_filter():
 
     record = SinglepointRecord(
         id=1,
-        program="psi4",
-        driver=DriverEnum.gradient,
-        method="scf",
-        basis="sto-3g",
-        molecule=1,
+        specification=QCSpecification(
+            program="psi4",
+            driver=DriverEnum.gradient,
+            method="scf",
+            basis="sto-3g"
+        ),
+        created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+        modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+        molecule_id=1,
         status=RecordStatusEnum.complete,
+        is_service=False
     )
 
     status_filter = RecordStatusFilter(status=RecordStatusEnum.complete)
     assert status_filter._filter_function(None, record, None) is True
 
-    status_filter = RecordStatusFilter(status=RecordStatusEnum.incomplete)
+    status_filter = RecordStatusFilter(status=RecordStatusEnum.waiting)
+    assert status_filter._filter_function(None, record, None) is False
+
+    status_filter = RecordStatusFilter(status=RecordStatusEnum.running)
     assert status_filter._filter_function(None, record, None) is False
 
 
@@ -335,13 +351,13 @@ def test_min_conformers_filter(
     ("max_conformers, rmsd_tolerance, heavy_atoms_only, expected_record_ids"),
     [
         # max_conformers
-        (1, 0.1, False, {"1"}),
-        (2, 0.1, False, {"1", "3"}),
-        (3, 0.1, False, {"1", "2", "3"}),
+        (1, 0.1, False, {1}),
+        (2, 0.1, False, {1, 3}),
+        (3, 0.1, False, {1, 2, 3}),
         # rmsd_tolerance
-        (3, 0.75, False, {"1", "3"}),
+        (3, 0.75, False, {1, 3}),
         # heavy_atoms_only
-        (1, 0.1, True, {"1"}),
+        (1, 0.1, True, {1}),
     ],
 )
 def test_rmsd_conformer_filter(

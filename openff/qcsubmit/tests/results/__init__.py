@@ -175,16 +175,23 @@ def mock_torsion_drive_result_collection(
             (
                 TorsiondriveRecord(
                     id=entry.record_id,
-                    qc_spec=QCSpecification(
-                        driver=DriverEnum.gradient,
-                        method="scf",
-                        basis="sto-3g",
-                        program="psi4",
+
+                    specification=TorsiondriveSpecification(
+                        program="torsiondrive",
+                        keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
+                        optimization_specification=OptimizationSpecification(
+                            program="geometric",
+                            keywords={},
+                            qc_specification=QCSpecification(
+                                driver=DriverEnum.gradient,
+                                method="scf",
+                                basis="sto-3g",
+                                program="psi4",
+                            )
+                        )
                     ),
-                    optimization_spec=OptimizationSpecification(
-                        program="geometric", keywords={}
-                    ),
-                    initial_molecule=[
+
+                    initial_molecules_ids_=[
                         i + 1
                         for i in range(
                             molecules[address][int(entry.record_id) - 1].n_conformers
@@ -192,10 +199,9 @@ def mock_torsion_drive_result_collection(
                     ],
                     status=RecordStatusEnum.complete,
                     client=_PortalClient(address=address),
-                    keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
-                    final_energy_dict={},
-                    optimization_history={},
-                    minimum_positions={},
+                    is_service=True,
+                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                 ),
                 molecules[address][int(entry.record_id) - 1],
             )
@@ -218,7 +224,7 @@ def mock_torsion_drive_result_collection(
         return return_value
 
     monkeypatch.setattr(
-        TorsiondriveRecord, "get_final_molecules", lambda self: get_molecules(self)
+        TorsiondriveRecord, "minimum_optimizations", lambda self: get_molecules(self)
     )
 
     return collection
