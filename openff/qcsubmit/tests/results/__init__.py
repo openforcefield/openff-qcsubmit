@@ -115,16 +115,19 @@ def mock_optimization_result_collection(
         "to_records",
         lambda self: [
             (
-                OptimizationRecord.construct(
-                    OptimizationRecord.construct(
-                        specification=OptimizationSpecification(
+                #OptimizationRecord.construct(
+                    #OptimizationRecord.construct(
+                OptimizationRecord(
+                    #OptimizationRecord(
+                    specification=OptimizationSpecification(
                         program="geometric",
-                    qc_specification=QCSpecification(
-                        driver=DriverEnum.gradient,
-                        method="scf",
-                        basis="sto-3g",
-                        program="psi4",
-                    )),
+                        qc_specification=QCSpecification(
+                            driver=DriverEnum.gradient,
+                            method="scf",
+                            basis="sto-3g",
+                            program="psi4"
+                        )
+                    ),
                     id=entry.record_id,
                     initial_molecule_id=entry.record_id,
                     final_molecule_id=entry.record_id,
@@ -133,10 +136,10 @@ def mock_optimization_result_collection(
                     is_service=False,
                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    compute_history=list(),
+                    #compute_history=list(),
+                #),
+                client=_PortalClient(address=address),
                 ),
-                    client=_PortalClient(address=address),
-                    ),
                 molecules[address][int(entry.record_id) - 1],
             )
             for address, entries in self.entries.items()

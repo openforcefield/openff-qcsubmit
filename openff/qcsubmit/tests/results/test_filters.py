@@ -109,21 +109,21 @@ def test_charge_filter_mutual_inputs():
 @pytest.mark.parametrize(
     "result_filter, expected_ids",
     [
-        (SMILESFilter(smiles_to_include=["CCO"]), {"http://localhost:442": {"2", "3"}}),
+        (SMILESFilter(smiles_to_include=["CCO"]), {"http://localhost:442": {2, 3}}),
         (
             SMILESFilter(smiles_to_exclude=["CCO"]),
             {
-                "http://localhost:442": {"1", "4"},
-                "http://localhost:443": {"1", "2", "3", "4"},
+                "http://localhost:442": {1, 4},
+                "http://localhost:443": {1, 2, 3, 4},
             },
         ),
         (
             SMARTSFilter(smarts_to_include=["[#6]-[#8H1]"]),
-            {"http://localhost:442": {"1", "2", "3", "4"}},
+            {"http://localhost:442": {1, 2, 3, 4}},
         ),
         (
             SMARTSFilter(smarts_to_exclude=["[#6]-[#8]"]),
-            {"http://localhost:443": {"1", "2", "3", "4"}},
+            {"http://localhost:443": {1, 2, 3, 4}},
         ),
     ],
 )
@@ -149,7 +149,7 @@ def test_molecule_filter_tautomers(tautomer_basic_result_collection):
 
     assert filtered_collection.n_molecules == 1
     assert len(filtered_collection.entries["http://localhost:442"]) == 1
-    assert filtered_collection.entries["http://localhost:442"][0].record_id == "2"
+    assert filtered_collection.entries["http://localhost:442"][0].record_id == 2
 
 
 @pytest.mark.parametrize(
@@ -157,7 +157,7 @@ def test_molecule_filter_tautomers(tautomer_basic_result_collection):
     [
         (
             HydrogenBondFilter(method="baker-hubbard"),
-            {"http://localhost:443": {"1"}},
+            {"http://localhost:443": {1}},
         ),
     ],
 )
@@ -181,7 +181,7 @@ def test_basic_record_filter_apply(
     [
         (
             HydrogenBondFilter(method="baker-hubbard"),
-            {"http://localhost:442": {"1", "2", "3", "4"}},
+            {"http://localhost:442": {1, 2, 3, 4}},
         ),
     ],
 )
@@ -203,7 +203,7 @@ def test_optimization_record_filter_apply(
 @pytest.mark.parametrize(
     "result_filter, expected_ids",
     [
-        (HydrogenBondFilter(method="baker-hubbard"), {"http://localhost:443": {"1"}}),
+        (HydrogenBondFilter(method="baker-hubbard"), {"http://localhost:443": {1}}),
     ],
 )
 def test_torsion_drive_record_filter_apply(
