@@ -19,6 +19,7 @@ from openff.qcsubmit.datasets import (
     OptimizationDataset,
     TorsiondriveDataset,
 )
+from openff.qcsubmit.datasets.dataset_utils import legacy_qcsubmit_ds_type_to_next_qcf_ds_type
 from openff.qcsubmit.exceptions import (
     DatasetInputError,
     MissingBasisCoverageError,
@@ -146,7 +147,8 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
     # make sure of the results are complete
     #ds = client.get_dataset("Dataset", dataset.dataset_name)
     #ds = client.get_dataset("singlepoint", dataset.dataset_name)
-    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                            dataset.dataset_name)
     #ds = client.get_dataset_by_id(1)
 
     # check the metadata
@@ -237,7 +239,8 @@ def test_basic_submissions_multiple_spec(fulltest_client):
 
     # make sure of the results are complete
     #ds = client.get_dataset("singlepoint", dataset.dataset_name)
-    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                            dataset.dataset_name)
 
     # check the metadata
     meta = ds.metadata
@@ -316,7 +319,7 @@ def test_basic_submissions_single_pcm_spec(fulltest_client):
 
     # make sure of the results are complete
     #ds = client.get_dataset("singlepoint", dataset.dataset_name)
-    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     check_metadata(ds, dataset)
 
@@ -372,7 +375,8 @@ def test_adding_specifications(fulltest_client):
     await_results(client, check_fn=PortalClient.get_optimizations)
 
     # grab the collection
-    ds = client.get_dataset(opt_dataset.type, opt_dataset.dataset_name)
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[opt_dataset.type],
+                            opt_dataset.dataset_name)
 
     # now try and add the specification again this should return True
     # `next` branch update note - This was testing a private API point in QCSubmit and I'm having a lot
@@ -478,7 +482,8 @@ def test_adding_compute(fulltest_client, dataset_data):
     await_services(fulltest_client, max_iter=30)
 
     # make sure of the results are complete
-    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                            dataset.dataset_name)
 
     # check the metadata
     meta = ds.metadata
@@ -610,7 +615,8 @@ def test_basic_submissions_wavefunction(fulltest_client):
 
     # make sure of the results are complete
     #ds = client.get_dataset("singlepoint", dataset.dataset_name)
-    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                            dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds, dataset)
@@ -660,7 +666,7 @@ def test_optimization_submissions_with_constraints(fulltest_client):
     await_results(client, check_fn=PortalClient.get_optimizations)
 
     # make sure of the results are complete
-    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
     query = ds.iterate_records(specification_names="default")
     for name, spec, record in query:
         assert record.status is RecordStatusEnum.complete
@@ -719,7 +725,7 @@ def test_optimization_submissions(fulltest_client, specification):
     await_results(client, check_fn=PortalClient.get_optimizations)
 
     # make sure of the results are complete
-    ds = client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds, dataset)
@@ -799,7 +805,9 @@ def test_optimization_submissions_with_pcm(fulltest_client):
     #snowflake.await_results()
 
     # make sure of the results are complete
-    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                                     dataset.dataset_name)
+    #ds = fulltest_client.get_dataset('optimization', dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds, dataset)
@@ -870,7 +878,8 @@ def test_torsiondrive_scan_keywords(fulltest_client):
 
     # make sure of the results are complete
     #ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
-    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                                     dataset.dataset_name)
 
     # get the entry
     query = ds.iterate_records(specification_names="openff-1.1.0")
@@ -909,7 +918,8 @@ def test_torsiondrive_constraints(fulltest_client):
 
     # make sure the result is complete
     #ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
-    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                                     dataset.dataset_name)
 
     #record = ds.get_record(ds.df.index[0], "uff")
     query = ds.iterate_records(
@@ -974,7 +984,8 @@ def test_torsiondrive_submissions(fulltest_client, specification):
 
     # make sure of the results are complete
     #ds = fulltest_client.get_dataset("TorsionDriveDataset", dataset.dataset_name)
-    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                                     dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds, dataset)
@@ -1086,7 +1097,8 @@ def test_index_not_changed(fulltest_client, factory_type):
     dataset.submit(client=fulltest_client)
 
     # pull the dataset and make sure our index is present
-    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                                     dataset.dataset_name)
 
     if dataset.type == "DataSet":
         query = ds.get_records(method="openff-1.0.0", basis="smirnoff", program="openmm")
@@ -1161,7 +1173,8 @@ def test_expanding_compute(fulltest_client, factory_type):
     # make sure all expected index get submitted
     dataset.submit(client=fulltest_client)
     # grab the dataset and check the history
-    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                                     dataset.dataset_name)
     assert ds.specifications.keys() == {"default"}
 
     # now make another dataset to expand the compute
@@ -1178,7 +1191,8 @@ def test_expanding_compute(fulltest_client, factory_type):
     dataset.submit(client=fulltest_client)
 
     # now grab the dataset again and check the tasks list
-    ds = fulltest_client.get_dataset(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type],
+                                     dataset.dataset_name)
     assert ds.specifications.keys() == {"default", "parsley2"}
     # make sure a record has been made
 

@@ -445,7 +445,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         result_records = defaultdict(dict)
 
         for dataset in datasets:
-            client = dataset.client
+            client = dataset._client
 
             # Fetch all entries for use later. These get stored internally
             # in the dataset class
@@ -687,7 +687,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         result_records = defaultdict(dict)
 
         for dataset in datasets:
-            client = dataset.client
+            client = dataset._client
 
             # Fetch all entries for use later. These get stored internally
             # in the dataset class
