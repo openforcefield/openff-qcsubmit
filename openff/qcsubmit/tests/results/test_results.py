@@ -164,8 +164,8 @@ def test_base_n_molecules_property():
 def test_base_validate_record_types():
 
     records = [
-        SinglepointRecord.construct(
-            SinglepointRecord.construct(
+        SinglepointRecord(
+            #SinglepointRecord(
                 specification=QCSpecification(
                     program="psi4",
                     driver=DriverEnum.gradient,
@@ -177,12 +177,12 @@ def test_base_validate_record_types():
                 is_service=False,
                 created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                 modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                compute_history=list(),
+                #compute_history=list(),
                 id=1,
-            )
+            #)
         ),
-        OptimizationRecord.construct(
-            OptimizationRecord.construct(
+        OptimizationRecord(
+            #OptimizationRecord(
                 specification=OptimizationSpecification(
                     program="geometric",
                     qc_specification=QCSpecification(
@@ -197,9 +197,9 @@ def test_base_validate_record_types():
                 is_service=False,
                 created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                 modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                compute_history=list(),
+                #compute_history=list(),
                 id=1,
-            )
+            #)
         ),
     ]
 
@@ -316,9 +316,9 @@ def test_collection_from_server(
                 }
             ),
             #SinglepointRecord.from_datamodel(
-            SinglepointRecord.construct(
+            SinglepointRecord(
                 #SinglepointRecord._DataModel(
-                SinglepointRecord.construct(
+                #SinglepointRecord.construct(
                     id=1,
                     specification=QCSpecification(
                         program="psi4",
@@ -331,8 +331,8 @@ def test_collection_from_server(
                     is_service=False,
                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    compute_history=list(),
-                )
+                    #compute_history=list(),
+                #)
             ),
         ),
         (
@@ -347,8 +347,8 @@ def test_collection_from_server(
                     ]
                 }
             ),
-            OptimizationRecord.construct(
-                OptimizationRecord.construct(
+            OptimizationRecord(
+                #OptimizationRecord.construct(
                     specification=OptimizationSpecification(
                         program="geometric",
                         qc_specification=QCSpecification(
@@ -364,8 +364,8 @@ def test_collection_from_server(
                     is_service=False,
                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    compute_history=list(),
-                )
+                    #compute_history=list(),
+                #)
             ),
         ),
         (
@@ -380,8 +380,8 @@ def test_collection_from_server(
                     ]
                 }
             ),
-            TorsiondriveRecord.construct(
-                TorsiondriveRecord.construct(
+            TorsiondriveRecord(
+                #TorsiondriveRecord.construct(
                     specification=TorsiondriveSpecification(
                         program="torsiondrive",
                         keywords=TorsiondriveKeywords(dihedrals=[], grid_spacing=[]),
@@ -396,16 +396,16 @@ def test_collection_from_server(
                             ),
                         ),
                     ),
-                    initial_molecules=[],
+                    initial_molecules_=[],
                     id=1,
                     status=RecordStatusEnum.complete,
                     is_service=False,
                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    compute_history=list(),
+                    #compute_history=list(),
                 )
             ),
-        ),
+        #),
     ],
 )
 def test_to_records(collection, record, monkeypatch):
@@ -484,7 +484,7 @@ def test_optimization_to_basic_result_collection(
             )
         ]
 
-    monkeypatch.setattr(PortalClient, "_auto_request", mock_auto_request)
+    #monkeypatch.setattr(PortalClient, "_auto_request", mock_auto_request)
     monkeypatch.setattr(PortalClient, "query_records", mock_query_records)
 
     basic_collection = optimization_result_collection.to_basic_result_collection()
@@ -553,8 +553,8 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
         "to_records",
         lambda self: [
             (
-                TorsiondriveRecord.construct(
-                    TorsiondriveRecord.construct(
+                TorsiondriveRecord(
+                    #TorsiondriveRecord.construct(
                         specification=TorsiondriveSpecification(
                             program="torsiondrive",
                             keywords=TorsiondriveKeywords(
@@ -573,13 +573,13 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
                             ),
                         ),
                         id=entry.record_id,
-                        initial_molecules=[],
+                        initial_molecules_=[],
                         status=RecordStatusEnum.complete,
                     is_service=False,
                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    compute_history=list(),
-                    )
+                    #compute_history=list(),
+                    #)
                 ),
                 molecule,
             )

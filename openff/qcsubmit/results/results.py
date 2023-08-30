@@ -308,7 +308,7 @@ class BasicResultCollection(_BaseResultCollection):
         result_records = defaultdict(dict)
 
         for dataset in datasets:
-            client = dataset.client
+            client = dataset._client
 
             # Fetch all entries for use later. These get stored internally
             # in the dataset class
@@ -562,7 +562,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         result_records = defaultdict(list)
 
         for record, molecule in records_and_molecules:
-            result_records[record.client.address].append(
+            result_records[record._client.address].append(
                 (record.trajectory_element(-1), molecule)
             )
 
