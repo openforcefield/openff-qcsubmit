@@ -834,7 +834,7 @@ def test_optimization_submissions_with_pcm(fulltest_client):
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert len(record.trajectory) > 1
-            result = record.trajectory
+            result = record.trajectory[-1]
 
             ## Real Problems (TM) begin here:
             assert "SCF DIPOLE" in result.properties.keys()
