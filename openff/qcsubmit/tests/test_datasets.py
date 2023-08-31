@@ -617,7 +617,7 @@ def test_constraints_are_equal():
 
 @pytest.mark.parametrize(
     "keywords",
-    [None, {"keyword-1": True, "keyword-2": 1, "keyword-3": 1.5, "keyword-4": "1.5"}]
+    [None, dict(), {"keyword-1": True, "keyword-2": 1, "keyword-3": 1.5, "keyword-4": "1.5"}]
 )
 def test_keywords_detected(keywords):
     """
@@ -631,15 +631,21 @@ def test_keywords_detected(keywords):
     )
 
     qc_spec = dataset.qc_specifications["XXXXXXXX"]
-    assert qc_spec.keywords == keywords
 
-    portal_keywords = dataset._get_spec_keywords(qc_spec)
+    if keywords is None:
+        expected_keywords = dict()
+    else:
+        expected_keywords = keywords
+    assert qc_spec.keywords == expected_keywords
+
+    #portal_keywords = dataset._get_spec_keywords(qc_spec)
+    portal_keywords = dataset.qc_specifications['XXXXXXXX'].keywords
 
     # Real Problem (TM)
     for key, expected_value in {} if keywords is None else keywords.items():
 
-        assert key in portal_keywords.values
-        assert portal_keywords.values[key] == expected_value
+        assert key in portal_keywords.keys()
+        assert portal_keywords[key] == expected_value
 
 
 def test_add_molecule_no_extras():
