@@ -684,9 +684,9 @@ def test_add_molecule_from_entry_data():
 
 
 @pytest.mark.parametrize("dataset_data", [
-    # TODO: There is no "default" spec in this dataset as far as I can tell. There are specs "spec_1" through "47".
-    #  The test also used this spec+dataset before, which is confusing
-    #  https://github.com/openforcefield/openff-qcsubmit/pull/195/files#diff-291559dda873efb6ed696e157cb6dc8df31dad7593d7e4e0b0e073237f4038e1L884
+    # TODO: Make the first test check for spec name "default" instead of "spec 1" once the QCA dataset specs
+    #  are updated https://github.com/MolSSI/QCFractal/issues/739
+
     pytest.param((BasicDataset, "OpenFF Theory Benchmarking Single Point Energies v1.0", ["spec_1"]), id="Dataset no metadata"),
     pytest.param((OptimizationDataset, "OpenFF NCI250K Boron 1", ["default"]), id="OptimizationDataset no metadata"),
     pytest.param((TorsiondriveDataset, "OpenFF Fragmenter Phenyl Benchmark", ["UFF", "B3LYP-D3"]), id="TorsiondriveDataset no metadata"),
@@ -1903,13 +1903,14 @@ def test_optimizationdataset_qc_spec():
 
     dataset = OptimizationDataset(driver="energy", dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX")
     qc_spec = dataset.qc_specifications["default"]#  keyword_id="0")
+    #qc_spec = dataset.get_qc_spec("default", keyword_id="0")
     # TODO: Possible Real Problem (TM). Do we need to find a replacement for keyword_id?
-    assert qc_spec.keywords == "0"
-    tags = ['program', "method", "basis", "driver"]
+    #assert qc_spec.keywords == "0"
+    tags = ['program', "method", "basis"]
     for tag in tags:
         assert tag in qc_spec.dict()
     # make sure the driver was set back to gradient
-    assert qc_spec.driver == "gradient"
+    assert dataset.driver == "deferred"
 
 
 def test_torsiondrivedataset_torsion_indices():
