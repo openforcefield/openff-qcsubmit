@@ -267,7 +267,8 @@ def test_base_smirnoff_coverage():
         (
             BasicResultCollection,
             "OpenFF BCC Refit Study COH v1.0",
-            "resp-2-vacuum",
+            #"resp-2-vacuum",
+            "spec_1",
             91,
             191,
         ),
@@ -409,22 +410,40 @@ def test_collection_from_server(
     ],
 )
 def test_to_records(collection, record, monkeypatch):
-    def mock_query_optimizations(*args, **kwargs):
-        return [record]
+    #def mock_query_optimizations(*args, **kwargs):
+    #    return [record]
 
-    def mock_query_molecules(*args, **kwargs):
+    def mock_get_singlepoints(*args, **kwargs):
+        return record
+
+    def mock_get_optimizations(*args, **kwargs):
+        return record
+
+    def mock_get_torsiondrives(*args, **kwargs):
+        return record
+
+    #def mock_query_molecules(*args, **kwargs):
+    #@property
+    def mock_molecule_property(*args, **kwargs):
 
         molecule: Molecule = Molecule.from_smiles("[Cl:1][Cl:2]")
         molecule.add_conformer(numpy.arange(6).reshape((2, 3)) * unit.angstrom)
 
         qc_molecule = QCMolecule(
-            **molecule.to_qcschema().dict(exclude={"id"}), id=args[1][0]
+            **molecule.to_qcschema().dict(exclude={"id"}), id=1#args[1][0]
         )
 
-        return [qc_molecule]
+        return qc_molecule
 
-    monkeypatch.setattr(PortalClient, "query_optimizations", mock_query_optimizations)
-    monkeypatch.setattr(PortalClient, "query_molecules", mock_query_molecules)
+    #monkeypatch.setattr(PortalClient, "query_optimizations", mock_query_optimizations)
+    monkeypatch.setattr(PortalClient, "get_optimizations", mock_get_optimizations)
+    monkeypatch.setattr(PortalClient, "get_singlepoints", mock_get_singlepoints)
+    monkeypatch.setattr(PortalClient, "get_torsiondrives", mock_get_torsiondrives)
+    #monkeypatch.setattr(PortalClient, "query_molecules", mock_query_molecules)
+    #monkeypatch.setattr(SinglepointRecord, "_assert_online", lambda x: x)
+    monkeypatch.setattr(SinglepointRecord, "molecule", mock_molecule_property())
+    monkeypatch.setattr(OptimizationRecord, "initial_molecule", mock_molecule_property())
+    monkeypatch.setattr(TorsiondriveRecord, "minimum_optimizations", mock_molecule_property())
 
     records_and_molecules = collection.to_records()
     assert len(records_and_molecules) == 1
