@@ -33,7 +33,7 @@ dependencies:
   - rdkit
   - pydantic =1
   - pyyaml
-  - qcportal>=0.15.7
+  - qcportal>=0.15.7, <0.50.0a0
   - torsiondrive
   - basis_set_exchange
   - typing-extensions
