@@ -143,6 +143,7 @@ def update_specification_and_metadata(
                 spec_name=spec.name,
                 spec_description=spec.description,
                 store_wavefunction=spec.qc_spec.protocols.wavefunction.value,
+                optimization_trajectory=spec.qc_spec.protocols.trajectory.value,
             )
 
     return dataset
