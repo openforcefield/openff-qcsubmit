@@ -21,7 +21,12 @@ import tqdm
 from openff.toolkit import topology as off
 from pydantic import Field, constr, validator
 from qcelemental.models import AtomicInput, OptimizationInput
-from qcelemental.models.procedures import QCInputSpecification
+from qcelemental.models.procedures import (
+    OptimizationSpecification,
+    QCInputSpecification,
+    TDKeywords,
+    TorsionDriveInput,
+)
 from qcportal.models.common_models import DriverEnum, QCSpecification
 from typing_extensions import Literal
 
@@ -54,7 +59,7 @@ if TYPE_CHECKING:
     from openff.toolkit.typing.engines.smirnoff import ForceField
     from qcportal import FractalClient
     from qcportal.collections.collection import Collection
-    from qcportal.models.common_models import OptimizationSpecification
+    from qcportal.models.common_models import OptimizationSpecificationPortal
 
 C = TypeVar("C", bound="Collection")
 E = TypeVar("E", bound=DatasetEntry)
@@ -139,7 +144,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def _get_procedure_spec(self) -> "OptimizationSpecification":
+    def _get_procedure_spec(self) -> "OptimizationSpecificationPortal":
         """Get the procedure spec, if applicable, for this Dataset.
 
         If the dataset has no concept of procedure specs, this method
@@ -234,7 +239,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         self,
         spec: QCSpec,
         dataset: C,
-        procedure_spec: Optional["OptimizationSpecification"] = None,
+        procedure_spec: Optional["OptimizationSpecificationPortal"] = None,
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
 
@@ -1008,7 +1013,7 @@ class BasicDataset(_BaseDataset):
         self,
         spec: QCSpec,
         dataset: ptl.collections.Dataset,
-        procedure_spec: Optional["OptimizationSpecification"] = None,
+        procedure_spec: Optional["OptimizationSpecificationPortal"] = None,
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
 
@@ -1275,7 +1280,7 @@ class OptimizationDataset(BasicDataset):
         self,
         spec: QCSpec,
         dataset: ptl.collections.OptimizationDataset,
-        procedure_spec: Optional["OptimizationSpecification"] = None,
+        procedure_spec: Optional["OptimizationSpecificationPortal"] = None,
     ) -> bool:
         """Add the given compute spec to this Datasets's corresponding Collection.
 
@@ -1611,7 +1616,45 @@ class TorsiondriveDataset(OptimizationDataset):
         except KeyError:
             return False
 
-    def to_tasks(self) -> Dict[str, List[OptimizationInput]]:
+    def to_tasks(self) -> Dict[str, List[TorsionDriveInput]]:
         """Build a list of QCEngine procedure tasks which correspond to this dataset."""
 
-        raise NotImplementedError()
+        data = defaultdict(list)
+        opt_program = self.optimization_procedure.program.lower()
+        opt_spec_keywords = self.optimization_procedure.dict(exclude={"program"})
+        for spec in self.qc_specifications.values():
+            qc_model = spec.qc_model
+            qc_keywords = spec.qc_keywords
+            qc_spec = QCInputSpecification(
+                driver=self.driver, model=qc_model, keywords=qc_keywords
+            )
+            opt_spec_keywords["program"] = spec.program.lower()
+            opt_spec = OptimizationSpecification(
+                procedure=opt_program, keywords=opt_spec_keywords
+            )
+
+            for index, entry in self.dataset.items():
+                index, _ = self._clean_index(index=index)
+
+                data["torsiondrive"].append(
+                    TorsionDriveInput(
+                        # no id field so hide in extras
+                        extras={"name": index},
+                        # for each setting check scan specific then dataset wide settings
+                        keywords=TDKeywords(
+                            dihedrals=entry.dihedrals,
+                            grid_spacing=entry.keywords.grid_spacing
+                            or self.grid_spacing,
+                            dihedral_ranges=entry.keywords.dihedral_ranges
+                            or self.dihedral_ranges,
+                            energy_decrease_thresh=entry.keywords.energy_decrease_thresh
+                            or self.energy_decrease_thresh,
+                            energy_upper_limit=entry.keywords.energy_upper_limit
+                            or self.energy_upper_limit,
+                        ),
+                        input_specification=qc_spec,
+                        initial_molecule=entry.initial_molecules,
+                        optimization_spec=opt_spec,
+                    )
+                )
+        return data
