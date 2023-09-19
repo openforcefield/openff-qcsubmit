@@ -523,30 +523,40 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         records_and_molecules = []
 
-        for client_address, records in self.entries.items():
+        for client_address, results in self.entries.items():
             client = cached_fractal_client(address=client_address)
 
-            # TODO - batching/chunking (maybe in portal?)
-            for record in records:
-                rec = client.get_optimizations(
-                    record.record_id, include=["initial_molecule"]
+            rec_ids = [result.record_id for result in results]
+            # Do one big request to save time
+            opt_records = client.get_optimizations(rec_ids,
+                                                   include=["initial_molecule"]
                 )
+            # Sort out which records from the request line up with which results
+            opt_rec_id_to_result = dict()
+            for result in results:
+                opt_record_found = False
+                for opt_record in opt_records:
+                    if result.record_id == opt_record.id:
+                        opt_rec_id_to_result[result.record_id] = result
+                        opt_record_found = True
+                        break
+                assert opt_record_found, "didn't find a corresponding record for a result"
 
                 # OpenFF molecule
                 molecule: Molecule = Molecule.from_mapped_smiles(
-                    record.cmiles, allow_undefined_stereo=True
+                    result.cmiles, allow_undefined_stereo=True
                 )
 
                 molecule.add_conformer(
-                    numpy.array(rec.initial_molecule.geometry, float).reshape(-1, 3)
+                    numpy.array(opt_record.initial_molecule.geometry, float).reshape(-1, 3)
                     * unit.bohr
                 )
 
-                records_and_molecules.append((rec, molecule))
+                records_and_molecules.append((opt_record, molecule))
 
         return records_and_molecules
 
-    def to_basic_result_collection(self) -> BasicResultCollection:
+    def to_basic_result_collection(self, driver) -> BasicResultCollection:
         """Returns a basic results collection which references results records which
         were created from the *final* structure of one of the optimizations in this
         collection, and used the same program, method, and basis as the parent
@@ -563,16 +573,27 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         for record, molecule in records_and_molecules:
             result_records[record._client.address].append(
-                (record.trajectory_element(-1), molecule)
+                (record.final_molecule_id, molecule)
             )
 
         result_entries = defaultdict(list)
 
         for client_address in result_records:
-            for record, molecule in result_records[client_address]:
+            client = cached_fractal_client(address=client_address)
+            # Batch all the queries into one big request here
+            mol_ids = [i[0] for i in result_records[client_address]]
+            sp_records = client.query_singlepoints(molecule_id=mol_ids,
+                                                   driver=driver)
+            # Then sort out which return value from the query lines up with which record
+            mol_id_2_rec_id = dict([(spr.molecule_id, spr.id) for spr in sp_records])
+
+            for molecule_id, molecule in result_records[client_address]:
+                record_id = mol_id_2_rec_id[molecule_id]
+
+
                 result_entries[client_address].append(
                     BasicResult(
-                        record_id=record.id,
+                        record_id=record_id,
                         cmiles=molecule.to_smiles(
                             isomeric=True, explicit_hydrogens=True, mapped=True
                         ),

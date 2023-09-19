@@ -478,38 +478,47 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
     assert dataset.n_records == 5  # the collection contains 1 duplicate
 
 
-def test_optimization_to_basic_result_collection(
-    optimization_result_collection, monkeypatch
-):
-    def mock_auto_request(*args, **kwargs):
-        return MockServerInfo()
+# def test_optimization_to_basic_result_collection(
+#     optimization_result_collection, monkeypatch
+# ):
+#     def mock_auto_request(*args, **kwargs):
+#         return MockServerInfo()
+#
+#     def mock_query_records(*args, **kwargs):
+#
+#         assert "program" in kwargs and kwargs["program"] == "psi4"
+#         assert "method" in kwargs and kwargs["method"] == "scf"
+#         assert "basis" in kwargs and kwargs["basis"] == "sto-3g"
+#         assert "driver" in kwargs and kwargs["driver"] == "hessian"
+#
+#         return [
+#             SinglepointRecord(
+#                 id=1,
+#                 program=kwargs["program"],
+#                 driver=getattr(DriverEnum, kwargs["driver"]),
+#                 method=kwargs["method"],
+#                 basis=kwargs["basis"],
+#                 molecule=kwargs["molecule"][0],
+#                 status=RecordStatusEnum.complete,
+#             )
+#         ]
+#
+#         #monkeypatch.setattr(PortalClient, "_auto_request", mock_auto_request)
+#         monkeypatch.setattr(PortalClient, "make_request", mock_auto_request)
+#         monkeypatch.setattr(PortalClient, "query_records", mock_query_records)
+#
+#     basic_collection = optimization_result_collection.to_basic_result_collection()
+#
+#     assert basic_collection.n_results == 5
+#     assert basic_collection.n_molecules == 4
 
-    def mock_query_records(*args, **kwargs):
+def test_optimization_to_basic_result_collection(public_client):
+    optimization_result_collection = OptimizationResultCollection.from_server(public_client,
+                                                                              ['OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy'])
+    basic_collection = optimization_result_collection.to_basic_result_collection('hessian')
+    assert basic_collection.n_results == 197
+    assert basic_collection.n_molecules == 49
 
-        assert "program" in kwargs and kwargs["program"] == "psi4"
-        assert "method" in kwargs and kwargs["method"] == "scf"
-        assert "basis" in kwargs and kwargs["basis"] == "sto-3g"
-        assert "driver" in kwargs and kwargs["driver"] == "hessian"
-
-        return [
-            SinglepointRecord(
-                id=1,
-                program=kwargs["program"],
-                driver=getattr(DriverEnum, kwargs["driver"]),
-                method=kwargs["method"],
-                basis=kwargs["basis"],
-                molecule=kwargs["molecule"][0],
-                status=RecordStatusEnum.complete,
-            )
-        ]
-
-    #monkeypatch.setattr(PortalClient, "_auto_request", mock_auto_request)
-    monkeypatch.setattr(PortalClient, "query_records", mock_query_records)
-
-    basic_collection = optimization_result_collection.to_basic_result_collection()
-
-    assert basic_collection.n_results == 2
-    assert basic_collection.n_molecules == 2
 
 
 # def test_torsion_drive_create_optimization_dataset(public_client):
