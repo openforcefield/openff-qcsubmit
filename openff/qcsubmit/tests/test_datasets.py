@@ -1985,7 +1985,7 @@ def test_dataset_export_full_dataset_json(dataset_type):
         # make sure the list survives a round trip
         assert (
             type(dataset2.qc_specifications["default"].keywords["PERTURB_DIPOLE"])
-            == list
+            is list
         )
 
 
