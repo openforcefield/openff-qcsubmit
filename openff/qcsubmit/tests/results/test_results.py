@@ -268,8 +268,8 @@ def test_base_smirnoff_coverage():
             BasicResultCollection,
             "OpenFF BCC Refit Study COH v1.0",
             #"resp-2-vacuum",
-            "spec_1",
-            91,
+            "spec_2",
+            191,
             191,
         ),
         (
@@ -301,152 +301,175 @@ def test_collection_from_server(
     assert result.n_results == n_results
 
 
-@pytest.mark.parametrize(
-    "collection, record",
-    [
-        (
-            BasicResultCollection(
-                entries={
-                    "https://api.qcarchive.molssi.org:443/": [
-                        BasicResult(
-                            record_id=1,
-                            cmiles="[Cl:1][Cl:2]",
-                            inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
-                        )
-                    ]
-                }
-            ),
-            #SinglepointRecord.from_datamodel(
-            SinglepointRecord(
-                #SinglepointRecord._DataModel(
-                #SinglepointRecord.construct(
-                    id=1,
-                    specification=QCSpecification(
-                        program="psi4",
-                        driver=DriverEnum.gradient,
-                        method="scf",
-                        basis="sto-3g",
-                    ),
-                    molecule_id=1,
-                    status=RecordStatusEnum.complete,
-                    is_service=False,
-                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    #compute_history=list(),
-                #)
-            ),
-        ),
-        (
-            OptimizationResultCollection(
-                entries={
-                    "https://api.qcarchive.molssi.org:443/": [
-                        OptimizationResult(
-                            record_id=1,
-                            cmiles="[Cl:1][Cl:2]",
-                            inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
-                        )
-                    ]
-                }
-            ),
-            OptimizationRecord(
-                #OptimizationRecord.construct(
-                    specification=OptimizationSpecification(
-                        program="geometric",
-                        qc_specification=QCSpecification(
-                            driver=DriverEnum.gradient,
-                            method="scf",
-                            basis="sto-3g",
-                            program="psi4",
-                        ),
-                    ),
-                    id=1,
-                    initial_molecule_id=1,
-                    status=RecordStatusEnum.complete,
-                    is_service=False,
-                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    #compute_history=list(),
-                #)
-            ),
-        ),
-        (
-            TorsionDriveResultCollection(
-                entries={
-                    "https://api.qcarchive.molssi.org:443/": [
-                        TorsionDriveResult(
-                            record_id=1,
-                            cmiles="[Cl:1][Cl:2]",
-                            inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
-                        )
-                    ]
-                }
-            ),
-            TorsiondriveRecord(
-                #TorsiondriveRecord.construct(
-                    specification=TorsiondriveSpecification(
-                        program="torsiondrive",
-                        keywords=TorsiondriveKeywords(dihedrals=[], grid_spacing=[]),
-                        optimization_specification=OptimizationSpecification(
-                            program="geometric",
-                            keywords={},
-                            qc_specification=QCSpecification(
-                                driver=DriverEnum.gradient,
-                                method="scf",
-                                basis="sto-3g",
-                                program="psi4",
-                            ),
-                        ),
-                    ),
-                    initial_molecules_=[],
-                    id=1,
-                    status=RecordStatusEnum.complete,
-                    is_service=False,
-                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    #compute_history=list(),
-                )
-            ),
-        #),
-    ],
-)
-def test_to_records(collection, record, monkeypatch):
-    #def mock_query_optimizations(*args, **kwargs):
-    #    return [record]
+# @pytest.mark.parametrize(
+#     "collection, record",
+#     [
+#         (
+#             BasicResultCollection(
+#                 entries={
+#                     "https://api.qcarchive.molssi.org:443/": [
+#                         BasicResult(
+#                             record_id=1,
+#                             cmiles="[Cl:1][Cl:2]",
+#                             inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
+#                         )
+#                     ]
+#                 }
+#             ),
+#             #SinglepointRecord.from_datamodel(
+#             SinglepointRecord(
+#                 #SinglepointRecord._DataModel(
+#                 #SinglepointRecord.construct(
+#                     id=1,
+#                     specification=QCSpecification(
+#                         program="psi4",
+#                         driver=DriverEnum.gradient,
+#                         method="scf",
+#                         basis="sto-3g",
+#                     ),
+#                     molecule_id=1,
+#                     status=RecordStatusEnum.complete,
+#                     is_service=False,
+#                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+#                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+#                     #compute_history=list(),
+#                 #)
+#             ),
+#         ),
+#         (
+#             OptimizationResultCollection(
+#                 entries={
+#                     "https://api.qcarchive.molssi.org:443/": [
+#                         OptimizationResult(
+#                             record_id=1,
+#                             cmiles="[Cl:1][Cl:2]",
+#                             inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
+#                         )
+#                     ]
+#                 }
+#             ),
+#             OptimizationRecord(
+#                 #OptimizationRecord.construct(
+#                     specification=OptimizationSpecification(
+#                         program="geometric",
+#                         qc_specification=QCSpecification(
+#                             driver=DriverEnum.gradient,
+#                             method="scf",
+#                             basis="sto-3g",
+#                             program="psi4",
+#                         ),
+#                     ),
+#                     id=1,
+#                     initial_molecule_id=1,
+#                     status=RecordStatusEnum.complete,
+#                     is_service=False,
+#                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+#                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+#                     #compute_history=list(),
+#                 #)
+#             ),
+#         ),
+#         (
+#             TorsionDriveResultCollection(
+#                 entries={
+#                     "https://api.qcarchive.molssi.org:443/": [
+#                         TorsionDriveResult(
+#                             record_id=1,
+#                             cmiles="[Cl:1][Cl:2]",
+#                             inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
+#                         )
+#                     ]
+#                 }
+#             ),
+#             TorsiondriveRecord(
+#                 #TorsiondriveRecord.construct(
+#                     specification=TorsiondriveSpecification(
+#                         program="torsiondrive",
+#                         keywords=TorsiondriveKeywords(dihedrals=[], grid_spacing=[]),
+#                         optimization_specification=OptimizationSpecification(
+#                             program="geometric",
+#                             keywords={},
+#                             qc_specification=QCSpecification(
+#                                 driver=DriverEnum.gradient,
+#                                 method="scf",
+#                                 basis="sto-3g",
+#                                 program="psi4",
+#                             ),
+#                         ),
+#                     ),
+#                     initial_molecules_=[],
+#                     id=1,
+#                     status=RecordStatusEnum.complete,
+#                     is_service=False,
+#                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+#                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+#                     #compute_history=list(),
+#                 )
+#             ),
+#         #),
+#     ],
+# )
+# def test_to_records(collection, record, monkeypatch):
+#     #def mock_query_optimizations(*args, **kwargs):
+#     #    return [record]
+#
+#     def mock_get_singlepoints(*args, **kwargs):
+#         return record
+#
+#     def mock_get_optimizations(*args, **kwargs):
+#         return record
+#
+#     def mock_get_torsiondrives(*args, **kwargs):
+#         return record
+#
+#     #def mock_query_molecules(*args, **kwargs):
+#     #@property
+#     def mock_molecule_property(*args, **kwargs):
+#
+#         molecule: Molecule = Molecule.from_smiles("[Cl:1][Cl:2]")
+#         molecule.add_conformer(numpy.arange(6).reshape((2, 3)) * unit.angstrom)
+#
+#         qc_molecule = QCMolecule(
+#             **molecule.to_qcschema().dict(exclude={"id"}), id=1#args[1][0]
+#         )
+#
+#         return qc_molecule
+#
+#     #monkeypatch.setattr(PortalClient, "query_optimizations", mock_query_optimizations)
+#     monkeypatch.setattr(PortalClient, "get_optimizations", mock_get_optimizations)
+#     monkeypatch.setattr(PortalClient, "get_singlepoints", mock_get_singlepoints)
+#     monkeypatch.setattr(PortalClient, "get_torsiondrives", mock_get_torsiondrives)
+#     #monkeypatch.setattr(PortalClient, "query_molecules", mock_query_molecules)
+#     #monkeypatch.setattr(SinglepointRecord, "_assert_online", lambda x: x)
+#     monkeypatch.setattr(SinglepointRecord, "molecule", mock_molecule_property())
+#     monkeypatch.setattr(OptimizationRecord, "initial_molecule", mock_molecule_property())
+#     monkeypatch.setattr(TorsiondriveRecord, "minimum_optimizations", mock_molecule_property())
+#
+#     records_and_molecules = collection.to_records()
+#     assert len(records_and_molecules) == 1
+#
+#     record, molecule = records_and_molecules[0]
+#
+#     assert isinstance(record, record.__class__)
+#
+#     if not isinstance(record, TorsiondriveRecord):
+#         assert molecule.n_conformers == 1
 
-    def mock_get_singlepoints(*args, **kwargs):
-        return record
-
-    def mock_get_optimizations(*args, **kwargs):
-        return record
-
-    def mock_get_torsiondrives(*args, **kwargs):
-        return record
-
-    #def mock_query_molecules(*args, **kwargs):
-    #@property
-    def mock_molecule_property(*args, **kwargs):
-
-        molecule: Molecule = Molecule.from_smiles("[Cl:1][Cl:2]")
-        molecule.add_conformer(numpy.arange(6).reshape((2, 3)) * unit.angstrom)
-
-        qc_molecule = QCMolecule(
-            **molecule.to_qcschema().dict(exclude={"id"}), id=1#args[1][0]
-        )
-
-        return qc_molecule
-
-    #monkeypatch.setattr(PortalClient, "query_optimizations", mock_query_optimizations)
-    monkeypatch.setattr(PortalClient, "get_optimizations", mock_get_optimizations)
-    monkeypatch.setattr(PortalClient, "get_singlepoints", mock_get_singlepoints)
-    monkeypatch.setattr(PortalClient, "get_torsiondrives", mock_get_torsiondrives)
-    #monkeypatch.setattr(PortalClient, "query_molecules", mock_query_molecules)
-    #monkeypatch.setattr(SinglepointRecord, "_assert_online", lambda x: x)
-    monkeypatch.setattr(SinglepointRecord, "molecule", mock_molecule_property())
-    monkeypatch.setattr(OptimizationRecord, "initial_molecule", mock_molecule_property())
-    monkeypatch.setattr(TorsiondriveRecord, "minimum_optimizations", mock_molecule_property())
-
+@pytest.mark.parametrize("collection_name, collection_type, spec_name, expected_n_recs, expected_n_mols",[
+    # spec_2 corresponds to "default" while spec_1 is basically "default with pcm".
+    # In spec_1, one calc has failed, so there's only 190 results, but in spec_2 there are 191.
+    ("OpenFF BCC Refit Study COH v1.0", BasicResultCollection, "spec_2", 191, 191),
+    ("OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy", OptimizationResultCollection, "default", 197, 197),
+    #("OpenFF Protein Capped 3-mer Omega v1.0", TorsionDriveResultCollection, "default", 24, 24), #26 total, 2 failed
+    #("OpenFF DANCE 1 eMolecules t142 v1.0", TorsionDriveResultCollection, "default", 20, 20),
+    #("OpenFF Gen 2 Torsion Set 6 Supplemental", TorsionDriveResultCollection, "default", 7, 7)
+    #("OpenFF Protein Dipeptide 2-D TorsionDrive v1.1", TorsionDriveResultCollection, "default", 5, 5)
+    ("OpenFF Group1 Torsions 3", TorsionDriveResultCollection, "default", 5, 5) # 6 total, 1 failed
+])
+def test_to_records(public_client, collection_name, collection_type, spec_name, expected_n_recs, expected_n_mols):
+    collection = collection_type.from_server(public_client, collection_name, spec_name=spec_name)
     records_and_molecules = collection.to_records()
-    assert len(records_and_molecules) == 1
+    assert len(records_and_molecules) == expected_n_recs
 
     record, molecule = records_and_molecules[0]
 

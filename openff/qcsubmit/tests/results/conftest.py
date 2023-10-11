@@ -123,7 +123,7 @@ def optimization_result_collection(monkeypatch) -> OptimizationResultCollection:
 
 @pytest.fixture()
 def optimization_result_collection_duplicates(monkeypatch) -> OptimizationResultCollection:
-    """Create a collection with duplicate enetries accross different addresses which can be reduced to a single entry."""
+    """Create a collection with duplicate entries accross different addresses which can be reduced to a single entry."""
 
     smiles = {
         "http://localhost:442": [
