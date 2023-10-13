@@ -50,7 +50,6 @@ from . import (
 # )
 
 
-
 class MockServerInfo:
     def dict(self):
         return {
