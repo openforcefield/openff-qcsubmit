@@ -17,17 +17,15 @@ from openff.units import unit
 from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
 from qcportal.optimization import OptimizationRecord
-from qcportal.record_models import BaseRecord
+from qcportal.record_models import BaseRecord, RecordStatusEnum
 from qcportal.singlepoint import SinglepointRecord
-from qcportal.record_models import RecordStatusEnum
-
-#from qcportal.torsiondrive import TorsiondriveRecord
-#from qcportal.records import (
+# from qcportal.torsiondrive import TorsiondriveRecord
+# from qcportal.records import (
 #    BaseRecord,
 #    OptimizationRecord,
 #    RecordStatusEnum,
 #    SinglepointRecord,
-#)
+# )
 from typing_extensions import Literal
 
 from openff.qcsubmit.results.results import (
@@ -245,7 +243,7 @@ class LowestEnergyFilter(SinglepointRecordGroupFilter):
         low_entry, low_energy, low_address = None, 99999999999, ""
         for entry, rec, _, address in entries:
             try:
-                #energy = rec.get_final_energy()
+                # energy = rec.get_final_energy()
                 energy = rec.energies[-1]
             except AttributeError:
                 energy = rec.properties.return_energy
@@ -799,7 +797,9 @@ class UnperceivableStereoFilter(SinglepointRecordFilter):
                     stereo_molecule = copy.deepcopy(molecule)
                     stereo_molecule._conformers = [conformer]
                     with NamedTemporaryFile(suffix=".sdf") as file:
-                        stereo_molecule.to_file(file.name, "SDF", toolkit_registry=toolkit_registry)
+                        stereo_molecule.to_file(
+                            file.name, "SDF", toolkit_registry=toolkit_registry
+                        )
                         stereo_molecule.from_file(
                             file.name, toolkit_registry=toolkit_registry
                         )

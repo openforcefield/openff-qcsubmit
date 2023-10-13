@@ -13,23 +13,6 @@ from pydantic import ValidationError
 from qcelemental.models import DriverEnum
 from qcportal import PortalClient
 from qcportal.molecules import Molecule as QCMolecule
-#from qcportal.records import (
-from . import (
-    OptimizationRecord,
-    RecordStatusEnum,
-    SinglepointRecord,
-    TorsiondriveRecord,
-    OptimizationSpecification,
-    QCSpecification,
-    TorsiondriveKeywords,
-    TorsiondriveSpecification,
-)
-#from qcportal.records.optimization import OptimizationSpecification
-#from qcportal.records.singlepoint import QCSpecification
-#from qcportal.records.torsiondrive import (
-#TorsiondriveKeywords,
-#\    TorsiondriveSpecification,
-#)
 
 from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
@@ -47,9 +30,28 @@ from openff.qcsubmit.results.results import (
 )
 from openff.qcsubmit.tests import does_not_raise
 
+# from qcportal.records import (
+from . import (
+    OptimizationRecord,
+    OptimizationSpecification,
+    QCSpecification,
+    RecordStatusEnum,
+    SinglepointRecord,
+    TorsiondriveKeywords,
+    TorsiondriveRecord,
+    TorsiondriveSpecification,
+)
+
+# from qcportal.records.optimization import OptimizationSpecification
+# from qcportal.records.singlepoint import QCSpecification
+# from qcportal.records.torsiondrive import (
+# TorsiondriveKeywords,
+# \    TorsiondriveSpecification,
+# )
+
+
 
 class MockServerInfo:
-
     def dict(self):
         return {
             "name": "Mock",
@@ -61,7 +63,6 @@ class MockServerInfo:
 
 
 def test_base_molecule_property():
-
     record = BasicResult(
         record_id=1,
         cmiles="[Cl:2][H:1]",
@@ -100,7 +101,6 @@ def test_base_molecule_property():
     ],
 )
 def test_base_validate_entries(entries, expected_raises):
-
     with expected_raises:
         collection = BasicResultCollection(entries={"http://localhost:443": entries})
 
@@ -109,7 +109,6 @@ def test_base_validate_entries(entries, expected_raises):
 
 
 def test_base_n_results_property():
-
     collection = BasicResultCollection(
         entries={
             "http://localhost:442": [
@@ -133,7 +132,6 @@ def test_base_n_results_property():
 
 
 def test_base_n_molecules_property():
-
     collection = BasicResultCollection(
         entries={
             "http://localhost:442": [
@@ -162,44 +160,43 @@ def test_base_n_molecules_property():
 
 
 def test_base_validate_record_types():
-
     records = [
         SinglepointRecord(
-            #SinglepointRecord(
-                specification=QCSpecification(
-                    program="psi4",
+            # SinglepointRecord(
+            specification=QCSpecification(
+                program="psi4",
+                driver=DriverEnum.gradient,
+                method="scf",
+                basis="sto-3g",
+            ),
+            molecule_id=1,
+            status=RecordStatusEnum.complete,
+            is_service=False,
+            created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+            modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+            # compute_history=list(),
+            id=1,
+            # )
+        ),
+        OptimizationRecord(
+            # OptimizationRecord(
+            specification=OptimizationSpecification(
+                program="geometric",
+                qc_specification=QCSpecification(
                     driver=DriverEnum.gradient,
                     method="scf",
                     basis="sto-3g",
+                    program="psi4",
                 ),
-                molecule_id=1,
-                status=RecordStatusEnum.complete,
-                is_service=False,
-                created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                #compute_history=list(),
-                id=1,
-            #)
-        ),
-        OptimizationRecord(
-            #OptimizationRecord(
-                specification=OptimizationSpecification(
-                    program="geometric",
-                    qc_specification=QCSpecification(
-                        driver=DriverEnum.gradient,
-                        method="scf",
-                        basis="sto-3g",
-                        program="psi4",
-                    ),
-                ),
-                initial_molecule_id=1,
-                status=RecordStatusEnum.complete,
-                is_service=False,
-                created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                #compute_history=list(),
-                id=1,
-            #)
+            ),
+            initial_molecule_id=1,
+            status=RecordStatusEnum.complete,
+            is_service=False,
+            created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+            modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+            # compute_history=list(),
+            id=1,
+            # )
         ),
     ]
 
@@ -213,7 +210,6 @@ def test_base_validate_record_types():
 def test_base_filter(basic_result_collection):
     class DummyFilter(ResultFilter):
         def _apply(self, result_collection):
-
             result_collection.entries = {
                 "http://localhost:442": result_collection.entries[
                     "http://localhost:442"
@@ -236,7 +232,6 @@ def test_base_filter(basic_result_collection):
 
 
 def test_base_smirnoff_coverage():
-
     collection = TorsionDriveResultCollection(
         entries={
             "http://localhost:442": [
@@ -267,7 +262,7 @@ def test_base_smirnoff_coverage():
         (
             BasicResultCollection,
             "OpenFF BCC Refit Study COH v1.0",
-            #"resp-2-vacuum",
+            # "resp-2-vacuum",
             "spec_2",
             191,
             191,
@@ -455,19 +450,44 @@ def test_collection_from_server(
 #     if not isinstance(record, TorsiondriveRecord):
 #         assert molecule.n_conformers == 1
 
-@pytest.mark.parametrize("collection_name, collection_type, spec_name, expected_n_recs, expected_n_mols",[
-    # spec_2 corresponds to "default" while spec_1 is basically "default with pcm".
-    # In spec_1, one calc has failed, so there's only 190 results, but in spec_2 there are 191.
-    ("OpenFF BCC Refit Study COH v1.0", BasicResultCollection, "spec_2", 191, 191),
-    ("OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy", OptimizationResultCollection, "default", 197, 197),
-    #("OpenFF Protein Capped 3-mer Omega v1.0", TorsionDriveResultCollection, "default", 24, 24), #26 total, 2 failed
-    #("OpenFF DANCE 1 eMolecules t142 v1.0", TorsionDriveResultCollection, "default", 20, 20),
-    #("OpenFF Gen 2 Torsion Set 6 Supplemental", TorsionDriveResultCollection, "default", 7, 7)
-    #("OpenFF Protein Dipeptide 2-D TorsionDrive v1.1", TorsionDriveResultCollection, "default", 5, 5)
-    ("OpenFF Group1 Torsions 3", TorsionDriveResultCollection, "default", 5, 5) # 6 total, 1 failed
-])
-def test_to_records(public_client, collection_name, collection_type, spec_name, expected_n_recs, expected_n_mols):
-    collection = collection_type.from_server(public_client, collection_name, spec_name=spec_name)
+
+@pytest.mark.parametrize(
+    "collection_name, collection_type, spec_name, expected_n_recs, expected_n_mols",
+    [
+        # spec_2 corresponds to "default" while spec_1 is basically "default with pcm".
+        # In spec_1, one calc has failed, so there's only 190 results, but in spec_2 there are 191.
+        ("OpenFF BCC Refit Study COH v1.0", BasicResultCollection, "spec_2", 191, 191),
+        (
+            "OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy",
+            OptimizationResultCollection,
+            "default",
+            197,
+            197,
+        ),
+        # ("OpenFF Protein Capped 3-mer Omega v1.0", TorsionDriveResultCollection, "default", 24, 24), #26 total, 2 failed
+        # ("OpenFF DANCE 1 eMolecules t142 v1.0", TorsionDriveResultCollection, "default", 20, 20),
+        # ("OpenFF Gen 2 Torsion Set 6 Supplemental", TorsionDriveResultCollection, "default", 7, 7)
+        # ("OpenFF Protein Dipeptide 2-D TorsionDrive v1.1", TorsionDriveResultCollection, "default", 5, 5)
+        (
+            "OpenFF Group1 Torsions 3",
+            TorsionDriveResultCollection,
+            "default",
+            5,
+            5,
+        ),  # 6 total, 1 failed
+    ],
+)
+def test_to_records(
+    public_client,
+    collection_name,
+    collection_type,
+    spec_name,
+    expected_n_recs,
+    expected_n_mols,
+):
+    collection = collection_type.from_server(
+        public_client, collection_name, spec_name=spec_name
+    )
     records_and_molecules = collection.to_records()
     assert len(records_and_molecules) == expected_n_recs
 
@@ -535,13 +555,16 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
 #     assert basic_collection.n_results == 5
 #     assert basic_collection.n_molecules == 4
 
+
 def test_optimization_to_basic_result_collection(public_client):
-    optimization_result_collection = OptimizationResultCollection.from_server(public_client,
-                                                                              ['OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy'])
-    basic_collection = optimization_result_collection.to_basic_result_collection('hessian')
+    optimization_result_collection = OptimizationResultCollection.from_server(
+        public_client, ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"]
+    )
+    basic_collection = optimization_result_collection.to_basic_result_collection(
+        "hessian"
+    )
     assert basic_collection.n_results == 197
     assert basic_collection.n_molecules == 49
-
 
 
 # def test_torsion_drive_create_optimization_dataset(public_client):
@@ -576,7 +599,6 @@ def test_optimization_to_basic_result_collection(public_client):
 
 
 def test_torsion_smirnoff_coverage(public_client, monkeypatch):
-
     molecule: Molecule = Molecule.from_mapped_smiles(
         "[H:1][C:2]([H:7])([H:8])"
         "[C:3]([H:9])([H:10])"
@@ -605,32 +627,32 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
         lambda self: [
             (
                 TorsiondriveRecord(
-                    #TorsiondriveRecord.construct(
-                        specification=TorsiondriveSpecification(
-                            program="torsiondrive",
-                            keywords=TorsiondriveKeywords(
-                                dihedrals=[dihedrals[int(entry.record_id) - 1]],
-                                grid_spacing=[],
-                            ),
-                            optimization_specification=OptimizationSpecification(
-                                program="geometric",
-                                keywords={},
-                                qc_specification=QCSpecification(
-                                    driver=DriverEnum.gradient,
-                                    method="scf",
-                                    basis="sto-3g",
-                                    program="psi4",
-                                ),
+                    # TorsiondriveRecord.construct(
+                    specification=TorsiondriveSpecification(
+                        program="torsiondrive",
+                        keywords=TorsiondriveKeywords(
+                            dihedrals=[dihedrals[int(entry.record_id) - 1]],
+                            grid_spacing=[],
+                        ),
+                        optimization_specification=OptimizationSpecification(
+                            program="geometric",
+                            keywords={},
+                            qc_specification=QCSpecification(
+                                driver=DriverEnum.gradient,
+                                method="scf",
+                                basis="sto-3g",
+                                program="psi4",
                             ),
                         ),
-                        id=entry.record_id,
-                        initial_molecules_=[],
-                        status=RecordStatusEnum.complete,
+                    ),
+                    id=entry.record_id,
+                    initial_molecules_=[],
+                    status=RecordStatusEnum.complete,
                     is_service=False,
                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-                    #compute_history=list(),
-                    #)
+                    # compute_history=list(),
+                    # )
                 ),
                 molecule,
             )

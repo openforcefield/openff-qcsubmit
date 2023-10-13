@@ -174,7 +174,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         self,
         client: "PortalClient",
         ignore_errors: bool = False,
-        find_existing: bool = True
+        find_existing: bool = True,
     ) -> Dict:
         """
         Submit the dataset to a QCFractal server.
@@ -207,7 +207,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         # if not, we'll create a new one
 
         try:
-            #collection = client.get_dataset(self.type, self.dataset_name)
+            # collection = client.get_dataset(self.type, self.dataset_name)
             qcf_ds_type = legacy_qcsubmit_ds_type_to_next_qcf_ds_type[self.type]
             collection = client.get_dataset(qcf_ds_type, self.dataset_name)
         except PortalRequestError as e:
@@ -227,10 +227,11 @@ class _BaseDataset(abc.ABC, CommonBase):
         # TODO - check if entries already exist
         collection.add_entries(entries)
 
-        return collection.submit(tag=self.compute_tag,
-                                 priority=self.priority,
-                                 #find_existing=find_existing
-                                 )
+        return collection.submit(
+            tag=self.compute_tag,
+            priority=self.priority,
+            # find_existing=find_existing
+        )
 
     @abc.abstractmethod
     def __add__(self, other: "_BaseDataset") -> "_BaseDataset":
@@ -1029,7 +1030,7 @@ class OptimizationDataset(BasicDataset):
 
         for entry_name, entry in self.dataset.items():
             # TODO this probably needs even more keywords
-            opt_kw = dict(constraints = entry.constraints)
+            opt_kw = dict(constraints=entry.constraints)
             opt_kw.update(entry.keywords)
             if len(entry.initial_molecules) > 1:
                 # check if the index has a number tag
@@ -1040,8 +1041,9 @@ class OptimizationDataset(BasicDataset):
                     name = index + f"-{tag + j}"
                     entries.append(
                         OptimizationDatasetNewEntry(
-                            name=name, initial_molecule=molecule,
-                            additional_keywords=opt_kw
+                            name=name,
+                            initial_molecule=molecule,
+                            additional_keywords=opt_kw,
                         )
                     )
             else:
@@ -1049,7 +1051,7 @@ class OptimizationDataset(BasicDataset):
                     OptimizationDatasetNewEntry(
                         name=entry_name,
                         initial_molecule=entry.initial_molecules[0],
-                        additional_keywords=opt_kw
+                        additional_keywords=opt_kw,
                     )
                 )
 
@@ -1216,7 +1218,7 @@ class TorsiondriveDataset(OptimizationDataset):
             dihedral_ranges=self.dihedral_ranges,
             energy_decrease_thresh=self.energy_decrease_thresh,
             energy_upper_limit=self.energy_upper_limit,
-            )
+        )
 
         ret = {}
         for spec_name, spec in self.qc_specifications.items():
@@ -1227,18 +1229,17 @@ class TorsiondriveDataset(OptimizationDataset):
                 keywords=spec.keywords,
                 program=spec.program,
                 protocols={"wavefunction": spec.store_wavefunction},
-                )
+            )
             spec = OptimizationSpecification(
                 program=self.optimization_procedure.program,
                 qc_specification=qc_spec,
-                )
+            )
             ret[spec_name] = TorsiondriveSpecification(
-                 optimization_specification=spec,
+                optimization_specification=spec,
                 keywords=td_kw,
-                )
+            )
 
         return ret
-
 
     def _get_entries(self) -> List[TorsiondriveDatasetNewEntry]:
         entries: List[TorsiondriveDatasetNewEntry] = []

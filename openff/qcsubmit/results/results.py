@@ -528,9 +528,9 @@ class OptimizationResultCollection(_BaseResultCollection):
 
             rec_ids = [result.record_id for result in results]
             # Do one big request to save time
-            opt_records = client.get_optimizations(rec_ids,
-                                                   include=["initial_molecule"]
-                )
+            opt_records = client.get_optimizations(
+                rec_ids, include=["initial_molecule"]
+            )
             # Sort out which records from the request line up with which results
             opt_rec_id_to_result = dict()
             for result in results:
@@ -540,7 +540,9 @@ class OptimizationResultCollection(_BaseResultCollection):
                         opt_rec_id_to_result[result.record_id] = result
                         opt_record_found = True
                         break
-                assert opt_record_found, "didn't find a corresponding record for a result"
+                assert (
+                    opt_record_found
+                ), "didn't find a corresponding record for a result"
 
                 # OpenFF molecule
                 molecule: Molecule = Molecule.from_mapped_smiles(
@@ -548,7 +550,9 @@ class OptimizationResultCollection(_BaseResultCollection):
                 )
 
                 molecule.add_conformer(
-                    numpy.array(opt_record.final_molecule.geometry, float).reshape(-1, 3)
+                    numpy.array(opt_record.final_molecule.geometry, float).reshape(
+                        -1, 3
+                    )
                     * unit.bohr
                 )
 
@@ -582,14 +586,12 @@ class OptimizationResultCollection(_BaseResultCollection):
             client = cached_fractal_client(address=client_address)
             # Batch all the queries into one big request here
             mol_ids = [i[0] for i in result_records[client_address]]
-            sp_records = client.query_singlepoints(molecule_id=mol_ids,
-                                                   driver=driver)
+            sp_records = client.query_singlepoints(molecule_id=mol_ids, driver=driver)
             # Then sort out which return value from the query lines up with which record
             mol_id_2_rec_id = dict([(spr.molecule_id, spr.id) for spr in sp_records])
 
             for molecule_id, molecule in result_records[client_address]:
                 record_id = mol_id_2_rec_id[molecule_id]
-
 
                 result_entries[client_address].append(
                     BasicResult(
