@@ -548,7 +548,7 @@ class OptimizationResultCollection(_BaseResultCollection):
                 )
 
                 molecule.add_conformer(
-                    numpy.array(opt_record.initial_molecule.geometry, float).reshape(-1, 3)
+                    numpy.array(opt_record.final_molecule.geometry, float).reshape(-1, 3)
                     * unit.bohr
                 )
 
