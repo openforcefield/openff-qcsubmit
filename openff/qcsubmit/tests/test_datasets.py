@@ -1529,7 +1529,7 @@ def test_dataset_export_full_dataset_json(dataset_type):
         assert dataset.dataset == dataset.dataset
         assert dataset.metadata == dataset2.metadata
         # make sure the list survives a round trip
-        assert type(dataset2.qc_specifications["default"].keywords["PERTURB_DIPOLE"]) == list
+        assert type(dataset2.qc_specifications["default"].keywords["PERTURB_DIPOLE"]) is list
 
 
 @pytest.mark.parametrize("dataset_type", [
