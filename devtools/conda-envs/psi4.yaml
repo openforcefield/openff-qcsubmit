@@ -1,7 +1,6 @@
 name: qcsubmit-test-psi4
 
 channels:
-  - qcarchive/label/next
   - conda-forge
   - openeye
   - conda-forge/label/libint_dev # for psi4 1.8

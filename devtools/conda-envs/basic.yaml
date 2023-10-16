@@ -1,7 +1,6 @@
 name: qcsubmit-test-basic
 
 channels:
-  - qcarchive/label/next
   - openeye
   - conda-forge
   - defaults
