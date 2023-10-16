@@ -915,14 +915,15 @@ def test_add_molecule_from_entry_data():
         ),
     ],
 )
-def test_dataset_update(dataset_data):
+def test_dataset_update(dataset_data, public_client):
     """
     Make sure the utils function can update elements and pull the correct specs.
     """
-    import qcportal as ptl
+    #import qcportal as ptl
 
     dataset_type, dataset_name, specs = dataset_data
-    client = ptl.PortalClient()
+    #client = ptl.PortalClient()
+    client = public_client
     # set up the dataset
     dataset = dataset_type(
         dataset_name=dataset_name, dataset_tagline="XXXXXXXX", description="XXXXXXXX"

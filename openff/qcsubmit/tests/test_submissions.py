@@ -606,25 +606,37 @@ def test_adding_compute(fulltest_client, dataset_data):
     dataset.add_qc_spec(**compute_dataset.qc_specifications["rdkit"].dict())
     # get the last ran spec
     if dataset.type == "DataSet":
-        for specification in ds.data.history:
-            driver, program, method, basis, spec_name = specification
+        for spec_name, specification in ds.specifications.items():  # data.history:
+            #print(f"{specification=}")
+            # driver, program, method, basis, spec_name = specification
             spec = dataset.qc_specifications[spec_name]
-            assert driver == dataset.driver
-            assert program == spec.program
-            assert method == spec.method
-            assert basis == spec.basis
+            assert specification.specification.driver == dataset.driver
+            assert specification.specification.program == spec.program
+            assert specification.specification.method == spec.method
+            assert specification.specification.basis == spec.basis
+        # for specification in ds.data.history:
+        #     driver, program, method, basis, spec_name = specification
+        #     spec = dataset.qc_specifications[spec_name]
+        #     assert driver == dataset.driver
+        #     assert program == spec.program
+        #     assert method == spec.method
+        #     assert basis == spec.basis
 
-        for spec in dataset.qc_specifications.values():
-            query = ds.get_records(
-                method=spec.method,
-                basis=spec.basis,
-                program=spec.program,
-            )
-            for index in query.index:
-                result = query.loc[index].record
-                assert result.status.value.upper() == "COMPLETE"
-                assert result.error is None
-                assert result.return_result is not None
+        for spec_name, spec in dataset.qc_specifications.items():
+            # query = ds.get_records(
+            #     method=spec.method,
+            #     basis=spec.basis,
+            #     program=spec.program,
+            # )
+            query = ds.iterate_records(specification_names=spec_name)
+            #for index in query.index:
+            for entry_name, spec_name, rec in query:
+
+                #result = query.loc[index].record
+                assert rec.status.value.upper() == "COMPLETE"
+                assert rec.error is None
+                assert rec.return_result is not None
+
     elif dataset.type == "OptimizationDataset":
         # check the qc spec
         for spec_name, specification in ds.specifications.items():

@@ -1067,7 +1067,9 @@ class OptimizationDataset(BasicDataset):
             qc_model = spec.qc_model
             qc_keywords = spec.qc_keywords
             qc_spec = QCInputSpecification(
-                driver=self.driver, model=qc_model, keywords=qc_keywords
+                #driver=self.driver, model=qc_model, keywords=qc_keywords
+                # TODO: self.driver is now set to "deferred" - is it safe to put "gradient" here?
+                driver="gradient", model=qc_model, keywords=qc_keywords
             )
             opt_spec = self.optimization_procedure.dict(exclude={"program"})
             # this needs to be the single point calculation program
