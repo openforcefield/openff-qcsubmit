@@ -263,7 +263,7 @@ def test_base_smirnoff_coverage():
             "OpenFF BCC Refit Study COH v1.0",
             # "resp-2-vacuum",
             "spec_2",
-            191,
+            91,
             191,
         ),
         (
@@ -455,13 +455,13 @@ def test_collection_from_server(
     [
         # spec_2 corresponds to "default" while spec_1 is basically "default with pcm".
         # In spec_1, one calc has failed, so there's only 190 results, but in spec_2 there are 191.
-        ("OpenFF BCC Refit Study COH v1.0", BasicResultCollection, "spec_2", 191, 191),
+        ("OpenFF BCC Refit Study COH v1.0", BasicResultCollection, "spec_2", 191, 91),
         (
             "OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy",
             OptimizationResultCollection,
             "default",
             197,
-            197,
+            49,
         ),
         # ("OpenFF Protein Capped 3-mer Omega v1.0", TorsionDriveResultCollection, "default", 24, 24), #26 total, 2 failed
         # ("OpenFF DANCE 1 eMolecules t142 v1.0", TorsionDriveResultCollection, "default", 20, 20),
@@ -487,9 +487,9 @@ def test_to_records(
     collection = collection_type.from_server(
         public_client, collection_name, spec_name=spec_name
     )
+    assert collection.n_molecules == expected_n_mols
     records_and_molecules = collection.to_records()
     assert len(records_and_molecules) == expected_n_recs
-
     record, molecule = records_and_molecules[0]
 
     assert isinstance(record, record.__class__)
