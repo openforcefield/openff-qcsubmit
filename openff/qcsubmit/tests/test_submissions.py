@@ -1302,7 +1302,7 @@ def test_ignore_errors_all_datasets(snowflake, factory_type, capsys):
 
     # now we want to try again and make sure warnings are raised
     with pytest.warns(UserWarning):
-        dataset.submit(client=client, ignore_errors=True)
+        dataset.submit(client=client, ignore_errors=True, verbose=True)
 
     info = capsys.readouterr()
     assert (
@@ -1357,10 +1357,8 @@ def test_index_not_changed(fulltest_client, factory_type):
     )
 
     if dataset.type == "DataSet":
-        query = ds.get_records(
-            method="openff-1.0.0", basis="smirnoff", program="openmm"
-        )
-        assert "my_unique_index" in query.entry_names
+        query = ds.get_record("my_unique_index", "parsley")
+        assert query is not None
     else:
         assert "my_unique_index" in ds.entry_names
 
