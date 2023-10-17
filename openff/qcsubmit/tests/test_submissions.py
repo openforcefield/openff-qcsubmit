@@ -668,9 +668,10 @@ def test_adding_compute(fulltest_client, dataset_data):
             assert (
                 s.optimization_specification.qc_specification.driver == dataset.driver
             )
-            assert s.optimization_specification.program == spec.program
-            assert s.optimization_specification.method == spec.method
-            assert s.optimization_specification.basis == spec.basis
+            assert s.optimization_specification.program == "geometric" #spec.program
+            assert s.optimization_specification.qc_specification.program == spec.program
+            assert s.optimization_specification.qc_specification.method == spec.method
+            assert s.optimization_specification.qc_specification.basis == spec.basis
 
             # check the keywords
             got = s.keywords
@@ -1400,7 +1401,7 @@ def test_adding_dataset_entry_fail(fulltest_client, factory_type, capsys):
     )
 
     # make sure all expected index get submitted
-    dataset.submit(client=fulltest_client)
+    dataset.submit(client=fulltest_client, verbose=True)
     info = capsys.readouterr()
     assert (
         info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
@@ -1415,7 +1416,7 @@ def test_adding_dataset_entry_fail(fulltest_client, factory_type, capsys):
         spec_name="mff94",
         spec_description="mff94 force field in rdkit",
     )
-    dataset.submit(client=fulltest_client)
+    dataset.submit(client=fulltest_client, verbose=True)
     info = capsys.readouterr()
     assert info.out == f"Number of new entries: 0/{dataset.n_records}\n"
 

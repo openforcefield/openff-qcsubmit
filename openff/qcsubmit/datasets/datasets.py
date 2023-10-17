@@ -175,6 +175,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         client: "PortalClient",
         ignore_errors: bool = False,
         find_existing: bool = True,
+        verbose: bool = False
     ) -> Dict:
         """
         Submit the dataset to a QCFractal server.
@@ -185,6 +186,8 @@ class _BaseDataset(abc.ABC, CommonBase):
             ignore_errors:
                 If the user wants to submit the compute regardless of errors set this to ``True``.
                 Mainly to override basis coverage.
+            verbose:
+                If progress bars and submission statistics should be printed ``True`` or not ``False``.
 
         Returns:
             A dictionary of the compute response from the client for each specification submitted.
@@ -225,7 +228,9 @@ class _BaseDataset(abc.ABC, CommonBase):
         entries = self._get_entries()
 
         # TODO - check if entries already exist
-        collection.add_entries(entries)
+        insert_metadata = collection.add_entries(entries)
+        if verbose:
+            print(f"Number of new entries: {len(insert_metadata.inserted_idx)}/{self.n_records}")
 
         return collection.submit(
             tag=self.compute_tag,
