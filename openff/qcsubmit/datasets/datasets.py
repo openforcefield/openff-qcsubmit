@@ -31,7 +31,7 @@ from qcportal.singlepoint import (
 from qcportal.torsiondrive import TorsiondriveDatasetNewEntry, TorsiondriveSpecification
 from typing_extensions import Literal
 
-from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes
+from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes, QCSpec
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets.entries import (
     DatasetEntry,
@@ -828,7 +828,7 @@ class BasicDataset(_BaseDataset):
                 driver=self.driver,
                 method=spec.method,
                 basis=spec.basis,
-                keywords=spec.keywords,
+                keywords=spec.qc_keywords,
                 program=spec.program,
                 protocols={"wavefunction": spec.store_wavefunction},
             )
@@ -1017,7 +1017,7 @@ class OptimizationDataset(BasicDataset):
                 driver=self.driver,
                 method=spec.method,
                 basis=spec.basis,
-                keywords=spec.keywords,
+                keywords=spec.qc_keywords,
                 program=spec.program,
                 protocols={"wavefunction": spec.store_wavefunction},
             )
@@ -1233,7 +1233,7 @@ class TorsiondriveDataset(OptimizationDataset):
                 driver=self.driver,
                 method=spec.method,
                 basis=spec.basis,
-                keywords=spec.keywords,
+                keywords=spec.qc_keywords,
                 program=spec.program,
                 protocols={"wavefunction": spec.store_wavefunction},
             )

@@ -1235,16 +1235,24 @@ def test_torsiondrive_submissions(fulltest_client, specification):
         ## Actual Problems (TM) begin here
         assert specification.description == spec.spec_description
 
-        # check the keywords
-        got = s.keywords
+        # check the torsiondrive spec keywords
+        got = ds.specifications[spec_name].specification.keywords
         want = dataset._get_specifications()[spec_name].keywords
         assert got == want
 
-        # check the keywords
-        keywords = fulltest_client.query_keywords(spec.qc_spec.keywords)[0]
+        # check the qc spec keywords
+        got = ds.specifications[spec_name].specification.optimization_specification.qc_specification.keywords
+        want = dataset._get_specifications()[spec_name].optimization_specification.qc_specification.keywords
+        assert 'maxiter' in got
+        assert 'scf_properties' in got
+        assert got == want
 
-        assert keywords.values["maxiter"] == qc_spec.maxiter
-        assert keywords.values["scf_properties"] == qc_spec.scf_properties
+        #
+        # # check the keywords
+        # keywords = fulltest_client.query_keywords(spec.qc_spec.keywords)[0]
+        #
+        # assert keywords.values["maxiter"] == qc_spec.maxiter
+        # assert keywords.values["scf_properties"] == qc_spec.scf_properties
 
         # query the dataset
         ds.query(qc_spec.spec_name)
