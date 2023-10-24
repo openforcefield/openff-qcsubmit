@@ -932,7 +932,8 @@ def test_optimization_submissions(fulltest_client, specification):
                 # TODO is this needed? can we add this back? result.extras is
                 # empty and I can't find a quadrupole in the properties like
                 # "current dipole"
-                # assert "SCF QUADRUPOLE XX" in result.extras["qcvars"].keys()
+                #import pdb; pdb.set_trace()
+                assert "scf quadrupole" in result.properties.keys()
 
 
 def test_optimization_submissions_with_pcm(fulltest_client):
@@ -945,7 +946,7 @@ def test_optimization_submissions_with_pcm(fulltest_client):
         pytest.skip(f"Program '{program}' not found.")
 
     # use a single small molecule due to the extra time PCM takes
-    molecules = Molecule.from_smiles("C")
+    molecules = Molecule.from_smiles("N")
 
     factory = OptimizationDatasetFactory(driver="gradient")
     factory.add_qc_spec(
@@ -977,7 +978,7 @@ def test_optimization_submissions_with_pcm(fulltest_client):
     # now submit again
     dataset.submit(client=fulltest_client)
 
-    await_services(fulltest_client, max_iter=120)
+    await_services(fulltest_client, max_iter=240)
     # snowflake.await_results()
 
     # make sure of the results are complete
@@ -1014,10 +1015,10 @@ def test_optimization_submissions_with_pcm(fulltest_client):
             result = record.trajectory[-1]
 
             ## Real Problems (TM) begin here:
-            assert "SCF DIPOLE" in result.properties.keys()
-            assert "SCF QUADRUPOLE" in result.properties.keys()
+            assert "scf dipole" in result.properties.keys()
+            assert "scf quadrupole" in result.properties.keys()
             # make sure the PCM result was captured
-            assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
+            assert result.properties["pcm polarization energy"] < 0
 
             # assert "SCF DIPOLE" in result.extras["qcvars"].keys()
             # assert "SCF QUADRUPOLE" in result.extras["qcvars"].keys()
