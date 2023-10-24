@@ -977,7 +977,7 @@ def test_optimization_submissions_with_pcm(fulltest_client):
     # now submit again
     dataset.submit(client=fulltest_client)
 
-    await_services(fulltest_client, max_iter=30)
+    await_services(fulltest_client, max_iter=120)
     # snowflake.await_results()
 
     # make sure of the results are complete
