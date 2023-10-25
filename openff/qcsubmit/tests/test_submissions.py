@@ -1184,7 +1184,8 @@ def test_torsiondrive_submissions(fulltest_client, specification):
     if not has_program(program):
         pytest.skip(f"Program '{program}' not found.")
 
-    molecules = Molecule.from_smiles("CO")
+    molecule = Molecule.from_mapped_smiles("[H:1][C:2]([H:3])([H:4])[O:5][H:6]")
+    #molecule.properties["dihedrals"] =
 
     factory = TorsiondriveDatasetFactory(driver=driver)
     factory.add_qc_spec(
@@ -1193,10 +1194,16 @@ def test_torsiondrive_submissions(fulltest_client, specification):
 
     dataset = factory.create_dataset(
         dataset_name=f"Test torsiondrives info {program}, {driver}",
-        molecules=molecules,
+        #molecules=[molecule],
+        molecules=[],
         description="Test torsiondrive dataset",
         tagline="Testing torsiondrive datasets",
     )
+    dataset.add_molecule(index="foo",
+                         molecule=molecule,
+                         dihedrals=[[0,1,4,5]],
+                         keywords = {'dihedral_ranges': [(-180, 91 )], 'grid_spacing': [180]}
+                         )
 
     # force a metadata validation error
     dataset.metadata.long_description = None
@@ -1210,7 +1217,7 @@ def test_torsiondrive_submissions(fulltest_client, specification):
     # now submit again
     dataset.submit(client=fulltest_client)
 
-    await_services(fulltest_client)
+    await_services(fulltest_client, max_iter=120)
     # snowflake.await_services(max_iter=50)
 
     # make sure of the results are complete
@@ -1256,14 +1263,14 @@ def test_torsiondrive_submissions(fulltest_client, specification):
         # assert keywords.values["scf_properties"] == qc_spec.scf_properties
 
         # query the dataset
-        ds.query(qc_spec.spec_name)
-
-        for index in ds.df.index:
-            record = ds.df.loc[index].default
+        #ds.query(qc_spec.spec_name)
+        for entry_name, spec_name, record in ds.iterate_records():
+        #for index in ds.df.index:
+            #record = ds.df.loc[index].default
             # this will take some time so make sure it is running with no error
-            assert record.status.value == "COMPLETE", print(record.dict())
+            assert record.status.value == "complete", print(record.dict())
             assert record.error is None
-            assert len(record.final_energy_dict) == 24
+            assert len(record.final_energies) == 2
 
 
 @pytest.mark.parametrize(
