@@ -45,14 +45,6 @@ from typing_extensions import Literal
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
-from openff.qcsubmit.results.caching import (
-    batched_indices,
-    cached_fractal_client,
-    cached_query_basic_results,
-    cached_query_molecules,
-    cached_query_optimization_results,
-    cached_query_torsion_drive_results,
-)
 from openff.qcsubmit.utils.smirnoff import smirnoff_coverage, smirnoff_torsion_coverage
 
 if TYPE_CHECKING:
