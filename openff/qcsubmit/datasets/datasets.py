@@ -1262,11 +1262,14 @@ class TorsiondriveDataset(OptimizationDataset):
 
             td_keywords.update(entry.keywords.dict(exclude_defaults=True))
 
+            opt_keywords = dict(constraints=entry.constraints)
+
             entries.append(
                 TorsiondriveDatasetNewEntry(
                     name=entry_name,
                     initial_molecules=entry.initial_molecules,
                     additional_keywords=td_keywords,
+                    additional_optimization_keywords=opt_keywords
                 )
             )
 

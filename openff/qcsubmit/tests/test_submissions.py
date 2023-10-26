@@ -890,7 +890,7 @@ def test_optimization_submissions(fulltest_client, specification):
     # now submit again
     dataset.submit(client=client)
 
-    await_results(client, check_fn=PortalClient.get_optimizations)
+    await_results(client, check_fn=PortalClient.get_optimizations, timeout=240)
 
     # make sure of the results are complete
     ds = client.get_dataset(
@@ -1120,7 +1120,7 @@ def test_torsiondrive_constraints(fulltest_client):
     )
 
     dataset.submit(client=fulltest_client)  # , processes=1)
-    await_services(fulltest_client, max_iter=240)
+    await_services(fulltest_client, max_iter=180)
     # snowflake.await_services(max_iter=50)
 
     # make sure the result is complete
@@ -1148,8 +1148,8 @@ def test_torsiondrive_constraints(fulltest_client):
         assert constraints["freeze"][0]["indices"] == [6, 8, 10, 13]
         # make sure the dihedral has not changed
         assert pytest.approx(
-            opt.get_initial_molecule().measure((6, 8, 10, 13))
-        ) == opt.get_final_molecule().measure((6, 8, 10, 13))
+            record.minimum_optimizations[(-150,)].final_molecule.measure((6, 8, 10, 13))
+        ) == record.initial_molecules[0].measure((6, 8, 10, 13))
 
 
 @pytest.mark.parametrize(
