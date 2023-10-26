@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field, validator
 from qcportal.dataset_models import BaseDataset as QCPDataset
 from qcportal.optimization import OptimizationDataset, OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
+from qcportal import PortalClient
 from qcportal.singlepoint import (
     SinglepointDataset,
     SinglepointDatasetNewEntry,
@@ -380,7 +381,7 @@ class BasicResultCollection(_BaseResultCollection):
         records_and_molecules = []
 
         for client_address, records in self.entries.items():
-            client = cached_fractal_client(address=client_address)
+            client = PortalClient(client_address)
 
             # TODO - batching/chunking (maybe in portal?)
             for record in records:
@@ -516,7 +517,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         records_and_molecules = []
 
         for client_address, results in self.entries.items():
-            client = cached_fractal_client(address=client_address)
+            client = PortalClient(client_address)
 
             rec_ids = [result.record_id for result in results]
             # Do one big request to save time
@@ -575,7 +576,8 @@ class OptimizationResultCollection(_BaseResultCollection):
         result_entries = defaultdict(list)
 
         for client_address in result_records:
-            client = cached_fractal_client(address=client_address)
+            client = PortalClient(client_address)
+
             # Batch all the queries into one big request here
             mol_ids = [i[0] for i in result_records[client_address]]
             sp_records = client.query_singlepoints(molecule_id=mol_ids, driver=driver)
@@ -771,7 +773,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         records_and_molecules = []
 
         for client_address, records in self.entries.items():
-            client = cached_fractal_client(address=client_address)
+            client = PortalClient(client_address)
 
             for record in records:
                 rec = client.get_torsiondrives(record.record_id)
