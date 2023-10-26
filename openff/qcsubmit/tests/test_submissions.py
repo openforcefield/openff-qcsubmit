@@ -1141,7 +1141,6 @@ def test_torsiondrive_constraints(fulltest_client):
         # constraints = opt.keywords["constraints"]
         # make sure both the freeze and set constraints are passed on
         assert "set" in constraints
-        ## TODO: Possibly a Real Error - I can't find "freeze" anywhere in the results
         assert "freeze" in constraints
         # make sure both freeze constraints are present
         assert len(constraints["freeze"]) == 2
@@ -1240,7 +1239,6 @@ def test_torsiondrive_submissions(fulltest_client, specification):
         assert s.qc_specification.method == spec.method
         assert s.qc_specification.basis == spec.basis
 
-        ## Actual Problems (TM) begin here
         assert specification.description == spec.spec_description
 
         # check the torsiondrive spec keywords
