@@ -118,7 +118,6 @@ class DatasetEntry(DatasetConfig):
                 "canonical_isomeric_explicit_hydrogen_mapped_smiles"
             ] = self.attributes.canonical_isomeric_explicit_hydrogen_mapped_smiles
             identifiers = mol.identifiers or {}
-            identifiers["canonical_isomeric_explicit_hydrogen_mapped_smiles"] = self.attributes.canonical_isomeric_explicit_hydrogen_mapped_smiles
             mol_data = mol.dict()
             mol_data["extras"] = extras
             mol_data["identifiers"] = identifiers
