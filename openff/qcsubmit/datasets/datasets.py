@@ -222,7 +222,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         specs = self._get_specifications()
         for spec_name, spec in specs.items():
             # Send the new specifications to the server
-            collection.add_specification(name=spec_name, specification=spec)
+            collection.add_specification(name=spec_name, specification=spec, description=self.qc_specifications[spec_name].spec_description)
 
         # add the molecules/entries to the database
         entries = self._get_entries()

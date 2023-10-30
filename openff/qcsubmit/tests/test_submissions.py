@@ -101,7 +101,31 @@ def await_services(client, max_iter=10):
         #    break
     raise RuntimeError("Did not finish calculation in time")
 
-    # return True
+
+def check_added_specs(ds, dataset):
+    """Make sure each of the dataset specs were correctly added to qcportal."""
+    for spec_name, specification in ds.specifications.items():  # data.history:
+        # print(f"{specification=}")
+        spec = dataset.qc_specifications[spec_name]
+        assert specification.specification.driver == dataset.driver
+        assert specification.specification.program == spec.program
+        assert specification.specification.method == spec.method
+        assert specification.specification.basis == spec.basis
+        assert specification.description == spec.spec_description
+        break
+    else:
+        raise RuntimeError(
+            f"The requested compute specification was not found in the dataset {ds.specifications}"
+        )
+
+
+def check_metadata(ds, dataset):
+    "Check the metadata, tags, and provenance of ds compared to dataset"
+    meta = ds.metadata
+    assert meta["long_description"] == dataset.metadata.long_description
+    assert meta["short_description"] == dataset.metadata.short_description
+    assert ds.tags == dataset.dataset_tags
+    assert ds.provenance == dataset.provenance
 
 
 @pytest.mark.parametrize(
@@ -184,38 +208,12 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
     # ds = client.get_dataset_by_id(1)
 
     # check the metadata
-    # meta = Metadata(**ds.data.metadata)
-    meta = ds.metadata
-    # assert meta == dataset.metadata
-    print(f"{meta=}")
-    print(f"{dataset.metadata=}")
+    check_metadata(ds=ds, dataset=dataset)
 
-    assert meta["long_description"] == dataset.description
-    assert meta["short_description"] == dataset.dataset_tagline
-    assert ds.tags == dataset.dataset_tags
+    # make sure all specifications were added
+    check_added_specs(ds=ds, dataset=dataset)
 
-    # check the provenance
-    assert ds.provenance == dataset.provenance
-
-    # check the qc spec
-    # assert ds.data.default_driver == dataset.driver
-
-    # get the last ran spec
-    print(f"{ds.specifications=}")
-    for spec_name, specification in ds.specifications.items():  # data.history:
-        print(f"{specification=}")
-        # driver, program, method, basis, spec_name = specification
-        spec = dataset.qc_specifications[spec_name]
-        assert specification.specification.driver == dataset.driver
-        assert specification.specification.program == spec.program
-        assert specification.specification.method == spec.method
-        assert specification.specification.basis == spec.basis
-        break
-    else:
-        raise RuntimeError(
-            f"The requested compute was not found in the history {ds.data.history}"
-        )
-
+    # check the compute was run with the requested specification
     for spec in dataset.qc_specifications.values():
         # query = ds.get_records(
         query = ds.iterate_records(
@@ -226,12 +224,13 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
         )
         # make sure all of the conformers were submitted
         assert len(list(query)) == len(molecules)
-        for name, spec, record in query:
+        for name, _, record in query:
             # result = query.loc[index].record
             assert record.status == RecordStatusEnum.complete
             # assert result.status.value.upper() == "COMPLETE"
             assert record.error is None
             assert record.return_result is not None
+            assert record.specification == spec
 
 
 def test_basic_submissions_multiple_spec(fulltest_client):
@@ -289,40 +288,21 @@ def test_basic_submissions_multiple_spec(fulltest_client):
     )
 
     # check the metadata
-    meta = ds.metadata
+    check_metadata(ds=ds, dataset=dataset)
 
-    assert meta["long_description"] == dataset.description
-    assert meta["short_description"] == dataset.dataset_tagline
-    assert ds.tags == dataset.dataset_tags
+    # check the specifications were added correctly
+    check_added_specs(ds=ds, dataset=dataset)
 
-    # check the provenance
-    assert ds.provenance == dataset.provenance
-
-    # get the last ran spec
-    for spec_name, specification in ds.specifications.items():
-        spec = dataset.qc_specifications[spec_name]
-        assert specification.specification.driver == dataset.driver
-        assert specification.specification.program == spec.program
-        assert specification.specification.method == spec.method
-        assert specification.specification.basis == spec.basis
-
-    for spec in dataset.qc_specifications.values():
-        query = ds.iterate_records()
+    # check the results of each spec
+    for spec_name, spec in dataset.qc_specifications.items():
+        query = ds.iterate_records(specification_names=[spec_name])
         # make sure all conformers are submitted
-        assert len(list(query)) == len(qc_specs) * len(molecules)
-        for name, spec, record in query:
+        assert len(list(query)) == len(molecules)
+        for name, _, record in query:
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert record.return_result is not None
-
-
-def check_metadata(ds, dataset):
-    "Check the metadata, tags, and provenance of ds compared to dataset"
-    meta = ds.metadata
-    assert meta["long_description"] == dataset.metadata.long_description
-    assert meta["short_description"] == dataset.metadata.short_description
-    assert ds.tags == dataset.dataset_tags
-    assert ds.provenance == dataset.provenance
+            assert record.specification == spec
 
 
 def test_basic_submissions_single_pcm_spec(fulltest_client):
@@ -378,32 +358,20 @@ def test_basic_submissions_single_pcm_spec(fulltest_client):
     check_metadata(ds, dataset)
 
     # check the qc spec
-    # assert ds.driver == dataset.driver
+    check_added_specs(ds=ds, dataset=dataset)
 
-    # get the last ran spec
-    for spec_name, specification in ds.specifications.items():
-        spec = dataset.qc_specifications[spec_name]
-        assert specification.specification.driver == dataset.driver
-        assert specification.specification.program == spec.program
-        assert specification.specification.method == spec.method
-        assert specification.specification.basis == spec.basis
-        break
-    else:
-        raise RuntimeError(
-            f"The requested compute was not found in the history {ds.data.history}"
-        )
-
-    for spec in dataset.qc_specifications.values():
+    for spec_name, spec in dataset.qc_specifications.items():
         query = ds.iterate_records(
-            specification_names="default",
+            specification_names=spec_name,
         )
         assert len(list(query)) == 1  # only used 1 molecule above
-        for name, spec, record in query:
+        for name, _, record in query:
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert record.return_result is not None
             # make sure the PCM result was captured
             assert record.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
+            assert record.specification == spec
 
 
 def test_adding_specifications(fulltest_client):
@@ -557,12 +525,12 @@ def test_adding_compute(fulltest_client, dataset_data):
         tagline="tests for adding compute.",
     )
 
-    # now submit again
+    # Submit the initial openFF compute
     dataset.submit(client=client)
     # make sure that the compute has finished
     await_services(fulltest_client, max_iter=30)
 
-    # now lets make a dataset with new compute and submit it
+    # make a dataset with new compute and submit it
     # transfer the metadata to compare the elements
     compute_dataset = dataset_type(
         dataset_name=dataset.dataset_name,
@@ -582,6 +550,7 @@ def test_adding_compute(fulltest_client, dataset_data):
 
     # make sure the dataset has no molecules and submit it
     assert compute_dataset.dataset == {}
+    # this should expand the compute of the initial dataset
     compute_dataset.submit(client=client)
     # make sure that the compute has finished
     await_services(fulltest_client, max_iter=30)
@@ -592,50 +561,27 @@ def test_adding_compute(fulltest_client, dataset_data):
     )
 
     # check the metadata
-    meta = ds.metadata
     check_metadata(ds, dataset)
 
-    assert meta["long_description"] == dataset.description
-    assert meta["short_description"] == dataset.dataset_tagline
-    assert ds.tags == dataset.dataset_tags
-
-    # check the provenance
-    assert dataset.provenance == ds.provenance
-
-    # update all specs into one dataset
+    # update all specs into one dataset for comparison
     dataset.add_qc_spec(**compute_dataset.qc_specifications["rdkit"].dict())
-    # get the last ran spec
+
+
+    # For each dataset type check the compute result
     if dataset.type == "DataSet":
-        for spec_name, specification in ds.specifications.items():  # data.history:
-            #print(f"{specification=}")
-            # driver, program, method, basis, spec_name = specification
-            spec = dataset.qc_specifications[spec_name]
-            assert specification.specification.driver == dataset.driver
-            assert specification.specification.program == spec.program
-            assert specification.specification.method == spec.method
-            assert specification.specification.basis == spec.basis
-        # for specification in ds.data.history:
-        #     driver, program, method, basis, spec_name = specification
-        #     spec = dataset.qc_specifications[spec_name]
-        #     assert driver == dataset.driver
-        #     assert program == spec.program
-        #     assert method == spec.method
-        #     assert basis == spec.basis
-
+        # check the basic dataset specs
+        check_added_specs(ds=ds, dataset=dataset)
+        # Make sure the compute for this spec has finished and matches what we requested
         for spec_name, spec in dataset.qc_specifications.items():
-            # query = ds.get_records(
-            #     method=spec.method,
-            #     basis=spec.basis,
-            #     program=spec.program,
-            # )
             query = ds.iterate_records(specification_names=spec_name)
-            #for index in query.index:
-            for entry_name, spec_name, rec in query:
-
-                #result = query.loc[index].record
+            for entry_name, _, rec in query:
                 assert rec.status.value.upper() == "COMPLETE"
                 assert rec.error is None
                 assert rec.return_result is not None
+                assert rec.specification.program == spec.program
+                assert rec.specification.method == spec.method
+                assert rec.specification.basis == spec.basis
+                assert rec.specification.driver == dataset.driver
 
     elif dataset.type == "OptimizationDataset":
         # check the qc spec
@@ -646,6 +592,7 @@ def test_adding_compute(fulltest_client, dataset_data):
             assert s.qc_specification.program == spec.program
             assert s.qc_specification.method == spec.method
             assert s.qc_specification.basis == spec.basis
+            assert specification.description == spec.spec_description
 
             # check the keywords
             got = s.keywords
@@ -656,9 +603,15 @@ def test_adding_compute(fulltest_client, dataset_data):
             query = ds.iterate_records(specification_names="default")
 
             for name, spec, record in query:
+                input_spec = dataset.qc_specifications[spec]
                 assert record.status == RecordStatusEnum.complete
                 assert record.error is None
                 assert len(record.trajectory) > 1
+                # check the specification of a result in the opt
+                opt_single_point = record.trajectory[-1]
+                assert opt_single_point.specification.program == input_spec.program
+                assert opt_single_point.specification.method == input_spec.method
+                assert opt_single_point.specification.basis == input_spec.basis
 
     if dataset.type == "TorsionDriveDataset":
         # check the qc spec
@@ -672,6 +625,7 @@ def test_adding_compute(fulltest_client, dataset_data):
             assert s.optimization_specification.qc_specification.program == spec.program
             assert s.optimization_specification.qc_specification.method == spec.method
             assert s.optimization_specification.qc_specification.basis == spec.basis
+            assert specification.description == spec.spec_description
 
             # check the keywords
             got = s.keywords
@@ -685,23 +639,6 @@ def test_adding_compute(fulltest_client, dataset_data):
                 assert record.status == RecordStatusEnum.complete
                 assert record.error is None
                 assert len(record.trajectory) > 1
-
-
-# TODO use this elsewhere
-def check_last_spec(ds, dataset):
-    for spec_name, specification in ds.specifications.items():  # data.history:
-        print(f"{specification=}")
-        # driver, program, method, basis, spec_name = specification
-        spec = dataset.qc_specifications[spec_name]
-        assert specification.specification.driver == dataset.driver
-        assert specification.specification.program == spec.program
-        assert specification.specification.method == spec.method
-        assert specification.specification.basis == spec.basis
-        break
-    else:
-        raise RuntimeError(
-            f"The requested compute was not found in the history {ds.data.history}"
-        )
 
 
 def test_basic_submissions_wavefunction(fulltest_client):
@@ -748,11 +685,8 @@ def test_basic_submissions_wavefunction(fulltest_client):
     # check the metadata
     check_metadata(ds, dataset)
 
-    # check the qc spec
-    # assert ds.data.default_driver == dataset.driver
-
     # get the last ran spec
-    check_last_spec(ds, dataset)
+    check_added_specs(ds=ds, dataset=dataset)
 
     for spec in dataset.qc_specifications.values():
         query = ds.iterate_records(
@@ -911,6 +845,7 @@ def test_optimization_submissions(fulltest_client, specification):
         assert s.qc_specification.program == spec.program
         assert s.qc_specification.method == spec.method
         assert s.qc_specification.basis == spec.basis
+        assert specification.description == spec.spec_description
 
         # check the keywords
         got = s.keywords
@@ -999,6 +934,7 @@ def test_optimization_submissions_with_pcm(fulltest_client):
         assert s.qc_specification.program == spec.program
         assert s.qc_specification.method == spec.method
         assert s.qc_specification.basis == spec.basis
+        assert specification.description == spec.spec_description
 
         # check the keywords
         got = s.keywords
@@ -1283,11 +1219,11 @@ def test_torsiondrive_submissions(fulltest_client, specification):
         ),
     ],
 )
-def test_ignore_errors_all_datasets(snowflake, factory_type, capsys):
+def test_ignore_errors_all_datasets(fulltest_client, factory_type, capsys):
     """
     For each dataset make sure that when the basis is not fully covered the dataset raises warning errors, and verbose information
     """
-    client = snowflake.client()
+
     # molecule containing boron
     molecule = Molecule.from_smiles("OB(O)C1=CC=CC=C1")
     scan_enum = workflow_components.ScanEnumerator()
@@ -1312,11 +1248,11 @@ def test_ignore_errors_all_datasets(snowflake, factory_type, capsys):
 
     # make sure the dataset raises an error here
     with pytest.raises(MissingBasisCoverageError):
-        dataset.submit(client=client, ignore_errors=False)
+        dataset.submit(client=fulltest_client, ignore_errors=False)
 
     # now we want to try again and make sure warnings are raised
     with pytest.warns(UserWarning):
-        dataset.submit(client=client, ignore_errors=True, verbose=True)
+        dataset.submit(client=fulltest_client, ignore_errors=True, verbose=True)
 
     info = capsys.readouterr()
     assert (
