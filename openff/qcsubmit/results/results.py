@@ -473,6 +473,7 @@ class OptimizationResultCollection(_BaseResultCollection):
                     print(f"MISSING CMILES! entry = {entry_name}")
                     continue
 
+                inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
                 if inchi_key is None:
                     try:
                         mol = Molecule.from_mapped_smiles(
