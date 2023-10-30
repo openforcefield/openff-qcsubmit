@@ -138,7 +138,7 @@ def check_metadata(ds, dataset):
         pytest.param(
             (
                 {
-                    "method": "smirnoff99Frosst-1.1.0",
+                    "method": "smirnoff99Frosst-1.1.0.offxml",
                     "basis": "smirnoff",
                     "program": "openmm",
                 },
@@ -215,6 +215,7 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
 
     # check the compute was run with the requested specification
     for spec in dataset.qc_specifications.values():
+        print(spec)
         # query = ds.get_records(
         query = ds.iterate_records(
             specification_names="default",
