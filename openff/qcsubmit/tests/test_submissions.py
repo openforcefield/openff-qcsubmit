@@ -144,13 +144,13 @@ def check_metadata(ds, dataset):
         pytest.param(
             (
                 {
-                    "method": "smirnoff99Frosst-1.1.0.offxml",
+                    "method": "openff-2.1.0",
                     "basis": "smirnoff",
                     "program": "openmm",
                 },
                 "energy",
             ),
-            id="SMIRNOFF smirnoff99Frosst-1.1.0 energy",
+            id="SMIRNOFF openff-2.1.0 energy",
         ),
         pytest.param(
             ({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"),
@@ -310,7 +310,6 @@ def test_basic_submissions_multiple_spec(fulltest_client):
             assert record.return_result is not None
             assert record.specification == spec
 
-@pytest.mark.xfail(reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206")
 def test_basic_submissions_single_pcm_spec(fulltest_client):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
@@ -830,10 +829,7 @@ def test_optimization_submissions(fulltest_client, specification):
     # now submit again
     dataset.submit(client=client)
 
-    for i in range(5):
-        import time
-        time.sleep(1)
-        await_results(client, check_fn=PortalClient.get_optimizations, timeout=240)
+    await_results(client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1,2])
 
     # make sure of the results are complete
     ds = client.get_dataset(
@@ -879,7 +875,7 @@ def test_optimization_submissions(fulltest_client, specification):
                 #import pdb; pdb.set_trace()
                 assert "scf quadrupole" in result.properties.keys()
 
-
+@pytest.mark.xfail(reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206")
 def test_optimization_submissions_with_pcm(fulltest_client):
     """Test submitting an Optimization dataset to a snowflake server with PCM."""
 
