@@ -318,13 +318,13 @@ class BasicResultCollection(_BaseResultCollection):
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.molecule
 
-                cmiles = (
-                    molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
-                )
+                cmiles = molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
                 if not cmiles:
                     cmiles = molecule.extras.get(
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
+                if not cmiles:
+                    cmiles = entry.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
                 if not cmiles:
                     print(f"MISSING CMILES! entry = {entry_name}")
                     continue
@@ -388,9 +388,16 @@ class BasicResultCollection(_BaseResultCollection):
                 rec = client.get_singlepoints(record.record_id, include=["molecule"])
 
                 # OpenFF molecule
-                molecule: Molecule = Molecule.from_mapped_smiles(
-                    record.cmiles, allow_undefined_stereo=True
-                )
+                try:
+                    molecule: Molecule = Molecule.from_mapped_smiles(
+                        record.cmiles, allow_undefined_stereo=True
+                    )
+                except ValueError:
+                    warnings.warn(
+                        f"Skipping record with ID {rec.id} because it has an invalid CMILES {record.cmiles}",
+                        UserWarning,
+                    )
+                    continue
 
                 molecule.add_conformer(
                     numpy.array(rec.molecule.geometry, float).reshape(-1, 3) * unit.bohr
@@ -455,17 +462,21 @@ class OptimizationResultCollection(_BaseResultCollection):
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.initial_molecule
 
-                cmiles = entry.attributes[
-                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                ]
-                inchi_key = molecule.extras.get("fixed_hydrogen_inchi_key")
+                cmiles = molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
+                if not cmiles:
+                    cmiles = molecule.extras.get(
+                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                    )
+                if not cmiles:
+                    cmiles = entry.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                if not cmiles:
+                    print(f"MISSING CMILES! entry = {entry_name}")
+                    continue
 
                 if inchi_key is None:
                     try:
                         mol = Molecule.from_mapped_smiles(
-                            entry.attributes[
-                                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                            ],
+                            cmiles,
                             allow_undefined_stereo=True,
                         )
                     except ValueError:
@@ -537,11 +548,16 @@ class OptimizationResultCollection(_BaseResultCollection):
                     opt_record_found
                 ), "didn't find a corresponding record for a result"
 
-                # OpenFF molecule
-                molecule: Molecule = Molecule.from_mapped_smiles(
-                    result.cmiles, allow_undefined_stereo=True
-                )
-
+                try:
+                    molecule: Molecule = Molecule.from_mapped_smiles(
+                        result.cmiles, allow_undefined_stereo=True
+                    )
+                except ValueError:
+                    warnings.warn(
+                        f"Skipping record with ID {opt_record.id} because it has an invalid CMILES {result.cmiles}",
+                        UserWarning,
+                    )
+                    continue
                 molecule.add_conformer(
                     numpy.array(opt_record.final_molecule.geometry, float).reshape(
                         -1, 3
@@ -779,9 +795,16 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                 rec = client.get_torsiondrives(record.record_id)
 
                 # OpenFF molecule
-                molecule: Molecule = Molecule.from_mapped_smiles(
-                    record.cmiles, allow_undefined_stereo=True
-                )
+                try:
+                    molecule: Molecule = Molecule.from_mapped_smiles(
+                        record.cmiles, allow_undefined_stereo=True
+                    )
+                except ValueError:
+                    warnings.warn(
+                        f"Skipping record with ID {rec.id} because it has an invalid CMILES {record.cmiles}",
+                        UserWarning,
+                    )
+                    continue
 
                 # Map of torsion drive keys to minimum optimization
                 qc_grid_molecules = [

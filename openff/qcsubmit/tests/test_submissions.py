@@ -19,6 +19,13 @@ from openff.qcsubmit.datasets import (
     OptimizationDataset,
     TorsiondriveDataset,
 )
+from openff.qcsubmit.results import (
+    BasicResult,
+    BasicResultCollection,
+    OptimizationResultCollection,
+    TorsionDriveResultCollection,
+)
+
 from openff.qcsubmit.datasets.dataset_utils import (
     legacy_qcsubmit_ds_type_to_next_qcf_ds_type,
 )
@@ -91,7 +98,7 @@ def await_services(client, max_iter=10):
                 raise RuntimeError(f"calculation failed: {rec}")
             if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
                 finished += 1
-                print("exiting await_services")
+                #print("exiting await_services")
                 # break
                 # return True
         if finished == len(recs):
@@ -1444,3 +1451,67 @@ def test_expanding_compute(fulltest_client, factory_type):
     # TODO does this check something different from above?
     # entry = ds.get_entry(ds.df.index[0])
     # assert "parsley2" in entry.object_map
+
+
+@pytest.mark.parametrize(
+    "factory_type,result_collection_type",
+    [
+        [BasicDatasetFactory, BasicResultCollection],
+        [OptimizationDatasetFactory, OptimizationResultCollection],
+        [TorsiondriveDatasetFactory, TorsionDriveResultCollection]
+    ],
+)
+
+def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
+    molecule = Molecule.from_mapped_smiles("[H:4][C:2](=[O:1])[O:3][H:5]")
+    molecule.generate_conformers(n_conformers=1)
+    factory = factory_type()
+    factory.clear_qcspecs()
+    # add only mm specs
+    factory.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="default",
+        spec_description="standard parsley spec",
+    )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test invalid cmiles {factory.type}",
+        molecules=[],
+        description="Test invalid cmiles",
+        tagline="Testing invalid cmiles",
+    )
+    if factory_type is TorsiondriveDatasetFactory:
+        dataset.add_molecule(index="foo",
+                             molecule=molecule,
+                             dihedrals=[[0,1,2,4]],
+                             keywords = {'dihedral_ranges': [(0, 20 )], 'grid_spacing': [15]}
+                             )
+    else:
+        dataset.add_molecule(index="foo",
+                             molecule=molecule)
+
+    dataset.submit(client=fulltest_client)
+    if factory_type is BasicDatasetFactory:
+        await_results(fulltest_client)
+    else:
+        await_services(fulltest_client, max_iter=120)
+
+    ds = fulltest_client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
+    assert ds.specifications.keys() == {"default"}
+    results = result_collection_type.from_datasets(datasets=ds)
+    assert results.n_molecules == 1
+    records = results.to_records()
+    assert len(records) == 1
+    # Single points and optimizations look here
+    fulltest_client.modify_molecule(1, identifiers={"canonical_isomeric_explicit_hydrogen_mapped_smiles": "[H:4][C:2](=[O:1])[OH:3]"}, overwrite_identifiers=True)
+    entries = [*ds.iterate_entries(force_refetch=True)] # Do this to flush the local cache and fetch the modified molecule from the server
+    # Torsiondrives look here
+    entries[0].attributes['canonical_isomeric_explicit_hydrogen_mapped_smiles'] = "[H:4][C:2](=[O:1])[OH:3]"
+    results = result_collection_type.from_datasets(datasets=ds)
+    assert results.n_molecules == 1
+    with pytest.warns(UserWarning, match="invalid CMILES"):
+        records = results.to_records()
+    assert len(records) == 0

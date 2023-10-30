@@ -847,13 +847,14 @@ class BasicDataset(_BaseDataset):
                 for j, molecule in enumerate(entry.initial_molecules):
                     name = index + f"-{tag + j}"
                     entries.append(
-                        SinglepointDatasetNewEntry(name=name, molecule=molecule)
+                        SinglepointDatasetNewEntry(name=name, molecule=molecule, attributes=entry.attributes)
                     )
             else:
                 entries.append(
                     SinglepointDatasetNewEntry(
                         name=entry_name,
                         molecule=entry.initial_molecules[0],
+                        attributes=entry.attributes
                     )
                 )
 
@@ -1049,6 +1050,7 @@ class OptimizationDataset(BasicDataset):
                             name=name,
                             initial_molecule=molecule,
                             additional_keywords=opt_kw,
+                            attributes=entry.attributes
                         )
                     )
             else:
@@ -1057,6 +1059,7 @@ class OptimizationDataset(BasicDataset):
                         name=entry_name,
                         initial_molecule=entry.initial_molecules[0],
                         additional_keywords=opt_kw,
+                        attributes=entry.attributes
                     )
                 )
 
@@ -1269,8 +1272,10 @@ class TorsiondriveDataset(OptimizationDataset):
                     name=entry_name,
                     initial_molecules=entry.initial_molecules,
                     additional_keywords=td_keywords,
-                    additional_optimization_keywords=opt_keywords
-                )
+                    additional_optimization_keywords=opt_keywords,
+                    attributes = entry.attributes
+
+            )
             )
 
         return entries
