@@ -215,7 +215,6 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
 
     # check the compute was run with the requested specification
     for spec in dataset.qc_specifications.values():
-        print(spec)
         # query = ds.get_records(
         query = ds.iterate_records(
             specification_names="default",
