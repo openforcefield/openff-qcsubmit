@@ -758,7 +758,9 @@ def test_optimization_submissions(fulltest_client, specification):
     # now submit again
     dataset.submit(client=client)
 
-    await_results(client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1, 2])
+    await_results(
+        client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1, 2]
+    )
 
     # make sure of the results are complete
     ds = client.get_dataset(
@@ -801,7 +803,9 @@ def test_optimization_submissions(fulltest_client, specification):
                 assert "scf quadrupole" in result.properties.keys()
 
 
-@pytest.mark.xfail(reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206")
+@pytest.mark.xfail(
+    reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206"
+)
 def test_optimization_submissions_with_pcm(fulltest_client):
     """Test submitting an Optimization dataset to a snowflake server with PCM."""
     program = "psi4"
@@ -1044,11 +1048,12 @@ def test_torsiondrive_submissions(fulltest_client, specification):
         description="Test torsiondrive dataset",
         tagline="Testing torsiondrive datasets",
     )
-    dataset.add_molecule(index="foo",
-                         molecule=molecule,
-                         dihedrals=[[0, 1, 4, 5]],
-                         keywords={'dihedral_ranges': [(-180, 91)], 'grid_spacing': [180]}
-                         )
+    dataset.add_molecule(
+        index="foo",
+        molecule=molecule,
+        dihedrals=[[0, 1, 4, 5]],
+        keywords={"dihedral_ranges": [(-180, 91)], "grid_spacing": [180]},
+    )
 
     # force a metadata validation error
     dataset.metadata.long_description = None
@@ -1091,10 +1096,14 @@ def test_torsiondrive_submissions(fulltest_client, specification):
         assert got == want
 
         # check the qc spec keywords
-        got = ds.specifications[spec_name].specification.optimization_specification.qc_specification.keywords
-        want = dataset._get_specifications()[spec_name].optimization_specification.qc_specification.keywords
-        assert 'maxiter' in got
-        assert 'scf_properties' in got
+        got = ds.specifications[
+            spec_name
+        ].specification.optimization_specification.qc_specification.keywords
+        want = dataset._get_specifications()[
+            spec_name
+        ].optimization_specification.qc_specification.keywords
+        assert "maxiter" in got
+        assert "scf_properties" in got
         assert got == want
 
         #
@@ -1347,7 +1356,7 @@ def test_expanding_compute(fulltest_client, factory_type):
     [
         [BasicDatasetFactory, BasicResultCollection],
         [OptimizationDatasetFactory, OptimizationResultCollection],
-        [TorsiondriveDatasetFactory, TorsionDriveResultCollection]
+        [TorsiondriveDatasetFactory, TorsionDriveResultCollection],
     ],
 )
 def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
@@ -1370,14 +1379,14 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
         tagline="Testing invalid cmiles",
     )
     if factory_type is TorsiondriveDatasetFactory:
-        dataset.add_molecule(index="foo",
-                             molecule=molecule,
-                             dihedrals=[[0, 1, 2, 4]],
-                             keywords={'dihedral_ranges': [(0, 20)], 'grid_spacing': [15]}
-                             )
+        dataset.add_molecule(
+            index="foo",
+            molecule=molecule,
+            dihedrals=[[0, 1, 2, 4]],
+            keywords={"dihedral_ranges": [(0, 20)], "grid_spacing": [15]},
+        )
     else:
-        dataset.add_molecule(index="foo",
-                             molecule=molecule)
+        dataset.add_molecule(index="foo", molecule=molecule)
 
     dataset.submit(client=fulltest_client)
     if factory_type is BasicDatasetFactory:
@@ -1394,11 +1403,19 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     records = results.to_records()
     assert len(records) == 1
     # Single points and optimizations look here
-    fulltest_client.modify_molecule(1, identifiers={"canonical_isomeric_explicit_hydrogen_mapped_smiles": "[H:4][C:2](=[O:1])[OH:3]"}, overwrite_identifiers=True)
+    fulltest_client.modify_molecule(
+        1,
+        identifiers={
+            "canonical_isomeric_explicit_hydrogen_mapped_smiles": "[H:4][C:2](=[O:1])[OH:3]"
+        },
+        overwrite_identifiers=True,
+    )
     # Do this to flush the local cache and fetch the modified molecule from the server
     entries = [*ds.iterate_entries(force_refetch=True)]
     # Torsiondrives look here
-    entries[0].attributes['canonical_isomeric_explicit_hydrogen_mapped_smiles'] = "[H:4][C:2](=[O:1])[OH:3]"
+    entries[0].attributes[
+        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+    ] = "[H:4][C:2](=[O:1])[OH:3]"
     results = result_collection_type.from_datasets(datasets=ds)
     assert results.n_molecules == 1
     with pytest.warns(UserWarning, match="invalid CMILES"):
