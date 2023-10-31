@@ -4,15 +4,11 @@ Test the results packages when collecting from the public qcarchive.
 
 import datetime
 
-import numpy
 import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
-from openff.units import unit
 from pydantic import ValidationError
 from qcelemental.models import DriverEnum
-from qcportal import PortalClient
-from qcportal.molecules import Molecule as QCMolecule
 
 from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
@@ -24,13 +20,11 @@ from openff.qcsubmit.results import (
 )
 from openff.qcsubmit.results.filters import ResultFilter
 from openff.qcsubmit.results.results import (
-    OptimizationResult,
     TorsionDriveResult,
     _BaseResultCollection,
 )
 from openff.qcsubmit.tests import does_not_raise
 
-# from qcportal.records import (
 from . import (
     OptimizationRecord,
     OptimizationSpecification,
@@ -41,14 +35,6 @@ from . import (
     TorsiondriveRecord,
     TorsiondriveSpecification,
 )
-
-# from qcportal.records.optimization import OptimizationSpecification
-# from qcportal.records.singlepoint import QCSpecification
-# from qcportal.records.torsiondrive import (
-# TorsiondriveKeywords,
-# \    TorsiondriveSpecification,
-# )
-
 
 class MockServerInfo:
     def dict(self):
@@ -173,9 +159,7 @@ def test_base_validate_record_types():
             is_service=False,
             created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
             modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-            # compute_history=list(),
             id=1,
-            # )
         ),
         OptimizationRecord(
             # OptimizationRecord(
@@ -193,9 +177,7 @@ def test_base_validate_record_types():
             is_service=False,
             created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
             modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-            # compute_history=list(),
             id=1,
-            # )
         ),
     ]
 
@@ -294,162 +276,6 @@ def test_collection_from_server(
     assert result.n_molecules == n_molecules
     assert result.n_results == n_results
 
-
-# @pytest.mark.parametrize(
-#     "collection, record",
-#     [
-#         (
-#             BasicResultCollection(
-#                 entries={
-#                     "https://api.qcarchive.molssi.org:443/": [
-#                         BasicResult(
-#                             record_id=1,
-#                             cmiles="[Cl:1][Cl:2]",
-#                             inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
-#                         )
-#                     ]
-#                 }
-#             ),
-#             #SinglepointRecord.from_datamodel(
-#             SinglepointRecord(
-#                 #SinglepointRecord._DataModel(
-#                 #SinglepointRecord.construct(
-#                     id=1,
-#                     specification=QCSpecification(
-#                         program="psi4",
-#                         driver=DriverEnum.gradient,
-#                         method="scf",
-#                         basis="sto-3g",
-#                     ),
-#                     molecule_id=1,
-#                     status=RecordStatusEnum.complete,
-#                     is_service=False,
-#                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-#                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-#                     #compute_history=list(),
-#                 #)
-#             ),
-#         ),
-#         (
-#             OptimizationResultCollection(
-#                 entries={
-#                     "https://api.qcarchive.molssi.org:443/": [
-#                         OptimizationResult(
-#                             record_id=1,
-#                             cmiles="[Cl:1][Cl:2]",
-#                             inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
-#                         )
-#                     ]
-#                 }
-#             ),
-#             OptimizationRecord(
-#                 #OptimizationRecord.construct(
-#                     specification=OptimizationSpecification(
-#                         program="geometric",
-#                         qc_specification=QCSpecification(
-#                             driver=DriverEnum.gradient,
-#                             method="scf",
-#                             basis="sto-3g",
-#                             program="psi4",
-#                         ),
-#                     ),
-#                     id=1,
-#                     initial_molecule_id=1,
-#                     status=RecordStatusEnum.complete,
-#                     is_service=False,
-#                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-#                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-#                     #compute_history=list(),
-#                 #)
-#             ),
-#         ),
-#         (
-#             TorsionDriveResultCollection(
-#                 entries={
-#                     "https://api.qcarchive.molssi.org:443/": [
-#                         TorsionDriveResult(
-#                             record_id=1,
-#                             cmiles="[Cl:1][Cl:2]",
-#                             inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
-#                         )
-#                     ]
-#                 }
-#             ),
-#             TorsiondriveRecord(
-#                 #TorsiondriveRecord.construct(
-#                     specification=TorsiondriveSpecification(
-#                         program="torsiondrive",
-#                         keywords=TorsiondriveKeywords(dihedrals=[], grid_spacing=[]),
-#                         optimization_specification=OptimizationSpecification(
-#                             program="geometric",
-#                             keywords={},
-#                             qc_specification=QCSpecification(
-#                                 driver=DriverEnum.gradient,
-#                                 method="scf",
-#                                 basis="sto-3g",
-#                                 program="psi4",
-#                             ),
-#                         ),
-#                     ),
-#                     initial_molecules_=[],
-#                     id=1,
-#                     status=RecordStatusEnum.complete,
-#                     is_service=False,
-#                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-#                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
-#                     #compute_history=list(),
-#                 )
-#             ),
-#         #),
-#     ],
-# )
-# def test_to_records(collection, record, monkeypatch):
-#     #def mock_query_optimizations(*args, **kwargs):
-#     #    return [record]
-#
-#     def mock_get_singlepoints(*args, **kwargs):
-#         return record
-#
-#     def mock_get_optimizations(*args, **kwargs):
-#         return record
-#
-#     def mock_get_torsiondrives(*args, **kwargs):
-#         return record
-#
-#     #def mock_query_molecules(*args, **kwargs):
-#     #@property
-#     def mock_molecule_property(*args, **kwargs):
-#
-#         molecule: Molecule = Molecule.from_smiles("[Cl:1][Cl:2]")
-#         molecule.add_conformer(numpy.arange(6).reshape((2, 3)) * unit.angstrom)
-#
-#         qc_molecule = QCMolecule(
-#             **molecule.to_qcschema().dict(exclude={"id"}), id=1#args[1][0]
-#         )
-#
-#         return qc_molecule
-#
-#     #monkeypatch.setattr(PortalClient, "query_optimizations", mock_query_optimizations)
-#     monkeypatch.setattr(PortalClient, "get_optimizations", mock_get_optimizations)
-#     monkeypatch.setattr(PortalClient, "get_singlepoints", mock_get_singlepoints)
-#     monkeypatch.setattr(PortalClient, "get_torsiondrives", mock_get_torsiondrives)
-#     #monkeypatch.setattr(PortalClient, "query_molecules", mock_query_molecules)
-#     #monkeypatch.setattr(SinglepointRecord, "_assert_online", lambda x: x)
-#     monkeypatch.setattr(SinglepointRecord, "molecule", mock_molecule_property())
-#     monkeypatch.setattr(OptimizationRecord, "initial_molecule", mock_molecule_property())
-#     monkeypatch.setattr(TorsiondriveRecord, "minimum_optimizations", mock_molecule_property())
-#
-#     records_and_molecules = collection.to_records()
-#     assert len(records_and_molecules) == 1
-#
-#     record, molecule = records_and_molecules[0]
-#
-#     assert isinstance(record, record.__class__)
-#
-#     if not isinstance(record, TorsiondriveRecord):
-#         assert molecule.n_conformers == 1
-
-
 @pytest.mark.parametrize(
     "collection_name, collection_type, spec_name, expected_n_recs, expected_n_mols",
     [
@@ -519,42 +345,6 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
     assert dataset.n_molecules == 4
     assert dataset.n_records == 5  # the collection contains 1 duplicate
 
-
-# def test_optimization_to_basic_result_collection(
-#     optimization_result_collection, monkeypatch
-# ):
-#     def mock_auto_request(*args, **kwargs):
-#         return MockServerInfo()
-#
-#     def mock_query_records(*args, **kwargs):
-#
-#         assert "program" in kwargs and kwargs["program"] == "psi4"
-#         assert "method" in kwargs and kwargs["method"] == "scf"
-#         assert "basis" in kwargs and kwargs["basis"] == "sto-3g"
-#         assert "driver" in kwargs and kwargs["driver"] == "hessian"
-#
-#         return [
-#             SinglepointRecord(
-#                 id=1,
-#                 program=kwargs["program"],
-#                 driver=getattr(DriverEnum, kwargs["driver"]),
-#                 method=kwargs["method"],
-#                 basis=kwargs["basis"],
-#                 molecule=kwargs["molecule"][0],
-#                 status=RecordStatusEnum.complete,
-#             )
-#         ]
-#
-#         #monkeypatch.setattr(PortalClient, "_auto_request", mock_auto_request)
-#         monkeypatch.setattr(PortalClient, "make_request", mock_auto_request)
-#         monkeypatch.setattr(PortalClient, "query_records", mock_query_records)
-#
-#     basic_collection = optimization_result_collection.to_basic_result_collection()
-#
-#     assert basic_collection.n_results == 5
-#     assert basic_collection.n_molecules == 4
-
-
 def test_optimization_to_basic_result_collection(public_client):
     optimization_result_collection = OptimizationResultCollection.from_server(
         public_client, ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"]
@@ -564,38 +354,6 @@ def test_optimization_to_basic_result_collection(public_client):
     )
     assert basic_collection.n_results == 197
     assert basic_collection.n_molecules == 49
-
-
-# def test_torsion_drive_create_optimization_dataset(public_client):
-#     """
-#     Tast making a new optimization dataset of constrained optimizations from the results of a torsiondrive dataset.
-#     """
-#
-#     result = TorsionDriveCollectionResult.from_server(client=public_client,
-#                                                       spec_name="default",
-#                                                       dataset_name="TorsionDrive Paper",
-#                                                       include_trajectory=True,
-#                                                       final_molecule_only=False,
-#                                                       subset=["[ch2:3]([ch2:2][oh:4])[oh:1]_12"])
-#     # make a new torsiondrive dataset
-#     new_dataset = result.create_optimization_dataset(dataset_name="new optimization dataset",
-#                                                      description="a test optimization dataset",
-#                                                      tagline="a test optimization dataset.")
-#
-#     assert new_dataset.dataset_name == "new optimization dataset"
-#     assert new_dataset.n_molecules == 1
-#     assert new_dataset.n_records == 24
-#     dihedrals = set()
-#     for entry in new_dataset.dataset.values():
-#         assert entry.constraints.has_constraints is True
-#         assert len(entry.constraints.set) == 1
-#         dihedrals.add(entry.constraints.set[0].value)
-#
-#     # now sort the dihedrals and make sure they are all present
-#     dihs = sorted(dihedrals)
-#     refs = [x for x in range(-165, 195, 15)]
-#     assert dihs == refs
-
 
 def test_torsion_smirnoff_coverage(public_client, monkeypatch):
     molecule: Molecule = Molecule.from_mapped_smiles(
@@ -668,5 +426,4 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
 
     assert {*coverage["Bonds"].values()} == {3}
     assert {*coverage["Angles"].values()} == {3}
-
     assert {*coverage["ProperTorsions"].values()} == {1, 3}

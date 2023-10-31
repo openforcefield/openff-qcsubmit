@@ -174,7 +174,6 @@ class _BaseDataset(abc.ABC, CommonBase):
         self,
         client: "PortalClient",
         ignore_errors: bool = False,
-        find_existing: bool = True,
         verbose: bool = False
     ) -> Dict:
         """
@@ -210,7 +209,6 @@ class _BaseDataset(abc.ABC, CommonBase):
         # if not, we'll create a new one
 
         try:
-            # collection = client.get_dataset(self.type, self.dataset_name)
             qcf_ds_type = legacy_qcsubmit_ds_type_to_next_qcf_ds_type[self.type]
             collection = client.get_dataset(qcf_ds_type, self.dataset_name)
         except PortalRequestError as e:
@@ -1075,7 +1073,6 @@ class OptimizationDataset(BasicDataset):
             qc_model = spec.qc_model
             qc_keywords = spec.qc_keywords
             qc_spec = QCInputSpecification(
-                #driver=self.driver, model=qc_model, keywords=qc_keywords
                 # TODO: self.driver is now set to "deferred" - is it safe to put "gradient" here?
                 driver="gradient", model=qc_model, keywords=qc_keywords
             )

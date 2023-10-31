@@ -9,7 +9,6 @@ from enum import Enum
 from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
-import qcportal as ptl
 from openff.toolkit.topology import Molecule
 from pydantic import (
     BaseModel,

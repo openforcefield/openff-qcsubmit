@@ -4,9 +4,6 @@ import pytest
 from openff.toolkit.topology import Molecule
 from openff.units import unit
 from qcportal import PortalClient
-# from qcportal.collections import OptimizationDataset
-# from qcportal.collections.optimization_dataset import OptEntry
-# from qcportal.models.records import OptimizationRecord
 from qcportal.optimization import OptimizationDataset
 from qcportal.optimization import OptimizationDatasetEntry as OptEntry
 from qcportal.optimization import OptimizationRecord

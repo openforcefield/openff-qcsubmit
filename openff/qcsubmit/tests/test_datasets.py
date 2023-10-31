@@ -838,10 +838,8 @@ def test_keywords_detected(keywords):
         expected_keywords = keywords
     assert qc_spec.keywords == expected_keywords
 
-    # portal_keywords = dataset._get_spec_keywords(qc_spec)
     portal_keywords = dataset.qc_specifications["XXXXXXXX"].keywords
 
-    # Real Problem (TM)
     for key, expected_value in {} if keywords is None else keywords.items():
         assert key in portal_keywords.keys()
         assert portal_keywords[key] == expected_value
@@ -919,10 +917,8 @@ def test_dataset_update(dataset_data, public_client):
     """
     Make sure the utils function can update elements and pull the correct specs.
     """
-    #import qcportal as ptl
 
     dataset_type, dataset_name, specs = dataset_data
-    #client = ptl.PortalClient()
     client = public_client
     # set up the dataset
     dataset = dataset_type(

@@ -7,7 +7,6 @@ from openff.toolkit.topology import Molecule
 from openff.units import unit
 from pydantic import ValidationError
 from qcelemental.models import DriverEnum
-# from qcportal.records import RecordStatusEnum, SinglepointRecord
 from qcportal.singlepoint import QCSpecification
 
 from openff.qcsubmit.results import (

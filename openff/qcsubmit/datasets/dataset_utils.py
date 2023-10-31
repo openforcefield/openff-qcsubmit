@@ -14,7 +14,7 @@ from openff.qcsubmit.serializers import deserialize
 registered_datasets: Dict[str, Any] = {}
 
 # The QCS Dataset.type field was originally a mapping from QCS datasets to QCF collection type.
-# As of the QCF "next" release, QCF has its own dataset classes. However,
+# As of the QCF "next" (0.50) release, QCF has its own dataset classes. However,
 # for reverse-compatibility (being able to load serialized files from old versions of QCS), the QCS
 # dataset classes will continue using the original types internally, and will just convert to the
 # new QCF types using the following dict when needed.
@@ -133,7 +133,6 @@ def update_specification_and_metadata(
             method = specification.specification.method
             basis = specification.specification.basis
             spec_name = specification.name
-            # _, program, method, basis, spec = history
             if program.lower() != "dftd3":
                 # the composition planner breaks the validation
                 dataset.add_qc_spec(
@@ -149,10 +148,7 @@ def update_specification_and_metadata(
         if not dataset.metadata.elements:
             elements = set()
             for entry in ds.iterate_entries():
-                # formula = entry.initial_molecule.get_molecular_formula()
                 formula = entry.attributes["molecular_formula"]
-                # for record in ds.data.records.values():
-                #    formula = record.attributes["molecular_formula"]
                 # use regex to parse the formula
                 match = re.findall("[A-Z][a-z]?|\d+|.", formula)
                 for element in match:
@@ -160,7 +156,6 @@ def update_specification_and_metadata(
                         elements.add(element)
             dataset.metadata.elements = elements
         # now add the specs
-        # for spec in ds.data.specs.values():
         for spec_name, spec in ds.specifications.items():
             dataset.add_qc_spec(
                 method=spec.specification.qc_specification.method,
@@ -175,10 +170,7 @@ def update_specification_and_metadata(
         if not dataset.metadata.elements:
             elements = set()
             for entry in ds.iterate_entries():
-                # formula = entry.initial_molecule.get_molecular_formula()
                 formula = entry.attributes["molecular_formula"]
-                # for record in ds.data.records.values():
-                #    formula = record.attributes["molecular_formula"]
                 # use regex to parse the formula
                 match = re.findall("[A-Z][a-z]?|\d+|.", formula)
                 for element in match:
@@ -186,7 +178,6 @@ def update_specification_and_metadata(
                         elements.add(element)
             dataset.metadata.elements = elements
         # now add the specs
-        # for spec in ds.data.specs.values():
         for spec_name, spec in ds.specifications.items():
             dataset.add_qc_spec(
                 method=spec.specification.optimization_specification.qc_specification.method,
