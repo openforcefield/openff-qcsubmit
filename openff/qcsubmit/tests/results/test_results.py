@@ -9,6 +9,11 @@ from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import ValidationError
 from qcelemental.models import DriverEnum
+from qcportal.torsiondrive import (
+    TorsiondriveKeywords,
+    TorsiondriveRecord,
+    TorsiondriveSpecification,
+)
 
 from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
@@ -28,9 +33,6 @@ from . import (
     QCSpecification,
     RecordStatusEnum,
     SinglepointRecord,
-    TorsiondriveKeywords,
-    TorsiondriveRecord,
-    TorsiondriveSpecification,
 )
 
 
