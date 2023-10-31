@@ -36,7 +36,6 @@ from qcportal.optimization import OptimizationDataset, OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
 from qcportal.singlepoint import (
     SinglepointDataset,
-    SinglepointDatasetNewEntry,
     SinglepointDriver,
     SinglepointRecord,
 )

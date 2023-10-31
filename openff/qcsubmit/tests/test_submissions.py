@@ -279,6 +279,7 @@ def test_basic_submissions_multiple_spec(fulltest_client):
             assert record.return_result is not None
             assert record.specification == spec
 
+
 def test_basic_submissions_single_pcm_spec(fulltest_client):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
@@ -380,7 +381,7 @@ def test_adding_specifications(fulltest_client):
     await_results(client, check_fn=PortalClient.get_optimizations)
 
     # grab the collection
-    ds = client.get_dataset(
+    _ = client.get_dataset(
         legacy_qcsubmit_ds_type_to_next_qcf_ds_type[opt_dataset.type],
         opt_dataset.dataset_name,
     )
@@ -404,7 +405,6 @@ def test_adding_specifications(fulltest_client):
             spec_description="default openff spec",
             spec_name="openff-1.0.0",
         )
-
 
     # now add a new specification but no compute and make sure it is overwritten
     opt_dataset.clear_qcspecs()
@@ -504,7 +504,6 @@ def test_adding_compute(fulltest_client, dataset_data):
     # update all specs into one dataset for comparison
     dataset.add_qc_spec(**compute_dataset.qc_specifications["rdkit"].dict())
 
-
     # For each dataset type check the compute result
     if dataset.type == "DataSet":
         # check the basic dataset specs
@@ -559,7 +558,7 @@ def test_adding_compute(fulltest_client, dataset_data):
             assert (
                 s.optimization_specification.qc_specification.driver == dataset.driver
             )
-            assert s.optimization_specification.program == "geometric" #spec.program
+            assert s.optimization_specification.program == "geometric"
             assert s.optimization_specification.qc_specification.program == spec.program
             assert s.optimization_specification.qc_specification.method == spec.method
             assert s.optimization_specification.qc_specification.basis == spec.basis
@@ -686,7 +685,6 @@ def test_optimization_submissions_with_constraints(fulltest_client):
         assert record.status is RecordStatusEnum.complete
         assert record.error is None
         assert len(record.trajectory) > 1
-        # assert "constraints" in record.specification.keywords
         break
     else:
         raise RuntimeError("The requested compute was not found")
@@ -760,7 +758,7 @@ def test_optimization_submissions(fulltest_client, specification):
     # now submit again
     dataset.submit(client=client)
 
-    await_results(client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1,2])
+    await_results(client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1, 2])
 
     # make sure of the results are complete
     ds = client.get_dataset(
@@ -802,12 +800,10 @@ def test_optimization_submissions(fulltest_client, specification):
                 assert "current dipole" in result.properties.keys()
                 assert "scf quadrupole" in result.properties.keys()
 
+
 @pytest.mark.xfail(reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206")
 def test_optimization_submissions_with_pcm(fulltest_client):
     """Test submitting an Optimization dataset to a snowflake server with PCM."""
-
-    # client = snowflake.client()
-
     program = "psi4"
     if not has_program(program):
         pytest.skip(f"Program '{program}' not found.")
@@ -887,12 +883,10 @@ def test_optimization_submissions_with_pcm(fulltest_client):
             assert result.properties["pcm polarization energy"] < 0
 
 
-
 def test_torsiondrive_scan_keywords(fulltest_client):
     """
     Test running torsiondrives with unique keyword settings which overwrite the global grid spacing and scan range.
     """
-
     molecules = Molecule.from_smiles("CO")
     factory = TorsiondriveDatasetFactory()
     scan_enum = workflow_components.ScanEnumerator()
@@ -1052,8 +1046,8 @@ def test_torsiondrive_submissions(fulltest_client, specification):
     )
     dataset.add_molecule(index="foo",
                          molecule=molecule,
-                         dihedrals=[[0,1,4,5]],
-                         keywords = {'dihedral_ranges': [(-180, 91 )], 'grid_spacing': [180]}
+                         dihedrals=[[0, 1, 4, 5]],
+                         keywords={'dihedral_ranges': [(-180, 91)], 'grid_spacing': [180]}
                          )
 
     # force a metadata validation error
@@ -1348,8 +1342,6 @@ def test_expanding_compute(fulltest_client, factory_type):
     assert len([*ds.iterate_records()]) == 2
 
 
-
-
 @pytest.mark.parametrize(
     "factory_type,result_collection_type",
     [
@@ -1358,7 +1350,6 @@ def test_expanding_compute(fulltest_client, factory_type):
         [TorsiondriveDatasetFactory, TorsionDriveResultCollection]
     ],
 )
-
 def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     molecule = Molecule.from_mapped_smiles("[H:4][C:2](=[O:1])[O:3][H:5]")
     molecule.generate_conformers(n_conformers=1)
@@ -1381,8 +1372,8 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     if factory_type is TorsiondriveDatasetFactory:
         dataset.add_molecule(index="foo",
                              molecule=molecule,
-                             dihedrals=[[0,1,2,4]],
-                             keywords = {'dihedral_ranges': [(0, 20 )], 'grid_spacing': [15]}
+                             dihedrals=[[0, 1, 2, 4]],
+                             keywords={'dihedral_ranges': [(0, 20)], 'grid_spacing': [15]}
                              )
     else:
         dataset.add_molecule(index="foo",
@@ -1404,7 +1395,8 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     assert len(records) == 1
     # Single points and optimizations look here
     fulltest_client.modify_molecule(1, identifiers={"canonical_isomeric_explicit_hydrogen_mapped_smiles": "[H:4][C:2](=[O:1])[OH:3]"}, overwrite_identifiers=True)
-    entries = [*ds.iterate_entries(force_refetch=True)] # Do this to flush the local cache and fetch the modified molecule from the server
+    # Do this to flush the local cache and fetch the modified molecule from the server
+    entries = [*ds.iterate_entries(force_refetch=True)]
     # Torsiondrives look here
     entries[0].attributes['canonical_isomeric_explicit_hydrogen_mapped_smiles'] = "[H:4][C:2](=[O:1])[OH:3]"
     results = result_collection_type.from_datasets(datasets=ds)

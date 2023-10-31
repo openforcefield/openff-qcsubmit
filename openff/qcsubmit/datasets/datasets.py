@@ -31,12 +31,7 @@ from qcportal.singlepoint import (
 from qcportal.torsiondrive import TorsiondriveDatasetNewEntry, TorsiondriveSpecification
 from typing_extensions import Literal
 
-from openff.qcsubmit.common_structures import (
-    CommonBase,
-    Metadata,
-    MoleculeAttributes,
-    QCSpec,
-)
+from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets.entries import (
     DatasetEntry,
@@ -56,6 +51,7 @@ from openff.qcsubmit.utils.visualize import molecules_to_pdf
 
 if TYPE_CHECKING:
     from openff.toolkit.typing.engines.smirnoff import ForceField
+    from qcportal.collections.collection import Collection
 
 C = TypeVar("C", bound="Collection")
 E = TypeVar("E", bound=DatasetEntry)
@@ -70,7 +66,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         ...,
         description="The name of the dataset, this will be the name given to the collection in QCArchive.",
     )
-    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = Field(
+    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = Field(  # noqa
         ...,
         description="The tagline should be a short description of the dataset which will be displayed by the QCArchive client when the datasets are listed.",
     )
@@ -78,7 +74,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         "_BaseDataset",
         description="The dataset type corresponds to the type of collection that will be made in QCArchive.",
     )
-    description: constr(min_length=8, regex="[a-zA-Z]") = Field(
+    description: constr(min_length=8, regex="[a-zA-Z]") = Field(  # noqa
         ...,
         description="A long description of the datasets purpose and details about the molecules within.",
     )
@@ -213,7 +209,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         try:
             qcf_ds_type = legacy_qcsubmit_ds_type_to_next_qcf_ds_type[self.type]
             collection = client.get_dataset(qcf_ds_type, self.dataset_name)
-        except PortalRequestError as e:
+        except PortalRequestError:
             self.metadata.validate_metadata(raise_errors=not ignore_errors)
             collection = self._generate_collection(client=client)
 
@@ -528,7 +524,7 @@ class _BaseDataset(abc.ABC, CommonBase):
                     basis = psi4_converter.get(spec.basis.lower(), spec.basis.lower())
                     # here we need to apply conversions for special characters to match bse
                     # replace the *
-                    basis = re.sub("\*", "_st_", basis)
+                    basis = re.sub("\*", "_st_", basis)  # noqa
                     # replace any /
                     basis = re.sub("/", "_sl_", basis)
                     # check for heavy tags

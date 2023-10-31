@@ -2602,10 +2602,7 @@ def test_optimizationdataset_qc_spec():
         dataset_tagline="XXXXXXXX",
         description="XXXXXXXX",
     )
-    qc_spec = dataset.qc_specifications["default"]  #  keyword_id="0")
-    # qc_spec = dataset.get_qc_spec("default", keyword_id="0")
-    # TODO: Possible Real Problem (TM). Do we need to find a replacement for keyword_id?
-    # assert qc_spec.keywords == "0"
+    qc_spec = dataset.qc_specifications["default"]
     tags = ["program", "method", "basis"]
     for tag in tags:
         assert tag in qc_spec.dict()

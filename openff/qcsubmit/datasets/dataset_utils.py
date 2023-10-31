@@ -150,7 +150,7 @@ def update_specification_and_metadata(
             for entry in ds.iterate_entries():
                 formula = entry.attributes["molecular_formula"]
                 # use regex to parse the formula
-                match = re.findall("[A-Z][a-z]?|\d+|.", formula)
+                match = re.findall("[A-Z][a-z]?|\d+|.", formula)  # noqa
                 for element in match:
                     if not element.isnumeric():
                         elements.add(element)
@@ -172,7 +172,7 @@ def update_specification_and_metadata(
             for entry in ds.iterate_entries():
                 formula = entry.attributes["molecular_formula"]
                 # use regex to parse the formula
-                match = re.findall("[A-Z][a-z]?|\d+|.", formula)
+                match = re.findall("[A-Z][a-z]?|\d+|.", formula)  # noqa
                 for element in match:
                     if not element.isnumeric():
                         elements.add(element)

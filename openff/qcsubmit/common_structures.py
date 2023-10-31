@@ -6,7 +6,19 @@ import getpass
 import re
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    AbstractSet,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 from openff.toolkit.topology import Molecule
@@ -33,6 +45,17 @@ from openff.qcsubmit.exceptions import (
     QCSpecificationError,
 )
 from openff.qcsubmit.utils.smirnoff import split_openff_molecule
+
+if TYPE_CHECKING:
+    DictStrAny = Dict[str, Any]
+    IntStr = Union[int, str]
+    AbstractSetIntStr = AbstractSet[IntStr]
+    DictIntStrAny = Dict[IntStr, Any]
+    MappingIntStrAny = Mapping[IntStr, Any]
+
+
+if TYPE_CHECKING:
+    from pydantic import AbstractSetIntStr
 
 
 class DatasetConfig(BaseModel):
@@ -732,14 +755,14 @@ class Metadata(DatasetConfig):
         None,
         description="The name that will be given to the collection once it is put into QCArchive, this is updated when attached to a dataset.",
     )
-    short_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = Field(
+    short_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = Field(  # noqa
         None, description="A short informative description of the dataset."
     )
     long_description_url: Optional[HttpUrl] = Field(
         None,
         description="The url which links to more information about the submission normally a github repo with scripts showing how the dataset was created.",
     )
-    long_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = Field(
+    long_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = Field(  # noqa
         None,
         description="A long description of the purpose of the dataset and the molecules within.",
     )

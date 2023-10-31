@@ -274,6 +274,7 @@ def test_collection_from_server(
     assert result.n_molecules == n_molecules
     assert result.n_results == n_results
 
+
 @pytest.mark.parametrize(
     "collection_name, collection_type, spec_name, expected_n_recs, expected_n_mols",
     [
@@ -343,6 +344,7 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
     assert dataset.n_molecules == 4
     assert dataset.n_records == 5  # the collection contains 1 duplicate
 
+
 def test_optimization_to_basic_result_collection(public_client):
     optimization_result_collection = OptimizationResultCollection.from_server(
         public_client, ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"]
@@ -352,6 +354,7 @@ def test_optimization_to_basic_result_collection(public_client):
     )
     assert basic_collection.n_results == 197
     assert basic_collection.n_molecules == 49
+
 
 def test_torsion_smirnoff_coverage(public_client, monkeypatch):
     molecule: Molecule = Molecule.from_mapped_smiles(
