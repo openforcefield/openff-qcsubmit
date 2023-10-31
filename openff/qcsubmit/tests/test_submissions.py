@@ -976,7 +976,7 @@ def test_torsiondrive_constraints(fulltest_client):
     )
 
     dataset.submit(client=fulltest_client)
-    await_services(fulltest_client, max_iter=240)
+    await_services(fulltest_client, max_iter=300)
 
     # make sure the result is complete
     ds = fulltest_client.get_dataset(

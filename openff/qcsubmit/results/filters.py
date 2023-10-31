@@ -19,6 +19,7 @@ from qcelemental.molutil import guess_connectivity
 from qcportal.optimization import OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
 from qcportal.singlepoint import SinglepointRecord
+
 # from qcportal.torsiondrive import TorsiondriveRecord
 # from qcportal.records import (
 #    BaseRecord,
