@@ -31,7 +31,12 @@ from qcportal.singlepoint import (
 from qcportal.torsiondrive import TorsiondriveDatasetNewEntry, TorsiondriveSpecification
 from typing_extensions import Literal
 
-from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes, QCSpec
+from openff.qcsubmit.common_structures import (
+    CommonBase,
+    Metadata,
+    MoleculeAttributes,
+    QCSpec,
+)
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets.entries import (
     DatasetEntry,
@@ -171,10 +176,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         raise NotImplementedError()
 
     def submit(
-        self,
-        client: "PortalClient",
-        ignore_errors: bool = False,
-        verbose: bool = False
+        self, client: "PortalClient", ignore_errors: bool = False, verbose: bool = False
     ) -> Dict:
         """
         Submit the dataset to a QCFractal server.
@@ -220,7 +222,11 @@ class _BaseDataset(abc.ABC, CommonBase):
         specs = self._get_specifications()
         for spec_name, spec in specs.items():
             # Send the new specifications to the server
-            collection.add_specification(name=spec_name, specification=spec, description=self.qc_specifications[spec_name].spec_description)
+            collection.add_specification(
+                name=spec_name,
+                specification=spec,
+                description=self.qc_specifications[spec_name].spec_description,
+            )
 
         # add the molecules/entries to the database
         entries = self._get_entries()
@@ -228,7 +234,9 @@ class _BaseDataset(abc.ABC, CommonBase):
         # TODO - check if entries already exist
         insert_metadata = collection.add_entries(entries)
         if verbose:
-            print(f"Number of new entries: {len(insert_metadata.inserted_idx)}/{self.n_records}")
+            print(
+                f"Number of new entries: {len(insert_metadata.inserted_idx)}/{self.n_records}"
+            )
 
         return collection.submit(
             tag=self.compute_tag,
@@ -845,14 +853,16 @@ class BasicDataset(_BaseDataset):
                 for j, molecule in enumerate(entry.initial_molecules):
                     name = index + f"-{tag + j}"
                     entries.append(
-                        SinglepointDatasetNewEntry(name=name, molecule=molecule, attributes=entry.attributes)
+                        SinglepointDatasetNewEntry(
+                            name=name, molecule=molecule, attributes=entry.attributes
+                        )
                     )
             else:
                 entries.append(
                     SinglepointDatasetNewEntry(
                         name=entry_name,
                         molecule=entry.initial_molecules[0],
-                        attributes=entry.attributes
+                        attributes=entry.attributes,
                     )
                 )
 
@@ -1048,7 +1058,7 @@ class OptimizationDataset(BasicDataset):
                             name=name,
                             initial_molecule=molecule,
                             additional_keywords=opt_kw,
-                            attributes=entry.attributes
+                            attributes=entry.attributes,
                         )
                     )
             else:
@@ -1057,7 +1067,7 @@ class OptimizationDataset(BasicDataset):
                         name=entry_name,
                         initial_molecule=entry.initial_molecules[0],
                         additional_keywords=opt_kw,
-                        attributes=entry.attributes
+                        attributes=entry.attributes,
                     )
                 )
 
@@ -1074,7 +1084,9 @@ class OptimizationDataset(BasicDataset):
             qc_keywords = spec.qc_keywords
             qc_spec = QCInputSpecification(
                 # TODO: self.driver is now set to "deferred" - is it safe to put "gradient" here?
-                driver="gradient", model=qc_model, keywords=qc_keywords
+                driver="gradient",
+                model=qc_model,
+                keywords=qc_keywords,
             )
             opt_spec = self.optimization_procedure.dict(exclude={"program"})
             # this needs to be the single point calculation program
@@ -1270,9 +1282,8 @@ class TorsiondriveDataset(OptimizationDataset):
                     initial_molecules=entry.initial_molecules,
                     additional_keywords=td_keywords,
                     additional_optimization_keywords=opt_keywords,
-                    attributes = entry.attributes
-
-            )
+                    attributes=entry.attributes,
+                )
             )
 
         return entries

@@ -18,12 +18,6 @@ from openff.qcsubmit.datasets import (
     OptimizationDataset,
     TorsiondriveDataset,
 )
-from openff.qcsubmit.results import (
-    BasicResultCollection,
-    OptimizationResultCollection,
-    TorsionDriveResultCollection,
-)
-
 from openff.qcsubmit.datasets.dataset_utils import (
     legacy_qcsubmit_ds_type_to_next_qcf_ds_type,
 )
@@ -36,6 +30,11 @@ from openff.qcsubmit.factories import (
     BasicDatasetFactory,
     OptimizationDatasetFactory,
     TorsiondriveDatasetFactory,
+)
+from openff.qcsubmit.results import (
+    BasicResultCollection,
+    OptimizationResultCollection,
+    TorsionDriveResultCollection,
 )
 from openff.qcsubmit.utils import get_data
 

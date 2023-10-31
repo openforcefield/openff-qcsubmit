@@ -30,10 +30,10 @@ import qcportal
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from pydantic import BaseModel, Field, validator
+from qcportal import PortalClient
 from qcportal.dataset_models import BaseDataset as QCPDataset
 from qcportal.optimization import OptimizationDataset, OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
-from qcportal import PortalClient
 from qcportal.singlepoint import (
     SinglepointDataset,
     SinglepointDatasetNewEntry,
@@ -318,13 +318,17 @@ class BasicResultCollection(_BaseResultCollection):
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.molecule
 
-                cmiles = molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
+                cmiles = (
+                    molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
+                )
                 if not cmiles:
                     cmiles = molecule.extras.get(
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
                 if not cmiles:
-                    cmiles = entry.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                    cmiles = entry.attributes[
+                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                    ]
                 if not cmiles:
                     print(f"MISSING CMILES! entry = {entry_name}")
                     continue
@@ -462,13 +466,17 @@ class OptimizationResultCollection(_BaseResultCollection):
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.initial_molecule
 
-                cmiles = molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
+                cmiles = (
+                    molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
+                )
                 if not cmiles:
                     cmiles = molecule.extras.get(
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
                 if not cmiles:
-                    cmiles = entry.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
+                    cmiles = entry.attributes[
+                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+                    ]
                 if not cmiles:
                     print(f"MISSING CMILES! entry = {entry_name}")
                     continue

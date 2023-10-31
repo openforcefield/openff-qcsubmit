@@ -19,10 +19,7 @@ from openff.qcsubmit.results import (
     TorsionDriveResultCollection,
 )
 from openff.qcsubmit.results.filters import ResultFilter
-from openff.qcsubmit.results.results import (
-    TorsionDriveResult,
-    _BaseResultCollection,
-)
+from openff.qcsubmit.results.results import TorsionDriveResult, _BaseResultCollection
 from openff.qcsubmit.tests import does_not_raise
 
 from . import (
@@ -35,6 +32,7 @@ from . import (
     TorsiondriveRecord,
     TorsiondriveSpecification,
 )
+
 
 class MockServerInfo:
     def dict(self):
