@@ -21,7 +21,6 @@ from typing import (
 )
 
 import numpy as np
-import qcportal as ptl
 from openff.toolkit.topology import Molecule
 from pydantic import (
     BaseModel,
@@ -38,7 +37,7 @@ from pydantic import (
 from qcelemental import constants
 from qcelemental.models.common_models import Model
 from qcelemental.models.results import WavefunctionProtocolEnum
-from qcportal.models.common_models import DriverEnum
+from qcportal.singlepoint import SinglepointDriver
 
 from openff.qcsubmit.exceptions import (
     DatasetInputError,
@@ -430,12 +429,11 @@ class QCSpec(ResultsConfig):
         ],
         description="The SCF properties which should be extracted after every single point calculation.",
     )
-    keywords: Optional[
-        Dict[
-            str, Union[StrictStr, StrictInt, StrictFloat, StrictBool, List[StrictFloat]]
-        ]
+    keywords: Dict[
+        str, Union[StrictStr, StrictInt, StrictFloat, StrictBool, List[StrictFloat]]
     ] = Field(
-        None,
+        {},
+        # None,
         description="An optional set of program specific computational keywords that "
         "should be passed to the program. These may include, for example, DFT grid "
         "settings.",
@@ -533,6 +531,9 @@ class QCSpec(ResultsConfig):
                 raise QCSpecificationError(
                     f"The method {method} is not supported for the program {program} with basis {basis}, please chose from {allowed_methods}"
                 )
+
+        if keywords is None:
+            keywords = {}
         super().__init__(
             method=method,
             basis=basis,
@@ -733,38 +734,6 @@ class IndexCleaner:
         return core, tag
 
 
-class ClientHandler:
-    """
-    This mixin class offers the ability to handle activating qcportal Fractal client instances.
-    """
-
-    @staticmethod
-    def _activate_client(client) -> ptl.FractalClient:
-        """
-        Make the fractal client and connect to the requested instance.
-
-        Parameters:
-            client: The name of the file containing the client information or the client instance.
-
-        Returns:
-            A qcportal.FractalClient instance.
-        """
-
-        try:
-            from qcfractal.interface import FractalClient as QCFractalClient
-        except ModuleNotFoundError:
-            QCFractalClient = None
-
-        if isinstance(client, ptl.FractalClient):
-            return client
-        elif QCFractalClient is not None and isinstance(client, QCFractalClient):
-            return client
-        elif client == "public":
-            return ptl.FractalClient()
-        else:
-            return ptl.FractalClient.from_file(client)
-
-
 class Metadata(DatasetConfig):
     """
     A general metadata class which is required to be filled in before submitting a dataset to the qcarchive.
@@ -936,13 +905,13 @@ class MoleculeAttributes(DatasetConfig):
         )
 
 
-class CommonBase(DatasetConfig, IndexCleaner, ClientHandler, QCSpecificationHandler):
+class CommonBase(DatasetConfig, IndexCleaner, QCSpecificationHandler):
     """
     A common base structure which the dataset and factory classes derive from.
     """
 
-    driver: DriverEnum = Field(
-        DriverEnum.energy,
+    driver: SinglepointDriver = Field(
+        SinglepointDriver.energy,
         description="The type of single point calculations which will be computed. Note some services require certain calculations for example optimizations require graident calculations.",
     )
     priority: str = Field(

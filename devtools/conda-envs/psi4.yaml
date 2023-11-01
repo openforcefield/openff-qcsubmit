@@ -2,8 +2,8 @@ name: qcsubmit-test-psi4
 
 channels:
   - conda-forge
-  - conda-forge/label/libint_dev  # needed for psi4/libint2
   - openeye
+  - conda-forge/label/libint_dev # for psi4 1.8
 
 dependencies:
 
@@ -19,8 +19,9 @@ dependencies:
 
   - qcengine >=0.25
   - qcelemental >=0.25.1
-  - qcfractal >=0.15.7
-  - qcfractal-core >=0.15.7
+  - qcfractal>0.49
+  - qcarchivetesting>0.49
+  - qcportal>=0.49
 
   - openeye-toolkits
 
@@ -33,7 +34,6 @@ dependencies:
   - rdkit
   - pydantic =1
   - pyyaml
-  - qcportal>=0.15.7, <0.50.0a0
   - torsiondrive
   - basis_set_exchange
   - typing-extensions
@@ -43,3 +43,7 @@ dependencies:
   - openmmforcefields >=0.9.0
   - openff-fragmenter-base >=0.2.0
   - openmm
+
+  - pint=0.21
+  - openff-units=0.2.1
+  - postgresql

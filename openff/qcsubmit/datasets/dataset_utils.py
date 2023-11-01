@@ -13,6 +13,17 @@ from openff.qcsubmit.serializers import deserialize
 
 registered_datasets: Dict[str, Any] = {}
 
+# The QCS Dataset.type field was originally a mapping from QCS datasets to QCF collection type.
+# As of the QCF "next" (0.50) release, QCF has its own dataset classes. However,
+# for reverse-compatibility (being able to load serialized files from old versions of QCS), the QCS
+# dataset classes will continue using the original types internally, and will just convert to the
+# new QCF types using the following dict when needed.
+legacy_qcsubmit_ds_type_to_next_qcf_ds_type = {
+    "DataSet": "singlepoint",
+    "OptimizationDataset": "optimization",
+    "TorsionDriveDataset": "torsiondrive",
+}
+
 
 def load_dataset(data: Union[str, Dict]) -> "BasicDataset":
     """
@@ -93,58 +104,91 @@ def update_specification_and_metadata(
     """
     import re
 
+    from openff.qcsubmit.datasets import legacy_qcsubmit_ds_type_to_next_qcf_ds_type
+
     # make sure all specs are gone
     dataset.clear_qcspecs()
-    ds = client.get_collection(dataset.type, dataset.dataset_name)
-    metadata = ds.data.metadata
+    qcf_ds_type = legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type]
+    ds = client.get_dataset(qcf_ds_type, dataset.dataset_name)
+    metadata = ds.metadata
     if "elements" in metadata:
         dataset.metadata = metadata
 
-    if dataset.type == "DataSet":
+    if qcf_ds_type == "singlepoint":
         if not dataset.metadata.elements:
             # now grab the elements
             elements = set()
-            molecules = ds.get_molecules()
-            for index in molecules.index:
-                mol = molecules.loc[index].molecule
+            # molecules = ds.get_molecules()
+            # for index in molecules.index:
+            # TODO: Does iterate_entries guarantee an output order?
+            for index, entry in enumerate(ds.iterate_entries()):
+                mol = entry.molecule
+                # mol = molecules.loc[index].molecule
                 elements.update(mol.symbols)
             dataset.metadata.elements = elements
         # now we need to add each ran spec
-        for history in ds.data.history:
-            _, program, method, basis, spec = history
+        # for history in ds.data.history:
+        for spec_name, specification in ds.specifications.items():
+            program = specification.specification.program
+            method = specification.specification.method
+            basis = specification.specification.basis
+            spec_name = specification.name
             if program.lower() != "dftd3":
                 # the composition planner breaks the validation
                 dataset.add_qc_spec(
                     method=method,
                     basis=basis,
                     program=program,
-                    spec_name=spec,
+                    spec_name=spec_name,
                     spec_description="basic dataset spec",
                     overwrite=True,
                 )
-    else:
+    elif qcf_ds_type == "optimization":
         # we have the opt or torsiondrive
         if not dataset.metadata.elements:
             elements = set()
-            for record in ds.data.records.values():
-                formula = record.attributes["molecular_formula"]
+            for entry in ds.iterate_entries():
+                formula = entry.attributes["molecular_formula"]
                 # use regex to parse the formula
-                match = re.findall("[A-Z][a-z]?|\d+|.", formula)
+                match = re.findall("[A-Z][a-z]?|\d+|.", formula)  # noqa
                 for element in match:
                     if not element.isnumeric():
                         elements.add(element)
             dataset.metadata.elements = elements
         # now add the specs
-        for spec in ds.data.specs.values():
+        for spec_name, spec in ds.specifications.items():
             dataset.add_qc_spec(
-                method=spec.qc_spec.method,
-                basis=spec.qc_spec.basis,
-                program=spec.qc_spec.program,
-                spec_name=spec.name,
+                method=spec.specification.qc_specification.method,
+                basis=spec.specification.qc_specification.basis,
+                program=spec.specification.qc_specification.program,
+                spec_name=spec_name,
                 spec_description=spec.description,
-                store_wavefunction=spec.qc_spec.protocols.wavefunction.value,
+                store_wavefunction=spec.specification.qc_specification.protocols.wavefunction.value,
             )
-
+    elif qcf_ds_type == "torsiondrive":
+        # we have the opt or torsiondrive
+        if not dataset.metadata.elements:
+            elements = set()
+            for entry in ds.iterate_entries():
+                formula = entry.attributes["molecular_formula"]
+                # use regex to parse the formula
+                match = re.findall("[A-Z][a-z]?|\d+|.", formula)  # noqa
+                for element in match:
+                    if not element.isnumeric():
+                        elements.add(element)
+            dataset.metadata.elements = elements
+        # now add the specs
+        for spec_name, spec in ds.specifications.items():
+            dataset.add_qc_spec(
+                method=spec.specification.optimization_specification.qc_specification.method,
+                basis=spec.specification.optimization_specification.qc_specification.basis,
+                program=spec.specification.optimization_specification.qc_specification.program,
+                spec_name=spec_name,
+                spec_description=spec.description,
+                store_wavefunction=spec.specification.optimization_specification.qc_specification.protocols.wavefunction.value,
+            )
+    else:
+        assert 0
     return dataset
 
 

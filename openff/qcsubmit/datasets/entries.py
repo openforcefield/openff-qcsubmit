@@ -117,8 +117,10 @@ class DatasetEntry(DatasetConfig):
             extras[
                 "canonical_isomeric_explicit_hydrogen_mapped_smiles"
             ] = self.attributes.canonical_isomeric_explicit_hydrogen_mapped_smiles
+            identifiers = mol.identifiers or {}
             mol_data = mol.dict()
             mol_data["extras"] = extras
+            mol_data["identifiers"] = identifiers
             # put into strict c1 symmetry
             mol_data["fix_symmetry"] = "c1"
             # add fragment information if we have multiple components

@@ -16,12 +16,9 @@ from openff.toolkit.utils import (
 from openff.units import unit
 from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
-from qcportal.models.records import (
-    OptimizationRecord,
-    RecordBase,
-    RecordStatusEnum,
-    ResultRecord,
-)
+from qcportal.optimization import OptimizationRecord
+from qcportal.record_models import BaseRecord, RecordStatusEnum
+from qcportal.singlepoint import SinglepointRecord
 from typing_extensions import Literal
 
 from openff.qcsubmit.results.results import (
@@ -102,7 +99,7 @@ class CMILESResultFilter(ResultFilter, abc.ABC):
     the actual record.
 
     If the filter needs to access information from the QC record itself the
-    ``ResultRecordFilter`` class should be used instead as it more efficiently
+    ``SinglepointRecordFilter`` class should be used instead as it more efficiently
     retrieves the records and associated molecule objects from the QCFractal
     instances.
     """
@@ -123,13 +120,13 @@ class CMILESResultFilter(ResultFilter, abc.ABC):
         return result_collection
 
 
-class ResultRecordFilter(ResultFilter, abc.ABC):
+class SinglepointRecordFilter(ResultFilter, abc.ABC):
     """The base class for filters which will operate on QC records and their
     corresponding molecules directly."""
 
     @abc.abstractmethod
     def _filter_function(
-        self, result: "_BaseResult", record: RecordBase, molecule: Molecule
+        self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
     ) -> bool:
         """A method which should return whether to retain a particular result based
         on some property of the associated QC record.
@@ -140,7 +137,7 @@ class ResultRecordFilter(ResultFilter, abc.ABC):
         all_records_and_molecules = defaultdict(list)
 
         for record, molecule in result_collection.to_records():
-            all_records_and_molecules[record.client.address].append((record, molecule))
+            all_records_and_molecules[record._client.address].append((record, molecule))
 
         filtered_results = {}
 
@@ -164,7 +161,7 @@ class ResultRecordFilter(ResultFilter, abc.ABC):
         return result_collection
 
 
-class ResultRecordGroupFilter(ResultFilter, abc.ABC):
+class SinglepointRecordGroupFilter(ResultFilter, abc.ABC):
     """The base class for filters which reduces repeated molecule entries down to a single
     entry.
 
@@ -175,7 +172,7 @@ class ResultRecordGroupFilter(ResultFilter, abc.ABC):
 
     @abc.abstractmethod
     def _filter_function(
-        self, entries: List[Tuple["_BaseResult", RecordBase, Molecule, str]]
+        self, entries: List[Tuple["_BaseResult", BaseRecord, Molecule, str]]
     ) -> List[Tuple["_BaseResult", str]]:
         """A method which should reduce a set of results down to a single entry based on
         some property of the QC calculation.
@@ -188,7 +185,7 @@ class ResultRecordGroupFilter(ResultFilter, abc.ABC):
             return result_collection
 
         all_records_and_molecules = {
-            record.id: [record, molecule, record.client.address]
+            record.id: [record, molecule, record._client.address]
             for record, molecule in result_collection.to_records()
         }
 
@@ -216,7 +213,7 @@ class ResultRecordGroupFilter(ResultFilter, abc.ABC):
         return result_collection
 
 
-class LowestEnergyFilter(ResultRecordGroupFilter):
+class LowestEnergyFilter(SinglepointRecordGroupFilter):
     """Filter the results collection and only keep the lowest energy entries.
 
     Notes:
@@ -227,14 +224,20 @@ class LowestEnergyFilter(ResultRecordGroupFilter):
     def _filter_function(
         self,
         entries: List[
-            Tuple["_BaseResult", Union[ResultRecord, OptimizationRecord], Molecule, str]
+            Tuple[
+                "_BaseResult",
+                Union[SinglepointRecord, OptimizationRecord],
+                Molecule,
+                str,
+            ]
         ],
     ) -> List[Tuple["_BaseResult", str]]:
         """Only return the lowest energy entry or final molecule."""
         low_entry, low_energy, low_address = None, 99999999999, ""
         for entry, rec, _, address in entries:
             try:
-                energy = rec.get_final_energy()
+                # energy = rec.get_final_energy()
+                energy = rec.energies[-1]
             except AttributeError:
                 energy = rec.properties.return_energy
             if energy < low_energy:
@@ -245,7 +248,7 @@ class LowestEnergyFilter(ResultRecordGroupFilter):
         return [(low_entry, low_address)]
 
 
-class ConformerRMSDFilter(ResultRecordGroupFilter):
+class ConformerRMSDFilter(SinglepointRecordGroupFilter):
     """A filter which will retain up to a maximum number of conformers for each unique
     molecule (as determined by an entries InChI key) which are distinct to within a
     specified RMSD tolerance.
@@ -355,7 +358,12 @@ class ConformerRMSDFilter(ResultRecordGroupFilter):
     def _filter_function(
         self,
         entries: List[
-            Tuple["_BaseResult", Union[ResultRecord, OptimizationRecord], Molecule, str]
+            Tuple[
+                "_BaseResult",
+                Union[SinglepointRecord, OptimizationRecord],
+                Molecule,
+                str,
+            ]
         ],
     ) -> List[Tuple["_BaseResult", str]]:
         # Sanity check that all molecules look as we expect.
@@ -409,7 +417,7 @@ class ConformerRMSDFilter(ResultRecordGroupFilter):
         ]
 
 
-class MinimumConformersFilter(ResultRecordGroupFilter):
+class MinimumConformersFilter(SinglepointRecordGroupFilter):
     """A filter that will only retain molecules that have at least a specified number
     of conformers present in the result collection.
 
@@ -427,7 +435,12 @@ class MinimumConformersFilter(ResultRecordGroupFilter):
     def _filter_function(
         self,
         entries: List[
-            Tuple["_BaseResult", Union[ResultRecord, OptimizationRecord], Molecule, str]
+            Tuple[
+                "_BaseResult",
+                Union[SinglepointRecord, OptimizationRecord],
+                Molecule,
+                str,
+            ]
         ],
     ) -> List[Tuple["_BaseResult", str]]:
         # Sanity check that all molecules look as we expect.
@@ -637,7 +650,7 @@ class ElementFilter(CMILESResultFilter):
         return super(ElementFilter, self)._apply(result_collection)
 
 
-class HydrogenBondFilter(ResultRecordFilter):
+class HydrogenBondFilter(SinglepointRecordFilter):
     """A filter which will remove or retain records which were computed for molecules
     which match specific SMARTS patterns.
 
@@ -655,7 +668,7 @@ class HydrogenBondFilter(ResultRecordFilter):
     )
 
     def _filter_function(
-        self, result: "_BaseResult", record: RecordBase, molecule: Molecule
+        self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
     ) -> bool:
         import mdtraj
 
@@ -681,7 +694,7 @@ class HydrogenBondFilter(ResultRecordFilter):
         return len(h_bonds) == 0
 
 
-class ConnectivityFilter(ResultRecordFilter):
+class ConnectivityFilter(SinglepointRecordFilter):
     """A filter which will remove records whose corresponding molecules changed their
     connectivity during the computation, e.g. a proton transfer occurred.
 
@@ -702,7 +715,7 @@ class ConnectivityFilter(ResultRecordFilter):
     )
 
     def _filter_function(
-        self, result: "_BaseResult", record: RecordBase, molecule: Molecule
+        self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
     ) -> bool:
         qc_molecules = [
             molecule.to_qcschema(conformer=i) for i in range(molecule.n_conformers)
@@ -729,7 +742,7 @@ class ConnectivityFilter(ResultRecordFilter):
         return True
 
 
-class RecordStatusFilter(ResultRecordFilter):
+class RecordStatusFilter(SinglepointRecordFilter):
     """A filter which will only retain records if their status matches a specified
     value.
     """
@@ -740,12 +753,12 @@ class RecordStatusFilter(ResultRecordFilter):
     )
 
     def _filter_function(
-        self, result: "_BaseResult", record: RecordBase, molecule: Molecule
+        self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
     ) -> bool:
         return record.status.value.upper() == self.status.value.upper()
 
 
-class UnperceivableStereoFilter(ResultRecordFilter):
+class UnperceivableStereoFilter(SinglepointRecordFilter):
     """A filter which will drop any records computed for molecules whose stereochemistry
     cannot be perceived from the associated 3D conformers when re-loading the molecule
     from an SDF file using the OpenFF toolkit.
@@ -776,9 +789,10 @@ class UnperceivableStereoFilter(ResultRecordFilter):
                 for conformer in molecule.conformers:
                     stereo_molecule = copy.deepcopy(molecule)
                     stereo_molecule._conformers = [conformer]
-
                     with NamedTemporaryFile(suffix=".sdf") as file:
-                        stereo_molecule.to_file(file.name, "SDF")
+                        stereo_molecule.to_file(
+                            file.name, "SDF", toolkit_registry=toolkit_registry
+                        )
                         stereo_molecule.from_file(
                             file.name, toolkit_registry=toolkit_registry
                         )

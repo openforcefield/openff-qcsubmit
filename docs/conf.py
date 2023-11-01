@@ -52,7 +52,7 @@ source_suffix = ".rst"
 
 master_doc = "index"
 
-language = "en"
+language = 'en'
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
@@ -103,10 +103,6 @@ intersphinx_mapping = {
     "qcportal": ("http://docs.qcarchive.molssi.org/projects/qcportal/en/latest/", None),
     "qcelemental": (
         "http://docs.qcarchive.molssi.org/projects/qcelemental/en/latest/",
-        None,
-    ),
-    "openff.docs": (
-        "https://docs.openforcefield.org/en/latest/",
         None,
     ),
 }

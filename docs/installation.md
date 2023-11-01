@@ -8,8 +8,6 @@ The recommended way to install QCSubmit is via the `conda` package manger:
 conda install -c conda-forge openff-qcsubmit
 ```
 
-If you do not have Conda installed, see the [OpenFF installation guide](openff.docs:install)
-
 ### Optional dependencies
 
 If you have access to the OpenEye toolkits (namely `oechem`, `oequacpac`, `oeomega` and `oedepict`), we recommend installing these also as these can speed up various operations performed by this framework significantly:

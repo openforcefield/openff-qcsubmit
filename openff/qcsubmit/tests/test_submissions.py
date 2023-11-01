@@ -1,21 +1,25 @@
 """
 Test submissions to a local qcarchive instance using different compute backends, RDKit, OpenMM, PSI4
 
-Here we use the qcfractal fractal_compute_server fixture to set up the database.
+Here we use the qcfractal snowflake fixture to set up the database.
 """
 
 import pytest
 from openff.toolkit.topology import Molecule
 from qcengine.testing import has_program
-from qcportal import FractalClient
+from qcportal import PortalClient
+from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, PCMSettings
+from openff.qcsubmit.common_structures import MoleculeAttributes, PCMSettings
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets import (
     BasicDataset,
     OptimizationDataset,
     TorsiondriveDataset,
+)
+from openff.qcsubmit.datasets.dataset_utils import (
+    legacy_qcsubmit_ds_type_to_next_qcf_ds_type,
 )
 from openff.qcsubmit.exceptions import (
     DatasetInputError,
@@ -27,7 +31,92 @@ from openff.qcsubmit.factories import (
     OptimizationDatasetFactory,
     TorsiondriveDatasetFactory,
 )
+from openff.qcsubmit.results import (
+    BasicResultCollection,
+    OptimizationResultCollection,
+    TorsionDriveResultCollection,
+)
 from openff.qcsubmit.utils import get_data
+
+
+def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, ids=[1]):
+    import time
+
+    for i in range(timeout):
+        time.sleep(1)
+        recs = check_fn(client, ids)
+        from pprint import pprint
+
+        finished = 0
+        from qcportal.record_models import OutputTypeEnum
+
+        for rec in recs:
+            print(rec.status)
+            if rec.status == RecordStatusEnum.error:
+                print("stderr", rec._get_output(OutputTypeEnum.stderr))
+                print("stdout", rec._get_output(OutputTypeEnum.stdout))
+                print("error: ")
+                pprint(rec._get_output(OutputTypeEnum.error))
+                raise RuntimeError(f"calculation failed: {rec}")
+            if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
+                finished += 1
+        if finished == len(recs):
+            return True
+    else:
+        raise RuntimeError("Did not finish calculation in time")
+
+
+def await_services(client, max_iter=10):
+    import time
+    from pprint import pprint
+
+    from qcportal.record_models import OutputTypeEnum
+
+    for x in range(1, max_iter + 1):
+        recs = [
+            *client.query_singlepoints(),
+            *client.query_optimizations(),
+            *client.query_torsiondrives(),
+        ]
+        finished = 0
+        for rec in recs:
+            if rec.status == RecordStatusEnum.error:
+                print("stderr", rec._get_output(OutputTypeEnum.stderr))
+                print("stdout", rec._get_output(OutputTypeEnum.stdout))
+                print("error: ")
+                pprint(rec._get_output(OutputTypeEnum.error))
+                raise RuntimeError(f"calculation failed: {rec}")
+            if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
+                finished += 1
+        if finished == len(recs):
+            return True
+        time.sleep(1)
+    raise RuntimeError("Did not finish calculation in time")
+
+
+def check_added_specs(ds, dataset):
+    """Make sure each of the dataset specs were correctly added to qcportal."""
+    for spec_name, specification in ds.specifications.items():
+        spec = dataset.qc_specifications[spec_name]
+        assert specification.specification.driver == dataset.driver
+        assert specification.specification.program == spec.program
+        assert specification.specification.method == spec.method
+        assert specification.specification.basis == spec.basis
+        assert specification.description == spec.spec_description
+        break
+    else:
+        raise RuntimeError(
+            f"The requested compute specification was not found in the dataset {ds.specifications}"
+        )
+
+
+def check_metadata(ds, dataset):
+    "Check the metadata, tags, and provenance of ds compared to dataset"
+    meta = ds.metadata
+    assert meta["long_description"] == dataset.metadata.long_description
+    assert meta["short_description"] == dataset.metadata.short_description
+    assert ds.tags == dataset.dataset_tags
+    assert ds.provenance == dataset.provenance
 
 
 @pytest.mark.parametrize(
@@ -40,13 +129,13 @@ from openff.qcsubmit.utils import get_data
         pytest.param(
             (
                 {
-                    "method": "smirnoff99Frosst-1.1.0",
+                    "method": "openff-2.1.0",
                     "basis": "smirnoff",
                     "program": "openmm",
                 },
                 "energy",
             ),
-            id="SMIRNOFF smirnoff99Frosst-1.1.0 energy",
+            id="SMIRNOFF openff-2.1.0 energy",
         ),
         pytest.param(
             ({"method": "uff", "basis": None, "program": "rdkit"}, "gradient"),
@@ -54,10 +143,10 @@ from openff.qcsubmit.utils import get_data
         ),
     ],
 )
-def test_basic_submissions_single_spec(fractal_compute_server, specification):
+def test_basic_submissions_single_spec(fulltest_client, specification):
     """Test submitting a basic dataset to a snowflake server."""
 
-    client = FractalClient(fractal_compute_server)
+    client = fulltest_client
 
     qc_spec, driver = specification
 
@@ -93,59 +182,37 @@ def test_basic_submissions_single_spec(fractal_compute_server, specification):
 
     # now submit again
     dataset.submit(client=client)
-
-    fractal_compute_server.await_results()
+    await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_collection("Dataset", dataset.dataset_name)
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
+    check_metadata(ds=ds, dataset=dataset)
 
-    assert ds.data.description == dataset.description
-    assert ds.data.tagline == dataset.dataset_tagline
-    assert ds.data.tags == dataset.dataset_tags
+    # make sure all specifications were added
+    check_added_specs(ds=ds, dataset=dataset)
 
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
-
-    # check the qc spec
-    assert ds.data.default_driver == dataset.driver
-
-    # get the last ran spec
-    for specification in ds.data.history:
-        driver, program, method, basis, spec_name = specification
-        spec = dataset.qc_specifications[spec_name]
-        assert driver == dataset.driver
-        assert program == spec.program
-        assert method == spec.method
-        assert basis == spec.basis
-        break
-    else:
-        raise RuntimeError(
-            f"The requested compute was not found in the history {ds.data.history}"
-        )
-
+    # check the compute was run with the requested specification
     for spec in dataset.qc_specifications.values():
-        query = ds.get_records(
-            method=spec.method,
-            basis=spec.basis,
-            program=spec.program,
+        query = ds.iterate_records(
+            specification_names="default",
         )
         # make sure all of the conformers were submitted
-        assert len(query.index) == len(molecules)
-        for index in query.index:
-            result = query.loc[index].record
-            assert result.status.value.upper() == "COMPLETE"
-            assert result.error is None
-            assert result.return_result is not None
+        assert len(list(query)) == len(molecules)
+        for name, _, record in query:
+            assert record.status == RecordStatusEnum.complete
+            assert record.error is None
+            assert record.return_result is not None
+            assert record.specification == spec
 
 
-def test_basic_submissions_multiple_spec(fractal_compute_server):
+def test_basic_submissions_multiple_spec(fulltest_client):
     """Test submitting a basic dataset to a snowflake server with multiple qcspecs."""
 
-    client = FractalClient(fractal_compute_server)
+    client = fulltest_client
 
     qc_specs = [
         {
@@ -188,53 +255,35 @@ def test_basic_submissions_multiple_spec(fractal_compute_server):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_collection("Dataset", dataset.dataset_name)
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
+    check_metadata(ds=ds, dataset=dataset)
 
-    assert ds.data.description == dataset.description
-    assert ds.data.tagline == dataset.dataset_tagline
-    assert ds.data.tags == dataset.dataset_tags
+    # check the specifications were added correctly
+    check_added_specs(ds=ds, dataset=dataset)
 
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
-
-    # check the qc spec
-    assert ds.data.default_driver == dataset.driver
-
-    # get the last ran spec
-    for specification in ds.data.history:
-        driver, program, method, basis, spec_name = specification
-        spec = dataset.qc_specifications[spec_name]
-        assert driver == dataset.driver
-        assert program == spec.program
-        assert method == spec.method
-        assert basis == spec.basis
-
-    for spec in dataset.qc_specifications.values():
-        query = ds.get_records(
-            method=spec.method,
-            basis=spec.basis,
-            program=spec.program,
-        )
+    # check the results of each spec
+    for spec_name, spec in dataset.qc_specifications.items():
+        query = ds.iterate_records(specification_names=[spec_name])
         # make sure all conformers are submitted
-        assert len(query.index) == len(molecules)
-        for index in query.index:
-            result = query.loc[index].record
-            assert result.status.value.upper() == "COMPLETE"
-            assert result.error is None
-            assert result.return_result is not None
+        assert len(list(query)) == len(molecules)
+        for name, _, record in query:
+            assert record.status == RecordStatusEnum.complete
+            assert record.error is None
+            assert record.return_result is not None
+            assert record.specification == spec
 
 
-def test_basic_submissions_single_pcm_spec(fractal_compute_server):
+def test_basic_submissions_single_pcm_spec(fulltest_client):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
-    client = FractalClient(fractal_compute_server)
+    client = fulltest_client
 
     program = "psi4"
     if not has_program(program):
@@ -268,60 +317,38 @@ def test_basic_submissions_single_pcm_spec(fractal_compute_server):
         dataset.submit(client=client)
 
     # re-add the description so we can submit the data
-    dataset.metadata.long_description = "Test basics dataset"
+    dataset.metadata.long_description = "Test basics dataset with pcm water"
 
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_collection("Dataset", dataset.dataset_name)
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
-    # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
-
-    assert ds.data.description == dataset.description
-    assert ds.data.tagline == dataset.dataset_tagline
-    assert ds.data.tags == dataset.dataset_tags
-
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    check_metadata(ds, dataset)
 
     # check the qc spec
-    assert ds.data.default_driver == dataset.driver
+    check_added_specs(ds=ds, dataset=dataset)
 
-    # get the last ran spec
-    for specification in ds.data.history:
-        driver, program, method, basis, spec_name = specification
-        spec = dataset.qc_specifications[spec_name]
-        assert driver == dataset.driver
-        assert program == spec.program
-        assert method == spec.method
-        assert basis == spec.basis
-        break
-    else:
-        raise RuntimeError(
-            f"The requested compute was not found in the history {ds.data.history}"
+    for spec_name, spec in dataset.qc_specifications.items():
+        query = ds.iterate_records(
+            specification_names=spec_name,
         )
-
-    for spec in dataset.qc_specifications.values():
-        query = ds.get_records(
-            method=spec.method,
-            basis=spec.basis,
-            program=spec.program,
-        )
-        for index in query.index:
-            result = query.loc[index].record
-            assert result.status.value.upper() == "COMPLETE"
-            assert result.error is None
-            assert result.return_result is not None
+        assert len(list(query)) == 1  # only used 1 molecule above
+        for name, _, record in query:
+            assert record.status == RecordStatusEnum.complete
+            assert record.error is None
+            assert record.return_result is not None
             # make sure the PCM result was captured
-            assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
+            assert record.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
+            assert record.specification == spec
 
 
-def test_adding_specifications(fractal_compute_server):
+def test_adding_specifications(fulltest_client):
     """
     Test adding specifications to datasets.
     Here we are testing multiple scenarios:
@@ -329,7 +356,7 @@ def test_adding_specifications(fractal_compute_server):
     2) Adding a spec with the same name as another but with different options
     3) overwrite a spec which was added but never used.
     """
-    client = FractalClient(fractal_compute_server)
+    client = fulltest_client
     mol = Molecule.from_smiles("CO")
     # make a dataset
     factory = OptimizationDatasetFactory()
@@ -351,20 +378,12 @@ def test_adding_specifications(fractal_compute_server):
 
     # submit the optimizations and let the compute run
     opt_dataset.submit(client=client)
-    fractal_compute_server.await_results()
-    fractal_compute_server.await_services()
+    await_results(client, check_fn=PortalClient.get_optimizations)
 
     # grab the collection
-    ds = client.get_collection(opt_dataset.type, opt_dataset.dataset_name)
-
-    # now try and add the specification again this should return True
-    assert (
-        opt_dataset._add_dataset_specification(
-            spec=opt_dataset.qc_specifications["openff-1.0.0"],
-            procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-            dataset=ds,
-        )
-        is True
+    _ = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[opt_dataset.type],
+        opt_dataset.dataset_name,
     )
 
     # now change part of the spec but keep the name the same
@@ -379,10 +398,12 @@ def test_adding_specifications(fractal_compute_server):
 
     # now try and add this specification with the same name but different settings
     with pytest.raises(QCSpecificationError):
-        opt_dataset._add_dataset_specification(
-            spec=opt_dataset.qc_specifications["openff-1.0.0"],
-            procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-            dataset=ds,
+        assert opt_dataset.add_qc_spec(
+            method="openff-1.0.0",
+            basis="smirnoff",
+            program="openmm",
+            spec_description="default openff spec",
+            spec_name="openff-1.0.0",
         )
 
     # now add a new specification but no compute and make sure it is overwritten
@@ -394,14 +415,6 @@ def test_adding_specifications(fractal_compute_server):
         spec_name="ani",
         spec_description="a ani spec",
     )
-    assert (
-        opt_dataset._add_dataset_specification(
-            spec=opt_dataset.qc_specifications["ani"],
-            procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-            dataset=ds,
-        )
-        is True
-    )
 
     # now change the spec slightly and add again
     opt_dataset.clear_qcspecs()
@@ -411,14 +424,6 @@ def test_adding_specifications(fractal_compute_server):
         program="torchani",
         spec_name="ani",
         spec_description="a ani spec",
-    )
-    assert (
-        opt_dataset._add_dataset_specification(
-            spec=opt_dataset.qc_specifications["ani"],
-            procedure_spec=opt_dataset.optimization_procedure.get_optimzation_spec(),
-            dataset=ds,
-        )
-        is True
     )
 
 
@@ -434,11 +439,11 @@ def test_adding_specifications(fractal_compute_server):
         ),
     ],
 )
-def test_adding_compute(fractal_compute_server, dataset_data):
+def test_adding_compute(fulltest_client, dataset_data):
     """
     Test adding new compute to each of the dataset types using none psi4 programs.
     """
-    client = FractalClient(fractal_compute_server)
+    client = fulltest_client
     mol = Molecule.from_smiles("CO")
     factory_type, dataset_type = dataset_data
     # make and clear out the qc specs
@@ -458,13 +463,12 @@ def test_adding_compute(fractal_compute_server, dataset_data):
         tagline="tests for adding compute.",
     )
 
-    # now submit again
+    # Submit the initial openFF compute
     dataset.submit(client=client)
     # make sure that the compute has finished
-    fractal_compute_server.await_results()
-    fractal_compute_server.await_services(max_iter=50)
+    await_services(fulltest_client, max_iter=30)
 
-    # now lets make a dataset with new compute and submit it
+    # make a dataset with new compute and submit it
     # transfer the metadata to compare the elements
     compute_dataset = dataset_type(
         dataset_name=dataset.dataset_name,
@@ -484,76 +488,97 @@ def test_adding_compute(fractal_compute_server, dataset_data):
 
     # make sure the dataset has no molecules and submit it
     assert compute_dataset.dataset == {}
+    # this should expand the compute of the initial dataset
     compute_dataset.submit(client=client)
     # make sure that the compute has finished
-    fractal_compute_server.await_results()
-    fractal_compute_server.await_services(max_iter=50)
+    await_services(fulltest_client, max_iter=30)
 
     # make sure of the results are complete
-    ds = client.get_collection(dataset.type, dataset.dataset_name)
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
+    check_metadata(ds, dataset)
 
-    assert ds.data.description == dataset.description
-    assert ds.data.tagline == dataset.dataset_tagline
-    assert ds.data.tags == dataset.dataset_tags
-
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
-
-    # update all specs into one dataset
+    # update all specs into one dataset for comparison
     dataset.add_qc_spec(**compute_dataset.qc_specifications["rdkit"].dict())
-    # get the last ran spec
+
+    # For each dataset type check the compute result
     if dataset.type == "DataSet":
-        for specification in ds.data.history:
-            driver, program, method, basis, spec_name = specification
-            spec = dataset.qc_specifications[spec_name]
-            assert driver == dataset.driver
-            assert program == spec.program
-            assert method == spec.method
-            assert basis == spec.basis
+        # check the basic dataset specs
+        check_added_specs(ds=ds, dataset=dataset)
+        # Make sure the compute for this spec has finished and matches what we requested
+        for spec_name, spec in dataset.qc_specifications.items():
+            query = ds.iterate_records(specification_names=spec_name)
+            for entry_name, _, rec in query:
+                assert rec.status.value.upper() == "COMPLETE"
+                assert rec.error is None
+                assert rec.return_result is not None
+                assert rec.specification.program == spec.program
+                assert rec.specification.method == spec.method
+                assert rec.specification.basis == spec.basis
+                assert rec.specification.driver == dataset.driver
 
-        for spec in dataset.qc_specifications.values():
-            query = ds.get_records(
-                method=spec.method,
-                basis=spec.basis,
-                program=spec.program,
-            )
-            for index in query.index:
-                result = query.loc[index].record
-                assert result.status.value.upper() == "COMPLETE"
-                assert result.error is None
-                assert result.return_result is not None
-    else:
+    elif dataset.type == "OptimizationDataset":
         # check the qc spec
-        for qc_spec in dataset.qc_specifications.values():
-            spec = ds.data.specs[qc_spec.spec_name]
-
-            assert spec.description == qc_spec.spec_description
-            assert spec.qc_spec.driver == dataset.driver
-            assert spec.qc_spec.method == qc_spec.method
-            assert spec.qc_spec.basis == qc_spec.basis
-            assert spec.qc_spec.program == qc_spec.program
+        for spec_name, specification in ds.specifications.items():
+            spec = dataset.qc_specifications[spec_name]
+            s = specification.specification
+            assert s.qc_specification.driver == dataset.driver
+            assert s.qc_specification.program == spec.program
+            assert s.qc_specification.method == spec.method
+            assert s.qc_specification.basis == spec.basis
+            assert specification.description == spec.spec_description
 
             # check the keywords
-            keywords = client.query_keywords(spec.qc_spec.keywords)[0]
-
-            assert keywords.values["maxiter"] == qc_spec.maxiter
-            assert keywords.values["scf_properties"] == qc_spec.scf_properties
+            got = s.keywords
+            want = dataset._get_specifications()[spec_name].keywords
+            assert got == want
 
             # query the dataset
-            ds.query(qc_spec.spec_name)
+            query = ds.iterate_records(specification_names="default")
 
-            for index in ds.df.index:
-                record = ds.df.loc[index].default
-                # this will take some time so make sure it is running with no error
-                assert record.status.value == "COMPLETE", print(record.dict())
+            for name, spec, record in query:
+                input_spec = dataset.qc_specifications[spec]
+                assert record.status == RecordStatusEnum.complete
                 assert record.error is None
+                assert len(record.trajectory) > 1
+                # check the specification of a result in the opt
+                opt_single_point = record.trajectory[-1]
+                assert opt_single_point.specification.program == input_spec.program
+                assert opt_single_point.specification.method == input_spec.method
+                assert opt_single_point.specification.basis == input_spec.basis
+
+    if dataset.type == "TorsionDriveDataset":
+        # check the qc spec
+        for spec_name, specification in ds.specifications.items():
+            spec = dataset.qc_specifications[spec_name]
+            s = specification.specification
+            assert (
+                s.optimization_specification.qc_specification.driver == dataset.driver
+            )
+            assert s.optimization_specification.program == "geometric"
+            assert s.optimization_specification.qc_specification.program == spec.program
+            assert s.optimization_specification.qc_specification.method == spec.method
+            assert s.optimization_specification.qc_specification.basis == spec.basis
+            assert specification.description == spec.spec_description
+
+            # check the keywords
+            got = s.keywords
+            want = dataset._get_specifications()[spec_name].keywords
+            assert got == want
+
+            # query the dataset
+            query = ds.iterate_records(specification_names="default")
+
+            for name, spec, record in query:
+                assert record.status == RecordStatusEnum.complete
+                assert record.error is None
+                assert len(record.trajectory) > 1
 
 
-def test_basic_submissions_wavefunction(fractal_compute_server):
+def test_basic_submissions_wavefunction(fulltest_client):
     """
     Test submitting a basic dataset with a wavefunction protocol and make sure it is executed.
     """
@@ -561,7 +586,7 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
     if not has_program("psi4"):
         pytest.skip("Program psi4 not found.")
 
-    client = FractalClient(fractal_compute_server)
+    client = fulltest_client
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
@@ -586,43 +611,26 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_collection("Dataset", dataset.dataset_name)
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
-
-    assert ds.data.description == dataset.description
-    assert ds.data.tagline == dataset.dataset_tagline
-    assert ds.data.tags == dataset.dataset_tags
-
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
-
-    # check the qc spec
-    assert ds.data.default_driver == dataset.driver
+    check_metadata(ds, dataset)
 
     # get the last ran spec
-    for specification in ds.data.history:
-        driver, program, method, basis, spec_name = specification
-        spec = dataset.qc_specifications[spec_name]
-        assert driver == dataset.driver
-        assert program == spec.program
-        assert method == spec.method
-        assert basis == spec.basis
+    check_added_specs(ds=ds, dataset=dataset)
 
     for spec in dataset.qc_specifications.values():
-        query = ds.get_records(
-            method=spec.method,
-            basis=spec.basis,
-            program=spec.program,
+        query = ds.iterate_records(
+            specification_names="default",
         )
-        for index in query.index:
-            result = query.loc[index].record
-            assert result.status.value.upper() == "COMPLETE"
+        assert len(list(query)) == len(molecules)
+        for name, spec, result in query:
+            assert result.status == RecordStatusEnum.complete
             assert result.error is None
             assert result.return_result is not None
             basis = result.get_wavefunction("basis")
@@ -631,11 +639,11 @@ def test_basic_submissions_wavefunction(fractal_compute_server):
             assert orbitals.shape is not None
 
 
-def test_optimization_submissions_with_constraints(fractal_compute_server):
+def test_optimization_submissions_with_constraints(fulltest_client):
     """
     Make sure that the constraints are added to the optimization and enforced.
     """
-    client = FractalClient(fractal_compute_server)
+    client = fulltest_client
     ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
     dataset = OptimizationDataset(
         dataset_name="Test optimizations with constraint",
@@ -666,20 +674,26 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    await_results(client, check_fn=PortalClient.get_optimizations)
 
     # make sure of the results are complete
-    ds = client.get_collection("OptimizationDataset", dataset.dataset_name)
-    record = ds.get_record(ds.df.index[0], "default")
-    assert "constraints" in record.keywords
-    assert record.status.value == "COMPLETE"
-    assert record.error is None
-    assert len(record.trajectory) > 1
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
+    query = ds.iterate_records(specification_names="default")
+    for name, spec, record in query:
+        assert record.status is RecordStatusEnum.complete
+        assert record.error is None
+        assert len(record.trajectory) > 1
+        break
+    else:
+        raise RuntimeError("The requested compute was not found")
 
     # now make sure the constraints worked
-    final_molecule = record.get_final_molecule()
+    final_molecule = record.final_molecule
+    initial_molecule = record.initial_molecule
     assert pytest.approx(final_molecule.measure((2, 0, 1, 5)), abs=1e-2) == 60
-    assert record.get_initial_molecule().measure((0, 1)) == pytest.approx(
+    assert initial_molecule.measure((0, 1)) == pytest.approx(
         final_molecule.measure((0, 1))
     )
 
@@ -708,10 +722,10 @@ def test_optimization_submissions_with_constraints(fractal_compute_server):
         ),
     ],
 )
-def test_optimization_submissions(fractal_compute_server, specification):
+def test_optimization_submissions(fulltest_client, specification):
     """Test submitting an Optimization dataset to a snowflake server."""
 
-    client = FractalClient(fractal_compute_server)
+    client = fulltest_client
 
     qc_spec, driver = specification
     program = qc_spec["program"]
@@ -739,65 +753,67 @@ def test_optimization_submissions(fractal_compute_server, specification):
         dataset.submit(client=client)
 
     # re-add the description so we can submit the data
-    dataset.metadata.long_description = "Test basics dataset"
+    dataset.metadata.long_description = "Test optimization dataset"
 
     # now submit again
     dataset.submit(client=client)
 
-    fractal_compute_server.await_results()
+    await_results(
+        client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1, 2]
+    )
 
     # make sure of the results are complete
-    ds = client.get_collection("OptimizationDataset", dataset.dataset_name)
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
-
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    check_metadata(ds, dataset)
 
     # check the qc spec
-    for qc_spec in dataset.qc_specifications.values():
-        spec = ds.data.specs[qc_spec.spec_name]
+    # ds is a qcportal OptimizationDataset, and dataset is our
+    # OptimizationDataset, kinda confusing
+    for spec_name, specification in ds.specifications.items():
+        spec = dataset.qc_specifications[spec_name]
 
-        assert spec.description == qc_spec.spec_description
-        assert spec.qc_spec.driver == dataset.driver
-        assert spec.qc_spec.method == qc_spec.method
-        assert spec.qc_spec.basis == qc_spec.basis
-        assert spec.qc_spec.program == qc_spec.program
+        s = specification.specification
+        assert s.qc_specification.driver == dataset.driver
+        assert s.qc_specification.program == spec.program
+        assert s.qc_specification.method == spec.method
+        assert s.qc_specification.basis == spec.basis
+        assert specification.description == spec.spec_description
 
         # check the keywords
-        keywords = client.query_keywords(spec.qc_spec.keywords)[0]
+        got = s.keywords
+        want = dataset._get_specifications()[spec_name].keywords
+        assert got == want
 
-        assert keywords.values["maxiter"] == qc_spec.maxiter
-        assert keywords.values["scf_properties"] == qc_spec.scf_properties
-
+    for spec in dataset.qc_specifications.values():
         # query the dataset
-        ds.query(qc_spec.spec_name)
+        query = ds.iterate_records(specification_names="default")
 
-        for index in ds.df.index:
-            record = ds.df.loc[index].default
-            assert record.status.value == "COMPLETE"
+        for name, spec, record in query:
+            assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert len(record.trajectory) > 1
             # if we used psi4 make sure the properties were captured
             if program == "psi4":
-                result = record.get_trajectory()[0]
-                assert "SCF DIPOLE" in result.extras["qcvars"].keys()
-                assert "SCF QUADRUPOLE" in result.extras["qcvars"].keys()
+                result = record.trajectory[0]
+                assert "current dipole" in result.properties.keys()
+                assert "scf quadrupole" in result.properties.keys()
 
 
-def test_optimization_submissions_with_pcm(fractal_compute_server):
+@pytest.mark.xfail(
+    reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206"
+)
+def test_optimization_submissions_with_pcm(fulltest_client):
     """Test submitting an Optimization dataset to a snowflake server with PCM."""
-
-    client = FractalClient(fractal_compute_server)
-
     program = "psi4"
     if not has_program(program):
         pytest.skip(f"Program '{program}' not found.")
 
     # use a single small molecule due to the extra time PCM takes
-    molecules = Molecule.from_smiles("C")
+    molecules = Molecule.from_smiles("N")
 
     factory = OptimizationDatasetFactory(driver="gradient")
     factory.add_qc_spec(
@@ -821,63 +837,60 @@ def test_optimization_submissions_with_pcm(fractal_compute_server):
     dataset.metadata.long_description = None
 
     with pytest.raises(DatasetInputError):
-        dataset.submit(client=client)
+        dataset.submit(client=fulltest_client)
 
     # re-add the description so we can submit the data
     dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
 
-    fractal_compute_server.await_results()
+    await_services(fulltest_client, max_iter=240)
+    # snowflake.await_results()
 
     # make sure of the results are complete
-    ds = client.get_collection("OptimizationDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
-
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    check_metadata(ds, dataset)
 
     # check the qc spec
-    for qc_spec in dataset.qc_specifications.values():
-        spec = ds.data.specs[qc_spec.spec_name]
+    for spec_name, specification in ds.specifications.items():
+        spec = dataset.qc_specifications[spec_name]
 
-        assert spec.description == qc_spec.spec_description
-        assert spec.qc_spec.driver == dataset.driver
-        assert spec.qc_spec.method == qc_spec.method
-        assert spec.qc_spec.basis == qc_spec.basis
-        assert spec.qc_spec.program == qc_spec.program
+        s = specification.specification
+        assert s.qc_specification.driver == dataset.driver
+        assert s.qc_specification.program == spec.program
+        assert s.qc_specification.method == spec.method
+        assert s.qc_specification.basis == spec.basis
+        assert specification.description == spec.spec_description
 
         # check the keywords
-        keywords = client.query_keywords(spec.qc_spec.keywords)[0]
-
-        assert keywords.values["maxiter"] == qc_spec.maxiter
-        assert keywords.values["scf_properties"] == qc_spec.scf_properties
+        got = s.keywords
+        want = dataset._get_specifications()[spec_name].keywords
+        assert got == want
 
         # query the dataset
-        ds.query(qc_spec.spec_name)
+        query = ds.iterate_records(specification_names="default")
 
-        for index in ds.df.index:
-            record = ds.df.loc[index].default
-            assert record.status.value == "COMPLETE"
+        for name, spec, record in query:
+            assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert len(record.trajectory) > 1
-            result = record.get_trajectory()[0]
-            assert "SCF DIPOLE" in result.extras["qcvars"].keys()
-            assert "SCF QUADRUPOLE" in result.extras["qcvars"].keys()
+            result = record.trajectory[-1]
+
+            assert "scf dipole" in result.properties.keys()
+            assert "scf quadrupole" in result.properties.keys()
             # make sure the PCM result was captured
-            assert result.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
+            assert result.properties["pcm polarization energy"] < 0
 
 
-def test_torsiondrive_scan_keywords(fractal_compute_server):
+def test_torsiondrive_scan_keywords(fulltest_client):
     """
     Test running torsiondrives with unique keyword settings which overwrite the global grid spacing and scan range.
     """
-
-    client = FractalClient(fractal_compute_server)
     molecules = Molecule.from_smiles("CO")
     factory = TorsiondriveDatasetFactory()
     scan_enum = workflow_components.ScanEnumerator()
@@ -904,26 +917,33 @@ def test_torsiondrive_scan_keywords(fractal_compute_server):
     entry.keywords = {"grid_spacing": [5], "dihedral_ranges": [(-10, 10)]}
 
     # now submit
-    dataset.submit(client=client)
-    fractal_compute_server.await_services(max_iter=50)
+    dataset.submit(client=fulltest_client)
+    await_services(fulltest_client, max_iter=30)
 
     # make sure of the results are complete
-    ds = client.get_collection("TorsionDriveDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
     # get the entry
-    record = ds.get_record(ds.df.index[0], "openff-1.1.0")
-    assert record.keywords.grid_spacing == [5]
-    assert record.keywords.grid_spacing != dataset.grid_spacing
-    assert record.keywords.dihedral_ranges == [(-10, 10)]
-    assert record.keywords.dihedral_ranges != dataset.dihedral_ranges
+    query = ds.iterate_records(specification_names="openff-1.1.0")
+    assert len(list(query)) == 1  # only used 1 molecule above
+    for name, spec, record in query:
+        assert record.status == RecordStatusEnum.complete
+        assert record.error is None
+        assert record.return_result is not None
+        assert record.keywords.grid_spacing == [5]
+        assert record.keywords.grid_spacing != dataset.grid_spacing
+        assert record.keywords.dihedral_ranges == [(-10, 10)]
+        assert record.keywords.dihedral_ranges != dataset.dihedral_ranges
 
 
-def test_torsiondrive_constraints(fractal_compute_server):
+def test_torsiondrive_constraints(fulltest_client):
     """
     Make sure constraints are correctly passed to optimisations in torsiondrives.
     """
 
-    client = FractalClient(fractal_compute_server)
+    # client = snowflake.client()
     molecule = Molecule.from_file(get_data("TRP.mol2"))
     dataset = TorsiondriveDataset(
         dataset_name="Torsiondrive constraints",
@@ -955,25 +975,32 @@ def test_torsiondrive_constraints(fractal_compute_server):
         constraint="freeze", constraint_type="dihedral", indices=[8, 10, 13, 14]
     )
 
-    dataset.submit(client=client, processes=1)
-    fractal_compute_server.await_services(max_iter=50)
+    dataset.submit(client=fulltest_client)
+    await_services(fulltest_client, max_iter=300)
 
     # make sure the result is complete
-    ds = client.get_collection("TorsionDriveDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
-    record = ds.get_record(ds.df.index[0], "uff")
-    opt = client.query_procedures(id=record.optimization_history["[-150]"])[0]
-    constraints = opt.keywords["constraints"]
-    # make sure both the freeze and set constraints are passed on
-    assert "set" in constraints
-    assert "freeze" in constraints
-    # make sure both freeze constraints are present
-    assert len(constraints["freeze"]) == 2
-    assert constraints["freeze"][0]["indices"] == [6, 8, 10, 13]
-    # make sure the dihedral has not changed
-    assert pytest.approx(
-        opt.get_initial_molecule().measure((6, 8, 10, 13))
-    ) == opt.get_final_molecule().measure((6, 8, 10, 13))
+    query = ds.iterate_records(
+        specification_names="uff",
+    )
+    for name, spec, record in query:
+        constraints = record.optimizations[(-150,)][0].specification.keywords[
+            "constraints"
+        ]
+        # constraints = opt.keywords["constraints"]
+        # make sure both the freeze and set constraints are passed on
+        assert "set" in constraints
+        assert "freeze" in constraints
+        # make sure both freeze constraints are present
+        assert len(constraints["freeze"]) == 2
+        assert constraints["freeze"][0]["indices"] == [6, 8, 10, 13]
+        # make sure the dihedral has not changed
+        assert pytest.approx(
+            record.minimum_optimizations[(-150,)].final_molecule.measure((6, 8, 10, 13))
+        ) == record.initial_molecules[0].measure((6, 8, 10, 13))
 
 
 @pytest.mark.parametrize(
@@ -996,19 +1023,19 @@ def test_torsiondrive_constraints(fractal_compute_server):
         ),
     ],
 )
-def test_torsiondrive_submissions(fractal_compute_server, specification):
+def test_torsiondrive_submissions(fulltest_client, specification):
     """
     Test submitting a torsiondrive dataset and computing it.
     """
 
-    client = FractalClient(fractal_compute_server)
+    # client = snowflake.client()
 
     qc_spec, driver = specification
     program = qc_spec["program"]
     if not has_program(program):
         pytest.skip(f"Program '{program}' not found.")
 
-    molecules = Molecule.from_smiles("CO")
+    molecule = Molecule.from_mapped_smiles("[H:1][C:2]([H:3])([H:4])[O:5][H:6]")
 
     factory = TorsiondriveDatasetFactory(driver=driver)
     factory.add_qc_spec(
@@ -1017,60 +1044,76 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
 
     dataset = factory.create_dataset(
         dataset_name=f"Test torsiondrives info {program}, {driver}",
-        molecules=molecules,
+        molecules=[],
         description="Test torsiondrive dataset",
         tagline="Testing torsiondrive datasets",
+    )
+    dataset.add_molecule(
+        index="foo",
+        molecule=molecule,
+        dihedrals=[[0, 1, 4, 5]],
+        keywords={"dihedral_ranges": [(-180, 91)], "grid_spacing": [180]},
     )
 
     # force a metadata validation error
     dataset.metadata.long_description = None
 
     with pytest.raises(DatasetInputError):
-        dataset.submit(client=client)
+        dataset.submit(client=fulltest_client)
 
     # re-add the description so we can submit the data
     dataset.metadata.long_description = "Test basics dataset"
 
     # now submit again
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
 
-    fractal_compute_server.await_services(max_iter=50)
+    await_services(fulltest_client, max_iter=120)
+    # snowflake.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = client.get_collection("TorsionDriveDataset", dataset.dataset_name)
+    ds = fulltest_client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
     # check the metadata
-    meta = Metadata(**ds.data.metadata)
-    assert meta == dataset.metadata
+    check_metadata(ds, dataset)
 
-    # check the provenance
-    assert dataset.provenance == ds.data.provenance
+    for spec_name, specification in ds.specifications.items():
+        spec = dataset.qc_specifications[spec_name]
 
-    # check the qc spec
-    for qc_spec in dataset.qc_specifications.values():
-        spec = ds.data.specs[qc_spec.spec_name]
+        s = specification.specification.optimization_specification
 
-        assert spec.description == qc_spec.spec_description
-        assert spec.qc_spec.driver == dataset.driver
-        assert spec.qc_spec.method == qc_spec.method
-        assert spec.qc_spec.basis == qc_spec.basis
-        assert spec.qc_spec.program == qc_spec.program
+        assert s.qc_specification.driver == dataset.driver
+        assert s.qc_specification.program == spec.program
+        assert s.qc_specification.method == spec.method
+        assert s.qc_specification.basis == spec.basis
 
-        # check the keywords
-        keywords = client.query_keywords(spec.qc_spec.keywords)[0]
+        assert specification.description == spec.spec_description
 
-        assert keywords.values["maxiter"] == qc_spec.maxiter
-        assert keywords.values["scf_properties"] == qc_spec.scf_properties
+        # check the torsiondrive spec keywords
+        got = ds.specifications[spec_name].specification.keywords
+        want = dataset._get_specifications()[spec_name].keywords
+        assert got == want
+
+        # check the qc spec keywords
+        got = ds.specifications[
+            spec_name
+        ].specification.optimization_specification.qc_specification.keywords
+        want = dataset._get_specifications()[
+            spec_name
+        ].optimization_specification.qc_specification.keywords
+        assert "maxiter" in got
+        assert "scf_properties" in got
+        assert got == want
+
+        #
 
         # query the dataset
-        ds.query(qc_spec.spec_name)
-
-        for index in ds.df.index:
-            record = ds.df.loc[index].default
+        for entry_name, spec_name, record in ds.iterate_records():
             # this will take some time so make sure it is running with no error
-            assert record.status.value == "COMPLETE", print(record.dict())
+            assert record.status.value == "complete", print(record.dict())
             assert record.error is None
-            assert len(record.final_energy_dict) == 24
+            assert len(record.final_energies) == 2
 
 
 @pytest.mark.parametrize(
@@ -1085,11 +1128,11 @@ def test_torsiondrive_submissions(fractal_compute_server, specification):
         ),
     ],
 )
-def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys):
+def test_ignore_errors_all_datasets(fulltest_client, factory_type, capsys):
     """
     For each dataset make sure that when the basis is not fully covered the dataset raises warning errors, and verbose information
     """
-    client = FractalClient(fractal_compute_server)
+
     # molecule containing boron
     molecule = Molecule.from_smiles("OB(O)C1=CC=CC=C1")
     scan_enum = workflow_components.ScanEnumerator()
@@ -1114,11 +1157,11 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
 
     # make sure the dataset raises an error here
     with pytest.raises(MissingBasisCoverageError):
-        dataset.submit(client=client, ignore_errors=False)
+        dataset.submit(client=fulltest_client, ignore_errors=False)
 
     # now we want to try again and make sure warnings are raised
     with pytest.warns(UserWarning):
-        dataset.submit(client=client, ignore_errors=True, verbose=True)
+        dataset.submit(client=fulltest_client, ignore_errors=True, verbose=True)
 
     info = capsys.readouterr()
     assert (
@@ -1133,13 +1176,13 @@ def test_ignore_errors_all_datasets(fractal_compute_server, factory_type, capsys
         pytest.param(OptimizationDatasetFactory, id="Optimizationdataset"),
     ],
 )
-def test_index_not_changed(fractal_compute_server, factory_type):
+def test_index_not_changed(fulltest_client, factory_type):
     """
     Make sure that when we submit molecules from a dataset/optimizationdataset with one input conformer that the index is not changed.
     """
     factory = factory_type()
     factory.clear_qcspecs()
-    client = FractalClient(fractal_compute_server)
+
     # add only mm specs
     factory.add_qc_spec(
         method="openff-1.0.0",
@@ -1164,18 +1207,18 @@ def test_index_not_changed(fractal_compute_server, factory_type):
     entry.index = "my_unique_index"
     dataset.dataset[entry.index] = entry
 
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
 
     # pull the dataset and make sure our index is present
-    ds = client.get_collection(dataset.type, dataset.dataset_name)
+    ds = fulltest_client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
 
     if dataset.type == "DataSet":
-        query = ds.get_records(
-            method="openff-1.0.0", basis="smirnoff", program="openmm"
-        )
-        assert "my_unique_index" in query.index
+        query = ds.get_record("my_unique_index", "parsley")
+        assert query is not None
     else:
-        assert "my_unique_index" in ds.df.index
+        assert "my_unique_index" in ds.entry_names
 
 
 @pytest.mark.parametrize(
@@ -1185,12 +1228,12 @@ def test_index_not_changed(fractal_compute_server, factory_type):
         pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset index clash"),
     ],
 )
-def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys):
+def test_adding_dataset_entry_fail(fulltest_client, factory_type, capsys):
     """
     Make sure that the new entries is not incremented if we can not add a molecule to the server due to a name clash.
     TODO add basic dataset into the testing if the api changes to return an error when adding the same index twice
     """
-    client = FractalClient(fractal_compute_server)
+    # client = snowflake.client()
     molecule = Molecule.from_smiles("CO")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
@@ -1214,7 +1257,7 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
     )
 
     # make sure all expected index get submitted
-    dataset.submit(client=client, verbose=True)
+    dataset.submit(client=fulltest_client, verbose=True)
     info = capsys.readouterr()
     assert (
         info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
@@ -1229,7 +1272,7 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
         spec_name="mff94",
         spec_description="mff94 force field in rdkit",
     )
-    dataset.submit(client=client, verbose=True)
+    dataset.submit(client=fulltest_client, verbose=True)
     info = capsys.readouterr()
     assert info.out == f"Number of new entries: 0/{dataset.n_records}\n"
 
@@ -1245,11 +1288,11 @@ def test_adding_dataset_entry_fail(fractal_compute_server, factory_type, capsys)
         ),
     ],
 )
-def test_expanding_compute(fractal_compute_server, factory_type):
+def test_expanding_compute(fulltest_client, factory_type):
     """
     Make sure that if we expand the compute of a dataset tasks are generated.
     """
-    client = FractalClient(fractal_compute_server)
+    # client = snowflake.client()
     molecule = Molecule.from_smiles("CC")
     molecule.generate_conformers(n_conformers=1)
     factory = factory_type()
@@ -1273,10 +1316,12 @@ def test_expanding_compute(fractal_compute_server, factory_type):
     )
 
     # make sure all expected index get submitted
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
     # grab the dataset and check the history
-    ds = client.get_collection(dataset.type, dataset.dataset_name)
-    assert ds.data.history == {"default"}
+    ds = fulltest_client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
+    assert ds.specifications.keys() == {"default"}
 
     # now make another dataset to expand the compute
     factory.clear_qcspecs()
@@ -1295,11 +1340,84 @@ def test_expanding_compute(fractal_compute_server, factory_type):
         tagline="Testing compute expansion",
     )
     # now submit again
-    dataset.submit(client=client)
+    dataset.submit(client=fulltest_client)
 
     # now grab the dataset again and check the tasks list
-    ds = client.get_collection(dataset.type, dataset.dataset_name)
-    assert ds.data.history == {"default", "parsley2"}
+    ds = fulltest_client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
+    assert ds.specifications.keys() == {"default", "parsley2"}
     # make sure a record has been made
-    entry = ds.get_entry(ds.df.index[0])
-    assert "parsley2" in entry.object_map
+    assert len([*ds.iterate_records()]) == 2
+
+
+@pytest.mark.parametrize(
+    "factory_type,result_collection_type",
+    [
+        [BasicDatasetFactory, BasicResultCollection],
+        [OptimizationDatasetFactory, OptimizationResultCollection],
+        [TorsiondriveDatasetFactory, TorsionDriveResultCollection],
+    ],
+)
+def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
+    molecule = Molecule.from_mapped_smiles("[H:4][C:2](=[O:1])[O:3][H:5]")
+    molecule.generate_conformers(n_conformers=1)
+    factory = factory_type()
+    factory.clear_qcspecs()
+    # add only mm specs
+    factory.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="default",
+        spec_description="standard parsley spec",
+    )
+    dataset = factory.create_dataset(
+        dataset_name=f"Test invalid cmiles {factory.type}",
+        molecules=[],
+        description="Test invalid cmiles",
+        tagline="Testing invalid cmiles",
+    )
+    if factory_type is TorsiondriveDatasetFactory:
+        dataset.add_molecule(
+            index="foo",
+            molecule=molecule,
+            dihedrals=[[0, 1, 2, 4]],
+            keywords={"dihedral_ranges": [(0, 20)], "grid_spacing": [15]},
+        )
+    else:
+        dataset.add_molecule(index="foo", molecule=molecule)
+
+    dataset.submit(client=fulltest_client)
+    if factory_type is BasicDatasetFactory:
+        await_results(fulltest_client)
+    else:
+        await_services(fulltest_client, max_iter=120)
+
+    ds = fulltest_client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
+    assert ds.specifications.keys() == {"default"}
+    results = result_collection_type.from_datasets(datasets=ds)
+    assert results.n_molecules == 1
+    records = results.to_records()
+    assert len(records) == 1
+    # Single points and optimizations look here
+    fulltest_client.modify_molecule(
+        1,
+        identifiers={
+            "canonical_isomeric_explicit_hydrogen_mapped_smiles": "[H:4][C:2](=[O:1])[OH:3]"
+        },
+        overwrite_identifiers=True,
+    )
+    # Do this to flush the local cache and fetch the modified molecule from the server
+    entries = [*ds.iterate_entries(force_refetch=True)]
+    # Torsiondrives look here
+    entries[0].attributes[
+        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
+    ] = "[H:4][C:2](=[O:1])[OH:3]"
+    results = result_collection_type.from_datasets(datasets=ds)
+    assert results.n_molecules == 1
+    with pytest.warns(UserWarning, match="invalid CMILES"):
+        records = results.to_records()
+    assert len(records) == 0
