@@ -609,7 +609,13 @@ class OptimizationResultCollection(_BaseResultCollection):
             mol_id_2_rec_id = dict([(spr.molecule_id, spr.id) for spr in sp_records])
 
             for molecule_id, molecule in result_records[client_address]:
-                record_id = mol_id_2_rec_id[molecule_id]
+                try:
+                    record_id = mol_id_2_rec_id[molecule_id]
+                except KeyError:
+                    warnings.warn(
+                        f"No singlepoint record found for {driver=} and {molecule_id=}. Skipping."
+                    )
+                    continue
 
                 result_entries[client_address].append(
                     BasicResult(
