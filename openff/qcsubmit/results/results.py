@@ -20,15 +20,11 @@ from typing import (
     Union,
 )
 
-try:
-    from openmm import unit
-except ImportError:
-    from simtk import unit
-
 import numpy
 import qcportal
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
+from openmm import unit
 from pydantic import BaseModel, Field, validator
 from qcportal import PortalClient
 from qcportal.dataset_models import BaseDataset as QCPDataset

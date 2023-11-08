@@ -164,10 +164,7 @@ class ElementFilter(ToolkitValidator, CustomWorkflowComponent):
         return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply_init(self, result: ComponentResult) -> None:
-        try:
-            from openmm.app import Element
-        except ImportError:
-            from simtk.openmm.app import Element
+        from openmm.app import Element
 
         self._cache["elements"] = [
             Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
@@ -217,10 +214,7 @@ class ElementFilter(ToolkitValidator, CustomWorkflowComponent):
             The element class in OpenMM is used to match the elements so the OpenMM version is given.
         """
 
-        try:
-            import openmm
-        except ImportError:
-            from simtk import openmm
+        import openmm
 
         provenance = super().provenance(toolkit_registry=toolkit_registry)
         provenance["openmm_elements"] = openmm.__version__

@@ -1,8 +1,8 @@
 from typing import List, Optional
 
-import simtk.unit as unit
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils import ToolkitRegistry
+from openff.units import Quantity, unit
 from pydantic import Field
 from typing_extensions import Literal
 
@@ -49,7 +49,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         Set up the standard conformer filter
         """
         if self.rms_cutoff is not None:
-            self._cache["cutoff"] = self.rms_cutoff * unit.angstrom
+            self._cache["cutoff"] = Quantity(self.rms_cutoff, unit.angstrom)
         else:
             self._cache["cutoff"] = None
 
@@ -72,7 +72,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         # create the toolkit
         result = self._create_result(toolkit_registry=toolkit_registry)
 
-        rms_cutoff = self._cache["cutoff"]
+        rms_cutoff: Quantity = self._cache["cutoff"]
 
         for molecule in molecules:
             try:

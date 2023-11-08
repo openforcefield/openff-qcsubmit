@@ -637,10 +637,7 @@ class ElementFilter(CMILESResultFilter):
         return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
 
     def _apply(self, result_collection: "T") -> "T":
-        try:
-            from openmm.app import Element
-        except ImportError:
-            from simtk.openmm.app import Element
+        from openmm.app import Element
 
         self._allowed_atomic_numbers = {
             Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele

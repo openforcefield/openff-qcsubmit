@@ -496,11 +496,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         import warnings
 
         import basis_set_exchange as bse
-
-        try:
-            from openmm.app import Element
-        except ImportError:
-            from simtk.openmm.app import Element
+        from openmm.app import Element
 
         basis_report = {}
         for spec in self.qc_specifications.values():
