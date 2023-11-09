@@ -265,7 +265,7 @@ def test_element_filter_validators():
 
     assert elem_filter.allowed_elements == [1, 2, 3]
 
-    assert "openmm_elements" in elem_filter.provenance(GLOBAL_TOOLKIT_REGISTRY)
+    assert "openff-units_elements" in elem_filter.provenance(GLOBAL_TOOLKIT_REGISTRY)
 
 
 def test_weight_filter_validator():
