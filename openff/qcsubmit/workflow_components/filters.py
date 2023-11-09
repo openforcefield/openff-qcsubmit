@@ -16,7 +16,11 @@ from rdkit.Chem.rdMolAlign import AlignMol
 from typing_extensions import Literal
 
 from openff.qcsubmit.common_structures import ComponentProperties
-from openff.qcsubmit.validators import check_allowed_elements, check_environments
+from openff.qcsubmit.validators import (
+    SYMBOLS_TO_ELEMENTS,
+    check_allowed_elements,
+    check_environments,
+)
 from openff.qcsubmit.workflow_components.base_component import (
     CustomWorkflowComponent,
     ToolkitValidator,
@@ -164,11 +168,9 @@ class ElementFilter(ToolkitValidator, CustomWorkflowComponent):
         return ComponentProperties(process_parallel=True, produces_duplicates=False)
 
     def _apply_init(self, result: ComponentResult) -> None:
-        from openmm.app import Element
-
-        self._cache["elements"] = [
-            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
-            for ele in self.allowed_elements
+        self._cache["elements"]: list[Union[str, int]] = [
+            SYMBOLS_TO_ELEMENTS.get(element, element)
+            for element in self.allowed_elements
         ]
 
     def _apply(
@@ -214,10 +216,10 @@ class ElementFilter(ToolkitValidator, CustomWorkflowComponent):
             The element class in OpenMM is used to match the elements so the OpenMM version is given.
         """
 
-        import openmm
+        import openff.units
 
         provenance = super().provenance(toolkit_registry=toolkit_registry)
-        provenance["openmm_elements"] = openmm.__version__
+        provenance["openff-units_elements"] = openff.units.__version__
 
         return provenance
 

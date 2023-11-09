@@ -496,7 +496,8 @@ class _BaseDataset(abc.ABC, CommonBase):
         import warnings
 
         import basis_set_exchange as bse
-        from openmm.app import Element
+
+        from openff.qcsubmit.validators import SYMBOLS_TO_ELEMENTS
 
         basis_report = {}
         for spec in self.qc_specifications.values():
@@ -538,12 +539,10 @@ class _BaseDataset(abc.ABC, CommonBase):
                     elements = basis_meta["versions"][basis_meta["latest_version"]][
                         "elements"
                     ]
-                    covered_elements = set(
-                        [
-                            Element.getByAtomicNumber(int(element)).symbol
-                            for element in elements
-                        ]
-                    )
+                    covered_elements: set[Union[int, str]] = {
+                        SYMBOLS_TO_ELEMENTS.get(element, element)
+                        for element in elements
+                    }
                     difference = self.metadata.elements.difference(covered_elements)
                 else:
                     # the basis is wrote with the method so print a warning about validation

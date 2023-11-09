@@ -8,6 +8,7 @@ import qcelemental as qcel
 from openff.toolkit import Molecule
 from openff.toolkit import topology as off
 from openff.toolkit.utils.exceptions import SMIRKSParsingError
+from openff.units.elements import SYMBOLS
 
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.exceptions import (
@@ -19,6 +20,8 @@ from openff.qcsubmit.exceptions import (
     LinearTorsionError,
     MolecularComplexError,
 )
+
+SYMBOLS_TO_ELEMENTS: dict[str, int] = {val: key for key, val in SYMBOLS.items()}
 
 
 def literal_lower(literal: str) -> str:
@@ -264,14 +267,13 @@ def check_allowed_elements(element: Union[str, int]) -> Union[str, int]:
     Raises:
         ValueError: If the element number or symbol passed could not be converted into a valid element.
     """
-    from openmm.app import Element
-
     if isinstance(element, int):
         return element
-    try:
-        _ = Element.getBySymbol(element)
+
+    elif element in SYMBOLS_TO_ELEMENTS:
         return element
-    except KeyError:
+
+    else:
         raise ValueError(
             f"An element could not be determined from symbol {element}, please enter symbols only."
         )
