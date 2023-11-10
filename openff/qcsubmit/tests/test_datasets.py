@@ -2622,13 +2622,13 @@ def test_optimizationdataset_protocols():
         description="XXXXXXXX",
     )
 
-    assert dataset.protocols.trajectory == 'all'
+    assert dataset.protocols.trajectory == "all"
 
     # change the protocol to only save gradient evaluations for final state
     dataset.protocols = OptimizationProtocols(trajectory="final")
 
-    assert dataset.protocols.trajectory == 'final'
-    
+    assert dataset.protocols.trajectory == "final"
+
 
 def test_torsiondrivedataset_torsion_indices():
     """
