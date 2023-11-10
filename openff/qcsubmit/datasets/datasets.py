@@ -20,7 +20,7 @@ import qcportal as ptl
 from openff.toolkit import topology as off
 from pydantic import Field, constr, validator
 from qcelemental.models import AtomicInput, OptimizationInput
-from qcelemental.models.procedures import QCInputSpecification, OptimizationProtocols
+from qcelemental.models.procedures import OptimizationProtocols, QCInputSpecification
 from qcportal import PortalClient, PortalRequestError
 from qcportal.optimization import OptimizationDatasetNewEntry, OptimizationSpecification
 from qcportal.singlepoint import (
@@ -908,10 +908,10 @@ class OptimizationDataset(BasicDataset):
         description="The optimization program and settings that should be used.",
     )
     protocols: OptimizationProtocols = Field(
-            OptimizationProtocols(),
-            "Protocols regarding the manipulation of a Optimization output data.")
+        OptimizationProtocols(),
+        "Protocols regarding the manipulation of a Optimization output data.",
+    )
     dataset: Dict[str, OptimizationEntry] = {}
-
 
     @classmethod
     def _entry_class(cls) -> Type[OptimizationEntry]:
@@ -1104,7 +1104,7 @@ class OptimizationDataset(BasicDataset):
                             keywords=opt_spec,
                             input_specification=qc_spec,
                             initial_molecule=molecule,
-                            protocols=self.protocols
+                            protocols=self.protocols,
                         )
                     )
 
