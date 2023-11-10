@@ -909,7 +909,7 @@ class OptimizationDataset(BasicDataset):
     )
     protocols: OptimizationProtocols = Field(
         OptimizationProtocols(),
-        "Protocols regarding the manipulation of a Optimization output data.",
+        description="Protocols regarding the manipulation of a Optimization output data.",
     )
     dataset: Dict[str, OptimizationEntry] = {}
 
