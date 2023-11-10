@@ -496,8 +496,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         import warnings
 
         import basis_set_exchange as bse
-
-        from openff.qcsubmit.validators import SYMBOLS_TO_ELEMENTS
+        from openff.units.elements import SYMBOLS
 
         basis_report = {}
         for spec in self.qc_specifications.values():
@@ -539,11 +538,13 @@ class _BaseDataset(abc.ABC, CommonBase):
                     elements = basis_meta["versions"][basis_meta["latest_version"]][
                         "elements"
                     ]
+
                     covered_elements: set[Union[int, str]] = {
-                        SYMBOLS_TO_ELEMENTS.get(element, element)
-                        for element in elements
+                        SYMBOLS[int(element)] for element in elements
                     }
+
                     difference = self.metadata.elements.difference(covered_elements)
+
                 else:
                     # the basis is wrote with the method so print a warning about validation
                     warnings.warn(
@@ -555,6 +556,7 @@ class _BaseDataset(abc.ABC, CommonBase):
             elif spec.program.lower() == "openmm":
                 # smirnoff covered elements
                 covered_elements = {"C", "H", "N", "O", "P", "S", "Cl", "Br", "F", "I"}
+
                 difference = self.metadata.elements.difference(covered_elements)
 
             elif spec.program.lower() == "rdkit":
