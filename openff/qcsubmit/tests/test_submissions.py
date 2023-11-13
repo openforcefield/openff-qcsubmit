@@ -6,6 +6,7 @@ Here we use the qcfractal snowflake fixture to set up the database.
 
 import pytest
 from openff.toolkit.topology import Molecule
+from qcelemental.models.procedures import OptimizationProtocols
 from qcengine.testing import has_program
 from qcportal import PortalClient
 from qcportal.record_models import RecordStatusEnum
@@ -749,6 +750,9 @@ def test_optimization_submissions(fulltest_client, specification):
     # force a metadata validation error
     dataset.metadata.long_description = None
 
+    # only save final gradients, results
+    dataset.protocols = OptimizationProtocols(trajectory="initial_and_final")
+
     with pytest.raises(DatasetInputError):
         dataset.submit(client=client)
 
@@ -795,7 +799,10 @@ def test_optimization_submissions(fulltest_client, specification):
         for name, spec, record in query:
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
-            assert len(record.trajectory) > 1
+
+            # since we only chose to keep `initial_and_final` trajectory,
+            # should only have two results
+            assert len(record.trajectory) == 2
             # if we used psi4 make sure the properties were captured
             if program == "psi4":
                 result = record.trajectory[0]

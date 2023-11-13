@@ -10,6 +10,7 @@ from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
 from pydantic import ValidationError
+from qcelemental.models.procedures import OptimizationProtocols
 
 from openff.qcsubmit.common_structures import MoleculeAttributes, QCSpec
 from openff.qcsubmit.constraints import Constraints, PositionConstraintSet
@@ -2608,6 +2609,25 @@ def test_optimizationdataset_qc_spec():
         assert tag in qc_spec.dict()
     # make sure the driver was set back to gradient
     assert dataset.driver == "deferred"
+
+
+def test_optimizationdataset_protocols():
+    """
+    Test adding a non-default OptimizationProtocols to an OptimizationDataset.
+    """
+
+    dataset = OptimizationDataset(
+        dataset_name="Test dataset",
+        dataset_tagline="XXXXXXXX",
+        description="XXXXXXXX",
+    )
+
+    assert dataset.protocols.trajectory == "all"
+
+    # change the protocol to only save gradient evaluations for final state
+    dataset.protocols = OptimizationProtocols(trajectory="final")
+
+    assert dataset.protocols.trajectory == "final"
 
 
 def test_torsiondrivedataset_torsion_indices():
