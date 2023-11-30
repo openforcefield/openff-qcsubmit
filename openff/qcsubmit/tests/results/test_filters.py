@@ -1,3 +1,4 @@
+import datetime
 import logging
 
 import numpy
@@ -5,8 +6,7 @@ import pytest
 from openff.toolkit.topology import Molecule
 from openff.units import unit
 from qcelemental.models import DriverEnum
-from qcportal.models import ObjectId, ResultRecord
-from qcportal.models.records import RecordStatusEnum
+from qcportal.singlepoint import QCSpecification
 
 from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit.results import (
@@ -25,12 +25,14 @@ from openff.qcsubmit.results.filters import (
     MinimumConformersFilter,
     RecordStatusFilter,
     ResultFilter,
-    ResultRecordFilter,
+    SinglepointRecordFilter,
     SMARTSFilter,
     SMILESFilter,
     UnperceivableStereoFilter,
 )
 from openff.qcsubmit.tests.results import mock_optimization_result_collection
+
+from . import RecordStatusEnum, SinglepointRecord
 
 
 def test_apply_filter(basic_result_collection, caplog):
@@ -57,7 +59,8 @@ def test_apply_filter(basic_result_collection, caplog):
 def test_apply_cmiles_filter(basic_result_collection):
     class DummyFilter(CMILESResultFilter):
         def _filter_function(self, result) -> bool:
-            return result.record_id == "1"
+            # 1/0
+            return result.record_id == 1
 
     filtered_collection = DummyFilter().apply(basic_result_collection)
 
@@ -68,13 +71,13 @@ def test_apply_cmiles_filter(basic_result_collection):
 
         assert address in filtered_collection.entries
         assert len(filtered_collection.entries[address]) == 1
-        assert filtered_collection.entries[address][0].record_id == "1"
+        assert filtered_collection.entries[address][0].record_id == 1
 
 
 def test_apply_record_filter(basic_result_collection):
-    class DummyFilter(ResultRecordFilter):
+    class DummyFilter(SinglepointRecordFilter):
         def _filter_function(self, result, record, molecule) -> bool:
-            return record.client.address == "http://localhost:442"
+            return record._client.address == "http://localhost:442"
 
     filtered_collection = DummyFilter().apply(basic_result_collection)
 
@@ -102,21 +105,21 @@ def test_charge_filter_mutual_inputs():
 @pytest.mark.parametrize(
     "result_filter, expected_ids",
     [
-        (SMILESFilter(smiles_to_include=["CCO"]), {"http://localhost:442": {"2", "3"}}),
+        (SMILESFilter(smiles_to_include=["CCO"]), {"http://localhost:442": {2, 3}}),
         (
             SMILESFilter(smiles_to_exclude=["CCO"]),
             {
-                "http://localhost:442": {"1", "4"},
-                "http://localhost:443": {"1", "2", "3", "4"},
+                "http://localhost:442": {1, 4},
+                "http://localhost:443": {1, 2, 3, 4},
             },
         ),
         (
             SMARTSFilter(smarts_to_include=["[#6]-[#8H1]"]),
-            {"http://localhost:442": {"1", "2", "3", "4"}},
+            {"http://localhost:442": {1, 2, 3, 4}},
         ),
         (
             SMARTSFilter(smarts_to_exclude=["[#6]-[#8]"]),
-            {"http://localhost:443": {"1", "2", "3", "4"}},
+            {"http://localhost:443": {1, 2, 3, 4}},
         ),
     ],
 )
@@ -140,7 +143,7 @@ def test_molecule_filter_tautomers(tautomer_basic_result_collection):
 
     assert filtered_collection.n_molecules == 1
     assert len(filtered_collection.entries["http://localhost:442"]) == 1
-    assert filtered_collection.entries["http://localhost:442"][0].record_id == "2"
+    assert filtered_collection.entries["http://localhost:442"][0].record_id == 2
 
 
 @pytest.mark.parametrize(
@@ -148,7 +151,7 @@ def test_molecule_filter_tautomers(tautomer_basic_result_collection):
     [
         (
             HydrogenBondFilter(method="baker-hubbard"),
-            {"http://localhost:443": {"1"}},
+            {"http://localhost:443": {1}},
         ),
     ],
 )
@@ -170,7 +173,7 @@ def test_basic_record_filter_apply(
     [
         (
             HydrogenBondFilter(method="baker-hubbard"),
-            {"http://localhost:442": {"1", "2", "3", "4"}},
+            {"http://localhost:442": {1, 2, 3, 4}},
         ),
     ],
 )
@@ -190,7 +193,7 @@ def test_optimization_record_filter_apply(
 @pytest.mark.parametrize(
     "result_filter, expected_ids",
     [
-        (HydrogenBondFilter(method="baker-hubbard"), {"http://localhost:443": {"1"}}),
+        (HydrogenBondFilter(method="baker-hubbard"), {"http://localhost:443": {1}}),
     ],
 )
 def test_torsion_drive_record_filter_apply(
@@ -208,18 +211,21 @@ def test_torsion_drive_record_filter_apply(
 
 def test_connectivity_filter():
     result = BasicResult(
-        record_id=ObjectId("1"),
+        record_id=1,
         cmiles="[Cl:1][Cl:2]",
         inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
     )
-    record = ResultRecord(
-        id=ObjectId("1"),
-        program="psi4",
-        driver=DriverEnum.gradient,
-        method="scf",
-        basis="sto-3g",
-        molecule=ObjectId("1"),
+    record = SinglepointRecord(
+        id=1,
+        specification=QCSpecification(
+            program="psi4", driver=DriverEnum.gradient, method="scf", basis="sto-3g"
+        ),
+        created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+        modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+        molecule_id=1,
         status=RecordStatusEnum.complete,
+        is_service=False
+        # client=_PortalClient(address=address)
     )
 
     connectivity_filter = ConnectivityFilter()
@@ -238,26 +244,31 @@ def test_connectivity_filter():
 
 
 def test_record_status_filter():
-    record = ResultRecord(
-        id=ObjectId("1"),
-        program="psi4",
-        driver=DriverEnum.gradient,
-        method="scf",
-        basis="sto-3g",
-        molecule=ObjectId("1"),
+    record = SinglepointRecord(
+        id=1,
+        specification=QCSpecification(
+            program="psi4", driver=DriverEnum.gradient, method="scf", basis="sto-3g"
+        ),
+        created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+        modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+        molecule_id=1,
         status=RecordStatusEnum.complete,
+        is_service=False,
     )
 
     status_filter = RecordStatusFilter(status=RecordStatusEnum.complete)
     assert status_filter._filter_function(None, record, None) is True
 
-    status_filter = RecordStatusFilter(status=RecordStatusEnum.incomplete)
+    status_filter = RecordStatusFilter(status=RecordStatusEnum.waiting)
+    assert status_filter._filter_function(None, record, None) is False
+
+    status_filter = RecordStatusFilter(status=RecordStatusEnum.running)
     assert status_filter._filter_function(None, record, None) is False
 
 
 def test_charge_filter():
     record = BasicResult(
-        record_id=ObjectId("1"),
+        record_id=1,
         cmiles="[N+:1](=[O:2])([O-:3])[O-:4]",
         inchi_key="NHNBFGGVMKEFGY-UHFFFAOYSA-N",
     )
@@ -320,13 +331,13 @@ def test_min_conformers_filter(
     ("max_conformers, rmsd_tolerance, heavy_atoms_only, expected_record_ids"),
     [
         # max_conformers
-        (1, 0.1, False, {"1"}),
-        (2, 0.1, False, {"1", "3"}),
-        (3, 0.1, False, {"1", "2", "3"}),
+        (1, 0.1, False, {1}),
+        (2, 0.1, False, {1, 3}),
+        (3, 0.1, False, {1, 2, 3}),
         # rmsd_tolerance
-        (3, 0.75, False, {"1", "3"}),
+        (3, 0.75, False, {1, 3}),
         # heavy_atoms_only
-        (1, 0.1, True, {"1"}),
+        (1, 0.1, True, {1}),
     ],
 )
 def test_rmsd_conformer_filter(
@@ -515,7 +526,7 @@ def test_unperceivable_stereo_filter(toolkits, n_expected, public_client):
         entries={
             "https://api.qcarchive.molssi.org:443/": [
                 OptimizationResult(
-                    record_id=ObjectId("19095884"),
+                    record_id=19095884,
                     cmiles=(
                         "[H:37][c:1]1[c:3]([c:8]([c:6]([c:9]([c:4]1[H:40])[S:36]"
                         "(=[O:32])(=[O:33])[N:29]2[C:17]([C:21]([C:18]2([H:53])[H:54])"

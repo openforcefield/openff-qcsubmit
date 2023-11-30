@@ -9,6 +9,7 @@ import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
+from qcelemental.models.procedures import OptimizationProtocols
 
 from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit.common_structures import MoleculeAttributes, QCSpec
@@ -98,13 +99,11 @@ def test_load_dataset_obj(dataset):
     """
     Test the dataset util function can load any of the registered datasets
     """
-    new_dataset = load_dataset(
-        dataset(
-            dataset_name="Test dataset",
-            dataset_tagline="XXXXXXXX",
-            description="XXXXXXXX",
-        ).dict()
+    ds = dataset(
+        dataset_name="Test dataset", dataset_tagline="XXXXXXXX", description="XXXXXXXX"
     )
+    ds_dict = ds.dict()
+    new_dataset = load_dataset(ds_dict)
     assert new_dataset.type == dataset.__fields__["type"].default
 
 
@@ -813,7 +812,11 @@ def test_constraints_are_equal():
 
 @pytest.mark.parametrize(
     "keywords",
-    [None, {"keyword-1": True, "keyword-2": 1, "keyword-3": 1.5, "keyword-4": "1.5"}],
+    [
+        None,
+        dict(),
+        {"keyword-1": True, "keyword-2": 1, "keyword-3": 1.5, "keyword-4": "1.5"},
+    ],
 )
 def test_keywords_detected(keywords):
     """
@@ -829,13 +832,18 @@ def test_keywords_detected(keywords):
     )
 
     qc_spec = dataset.qc_specifications["XXXXXXXX"]
-    assert qc_spec.keywords == keywords
 
-    portal_keywords = dataset._get_spec_keywords(qc_spec)
+    if keywords is None:
+        expected_keywords = dict()
+    else:
+        expected_keywords = keywords
+    assert qc_spec.keywords == expected_keywords
+
+    portal_keywords = dataset.qc_specifications["XXXXXXXX"].keywords
 
     for key, expected_value in {} if keywords is None else keywords.items():
-        assert key in portal_keywords.values
-        assert portal_keywords.values[key] == expected_value
+        assert key in portal_keywords.keys()
+        assert portal_keywords[key] == expected_value
 
 
 def test_add_molecule_no_extras():
@@ -878,11 +886,13 @@ def test_add_molecule_from_entry_data():
 @pytest.mark.parametrize(
     "dataset_data",
     [
+        # TODO: Make the first test check for spec name "default" instead of "spec 1" once the QCA dataset specs
+        #  are updated https://github.com/MolSSI/QCFractal/issues/739
         pytest.param(
             (
                 BasicDataset,
                 "OpenFF Theory Benchmarking Single Point Energies v1.0",
-                ["default"],
+                ["spec_1"],
             ),
             id="Dataset no metadata",
         ),
@@ -904,14 +914,13 @@ def test_add_molecule_from_entry_data():
         ),
     ],
 )
-def test_dataset_update(dataset_data):
+def test_dataset_update(dataset_data, public_client):
     """
     Make sure the utils function can update elements and pull the correct specs.
     """
-    import qcportal as ptl
 
     dataset_type, dataset_name, specs = dataset_data
-    client = ptl.FractalClient()
+    client = public_client
     # set up the dataset
     dataset = dataset_type(
         dataset_name=dataset_name, dataset_tagline="XXXXXXXX", description="XXXXXXXX"
@@ -1985,7 +1994,7 @@ def test_dataset_export_full_dataset_json(dataset_type):
         # make sure the list survives a round trip
         assert (
             type(dataset2.qc_specifications["default"].keywords["PERTURB_DIPOLE"])
-            == list
+            is list
         )
 
 
@@ -2594,13 +2603,31 @@ def test_optimizationdataset_qc_spec():
         dataset_tagline="XXXXXXXX",
         description="XXXXXXXX",
     )
-    qc_spec = dataset.get_qc_spec("default", keyword_id="0")
-    assert qc_spec.keywords == "0"
-    tags = ["program", "method", "basis", "driver"]
+    qc_spec = dataset.qc_specifications["default"]
+    tags = ["program", "method", "basis"]
     for tag in tags:
         assert tag in qc_spec.dict()
     # make sure the driver was set back to gradient
-    assert qc_spec.driver == "gradient"
+    assert dataset.driver == "deferred"
+
+
+def test_optimizationdataset_protocols():
+    """
+    Test adding a non-default OptimizationProtocols to an OptimizationDataset.
+    """
+
+    dataset = OptimizationDataset(
+        dataset_name="Test dataset",
+        dataset_tagline="XXXXXXXX",
+        description="XXXXXXXX",
+    )
+
+    assert dataset.protocols.trajectory == "all"
+
+    # change the protocol to only save gradient evaluations for final state
+    dataset.protocols = OptimizationProtocols(trajectory="final")
+
+    assert dataset.protocols.trajectory == "final"
 
 
 def test_torsiondrivedataset_torsion_indices():
@@ -2645,6 +2672,8 @@ def test_dataset_tasks(dataset_type, program):
         ]
         dataset.add_molecule(index=index, molecule=molecule, dihedrals=dihedrals)
 
+    # TODO: Error here is Actually Hard (TM) - Key change that causes it is
+    #  https://github.com/openforcefield/openff-qcsubmit/pull/195/files#diff-d122874b42b406b6e4e60be5534b58458421a3839c4920c501f03f7914a3ebc2R894
     tasks = dataset.to_tasks()
     # make sure we have a task for every molecule and spec
     assert len(tasks[program]) == dataset.n_records

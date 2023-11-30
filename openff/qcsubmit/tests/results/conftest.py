@@ -3,10 +3,10 @@ import pandas as pd
 import pytest
 from openff.toolkit.topology import Molecule
 from openff.units import unit
-from qcportal import FractalClient
-from qcportal.collections import OptimizationDataset
-from qcportal.collections.optimization_dataset import OptEntry
-from qcportal.models.records import OptimizationRecord
+from qcportal import PortalClient
+from qcportal.optimization import OptimizationDataset
+from qcportal.optimization import OptimizationDatasetEntry as OptEntry
+from qcportal.optimization import OptimizationRecord
 
 from openff.qcsubmit.results import (
     BasicResultCollection,
@@ -124,7 +124,7 @@ def optimization_result_collection(monkeypatch) -> OptimizationResultCollection:
 def optimization_result_collection_duplicates(
     monkeypatch,
 ) -> OptimizationResultCollection:
-    """Create a collection with duplicate enetries accross different addresses which can be reduced to a single entry."""
+    """Create a collection with duplicate entries accross different addresses which can be reduced to a single entry."""
 
     smiles = {
         "http://localhost:442": [_smiles_to_molecule(smiles="CCCO")],
@@ -190,7 +190,7 @@ def torsion_drive_result_collection(monkeypatch) -> TorsionDriveResultCollection
 @pytest.fixture()
 def optimization_dataset_invalid_cmiles(monkeypatch, fractal_compute_server):
     """Creates a mocked qcportal optimization dataset with one normal and one invalid cmiles record."""
-    client = FractalClient(fractal_compute_server)
+    client = PortalClient(fractal_compute_server)
     # Fake the records in the dataset with missing data
     data = {
         "GNT-00284-0": OptEntry(

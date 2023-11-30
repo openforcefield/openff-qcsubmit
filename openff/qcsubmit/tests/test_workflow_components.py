@@ -877,7 +877,7 @@ def test_smarts_filter_validator():
     Make sure the validator is checking the allowed and filtered fields have valid smirks strings.
     """
 
-    from openff.toolkit.typing.chemistry import SMIRKSParsingError
+    from openff.toolkit.utils.exceptions import SMIRKSParsingError
 
     with pytest.raises(ValidationError):
         workflow_components.SmartsFilter(
@@ -900,6 +900,14 @@ def test_smarts_filter_validator():
     with pytest.raises(SMIRKSParsingError):
         # good smarts with no tagged atoms.
         workflow_components.SmartsFilter(allowed_substructures=["[C]=[C]"])
+
+    from openff.toolkit.utils import ToolkitRegistry
+    from openff.toolkit.utils.toolkit_registry import _toolkit_registry_manager
+
+    # this test is the same as above, but without any toolkit available
+    with pytest.raises(ValueError):
+        with _toolkit_registry_manager(ToolkitRegistry()):
+            workflow_components.SmartsFilter(allowed_substructures=["[C]=[C]"])
 
     # a good search string
     smart_filter = workflow_components.SmartsFilter(

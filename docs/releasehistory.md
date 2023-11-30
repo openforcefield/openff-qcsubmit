@@ -8,6 +8,11 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 * `micro` increments represent bugfix releases or improvements in documentation
 
 <!--## Version / Date DD-MM-YYYY -->
+## Current development
+
+### Bugfixes
+
+* [PR #237:] Correctly use `openff.units` in `TorsionDriveResultCollection.to_records()` and the same method of other classes. (#237) [@chapincavender]
 
 
 ## 0.4.0 / 11-15-2022
@@ -50,6 +55,7 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 [PR #202:]: https://github.com/openforcefield/openff-qcsubmit/pull/202
 [PR #204:]: https://github.com/openforcefield/openff-qcsubmit/pull/204
 [PR #206:]: https://github.com/openforcefield/openff-qcsubmit/pull/206
+[PR #237:]: https://github.com/openforcefield/openff-qcsubmit/pull/237
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl

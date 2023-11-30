@@ -1,19 +1,15 @@
 import copy
+import datetime
 
 import numpy
 from openff.toolkit.topology import Molecule
 from openff.units import unit
 from qcelemental.models import DriverEnum
-from qcportal.models import (
-    ObjectId,
-    OptimizationRecord,
-    OptimizationSpecification,
-    QCSpecification,
-    ResultRecord,
-    TorsionDriveRecord,
-)
-from qcportal.models.records import RecordStatusEnum
-from qcportal.models.torsiondrive import TDKeywords
+from qcelemental.models.procedures import TDKeywords
+from qcportal.optimization import OptimizationRecord, OptimizationSpecification
+from qcportal.record_models import RecordStatusEnum
+from qcportal.singlepoint import QCSpecification, SinglepointRecord
+from qcportal.torsiondrive import TorsiondriveRecord, TorsiondriveSpecification
 
 from openff.qcsubmit._pydantic import BaseModel
 from openff.qcsubmit.results import (
@@ -27,7 +23,7 @@ from openff.qcsubmit.results import (
 from openff.qcsubmit.results.results import _BaseResult
 
 
-class _FractalClient(BaseModel):
+class _PortalClient(BaseModel):
     address: str
 
 
@@ -48,7 +44,7 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
         entries={
             address: [
                 BasicResult(
-                    record_id=ObjectId(str(i + 1)),
+                    record_id=i + 1,
                     cmiles=molecule.to_smiles(mapped=True),
                     inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                 )
@@ -63,15 +59,21 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
         "to_records",
         lambda self: [
             (
-                ResultRecord(
+                SinglepointRecord(
                     id=entry.record_id,
-                    program="psi4",
-                    driver=DriverEnum.gradient,
-                    method="scf",
-                    basis="sto-3g",
-                    molecule=entry.record_id,
+                    specification=QCSpecification(
+                        program="psi4",
+                        driver=DriverEnum.gradient,
+                        method="scf",
+                        basis="sto-3g",
+                    ),
+                    molecule_id=entry.record_id,
+                    is_service=False,
+                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    # compute_history=list(),
                     status=RecordStatusEnum.complete,
-                    client=_FractalClient(address=address),
+                    client=_PortalClient(address=address),
                 ),
                 molecules[address][int(entry.record_id) - 1],
             )
@@ -90,7 +92,7 @@ def mock_optimization_result_collection(
         entries={
             address: [
                 OptimizationResult(
-                    record_id=ObjectId(str(i + 1)),
+                    record_id=i + 1,
                     cmiles=molecule.to_smiles(mapped=True),
                     inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                 )
@@ -105,20 +107,30 @@ def mock_optimization_result_collection(
         "to_records",
         lambda self: [
             (
+                # OptimizationRecord.construct(
+                # OptimizationRecord.construct(
                 OptimizationRecord(
-                    id=entry.record_id,
-                    program="psi4",
-                    qc_spec=QCSpecification(
-                        driver=DriverEnum.gradient,
-                        method="scf",
-                        basis="sto-3g",
-                        program="psi4",
+                    # OptimizationRecord(
+                    specification=OptimizationSpecification(
+                        program="geometric",
+                        qc_specification=QCSpecification(
+                            driver=DriverEnum.gradient,
+                            method="scf",
+                            basis="sto-3g",
+                            program="psi4",
+                        ),
                     ),
-                    initial_molecule=ObjectId(entry.record_id),
-                    final_molecule=ObjectId(entry.record_id),
+                    id=entry.record_id,
+                    initial_molecule_id=entry.record_id,
+                    final_molecule_id=entry.record_id,
                     status=RecordStatusEnum.complete,
                     energies=[numpy.random.random()],
-                    client=_FractalClient(address=address),
+                    is_service=False,
+                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    # compute_history=list(),
+                    # ),
+                    client=_PortalClient(address=address),
                 ),
                 molecules[address][int(entry.record_id) - 1],
             )
@@ -137,7 +149,7 @@ def mock_torsion_drive_result_collection(
         entries={
             address: [
                 TorsionDriveResult(
-                    record_id=ObjectId(str(i + 1)),
+                    record_id=i + 1,
                     cmiles=molecule.to_smiles(mapped=True),
                     inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
                 )
@@ -152,29 +164,33 @@ def mock_torsion_drive_result_collection(
         "to_records",
         lambda self: [
             (
-                TorsionDriveRecord(
+                TorsiondriveRecord(
                     id=entry.record_id,
-                    qc_spec=QCSpecification(
-                        driver=DriverEnum.gradient,
-                        method="scf",
-                        basis="sto-3g",
-                        program="psi4",
+                    specification=TorsiondriveSpecification(
+                        program="torsiondrive",
+                        keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
+                        optimization_specification=OptimizationSpecification(
+                            program="geometric",
+                            keywords={},
+                            qc_specification=QCSpecification(
+                                driver=DriverEnum.gradient,
+                                method="scf",
+                                basis="sto-3g",
+                                program="psi4",
+                            ),
+                        ),
                     ),
-                    optimization_spec=OptimizationSpecification(
-                        program="geometric", keywords={}
-                    ),
-                    initial_molecule=[
-                        ObjectId(i + 1)
+                    initial_molecules_ids_=[
+                        i + 1
                         for i in range(
                             molecules[address][int(entry.record_id) - 1].n_conformers
                         )
                     ],
                     status=RecordStatusEnum.complete,
-                    client=_FractalClient(address=address),
-                    keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
-                    final_energy_dict={},
-                    optimization_history={},
-                    minimum_positions={},
+                    client=_PortalClient(address=address),
+                    is_service=True,
+                    created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
+                    modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                 ),
                 molecules[address][int(entry.record_id) - 1],
             )
@@ -195,7 +211,7 @@ def mock_torsion_drive_result_collection(
         return return_value
 
     monkeypatch.setattr(
-        TorsionDriveRecord, "get_final_molecules", lambda self: get_molecules(self)
+        TorsiondriveRecord, "minimum_optimizations", lambda self: get_molecules(self)
     )
 
     return collection

@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
 import tqdm
 from openff.toolkit import topology as off
 from openff.toolkit.utils import GLOBAL_TOOLKIT_REGISTRY, ToolkitRegistry
-from qcportal.models.common_models import DriverEnum
+from qcportal.singlepoint import SinglepointDriver
 from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import Field, validator
@@ -556,7 +556,7 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
         description="The type of dataset factory which corresponds to the dataset made.",
     )
     # set the driver to be gradient this should not be changed when running
-    driver: DriverEnum = DriverEnum.gradient
+    driver: SinglepointDriver = SinglepointDriver.gradient
 
     # use the default geometric settings during optimisation
     optimization_program: GeometricProcedure = Field(
