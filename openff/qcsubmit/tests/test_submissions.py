@@ -968,22 +968,30 @@ def test_torsiondrive_constraints(fulltest_client):
         spec_name="uff",
         spec_description="tdrive constraints",
     )
+
+    dihedral = (4, 6, 8, 28)
+    constrained_dihedrals = [
+        [6, 8, 10, 13],
+        [8, 10, 13, 14],
+    ]
+
     # use a restricted range to keep the scan fast
     dataset.add_molecule(
         index="1",
         molecule=molecule,
         attributes=MoleculeAttributes.from_openff_molecule(molecule=molecule),
-        dihedrals=[(4, 6, 8, 28)],
+        dihedrals=[dihedral],
         keywords={"dihedral_ranges": [(-165, -145)]},
     )
     entry = dataset.dataset["1"]
+
     # add the constraints
-    entry.add_constraint(
-        constraint="freeze", constraint_type="dihedral", indices=[6, 8, 10, 13]
-    )
-    entry.add_constraint(
-        constraint="freeze", constraint_type="dihedral", indices=[8, 10, 13, 14]
-    )
+    for constrained_dihedral in constrained_dihedrals:
+        entry.add_constraint(
+            constraint="freeze",
+            constraint_type="dihedral",
+            indices=constrained_dihedral,
+        )
 
     dataset.submit(client=fulltest_client)
     await_services(fulltest_client, max_iter=300)
@@ -1006,11 +1014,13 @@ def test_torsiondrive_constraints(fulltest_client):
         assert "freeze" in constraints
         # make sure both freeze constraints are present
         assert len(constraints["freeze"]) == 2
-        assert constraints["freeze"][0]["indices"] == [6, 8, 10, 13]
+        assert constraints["freeze"][0]["indices"] in constrained_dihedrals
         # make sure the dihedral has not changed
         assert pytest.approx(
-            record.minimum_optimizations[(-150,)].final_molecule.measure((6, 8, 10, 13))
-        ) == record.initial_molecules[0].measure((6, 8, 10, 13))
+            record.minimum_optimizations[(-150,)].final_molecule.measure(
+                tuple(constrained_dihedrals[0])
+            ),
+        ) == record.initial_molecules[0].measure(tuple(constrained_dihedrals[0]))
 
 
 @pytest.mark.parametrize(
