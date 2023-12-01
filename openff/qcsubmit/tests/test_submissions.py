@@ -947,7 +947,7 @@ def test_torsiondrive_scan_keywords(fulltest_client):
 
 
 # Timeout on macOS starting Nov 2023 - see issue #245
-@pytest.mark.skipif(platform.system() == "Darwin")
+@pytest.mark.skipif(platform.system() == "Darwin", reason="Timeout on macOS")
 def test_torsiondrive_constraints(fulltest_client):
     """
     Make sure constraints are correctly passed to optimisations in torsiondrives.
