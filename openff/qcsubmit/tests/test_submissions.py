@@ -3,6 +3,7 @@ Test submissions to a local qcarchive instance using different compute backends,
 
 Here we use the qcfractal snowflake fixture to set up the database.
 """
+import platform
 
 import pytest
 from openff.toolkit.topology import Molecule
@@ -945,6 +946,8 @@ def test_torsiondrive_scan_keywords(fulltest_client):
         assert record.keywords.dihedral_ranges != dataset.dihedral_ranges
 
 
+# Timeout on macOS starting Nov 2023 - see issue #245
+@pytest.mark.skipif(platform.system() == "Darwin")
 def test_torsiondrive_constraints(fulltest_client):
     """
     Make sure constraints are correctly passed to optimisations in torsiondrives.
