@@ -974,7 +974,10 @@ def test_torsiondrive_constraints(fulltest_client):
         molecule=molecule,
         attributes=MoleculeAttributes.from_openff_molecule(molecule=molecule),
         dihedrals=[dihedral],
-        keywords={"dihedral_ranges": [(-165, -145)]},
+        keywords={
+            "dihedral_ranges": [(-180, 180)],
+            "grid_spacing": [60],
+        },
     )
     entry = dataset.dataset["1"]
 
@@ -998,6 +1001,7 @@ def test_torsiondrive_constraints(fulltest_client):
         specification_names="uff",
     )
     for name, spec, record in query:
+        print(record.optimizations.keys())
         constraints = record.optimizations[(-150,)][0].specification.keywords[
             "constraints"
         ]
