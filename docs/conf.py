@@ -105,6 +105,10 @@ intersphinx_mapping = {
         "http://docs.qcarchive.molssi.org/projects/qcelemental/en/latest/",
         None,
     ),
+    "openff.docs": (
+        "https://docs.openforcefield.org/en/latest/",
+        None,
+    ),
 }
 
 # Set up mathjax.
