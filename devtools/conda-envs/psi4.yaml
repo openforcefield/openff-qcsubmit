@@ -3,7 +3,6 @@ name: qcsubmit-test-psi4
 channels:
   - conda-forge
   - openeye
-  - conda-forge/label/libint_dev # for psi4 1.8
 
 dependencies:
 
@@ -25,7 +24,7 @@ dependencies:
 
   - openeye-toolkits
 
-  - psi4 =1.8
+  - psi4 =1.9
 
   ### Core dependencies.
 
