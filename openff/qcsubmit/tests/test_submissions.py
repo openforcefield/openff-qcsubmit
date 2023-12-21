@@ -1006,7 +1006,8 @@ def test_torsiondrive_constraints(fulltest_client):
         assert constraints["freeze"][0]["indices"] == [5, 1, 0, 7]
         # make sure the dihedral has not changed
         assert pytest.approx(
-            record.minimum_optimizations[(0,)].final_molecule.measure((5, 1, 0, 7)), abs=1e-2
+            record.minimum_optimizations[(0,)].final_molecule.measure((5, 1, 0, 7)),
+            abs=1e-2,
         ) == record.initial_molecules[0].measure((5, 1, 0, 7))
 
 
