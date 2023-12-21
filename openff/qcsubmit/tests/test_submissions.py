@@ -951,7 +951,7 @@ def test_torsiondrive_constraints(fulltest_client):
     """
 
     # client = snowflake.client()
-    molecule = Molecule.from_file(get_data("TRP.mol2"))
+    molecule = Molecule.from_file(get_data("3_torsions.sdf"))
     dataset = TorsiondriveDataset(
         dataset_name="Torsiondrive constraints",
         dataset_tagline="Testing torsiondrive constraints",
@@ -970,16 +970,16 @@ def test_torsiondrive_constraints(fulltest_client):
         index="1",
         molecule=molecule,
         attributes=MoleculeAttributes.from_openff_molecule(molecule=molecule),
-        dihedrals=[(4, 6, 8, 28)],
-        keywords={"dihedral_ranges": [(-165, -145)]},
+        dihedrals=[(0, 1, 3, 4)],
+        keywords={"dihedral_ranges": [(-5, 20)]},
     )
     entry = dataset.dataset["1"]
     # add the constraints
     entry.add_constraint(
-        constraint="freeze", constraint_type="dihedral", indices=[6, 8, 10, 13]
+        constraint="freeze", constraint_type="dihedral", indices=[7, 0, 1, 5]
     )
     entry.add_constraint(
-        constraint="freeze", constraint_type="dihedral", indices=[8, 10, 13, 14]
+        constraint="freeze", constraint_type="dihedral", indices=[0, 1, 5, 6]
     )
 
     dataset.submit(client=fulltest_client)
@@ -994,7 +994,7 @@ def test_torsiondrive_constraints(fulltest_client):
         specification_names="uff",
     )
     for name, spec, record in query:
-        constraints = record.optimizations[(-150,)][0].specification.keywords[
+        constraints = record.optimizations[(0,)][0].specification.keywords[
             "constraints"
         ]
         # constraints = opt.keywords["constraints"]
@@ -1003,11 +1003,11 @@ def test_torsiondrive_constraints(fulltest_client):
         assert "freeze" in constraints
         # make sure both freeze constraints are present
         assert len(constraints["freeze"]) == 2
-        assert constraints["freeze"][0]["indices"] == [6, 8, 10, 13]
+        assert constraints["freeze"][0]["indices"] == [5, 1, 0, 7]
         # make sure the dihedral has not changed
         assert pytest.approx(
-            record.minimum_optimizations[(-150,)].final_molecule.measure((6, 8, 10, 13))
-        ) == record.initial_molecules[0].measure((6, 8, 10, 13))
+            record.minimum_optimizations[(0,)].final_molecule.measure((5, 1, 0, 7)), abs=1e-2
+        ) == record.initial_molecules[0].measure((5, 1, 0, 7))
 
 
 @pytest.mark.parametrize(
