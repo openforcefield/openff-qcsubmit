@@ -47,11 +47,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup Conda Environment
-        uses: mamba-org/provision-with-micromamba@main
+        uses: mamba-org/setup-micromamba@v1
 
         with:
           environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
-          extra-specs: |
+          create-args: |
             python=${{ matrix.python-version }}
             pydantic=${{ matrix.pydantic-version }}
           channel-priority: "flexible"
@@ -74,7 +74,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          python -m pytest -v --cov=openff --cov-config=setup.cfg openff/qcsubmit/tests/ --cov-report=xml
+          python -m pytest -v --cov=openff --cov-config=setup.cfg --cov-report=xml openff/qcsubmit/tests
 
       - name: Codecov
         uses: codecov/codecov-action@v3
