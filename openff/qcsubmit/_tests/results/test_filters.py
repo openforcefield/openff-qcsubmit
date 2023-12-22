@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from qcelemental.models import DriverEnum
 from qcportal.singlepoint import QCSpecification
 
+from openff.qcsubmit._tests.results import mock_optimization_result_collection
 from openff.qcsubmit.results import (
     BasicResult,
     OptimizationResult,
@@ -30,7 +31,6 @@ from openff.qcsubmit.results.filters import (
     SMILESFilter,
     UnperceivableStereoFilter,
 )
-from openff.qcsubmit.tests.results import mock_optimization_result_collection
 
 from . import RecordStatusEnum, SinglepointRecord
 
