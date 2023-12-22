@@ -10,13 +10,17 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 <!--## Version / Date DD-MM-YYYY -->
 ## Current development
 
+### API-breaking changes
+
+* [PR #242:] Make tests private (`openff/qcsubmit/tests` --> `openff/qcsubmit/_tests`) (#242)
+
 ### Bugfixes
 
 * [PR #237:] Correctly use `openff.units` in `TorsionDriveResultCollection.to_records()` and the same method of other classes. (#237) [@chapincavender]
 
 ### Tests updated
 
-* [PR #252:] Update constrained torsiondrive test to use a smaller molecule to avoid CI runs timing out.
+* [PR #252:] Update constrained torsiondrive test to use a smaller molecule to avoid CI runs timing out. (#252)
 
 
 ## 0.4.0 / 11-15-2022
