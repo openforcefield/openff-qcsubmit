@@ -14,6 +14,10 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 
 * [PR #237:] Correctly use `openff.units` in `TorsionDriveResultCollection.to_records()` and the same method of other classes. (#237) [@chapincavender]
 
+### Tests updated
+
+* [PR #252:] Update constrained torsiondrive test to use a smaller molecule to avoid CI runs timing out.
+
 
 ## 0.4.0 / 11-15-2022
 
