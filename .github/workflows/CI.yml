@@ -51,7 +51,7 @@ jobs:
 
         with:
           environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
-          create-args: |
+          create-args: >-
             python=${{ matrix.python-version }}
             pydantic=${{ matrix.pydantic-version }}
 
