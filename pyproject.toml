@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 88
-target-version = ['py37']
+target-version = ['py39']
 exclude = '''
 
 (
@@ -16,7 +16,7 @@ exclude = '''
     | build
     | dist
   )/
-  | tests           # also separately exclude a file named foo.py in
+  | _tests           # also separately exclude a file named foo.py in
                      # the root of the project
 )
 '''

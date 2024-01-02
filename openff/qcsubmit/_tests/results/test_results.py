@@ -15,6 +15,7 @@ from qcportal.torsiondrive import (
 )
 
 from openff.qcsubmit._pydantic import ValidationError
+from openff.qcsubmit._tests import does_not_raise
 from openff.qcsubmit.common_structures import QCSpec
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.results import (
@@ -25,7 +26,6 @@ from openff.qcsubmit.results import (
 )
 from openff.qcsubmit.results.filters import ResultFilter
 from openff.qcsubmit.results.results import TorsionDriveResult, _BaseResultCollection
-from openff.qcsubmit.tests import does_not_raise
 
 from . import (
     OptimizationRecord,
