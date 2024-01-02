@@ -54,7 +54,6 @@ jobs:
           create-args: |
             python=${{ matrix.python-version }}
             pydantic=${{ matrix.pydantic-version }}
-          channel-priority: "flexible"
 
       - name: License OpenEye
 
