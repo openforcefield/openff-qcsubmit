@@ -1,9 +1,9 @@
 import pytest
 from openff.toolkit.topology import Molecule
 
+from openff.qcsubmit._tests import does_not_raise
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
 from openff.qcsubmit.exceptions import DatasetInputError, QCSpecificationError
-from openff.qcsubmit.tests import does_not_raise
 
 
 def test_attributes_from_openff_molecule():
