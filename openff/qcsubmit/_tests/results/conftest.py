@@ -8,15 +8,15 @@ from qcportal.optimization import OptimizationDataset
 from qcportal.optimization import OptimizationDatasetEntry as OptEntry
 from qcportal.optimization import OptimizationRecord
 
+from openff.qcsubmit._tests.results import (
+    mock_basic_result_collection,
+    mock_optimization_result_collection,
+    mock_torsion_drive_result_collection,
+)
 from openff.qcsubmit.results import (
     BasicResultCollection,
     OptimizationResultCollection,
     TorsionDriveResultCollection,
-)
-from openff.qcsubmit.tests.results import (
-    mock_basic_result_collection,
-    mock_optimization_result_collection,
-    mock_torsion_drive_result_collection,
 )
 
 
