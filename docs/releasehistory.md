@@ -14,6 +14,10 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 
 * [PR #242:] Make tests private (`openff/qcsubmit/tests` --> `openff/qcsubmit/_tests`) (#242)
 
+### Behacior changes
+
+* [PR #238:] Removes dependency on OpenMM by using openff-units to map between atomic numbers and symbols, and other small internal changes. (#238)
+
 ### Bugfixes
 
 * [PR #237:] Correctly use `openff.units` in `TorsionDriveResultCollection.to_records()` and the same method of other classes. (#237) [@chapincavender]
@@ -64,6 +68,10 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 [PR #204:]: https://github.com/openforcefield/openff-qcsubmit/pull/204
 [PR #206:]: https://github.com/openforcefield/openff-qcsubmit/pull/206
 [PR #237:]: https://github.com/openforcefield/openff-qcsubmit/pull/237
+[PR #238:]: https://github.com/openforcefield/openff-qcsubmit/pull/238
+[PR #242:]: https://github.com/openforcefield/openff-qcsubmit/pull/242
+[PR #252:]: https://github.com/openforcefield/openff-qcsubmit/pull/252
+
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
