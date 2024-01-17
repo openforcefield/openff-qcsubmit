@@ -15,6 +15,7 @@ dependencies:
   - pytest
   - pytest-cov
   - pytest-xdist
+  - pytest-randomly
   - requests-mock
 
   - qcengine >=0.25
