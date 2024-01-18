@@ -95,7 +95,7 @@ Finally, the units of the molecule conformation should be recorded as an [attrib
 ```python
 import h5py
 import numpy as np
-from simtk import unit
+from openff.units import Quantity, unit
 
 output_file = h5py.File("my_exotic_molecules.hdf5", "w")
 
@@ -108,7 +108,7 @@ for mol in target_molecules:
         explicit_hydrogens=True, 
         mapped=True,
     )
-    conformations = [c.value_in_unit(unit.nanometers) for c in mol.conformers]
+    conformations = [c.m_as(unit.nanometers) for c in mol.conformers]
 
     group = output_file.create_group(mol.name)
     group.create_dataset(

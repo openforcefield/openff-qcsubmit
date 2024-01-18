@@ -14,6 +14,7 @@ from openff.toolkit.utils import (
     UndefinedStereochemistryError,
 )
 from openff.units import unit
+from openff.utilities import requires_package
 from qcelemental.molutil import guess_connectivity
 from qcportal.optimization import OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
@@ -32,7 +33,7 @@ from openff.qcsubmit.results.results import (
     _BaseResult,
     _BaseResultCollection,
 )
-from openff.qcsubmit.validators import check_allowed_elements
+from openff.qcsubmit.validators import SYMBOLS_TO_ELEMENTS, check_allowed_elements
 
 T = TypeVar("T", bound=_BaseResultCollection)
 
@@ -643,14 +644,9 @@ class ElementFilter(CMILESResultFilter):
         return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
 
     def _apply(self, result_collection: "T") -> "T":
-        try:
-            from openmm.app import Element
-        except ImportError:
-            from simtk.openmm.app import Element
-
-        self._allowed_atomic_numbers = {
-            Element.getBySymbol(ele).atomic_number if isinstance(ele, str) else ele
-            for ele in self.allowed_elements
+        self._allowed_atomic_numbers: set[Union[int, str]] = {
+            SYMBOLS_TO_ELEMENTS.get(element, element)
+            for element in self.allowed_elements
         }
 
         return super(ElementFilter, self)._apply(result_collection)
@@ -673,6 +669,8 @@ class HydrogenBondFilter(SinglepointRecordFilter):
         "baker-hubbard", description="The method to use to detect any hydrogen bonds."
     )
 
+    @requires_package("mdtraj")
+    @requires_package("openmm")
     def _filter_function(
         self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
     ) -> bool:
