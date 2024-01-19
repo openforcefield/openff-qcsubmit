@@ -11,10 +11,10 @@ from openff.toolkit.utils import (
     ToolkitRegistry,
 )
 from openff.units import unit
-from pydantic import Field, root_validator, validator
 from rdkit.Chem.rdMolAlign import AlignMol
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import Field, root_validator, validator
 from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.validators import (
     SYMBOLS_TO_ELEMENTS,

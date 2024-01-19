@@ -4,7 +4,6 @@ import datetime
 import numpy
 from openff.toolkit.topology import Molecule
 from openff.units import unit
-from pydantic import BaseModel
 from qcelemental.models import DriverEnum
 from qcelemental.models.procedures import TDKeywords
 from qcportal.optimization import OptimizationRecord, OptimizationSpecification
@@ -12,6 +11,7 @@ from qcportal.record_models import RecordStatusEnum
 from qcportal.singlepoint import QCSpecification, SinglepointRecord
 from qcportal.torsiondrive import TorsiondriveRecord, TorsiondriveSpecification
 
+from openff.qcsubmit._pydantic import BaseModel
 from openff.qcsubmit.results import (
     BasicResult,
     BasicResultCollection,

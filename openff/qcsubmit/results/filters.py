@@ -15,13 +15,19 @@ from openff.toolkit.utils import (
 )
 from openff.units import unit
 from openff.utilities import requires_package
-from pydantic import BaseModel, Field, PrivateAttr, root_validator, validator
 from qcelemental.molutil import guess_connectivity
 from qcportal.optimization import OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
 from qcportal.singlepoint import SinglepointRecord
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import (
+    BaseModel,
+    Field,
+    PrivateAttr,
+    root_validator,
+    validator,
+)
 from openff.qcsubmit.results.results import (
     TorsionDriveResultCollection,
     _BaseResult,

@@ -18,7 +18,6 @@ from typing import (
 import qcelemental as qcel
 import qcportal as ptl
 from openff.toolkit import topology as off
-from pydantic import Field, constr, validator
 from qcelemental.models import AtomicInput, OptimizationInput
 from qcelemental.models.procedures import OptimizationProtocols, QCInputSpecification
 from qcportal import PortalClient, PortalRequestError
@@ -31,6 +30,7 @@ from qcportal.singlepoint import (
 from qcportal.torsiondrive import TorsiondriveDatasetNewEntry, TorsiondriveSpecification
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import Field, constr, validator
 from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets.entries import (

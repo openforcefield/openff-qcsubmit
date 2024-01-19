@@ -27,9 +27,9 @@ dependencies:
 
   - openff-toolkit-base =0.14.0
   - rdkit
-  - pydantic =1
+  - pydantic
   - pyyaml
-  - qcportal >=0.15
+  - qcportal >=0.52
   - torsiondrive
   - basis_set_exchange
   - typing-extensions

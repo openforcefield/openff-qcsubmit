@@ -9,9 +9,9 @@ import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
-from pydantic import ValidationError
 from qcelemental.models.procedures import OptimizationProtocols
 
+from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit.common_structures import MoleculeAttributes, QCSpec
 from openff.qcsubmit.constraints import Constraints, PositionConstraintSet
 from openff.qcsubmit.datasets import (

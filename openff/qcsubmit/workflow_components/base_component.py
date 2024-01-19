@@ -4,10 +4,10 @@ from typing import Dict, List, Optional
 import tqdm
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils import ToolkitRegistry
-from pydantic import BaseModel, Field, PrivateAttr
 from qcelemental.util import which_import
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import BaseModel, Field, PrivateAttr
 from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.workflow_components.utils import ComponentResult
 

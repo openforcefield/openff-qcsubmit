@@ -5,10 +5,10 @@ import numpy
 import pytest
 from openff.toolkit.topology import Molecule
 from openff.units import unit
-from pydantic import ValidationError
 from qcelemental.models import DriverEnum
 from qcportal.singlepoint import QCSpecification
 
+from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit._tests.results import mock_optimization_result_collection
 from openff.qcsubmit.results import (
     BasicResult,

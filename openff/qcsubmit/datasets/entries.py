@@ -10,9 +10,9 @@ import openff.toolkit.topology as off
 import qcelemental as qcel
 import qcelemental.models
 from openff.units import unit
-from pydantic import Field, validator
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import Field, validator
 from openff.qcsubmit.common_structures import (
     DatasetConfig,
     MoleculeAttributes,

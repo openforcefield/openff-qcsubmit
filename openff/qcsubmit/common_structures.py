@@ -22,18 +22,6 @@ from typing import (
 
 import numpy as np
 from openff.toolkit.topology import Molecule
-from pydantic import (
-    BaseModel,
-    Field,
-    HttpUrl,
-    PositiveInt,
-    StrictBool,
-    StrictFloat,
-    StrictInt,
-    StrictStr,
-    constr,
-    validator,
-)
 from qcelemental import constants
 from qcelemental.models.common_models import Model
 from qcelemental.models.results import WavefunctionProtocolEnum
@@ -45,6 +33,33 @@ from openff.qcsubmit.exceptions import (
     QCSpecificationError,
 )
 from openff.qcsubmit.utils.smirnoff import split_openff_molecule
+
+try:
+    from pydantic.v1 import (
+        BaseModel,
+        Field,
+        HttpUrl,
+        PositiveInt,
+        StrictBool,
+        StrictFloat,
+        StrictInt,
+        StrictStr,
+        constr,
+        validator,
+    )
+except ImportError:
+    from pydantic import (
+        BaseModel,
+        Field,
+        HttpUrl,
+        PositiveInt,
+        StrictBool,
+        StrictFloat,
+        StrictInt,
+        StrictStr,
+        constr,
+        validator,
+    )
 
 if TYPE_CHECKING:
     DictStrAny = Dict[str, Any]

@@ -4,9 +4,9 @@ Tests for building and running workflows, exporting and importing settings.
 
 import pytest
 from openff.toolkit.topology import Molecule
-from pydantic import ValidationError
 
 from openff.qcsubmit import workflow_components
+from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit.datasets import BasicDataset, OptimizationDataset
 from openff.qcsubmit.exceptions import DriverError, InvalidWorkflowComponentError
 from openff.qcsubmit.factories import (

@@ -25,7 +25,6 @@ import qcportal
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
-from pydantic import BaseModel, Field, validator
 from qcportal import PortalClient
 from qcportal.dataset_models import BaseDataset as QCPDataset
 from qcportal.optimization import OptimizationDataset, OptimizationRecord
@@ -38,6 +37,7 @@ from qcportal.singlepoint import (
 from qcportal.torsiondrive import TorsiondriveDataset, TorsiondriveRecord
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import BaseModel, Field, validator
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError

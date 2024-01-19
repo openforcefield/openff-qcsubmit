@@ -5,10 +5,10 @@ from typing import List, Optional, Tuple
 
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils import ToolkitRegistry
-from pydantic import Field
 from qcelemental.util import which_import
 from typing_extensions import Literal
 
+from openff.qcsubmit._pydantic import Field
 from openff.qcsubmit.common_structures import ComponentProperties
 from openff.qcsubmit.utils import (
     check_missing_stereo,

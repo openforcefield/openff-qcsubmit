@@ -13,14 +13,15 @@ dependencies:
   # Testing
   - pytest
   - pytest-cov
-  - codecov
+  - pytest-randomly
+  - pytest-xdist
   - requests-mock
 
   - qcengine >=0.25
   - qcelemental >=0.25.1
-  - qcfractal>0.49
-  - qcarchivetesting>0.49
-  - qcportal>=0.49
+  - qcfractal >=0.52
+  - qcarchivetesting
+  - qcportal
 
   - openeye-toolkits
 
@@ -31,7 +32,7 @@ dependencies:
   - openff-toolkit-base >= 0.14.0
   - openff-units >=0.2.1
   - rdkit
-  - pydantic =1
+  - pydantic
   - pyyaml
   - torsiondrive
   - basis_set_exchange
