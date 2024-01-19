@@ -10,13 +10,17 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 <!--## Version / Date DD-MM-YYYY -->
 ## Current development
 
+### New Features
+
+* [PR #232:] Introduce runtime compatibility with Pydantic v1 and v2. (#232)
+
 ### API-breaking changes
 
 * [PR #242:] Make tests private (`openff/qcsubmit/tests` --> `openff/qcsubmit/_tests`) (#242)
 
-### Behacior changes
+### Behavior changes
 
-* [PR #238:] Removes dependency on OpenMM by using openff-units to map between atomic numbers and symbols, and other small internal changes. (#238)
+* [PR #238:] Removes dependency on OpenMM by using `openff-units` to map between atomic numbers and symbols, and other small internal changes. (#238)
 
 ### Bugfixes
 
@@ -25,7 +29,6 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 ### Tests updated
 
 * [PR #252:] Update constrained torsiondrive test to use a smaller molecule to avoid CI runs timing out. (#252)
-
 
 ## 0.4.0 / 11-15-2022
 
@@ -67,11 +70,11 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 [PR #202:]: https://github.com/openforcefield/openff-qcsubmit/pull/202
 [PR #204:]: https://github.com/openforcefield/openff-qcsubmit/pull/204
 [PR #206:]: https://github.com/openforcefield/openff-qcsubmit/pull/206
+[PR #232:]: https://github.com/openforcefield/openff-qcsubmit/pull/232
 [PR #237:]: https://github.com/openforcefield/openff-qcsubmit/pull/237
 [PR #238:]: https://github.com/openforcefield/openff-qcsubmit/pull/238
 [PR #242:]: https://github.com/openforcefield/openff-qcsubmit/pull/242
 [PR #252:]: https://github.com/openforcefield/openff-qcsubmit/pull/252
-
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
