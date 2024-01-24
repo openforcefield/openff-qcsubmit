@@ -7,28 +7,45 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 * `minor` increments add features but do not break API compatibility
 * `micro` increments represent bugfix releases or improvements in documentation
 
+Releases are given with dates in DD-MM-YYYY format.
+
 <!--## Version / Date DD-MM-YYYY -->
-## Current development
+## 0.50.2 / 24-01-2024
 
 ### New Features
 
-* [PR #232:] Introduce runtime compatibility with Pydantic v1 and v2. (#232)
-
-### API-breaking changes
-
-* [PR #242:] Make tests private (`openff/qcsubmit/tests` --> `openff/qcsubmit/_tests`) (#242)
+* [PR #232:] Introduce runtime compatibility with Pydantic v1 and v2. (#232) [@mattwthompson]
+* [PR #251:] Use Psi4 1.9 by default. (#251) [@mattwthompson]
 
 ### Behavior changes
 
-* [PR #238:] Removes dependency on OpenMM by using `openff-units` to map between atomic numbers and symbols, and other small internal changes. (#238)
+* [PR #238:] Removes dependency on OpenMM by using `openff-units` to map between atomic numbers and symbols, and other small internal changes. (#238) [@mattwthompson]
+
+### API-breaking changes
+
+* [PR #242:] Make tests private (`openff/qcsubmit/tests` --> `openff/qcsubmit/_tests`) (#242) [@mattwthompson]
+
+### Tests updated
+
+* [PR #252:] Update constrained torsiondrive test to use a smaller molecule to avoid CI runs timing out. (#252) [@j-wags]
+
+## 0.50.1 / 10-11-2023
 
 ### Bugfixes
 
 * [PR #237:] Correctly use `openff.units` in `TorsionDriveResultCollection.to_records()` and the same method of other classes. (#237) [@chapincavender]
 
-### Tests updated
+## 0.50.0 / 31-10-2023
 
-* [PR #252:] Update constrained torsiondrive test to use a smaller molecule to avoid CI runs timing out. (#252)
+For more information on this release, see https://github.com/openforcefield/openff-qcsubmit/releases/tag/0.50.0
+
+### API-breaking changes
+
+* [PR #195:] Support QCFractal 0.50+ (#195) [@j-wags]
+
+### Bugfixes
+
+* [PR #235:] Update `versioneer` for Python 3.12 compatibility (#235) [@Yoshanuikabundi]
 
 ## 0.4.0 / 11-15-2022
 
@@ -66,14 +83,17 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 [PR #187:]: https://github.com/openforcefield/openff-qcsubmit/pull/187
 [PR #192:]: https://github.com/openforcefield/openff-qcsubmit/pull/192
 [PR #193:]: https://github.com/openforcefield/openff-qcsubmit/pull/193
+[PR #195:]: https://github.com/openforcefield/openff-qcsubmit/pull/195
 [PR #198:]: https://github.com/openforcefield/openff-qcsubmit/pull/198
 [PR #202:]: https://github.com/openforcefield/openff-qcsubmit/pull/202
 [PR #204:]: https://github.com/openforcefield/openff-qcsubmit/pull/204
 [PR #206:]: https://github.com/openforcefield/openff-qcsubmit/pull/206
 [PR #232:]: https://github.com/openforcefield/openff-qcsubmit/pull/232
+[PR #235:]: https://github.com/openforcefield/openff-qcsubmit/pull/235
 [PR #237:]: https://github.com/openforcefield/openff-qcsubmit/pull/237
 [PR #238:]: https://github.com/openforcefield/openff-qcsubmit/pull/238
 [PR #242:]: https://github.com/openforcefield/openff-qcsubmit/pull/242
+[PR #251:]: https://github.com/openforcefield/openff-qcsubmit/pull/251
 [PR #252:]: https://github.com/openforcefield/openff-qcsubmit/pull/252
 
 [@jthorton]: https://github.com/jthorton
@@ -81,3 +101,4 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 [@Yoshanuikabundi]: https://github.com/Yoshanuikabundi
 [@mattwthompson]: https://github.com/mattwthompson
 [@chapincavender]: https://github.com/chapincavender
+[@j-wags]: https://github.com/j-wags
