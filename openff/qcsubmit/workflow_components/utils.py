@@ -719,6 +719,7 @@ class ComponentResult:
                 return_atom_map=True,
                 formal_charge_matching=False,
                 bond_order_matching=False,
+                aromatic_matching=False,
             )
             assert isomorphic is True
             # transfer any torsion indexes for similar fragments
