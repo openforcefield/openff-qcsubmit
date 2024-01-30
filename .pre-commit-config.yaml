@@ -11,13 +11,22 @@ repos:
   hooks:
   - id: black
     files: ^openff
+  - id: black-jupyter
+    files: ^examples
 - repo: https://github.com/PyCQA/isort
   rev: 5.13.2
   hooks:
   - id: isort
     files: ^openff
 - repo: https://github.com/PyCQA/flake8
-  rev: 6.1.0
+  rev: 7.0.0
   hooks:
   - id: flake8
     files: ^openff
+- repo: https://github.com/nbQA-dev/nbQA
+  rev: 1.7.1
+  hooks:
+    - id: nbqa-isort
+    - id: nbqa-flake8
+      args:
+        - '--select=F'
