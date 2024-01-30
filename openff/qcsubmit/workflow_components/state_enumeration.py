@@ -1,6 +1,7 @@
 """
 Components to expand stereochemistry and tautomeric states of molecules.
 """
+
 from typing import List, Optional, Tuple
 
 from openff.toolkit.topology import Molecule

@@ -1,6 +1,7 @@
 """
 Centralise the validators for easy reuse between factories and datasets.
 """
+
 import re
 from typing import List, Tuple, Union
 
