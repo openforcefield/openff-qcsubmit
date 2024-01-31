@@ -1,6 +1,7 @@
 """
 File containing the filters workflow components.
 """
+
 from typing import Dict, List, Optional, Set, Union
 
 from openff.toolkit.topology import Molecule

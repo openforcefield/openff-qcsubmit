@@ -1,6 +1,7 @@
 """
 Test the serializer factory
 """
+
 import pytest
 
 from openff.qcsubmit.exceptions import UnsupportedFiletypeError

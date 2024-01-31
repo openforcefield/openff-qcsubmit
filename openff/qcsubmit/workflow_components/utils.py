@@ -1,4 +1,5 @@
 """WorkFlow related utility classes and functions."""
+
 import os
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -305,11 +306,11 @@ class TorsionIndexer(DatasetConfig):
         {},
         description="A dictionary of the torsions to be scanned grouped by the central bond in the torsion.",
     )
-    double_torsions: Dict[
-        Tuple[Tuple[int, int], Tuple[int, int]], DoubleTorsion
-    ] = Field(
-        {},
-        description="A dictionary of the 2D torsions to be scanned grouped by the sorted combination of the central bonds.",
+    double_torsions: Dict[Tuple[Tuple[int, int], Tuple[int, int]], DoubleTorsion] = (
+        Field(
+            {},
+            description="A dictionary of the 2D torsions to be scanned grouped by the sorted combination of the central bonds.",
+        )
     )
     impropers: Dict[int, ImproperTorsion] = Field(
         {},
@@ -455,9 +456,11 @@ class TorsionIndexer(DatasetConfig):
         # we need to use the reorder_mapping to change the objects before adding them if required
         for torsion in torsion_indexer.torsions.values():
             self.add_torsion(
-                torsion=self._reorder_torsion(torsion.torsion1, reorder_mapping)
-                if reorder_mapping is not None
-                else torsion.torsion1,
+                torsion=(
+                    self._reorder_torsion(torsion.torsion1, reorder_mapping)
+                    if reorder_mapping is not None
+                    else torsion.torsion1
+                ),
                 scan_range=torsion.scan_range1,
                 scan_increment=torsion.scan_increment,
                 symmetry_group=torsion.symmetry_group1,
@@ -465,12 +468,16 @@ class TorsionIndexer(DatasetConfig):
 
         for double_torsion in torsion_indexer.double_torsions.values():
             self.add_double_torsion(
-                torsion1=self._reorder_torsion(double_torsion.torsion1, reorder_mapping)
-                if reorder_mapping is not None
-                else double_torsion.torsion1,
-                torsion2=self._reorder_torsion(double_torsion.torsion2, reorder_mapping)
-                if reorder_mapping is not None
-                else double_torsion.torsion2,
+                torsion1=(
+                    self._reorder_torsion(double_torsion.torsion1, reorder_mapping)
+                    if reorder_mapping is not None
+                    else double_torsion.torsion1
+                ),
+                torsion2=(
+                    self._reorder_torsion(double_torsion.torsion2, reorder_mapping)
+                    if reorder_mapping is not None
+                    else double_torsion.torsion2
+                ),
                 scan_range1=double_torsion.scan_range1,
                 scan_range2=double_torsion.scan_range2,
                 scan_increment=double_torsion.scan_increment,
@@ -480,12 +487,16 @@ class TorsionIndexer(DatasetConfig):
 
         for improper in torsion_indexer.impropers.values():
             self.add_improper(
-                central_atom=reorder_mapping[improper.central_atom]
-                if reorder_mapping is not None
-                else improper.central_atom,
-                improper=self._reorder_torsion(improper.improper, reorder_mapping)
-                if reorder_mapping is not None
-                else improper.improper,
+                central_atom=(
+                    reorder_mapping[improper.central_atom]
+                    if reorder_mapping is not None
+                    else improper.central_atom
+                ),
+                improper=(
+                    self._reorder_torsion(improper.improper, reorder_mapping)
+                    if reorder_mapping is not None
+                    else improper.improper
+                ),
                 scan_range=improper.scan_range,
                 scan_increment=improper.scan_increment,
                 symmetry_group=improper.symmetry_group,

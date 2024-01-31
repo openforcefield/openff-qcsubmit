@@ -180,6 +180,7 @@ def _create_rdkit_pdf(molecules: List[Molecule], file_name: str, columns: int):
             molsPerRow=columns,
             subImgSize=(500, 500),
             highlightAtomLists=tag_chunk,
+            returnPNG=False,
         )
         # write the pdf to bytes and pass straight to the pdf merger
         images.append(image)
