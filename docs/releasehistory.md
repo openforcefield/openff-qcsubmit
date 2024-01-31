@@ -9,6 +9,12 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 
 Releases are given with dates in DD-MM-YYYY format.
 
+## Current development
+
+### Bugfixes
+
+* [PR #257:] Fixes dataset visualization with the RDKit backend (#257) [@pavankum]
+
 <!--## Version / Date DD-MM-YYYY -->
 ## 0.50.2 / 24-01-2024
 
@@ -102,3 +108,4 @@ For more information on this release, see https://github.com/openforcefield/open
 [@mattwthompson]: https://github.com/mattwthompson
 [@chapincavender]: https://github.com/chapincavender
 [@j-wags]: https://github.com/j-wags
+[@pavankum]: https://github.com/pavankum
