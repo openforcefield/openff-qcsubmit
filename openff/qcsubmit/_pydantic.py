@@ -1,4 +1,5 @@
 """Centralized shim for Pydantic v1/v2 compatible import."""
+
 try:
     from pydantic.v1 import (
         BaseModel,

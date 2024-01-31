@@ -2,6 +2,7 @@
 A module which contains convenience classes for referencing, retrieving and filtering
 results from a QCFractal instance.
 """
+
 from __future__ import annotations
 
 import abc
@@ -653,9 +654,9 @@ class OptimizationResultCollection(_BaseResultCollection):
             The created basic dataset.
         """
 
-        records_by_cmiles: Dict[
-            str, List[Tuple[OptimizationRecord, Molecule]]
-        ] = defaultdict(list)
+        records_by_cmiles: Dict[str, List[Tuple[OptimizationRecord, Molecule]]] = (
+            defaultdict(list)
+        )
 
         for record, molecule in self.to_records():
             records_by_cmiles[
@@ -668,12 +669,14 @@ class OptimizationResultCollection(_BaseResultCollection):
             dataset_tagline=tagline,
             driver=driver,
             metadata={} if metadata is None else metadata,
-            qc_specifications={"default": QCSpec()}
-            if qc_specifications is None
-            else {
-                qc_specification.spec_name: qc_specification
-                for qc_specification in qc_specifications
-            },
+            qc_specifications=(
+                {"default": QCSpec()}
+                if qc_specifications is None
+                else {
+                    qc_specification.spec_name: qc_specification
+                    for qc_specification in qc_specifications
+                }
+            ),
         )
 
         for records in records_by_cmiles.values():

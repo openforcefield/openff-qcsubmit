@@ -1,6 +1,7 @@
 """
 Constraint base classes and methods.
 """
+
 from typing import List, Tuple, Union
 
 from typing_extensions import Literal
