@@ -737,7 +737,8 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
             # Fetch all entries for use later. These get stored internally
             # in the dataset class
-            dataset.fetch_entries()
+            # TODO: Is this necessary with QCF>=0.50?
+            #dataset.fetch_entries()
 
             if spec_name not in dataset.specifications:
                 raise KeyError(
@@ -763,7 +764,11 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                 td_rec = TorsionDriveResult(
                     record_id=record.id, cmiles=cmiles, inchi_key=inchi_key
                 )
-                result_records[client.address][record.id] = td_rec
+                if client:
+                    client_address = client_address
+                else:
+                    client_address = "local"
+                result_records[client_address][record.id] = td_rec
 
         return cls(
             entries={
