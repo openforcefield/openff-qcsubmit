@@ -738,7 +738,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             # Fetch all entries for use later. These get stored internally
             # in the dataset class
             # TODO: Is this necessary with QCF>=0.50?
-            #dataset.fetch_entries()
+            # dataset.fetch_entries()
 
             if spec_name not in dataset.specifications:
                 raise KeyError(
