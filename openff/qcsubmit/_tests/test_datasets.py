@@ -343,6 +343,38 @@ def test_componentresult_deduplication_iso():
     assert result.n_conformers == 2
 
 
+def test_componentresult_deduplication_tautomer():
+    """Reproduce issue #260 using molecules in the reported issue."""
+
+    result = ComponentResult(
+        component_name="Test iso deduplication",
+        component_description={},
+        component_provenance={},
+    )
+
+    # these two molecules have the same InChI key but differ in aromaticity ...
+    mol1 = Molecule.from_smiles(
+        smiles="[H]c1c(c(c(c2c1N(C(=C2C3=C(N(C(=O)C(=C3[H])[H])C([H])([H])C([H])([H])[H])[H])[H])[H])[H])F)[H]",
+        hydrogens_are_explicit=True,
+    )
+    mol1.generate_conformers(n_conformers=1)
+
+    mol2 = Molecule.from_smiles(
+        smiles="[H]c1c(c([n+](c(c1C2=C(N(c3c2c(c(c(c3[H])[H])F)[H])[H])[H])[H])C([H])([H])C([H])([H])[H])[O-])[H]",
+        hydrogens_are_explicit=True,
+    )
+    mol2.generate_conformers(n_conformers=1)
+
+    # this function returns a boolean equal to "is this molecule already in this dataset"
+    assert not result.add_molecule(mol1)
+    assert not result.add_molecule(mol2)
+
+    # ... and so the expected behavior is that they're deduplicated into the same
+    # "molecule" but the separate `Molecule` objects exist as distinct conformers
+    assert result.n_molecules == 1
+    assert result.n_conformers == 2
+
+
 def test_componentresult_remove_molecule():
     """
     Test removing a molecule not in a dataset.
