@@ -730,6 +730,7 @@ class ComponentResult:
                 return_atom_map=True,
                 formal_charge_matching=False,
                 bond_order_matching=False,
+                aromatic_matching=False,
             )
             assert isomorphic is True
             # transfer any torsion indexes for similar fragments
@@ -766,9 +767,7 @@ class ComponentResult:
                         self._molecules[molecule_hash].add_conformer(
                             new_conformer * unit.angstrom
                         )
-            else:
-                # molecule already in list and coords not present so just return
-                return True
+            return True
 
         else:
             if molecule.n_conformers == 0:
