@@ -344,7 +344,7 @@ def test_componentresult_deduplication_iso():
 
 
 def test_componentresult_deduplication_tautomer():
-    """Reproduce issue #260 using molecules in the reported issue."""
+    """Reproduce issue #255 using molecules in the reported issue."""
 
     result = ComponentResult(
         component_name="Test iso deduplication",
