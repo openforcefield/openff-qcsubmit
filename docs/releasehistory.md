@@ -14,6 +14,7 @@ Releases are given with dates in DD-MM-YYYY format.
 ### Bugfixes
 
 * [PR #257:] Fixes dataset visualization with the RDKit backend (#257) [@pavankum]
+* [PR #260:] Fixes a bug where adding different tautomers of the same molecule to a ComponentResult would raise an error. Also fixes a case where ComponentResult.add_molecule would fail to return a bool  (#255) [@mattwthompson]
 
 <!--## Version / Date DD-MM-YYYY -->
 ## 0.50.2 / 24-01-2024
