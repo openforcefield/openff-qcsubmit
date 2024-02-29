@@ -767,9 +767,7 @@ class ComponentResult:
                         self._molecules[molecule_hash].add_conformer(
                             new_conformer * unit.angstrom
                         )
-            else:
-                # molecule already in list and coords not present so just return
-                return True
+            return True
 
         else:
             if molecule.n_conformers == 0:

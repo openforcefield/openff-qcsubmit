@@ -336,8 +336,8 @@ def test_componentresult_deduplication_iso():
     mol2.generate_conformers(n_conformers=1)
 
     # add the molecules
-    result.add_molecule(mol1)
-    result.add_molecule(mol2)
+    assert result.add_molecule(mol1) is False
+    assert result.add_molecule(mol2) is True
 
     assert result.n_molecules == 1
     assert result.n_conformers == 2
@@ -366,8 +366,8 @@ def test_componentresult_deduplication_tautomer():
     mol2.generate_conformers(n_conformers=1)
 
     # this function returns a boolean equal to "is this molecule already in this dataset"
-    assert not result.add_molecule(mol1)
-    assert not result.add_molecule(mol2)
+    assert result.add_molecule(mol1) is False
+    assert result.add_molecule(mol2) is True
 
     # ... and so the expected behavior is that they're deduplicated into the same
     # "molecule" but the separate `Molecule` objects exist as distinct conformers
