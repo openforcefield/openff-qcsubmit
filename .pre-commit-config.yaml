@@ -23,6 +23,8 @@ repos:
   hooks:
   - id: flake8
     files: ^openff
+    additional_dependencies:
+      - 'flake8-all-not-strings'
 - repo: https://github.com/nbQA-dev/nbQA
   rev: 1.7.1
   hooks:
