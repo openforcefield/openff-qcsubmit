@@ -538,7 +538,7 @@ class OptimizationResultCollection(_BaseResultCollection):
             rec_ids = [result.record_id for result in results]
             # Do one big request to save time
             opt_records = client.get_optimizations(
-                rec_ids, include=["initial_molecule"]
+                rec_ids, include=["initial_molecule", "final_molecule"]
             )
             # Sort out which records from the request line up with which results
             opt_rec_id_to_result = dict()
