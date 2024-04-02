@@ -538,7 +538,7 @@ class OptimizationResultCollection(_BaseResultCollection):
             rec_ids = [result.record_id for result in results]
             # Do one big request to save time
             opt_records = client.get_optimizations(
-                rec_ids, include=["initial_molecule"]
+                rec_ids, include=["initial_molecule", "final_molecule"]
             )
             # Sort out which records from the request line up with which results
             opt_rec_id_to_result = dict()
@@ -804,9 +804,13 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         for client_address, records in self.entries.items():
             client = PortalClient(client_address)
 
-            for record in records:
-                rec = client.get_torsiondrives(record.record_id)
-
+            # retrieve all torsiondrives at once, including their
+            # minimum_optimizations
+            record_ids = [r.record_id for r in records]
+            torsion_drive_records = client.get_torsiondrives(
+                record_ids, include=["minimum_optimizations"]
+            )
+            for record, rec in zip(records, torsion_drive_records):
                 # OpenFF molecule
                 try:
                     molecule: Molecule = Molecule.from_mapped_smiles(
@@ -819,10 +823,16 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                     )
                     continue
 
+                # retrieve all minimum_optimizations at once
+                opt_ids = [v.id for v in rec.minimum_optimizations.values()]
+                opt_records = client.get_optimizations(opt_ids)
+                # retrieve all final_molecules at once
+                opt_final_molecule_ids = [r.final_molecule_id for r in opt_records]
+                opt_final_molecules = client.get_molecules(opt_final_molecule_ids)
                 # Map of torsion drive keys to minimum optimization
-                qc_grid_molecules = [
-                    (k, v.final_molecule) for k, v in rec.minimum_optimizations.items()
-                ]
+                qc_grid_molecules = list(
+                    zip(rec.minimum_optimizations.keys(), opt_final_molecules)
+                )
 
                 # order the ids so the conformers follow the torsiondrive scan range
                 # x[0] is the torsiondrive key, ie Tuple[float]
