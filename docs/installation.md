@@ -30,7 +30,7 @@ cd openff-qcsubmit
 Create a custom conda environment which contains the required dependencies and activate it:
 
 ```bash
-conda env create --name openff-qcsubmit --file devtools/conda-envs/meta.yaml
+conda env create --name openff-qcsubmit --file devtools/conda-envs/basic.yaml
 conda activate openff-qcsubmit
 ```
 

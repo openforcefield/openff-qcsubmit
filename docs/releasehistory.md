@@ -15,6 +15,11 @@ Releases are given with dates in DD-MM-YYYY format.
 
 * [PR #257:] Fixes dataset visualization with the RDKit backend (#257) [@pavankum]
 * [PR #260:] Fixes a bug where adding different tautomers of the same molecule to a ComponentResult would raise an error. Also fixes a case where ComponentResult.add_molecule would fail to return a bool  (#255) [@mattwthompson]
+* [PR #268:] Fix broken star imports (#268) [@mattwthompson]
+
+### Performance Improvements
+
+* [PR #270:] Speed up `TorsionDriveResultCollection.to_records` by batching requests [@ntBre]
 
 <!--## Version / Date DD-MM-YYYY -->
 ## 0.50.2 / 24-01-2024
@@ -102,6 +107,10 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #242:]: https://github.com/openforcefield/openff-qcsubmit/pull/242
 [PR #251:]: https://github.com/openforcefield/openff-qcsubmit/pull/251
 [PR #252:]: https://github.com/openforcefield/openff-qcsubmit/pull/252
+[PR #257:]: https://github.com/openforcefield/openff-qcsubmit/pull/257
+[PR #260:]: https://github.com/openforcefield/openff-qcsubmit/pull/260
+[PR #268:]: https://github.com/openforcefield/openff-qcsubmit/pull/268
+[PR #270:]: https://github.com/openforcefield/openff-qcsubmit/pull/270
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
@@ -110,3 +119,4 @@ For more information on this release, see https://github.com/openforcefield/open
 [@chapincavender]: https://github.com/chapincavender
 [@j-wags]: https://github.com/j-wags
 [@pavankum]: https://github.com/pavankum
+[@ntBre]: https://github.com/ntBre
