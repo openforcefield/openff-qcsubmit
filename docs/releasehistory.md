@@ -9,7 +9,15 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 
 Releases are given with dates in DD-MM-YYYY format.
 
+<!--## Version / Date DD-MM-YYYY -->
 ## Current development
+
+### Bugfixes
+
+* [PR #277:] Updates for QCPortal 0.54 (#275) [@bennybp @mattwthompson @j-wags]
+
+
+## 0.50.3 / 24-03-2024
 
 ### Bugfixes
 
@@ -21,7 +29,6 @@ Releases are given with dates in DD-MM-YYYY format.
 
 * [PR #270:] Speed up `TorsionDriveResultCollection.to_records` by batching requests [@ntBre]
 
-<!--## Version / Date DD-MM-YYYY -->
 ## 0.50.2 / 24-01-2024
 
 ### New Features
@@ -111,6 +118,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #260:]: https://github.com/openforcefield/openff-qcsubmit/pull/260
 [PR #268:]: https://github.com/openforcefield/openff-qcsubmit/pull/268
 [PR #270:]: https://github.com/openforcefield/openff-qcsubmit/pull/270
+[PR #277:]: https://github.com/openforcefield/openff-qcsubmit/pull/277
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
