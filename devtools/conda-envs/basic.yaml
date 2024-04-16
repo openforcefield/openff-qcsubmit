@@ -21,7 +21,7 @@ dependencies:
 
   - qcengine >=0.25
   - qcelemental >=0.25.1
-  - qcfractal =0.54
+  - qcfractal >=0.54
   - qcarchivetesting
   - qcportal
 
@@ -47,11 +47,3 @@ dependencies:
   # Optional
   - openmmforcefields
   - openff-fragmenter-base >=0.2.0
-
-  # https://github.com/MolSSI/QCFractal/pull/816/files
-  - pip:
-    # https://pip.pypa.io/en/stable/topics/vcs-support/#url-fragments
-    - git+https://github.com/MolSSI/QCFractal@fix_cache#subdirectory=qcportal
-    - git+https://github.com/MolSSI/QCFractal@fix_cache#subdirectory=qcarchivetesting
-    - git+https://github.com/MolSSI/QCFractal@fix_cache#subdirectory=qcfractal
-    - git+https://github.com/MolSSI/QCFractal@fix_cache#subdirectory=qcfractalcompute
