@@ -34,7 +34,7 @@ dependencies:
   # openmmforcefields brings in the full toolkit; if that is ever re-packaged
   # this should be changed to openff-toolkit-base
 
-  - openff-toolkit
+  - openff-toolkit =0.15
   - openff-units >=0.2.1
   - pydantic
   - pyyaml
