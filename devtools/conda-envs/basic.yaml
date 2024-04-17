@@ -47,3 +47,6 @@ dependencies:
   # Optional
   - openmmforcefields
   - openff-fragmenter-base >=0.2.0
+
+  - pip:
+    - git+hhttps://github.com/openforcefield/openff-toolkit.git@fix-qcsubmit-278

@@ -47,3 +47,6 @@ dependencies:
   - pint=0.21
   - openff-units=0.2.1
   - postgresql
+
+  - pip:
+    - git+hhttps://github.com/openforcefield/openff-toolkit.git@fix-qcsubmit-278
