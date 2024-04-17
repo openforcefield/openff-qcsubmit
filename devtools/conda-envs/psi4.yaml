@@ -49,4 +49,4 @@ dependencies:
   - postgresql
 
   - pip:
-    - git+hhttps://github.com/openforcefield/openff-toolkit.git@fix-qcsubmit-278
+    - git+https://github.com/openforcefield/openff-toolkit.git@fix-qcsubmit-278
