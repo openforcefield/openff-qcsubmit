@@ -32,6 +32,12 @@ jobs:
           - os: ubuntu-latest
             conda-env: basic
 
+          - os: macOS-latest
+            conda-env: basic
+
+          - os: ubuntu-latest
+            conda-env: psi4
+
     env:
       OE_LICENSE: ${{ github.workspace }}/oe_license.txt
 
