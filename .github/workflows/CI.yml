@@ -64,9 +64,14 @@ jobs:
       - name: Install Package
         run: python -m pip install .
 
+      - name: Conda Environment Information
+        run: |
+          conda info
+          conda list
+
       - name: Run Tests
         run: |
-          python -m pytest -v openff/qcsubmit/_tests/test_datasets.py::test_dataset_to_pdf_no_torsions
+          python -m pytest -v --cov=openff --cov-config=setup.cfg openff/qcsubmit/_tests/ --cov-report=xml
 
       - name: Codecov
         uses: codecov/codecov-action@v4
