@@ -642,7 +642,36 @@ def test_enumerating_protomers_apply():
 
     assert mol in result.molecules
     # this means that the parent molecule was included
-    assert result.n_molecules == 3
+    assert result.n_molecules == 2
+
+    # Test that the input is always in the output
+    enumerate_protomers = workflow_components.EnumerateProtomers(max_states=0)
+    result = enumerate_protomers.apply(
+        [
+            mol,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
+
+    assert mol in result.molecules
+    # this means that the parent molecule was included
+    assert result.n_molecules == 1
+
+    # Test that the deduplication works (this molecule has exactly 4 protomers, 
+    # so asking for up to 5 states should yield 4)
+    enumerate_protomers = workflow_components.EnumerateProtomers(max_states=5)
+    result = enumerate_protomers.apply(
+        [
+            mol,
+        ],
+        processors=1,
+        toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
+    )
+
+    assert mol in result.molecules
+    # this means that the parent molecule was included
+    assert result.n_molecules == 4
 
 
 def test_coverage_filter_remove():

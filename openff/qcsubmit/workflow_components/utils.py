@@ -541,7 +541,7 @@ class TorsionIndexer(DatasetConfig):
 
 class ComponentResult:
     """
-    Class to contain molecules after the execution of a workflow component this automatically applies de-duplication to
+    Class to contain molecules after the execution of a workflow component. This automatically applies de-duplication to
     the molecules. For example if a molecule is already in the molecules list it will not be added but any conformers
     will be kept and transferred.
 
