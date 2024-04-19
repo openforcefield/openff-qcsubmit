@@ -212,9 +212,9 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
         Returns:
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
             that passed and were filtered by the component and details about the component which generated the result.
-            Note that the input molecule is guaranteed to be included in this output, which in some cases may cause the 
-            number of molecules in the result to be one greater than max_states, or may cause a molecule in the results 
-            to have multiple conformers. 
+            Note that the input molecule is guaranteed to be included in this output, which in some cases may cause the
+            number of molecules in the result to be one greater than max_states, or may cause a molecule in the results
+            to have multiple conformers.
 
         Important:
             This is only possible using Openeye so far, if openeye is not available this step will fail.

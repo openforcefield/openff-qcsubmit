@@ -658,7 +658,7 @@ def test_enumerating_protomers_apply():
     # this means that the parent molecule was included
     assert result.n_molecules == 1
 
-    # Test that the deduplication works (this molecule has exactly 4 protomers, 
+    # Test that the deduplication works (this molecule has exactly 4 protomers,
     # so asking for up to 5 states should yield 4)
     enumerate_protomers = workflow_components.EnumerateProtomers(max_states=5)
     result = enumerate_protomers.apply(
