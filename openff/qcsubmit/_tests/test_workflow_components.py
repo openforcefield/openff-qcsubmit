@@ -644,7 +644,7 @@ def test_enumerating_protomers_apply():
     # this means that the parent molecule was included
     assert result.n_molecules == 2
 
-    # Test that the input is always in the output, even when it 
+    # Test that the input is always in the output, even when it
     # wouldn't have been generated as a possible protomer
     enumerate_protomers = workflow_components.EnumerateProtomers(max_states=1)
     weird_mol = Molecule.from_smiles("[N-]([H])[H]")
