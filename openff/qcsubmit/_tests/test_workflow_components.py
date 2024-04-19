@@ -645,10 +645,12 @@ def test_enumerating_protomers_apply():
     assert result.n_molecules == 2
 
     # Test that the input is always in the output
-    enumerate_protomers = workflow_components.EnumerateProtomers(max_states=0)
+    enumerate_protomers = workflow_components.EnumerateProtomers(max_states=1)
+    weird_mol = Molecule.from_smiles("[N-]([H])[H]")
+
     result = enumerate_protomers.apply(
         [
-            mol,
+            weird_mol,
         ],
         processors=1,
         toolkit_registry=GLOBAL_TOOLKIT_REGISTRY,
@@ -656,11 +658,12 @@ def test_enumerating_protomers_apply():
 
     assert mol in result.molecules
     # this means that the parent molecule was included
-    assert result.n_molecules == 1
+    assert result.n_molecules == 2
 
     # Test that the deduplication works (this molecule has exactly 4 protomers,
     # so asking for up to 5 states should yield 4)
     enumerate_protomers = workflow_components.EnumerateProtomers(max_states=5)
+    mol = Molecule.from_smiles("Oc2ccc(c1ccncc1)cc2")
     result = enumerate_protomers.apply(
         [
             mol,
