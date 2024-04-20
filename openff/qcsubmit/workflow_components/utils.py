@@ -772,7 +772,7 @@ class ComponentResult:
         else:
             if molecule.n_conformers == 0:
                 # make sure this is a list to avoid errors
-                molecule._conformers = []
+                molecule._conformers = None
             self._molecules[molecule_hash] = molecule
             return False
 
