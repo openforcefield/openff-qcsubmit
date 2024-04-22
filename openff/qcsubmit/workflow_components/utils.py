@@ -760,7 +760,10 @@ class ComponentResult:
                     new_conf = unit.Quantity(new_conformer, unit.angstrom)
 
                     # check if the conformer is already on the molecule
-                    for old_conformer in self._molecules[molecule_hash].conformers:
+                    old_conformers = self._molecules[molecule_hash].conformers
+                    if old_conformers is None:
+                        old_conformers = []
+                    for old_conformer in old_conformers:
                         if old_conformer.tolist() == new_conf.tolist():
                             break
                     else:
