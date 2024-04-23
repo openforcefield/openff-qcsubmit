@@ -10,11 +10,11 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
-## Current development
+## 0.50.4 / 23-04-2024
 
 ### Bugfixes
 
-* [PR #277:] Updates for QCPortal 0.54 (#275) [@bennybp @mattwthompson @j-wags]
+* [PR #277:] Updates for QCPortal 0.54 (#275) and OpenFF Toolkit 0.16 (#278) [@bennybp @mattwthompson @j-wags]
 
 
 ## 0.50.3 / 24-03-2024
