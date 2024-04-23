@@ -21,7 +21,7 @@ dependencies:
 
   - qcengine >=0.25
   - qcelemental >=0.25.1
-  - qcfractal =0.53
+  - qcfractal >=0.54
   - qcarchivetesting
   - qcportal
 

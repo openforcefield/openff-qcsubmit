@@ -541,7 +541,7 @@ class TorsionIndexer(DatasetConfig):
 
 class ComponentResult:
     """
-    Class to contain molecules after the execution of a workflow component this automatically applies de-duplication to
+    Class to contain molecules after the execution of a workflow component. This automatically applies de-duplication to
     the molecules. For example if a molecule is already in the molecules list it will not be added but any conformers
     will be kept and transferred.
 
@@ -760,7 +760,10 @@ class ComponentResult:
                     new_conf = unit.Quantity(new_conformer, unit.angstrom)
 
                     # check if the conformer is already on the molecule
-                    for old_conformer in self._molecules[molecule_hash].conformers:
+                    old_conformers = self._molecules[molecule_hash].conformers
+                    if old_conformers is None:
+                        old_conformers = []
+                    for old_conformer in old_conformers:
                         if old_conformer.tolist() == new_conf.tolist():
                             break
                     else:
@@ -772,7 +775,7 @@ class ComponentResult:
         else:
             if molecule.n_conformers == 0:
                 # make sure this is a list to avoid errors
-                molecule._conformers = []
+                molecule._conformers = None
             self._molecules[molecule_hash] = molecule
             return False
 

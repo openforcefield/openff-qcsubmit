@@ -206,7 +206,7 @@ def combine_openff_molecules(molecules: List[Molecule]) -> Molecule:
 
     master_mol = copy.deepcopy(molecules.pop(0))
     conformers = [*master_mol.conformers]
-    master_mol._conformers = []
+    master_mol._conformers = None
     index_map = {}
     for molecule in molecules:
         for atom in molecule.atoms:

@@ -174,7 +174,7 @@ def test_componentresult_str():
     )
 
 
-def test_componetresult_deduplication_standard():
+def test_componentresult_deduplication_standard():
     """
     Test the components results ability to deduplicate molecules.
     """
@@ -202,7 +202,7 @@ def test_componetresult_deduplication_standard():
     assert len(result.filtered) == 0
 
 
-def test_componetresult_directory():
+def test_componentresult_directory():
     """
     Test loading up some molecules from a directory of files.
     """
@@ -233,7 +233,7 @@ def test_componetresult_directory():
         pytest.param("hdf5-example.hdf5", id="HDF5 file"),
     ],
 )
-def test_componetresult_input_file(file_name):
+def test_componentresult_input_file(file_name):
     """
     Test loading up some molecules from an input file
     """

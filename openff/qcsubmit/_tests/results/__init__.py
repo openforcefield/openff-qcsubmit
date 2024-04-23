@@ -180,7 +180,7 @@ def mock_torsion_drive_result_collection(
                             ),
                         ),
                     ),
-                    initial_molecules_ids_=[
+                    initial_molecules_ids=[
                         i + 1
                         for i in range(
                             molecules[address][int(entry.record_id) - 1].n_conformers
