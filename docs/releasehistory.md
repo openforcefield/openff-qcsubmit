@@ -14,7 +14,7 @@ Releases are given with dates in DD-MM-YYYY format.
 
 ### Behaviors changed
 
-* [PR #277:] Changes the behavior of the `max_states` named argument to `workflow_components.EnumerateProtomers`. Previously this could return anywhere from `1` to `max_states+2`, but now it can return `1` to `max_states+1` (depending on whether the backend includes the input in the protomers that are generated). 
+* [PR #277:] Changes the behavior of the `max_states` named argument to `workflow_components.EnumerateProtomers`. Previously this could return anywhere from `1` to `max_states+2`, but now it can return `1` to `max_states+1` (depending on whether the backend includes the input in the protomers that are generated).  
 
 ### Bugfixes
 
