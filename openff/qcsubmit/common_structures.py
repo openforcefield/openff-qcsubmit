@@ -396,8 +396,7 @@ class PCMSettings(ResultsConfig):
         pcm_string = f"""
         Units = {self.units}
         CODATA = {self.codata}
-        Medium {{{medium_str
-        }}}
+        Medium {{{medium_str}}}
         Cavity {{{cavity_str}}}"""
         return pcm_string
 
