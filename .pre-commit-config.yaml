@@ -7,7 +7,7 @@ repos:
   - id: check-yaml
   - id: debug-statements
 - repo: https://github.com/psf/black
-  rev: 24.4.0
+  rev: 24.4.1
   hooks:
   - id: black
     files: ^openff
@@ -32,5 +32,3 @@ repos:
     - id: nbqa-flake8
       args:
         - '--select=F'
-default_language_version:
-  python: python3.11
