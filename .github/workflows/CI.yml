@@ -32,7 +32,7 @@ jobs:
           - os: ubuntu-latest
             conda-env: basic
 
-          - os: macOS-latest
+          - os: macOS-12
             conda-env: basic
 
           - os: ubuntu-latest
