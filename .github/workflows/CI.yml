@@ -74,9 +74,12 @@ jobs:
       #    python -m pytest -r xfEs -n logical --cov=openff --cov-config=setup.cfg openff/qcsubmit/_tests/ --cov-report=xml
 
       - name: Run example notebooks
+        env:
+          PYTEST_ARGS: -p no:randomly -r fE -v -x --tb=short -nauto
+          NB_ARGS: --nbval-lax --dist loadscope
         run: |
-          python -m pytest --nbval-lax -r xfEs -n logical examples         
-      
+          python -m pytest $PYTEST_ARGS $NB_ARGS examples
+
       - name: Codecov
         uses: codecov/codecov-action@v4
         with:
