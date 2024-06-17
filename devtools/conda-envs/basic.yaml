@@ -18,6 +18,7 @@ dependencies:
   - pytest-xdist
   - pytest-randomly
   - requests-mock
+  - nbval
 
   - qcengine >=0.25
   - qcelemental >=0.25.1
