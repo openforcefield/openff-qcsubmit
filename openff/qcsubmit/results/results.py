@@ -189,7 +189,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             )
 
     @abc.abstractmethod
-    def to_records(self, verify=True) -> List[Tuple[BaseRecord, Molecule]]:
+    def to_records(self, client_kwargs: Optional[dict] = None) -> List[Tuple[BaseRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
         """
@@ -371,7 +371,7 @@ class BasicResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self, verify=True) -> List[Tuple[SinglepointRecord, Molecule]]:
+    def to_records(self, client_kwargs: Optional[dict] = None) -> List[Tuple[SinglepointRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 
@@ -379,9 +379,11 @@ class BasicResultCollection(_BaseResultCollection):
         """
 
         records_and_molecules = []
+        if client_kwargs is None:
+            client_kwargs = dict()
 
         for client_address, records in self.entries.items():
-            client = PortalClient(client_address, verify=verify)
+            client = PortalClient(client_address, **client_kwargs)
 
             # TODO - batching/chunking (maybe in portal?)
             for record in records:
@@ -522,7 +524,7 @@ class OptimizationResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self, verify=True) -> List[Tuple[OptimizationRecord, Molecule]]:
+    def to_records(self, client_kwargs: Optional[dict] = None) -> List[Tuple[OptimizationRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 
@@ -531,9 +533,11 @@ class OptimizationResultCollection(_BaseResultCollection):
         """
 
         records_and_molecules = []
+        if client_kwargs is None:
+            client_kwargs = dict()
 
         for client_address, results in self.entries.items():
-            client = PortalClient(client_address, verify=verify)
+            client = PortalClient(client_address, **client_kwargs)
 
             rec_ids = [result.record_id for result in results]
             # Do one big request to save time
@@ -791,7 +795,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self, verify=True) -> List[Tuple[TorsiondriveRecord, Molecule]]:
+    def to_records(self, client_kwargs: Optional[dict] = None) -> List[Tuple[TorsiondriveRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 
@@ -800,9 +804,11 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         """
 
         records_and_molecules = []
+        if client_kwargs is None:
+            client_kwargs = dict()
 
         for client_address, records in self.entries.items():
-            client = PortalClient(client_address, verify=verify)
+            client = PortalClient(client_address, **client_kwargs)
 
             # retrieve all torsiondrives at once, including their
             # minimum_optimizations
