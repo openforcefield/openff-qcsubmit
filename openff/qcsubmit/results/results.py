@@ -189,7 +189,9 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             )
 
     @abc.abstractmethod
-    def to_records(self, client_kwargs: Optional[dict] = None) -> List[Tuple[BaseRecord, Molecule]]:
+    def to_records(
+        self, client_kwargs: Optional[dict] = None
+    ) -> List[Tuple[BaseRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
         """
@@ -371,7 +373,9 @@ class BasicResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self, client_kwargs: Optional[dict] = None) -> List[Tuple[SinglepointRecord, Molecule]]:
+    def to_records(
+        self, client_kwargs: Optional[dict] = None
+    ) -> List[Tuple[SinglepointRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 
@@ -524,7 +528,9 @@ class OptimizationResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self, client_kwargs: Optional[dict] = None) -> List[Tuple[OptimizationRecord, Molecule]]:
+    def to_records(
+        self, client_kwargs: Optional[dict] = None
+    ) -> List[Tuple[OptimizationRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 
@@ -795,7 +801,9 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self, client_kwargs: Optional[dict] = None) -> List[Tuple[TorsiondriveRecord, Molecule]]:
+    def to_records(
+        self, client_kwargs: Optional[dict] = None
+    ) -> List[Tuple[TorsiondriveRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 
