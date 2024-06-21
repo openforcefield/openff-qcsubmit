@@ -10,6 +10,12 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
+## Current development
+
+### Examples updated
+
+* [PR #283:] Run examples in CI, updates for QCPortal 0.54 and API changes in #141
+
 ## 0.51.0 / 23-04-2024
 
 ### Behaviors changed
@@ -123,6 +129,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #268:]: https://github.com/openforcefield/openff-qcsubmit/pull/268
 [PR #270:]: https://github.com/openforcefield/openff-qcsubmit/pull/270
 [PR #277:]: https://github.com/openforcefield/openff-qcsubmit/pull/277
+[PR #283:]: https://github.com/openforcefield/openff-qcsubmit/pull/283
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
