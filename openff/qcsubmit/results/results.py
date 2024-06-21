@@ -26,7 +26,6 @@ import qcportal
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
-from qcportal import PortalClient
 from qcportal.dataset_models import BaseDataset as QCPDataset
 from qcportal.optimization import OptimizationDataset, OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
@@ -377,11 +376,12 @@ class BasicResultCollection(_BaseResultCollection):
 
         Each molecule will contain the conformer referenced by the record.
         """
+        from openff.qcsubmit.utils.utils import default_portal_client
 
         records_and_molecules = []
 
         for client_address, records in self.entries.items():
-            client = PortalClient(client_address)
+            client = default_portal_client(client_address)
 
             # TODO - batching/chunking (maybe in portal?)
             for record in records:
@@ -529,11 +529,12 @@ class OptimizationResultCollection(_BaseResultCollection):
         Each molecule will contain the minimum energy conformer referenced by the
         record.
         """
+        from openff.qcsubmit.utils.utils import default_portal_client
 
         records_and_molecules = []
 
         for client_address, results in self.entries.items():
-            client = PortalClient(client_address)
+            client = default_portal_client(client_address)
 
             rec_ids = [result.record_id for result in results]
             # Do one big request to save time
@@ -584,6 +585,7 @@ class OptimizationResultCollection(_BaseResultCollection):
             The results collection referencing records created from the final optimized
             structures referenced by this collection.
         """
+        from openff.qcsubmit.utils.utils import default_portal_client
 
         records_and_molecules = self.to_records()
 
@@ -597,7 +599,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         result_entries = defaultdict(list)
 
         for client_address in result_records:
-            client = PortalClient(client_address)
+            client = default_portal_client(client_address)
 
             # Batch all the queries into one big request here
             mol_ids = [i[0] for i in result_records[client_address]]
@@ -798,11 +800,12 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         Each molecule will contain the minimum energy conformer referenced by the
         record.
         """
+        from openff.qcsubmit.utils.utils import default_portal_client
 
         records_and_molecules = []
 
         for client_address, records in self.entries.items():
-            client = PortalClient(client_address)
+            client = default_portal_client(client_address)
 
             # retrieve all torsiondrives at once, including their
             # minimum_optimizations

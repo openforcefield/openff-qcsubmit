@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import Dict, Generator, List, Tuple
 
 from openff.toolkit import topology as off
@@ -5,6 +6,23 @@ from openff.toolkit.utils.toolkits import (
     RDKitToolkitWrapper,
     UndefinedStereochemistryError,
 )
+from qcportal import PortalClient
+
+
+def default_portal_client(client_address) -> PortalClient:
+    return PortalClient(client_address)
+
+
+@contextmanager
+def portal_client_manager(portal_client_fn):
+    global default_portal_client
+    original_client_fn = default_portal_client
+    default_portal_client = portal_client_fn
+    try:
+        yield
+    finally:
+        default_portal_client = original_client_fn
+    pass
 
 
 def get_data(relative_path):
