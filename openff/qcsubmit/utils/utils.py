@@ -22,7 +22,6 @@ def portal_client_manager(portal_client_fn):
         yield
     finally:
         _default_portal_client = original_client_fn
-    pass
 
 
 def get_data(relative_path):
