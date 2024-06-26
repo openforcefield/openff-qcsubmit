@@ -1,3 +1,4 @@
+import os
 from typing import Dict, Generator, List, Tuple
 
 from openff.toolkit import topology as off
@@ -17,7 +18,9 @@ def client_record_cache(client: PortalClient) -> bool:
     """
     if client.cache and client.cache.cache_dir:
         if not hasattr(client, "record_cache"):
-            client.record_cache = RecordCache(client.cache.cache_dir, read_only=False)
+            client.record_cache = RecordCache(
+                os.path.join(client.cache.cache_dir, "cache.sqlite"), read_only=False
+            )
         return True
     return False
 
