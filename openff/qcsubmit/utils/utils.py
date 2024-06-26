@@ -1,3 +1,4 @@
+import os
 from typing import Dict, Generator, List, Tuple
 
 from openff.toolkit import topology as off
@@ -5,6 +6,23 @@ from openff.toolkit.utils.toolkits import (
     RDKitToolkitWrapper,
     UndefinedStereochemistryError,
 )
+from qcportal import PortalClient
+from qcportal.cache import RecordCache
+
+
+def client_record_cache(client: PortalClient) -> bool:
+    """Initialize a RecordCache stored on `client` if the client already has a
+    cache_dir. Returns whether or not this was the case (whether caching should
+    be used)
+
+    """
+    if client.cache and client.cache.cache_dir:
+        if not hasattr(client, "record_cache"):
+            client.record_cache = RecordCache(
+                os.path.join(client.cache.cache_dir, "cache.sqlite"), read_only=False
+            )
+        return True
+    return False
 
 
 def get_data(relative_path):
