@@ -34,7 +34,9 @@ def portal_client_manager(portal_client_fn):
 
     >>> from openff.qcsubmit.utils.utils import portal_client_manager
     >>> from qcportal import PortalClient
-    >>> with portal_client_manager(lambda addr: PortalClient(addr, cache_dir=".")):
+    >>> def my_portal_client(client_address):
+    >>>     return PortalClient(client_address, cache_dir=".")
+    >>> with portal_client_manager(my_portal_client):
     >>>     records_and_molecules = ds.to_records()
 
     """
