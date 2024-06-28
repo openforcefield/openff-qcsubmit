@@ -29,22 +29,13 @@ def no_internet():
 
 
 def test_manager():
-    ds = OptimizationResultCollection.parse_file(get_data("tiny-opt-dataset.json"))
-    with (
-        TemporaryDirectory() as d,
-        portal_client_manager(lambda addr: PortalClient(addr, cache_dir=d)),
-    ):
-        ds.to_records()
-        assert (Path(d) / "api.qcarchive.molssi.org_443").exists()
-
-
-def test_manager2():
     """Retrieve a full dataset from QCArchive to populate the cache, then
     access the cache offline in `to_records` by passing the same client args to
     the `portal_client_manager`
     """
     with TemporaryDirectory() as d:
         client = PortalClient("https://api.qcarchive.molssi.org:443", cache_dir=d)
+        assert (Path(d) / "api.qcarchive.molssi.org_443").exists()
         opt = OptimizationResultCollection.from_server(
             client,
             "OpenFF Torsion Multiplicity Optimization Training Coverage Supplement v1.0",
