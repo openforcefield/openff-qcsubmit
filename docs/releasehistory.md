@@ -17,6 +17,10 @@ Releases are given with dates in DD-MM-YYYY format.
 * [PR #283:] Run examples in CI, updates for QCPortal 0.54 and API changes in #141
 * [PR #285:] Add 2D torsion drive visualization
 
+### New Features
+
+* [PR #284:] Add `portal_client_manager` for using custom `PortalClient` settings
+
 ## 0.51.0 / 23-04-2024
 
 ### Behaviors changed
@@ -131,6 +135,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #270:]: https://github.com/openforcefield/openff-qcsubmit/pull/270
 [PR #277:]: https://github.com/openforcefield/openff-qcsubmit/pull/277
 [PR #283:]: https://github.com/openforcefield/openff-qcsubmit/pull/283
+[PR #284:]: https://github.com/openforcefield/openff-qcsubmit/pull/284
 [PR #285:]: https://github.com/openforcefield/openff-qcsubmit/pull/285
 
 [@jthorton]: https://github.com/jthorton

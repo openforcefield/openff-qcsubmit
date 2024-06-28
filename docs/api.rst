@@ -182,7 +182,7 @@ State Enumeration
     EnumerateTautomers
     ScanEnumerator
 
-Utils
+Workflow Utilities
 """""
 
 .. currentmodule:: openff.qcsubmit.workflow_components
@@ -221,6 +221,16 @@ Common Structures
     MoleculeAttributes
     SCFProperties
     CommonBase
+
+Utilities
+---------
+
+.. currentmodule:: openff.qcsubmit.utils
+.. autosummary::
+    :nosignatures:
+    :toctree: api/generated/
+
+	portal_client_manager
 
 Exceptions
 ----------

@@ -7,6 +7,7 @@ from openff.qcsubmit.utils.utils import (
     get_symmetry_classes,
     get_symmetry_group,
     get_torsion,
+    portal_client_manager,
     remap_list,
 )
 
@@ -20,4 +21,5 @@ __all__ = [
     "remap_list",
     "get_symmetry_classes",
     "get_symmetry_group",
+    "portal_client_manager",
 ]

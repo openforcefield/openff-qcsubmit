@@ -1,10 +1,54 @@
-from typing import Dict, Generator, List, Tuple
+from contextlib import contextmanager
+from typing import Callable, Dict, Generator, List, Tuple
 
 from openff.toolkit import topology as off
 from openff.toolkit.utils.toolkits import (
     RDKitToolkitWrapper,
     UndefinedStereochemistryError,
 )
+from qcportal import PortalClient
+
+
+def _default_portal_client(client_address) -> PortalClient:
+    return PortalClient(client_address)
+
+
+@contextmanager
+def portal_client_manager(portal_client_fn: Callable[[str], PortalClient]):
+    """A context manager that temporarily changes the default
+    ``qcportal.PortalClient`` constructor used internally in functions like
+    ``BasicResultCollection.to_records`` and many of the ``ResultFilter``
+    classes. This can be especially useful if you need to provide additional
+    keyword arguments to the ``PortalClient``, such as ``verify=False`` or a
+    ``cache_dir``.
+
+    Parameters
+    ----------
+    portal_client_fn:
+        A function returning a PortalClient
+
+    Examples
+    --------
+
+    Assuming you already have a dataset defined as ``ds``, call ``to_records``
+    and use an existing cache in the current working directory if present or
+    create a new one automatically:
+
+    >>> from openff.qcsubmit.utils import portal_client_manager
+    >>> from qcportal import PortalClient
+    >>> def my_portal_client(client_address):
+    >>>     return PortalClient(client_address, cache_dir=".")
+    >>> with portal_client_manager(my_portal_client):
+    >>>     records_and_molecules = ds.to_records()
+
+    """
+    global _default_portal_client
+    original_client_fn = _default_portal_client
+    _default_portal_client = portal_client_fn
+    try:
+        yield
+    finally:
+        _default_portal_client = original_client_fn
 
 
 def get_data(relative_path):
