@@ -24,7 +24,8 @@ def portal_client_manager(portal_client_fn: Callable[[str], PortalClient]):
 
     Parameters
     ----------
-    portal_client_fn : A function returning a PortalClient
+    portal_client_fn:
+        A function returning a PortalClient
 
     Examples
     --------
