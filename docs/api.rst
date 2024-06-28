@@ -182,7 +182,7 @@ State Enumeration
     EnumerateTautomers
     ScanEnumerator
 
-Utils
+Workflow Utilities
 """""
 
 .. currentmodule:: openff.qcsubmit.workflow_components
