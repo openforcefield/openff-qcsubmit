@@ -6,7 +6,7 @@ import pytest
 from qcportal import PortalClient
 
 from openff.qcsubmit.results import OptimizationResultCollection
-from openff.qcsubmit.utils.utils import get_data, portal_client_manager
+from openff.qcsubmit.utils import portal_client_manager
 
 
 @contextmanager
