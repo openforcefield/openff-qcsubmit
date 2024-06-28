@@ -32,7 +32,7 @@ def portal_client_manager(portal_client_fn):
     use an existing cache in the current working directory if present or create
     a new one automatically:
 
-    >>> from openff.qcsubmit.utils.utils import portal_client_manager
+    >>> from openff.qcsubmit.utils import portal_client_manager
     >>> from qcportal import PortalClient
     >>> def my_portal_client(client_address):
     >>>     return PortalClient(client_address, cache_dir=".")
