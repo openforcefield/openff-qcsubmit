@@ -16,10 +16,11 @@ def _default_portal_client(client_address) -> PortalClient:
 @contextmanager
 def portal_client_manager(portal_client_fn):
     """A context manager that temporarily changes the default
-    `qcportal.PortalClient` constructor used internally in functions like
-    `BasicResultCollection.to_records` and many of the `ResultFilter` classes.
-    This can be especially useful if you need to provide additional keyword
-    arguments to the `PortalClient`, such as `verify=False` or a `cache_dir`.
+    ``qcportal.PortalClient`` constructor used internally in functions like
+    ``BasicResultCollection.to_records`` and many of the ``ResultFilter``
+    classes. This can be especially useful if you need to provide additional
+    keyword arguments to the ``PortalClient``, such as ``verify=False`` or a
+    ``cache_dir``.
 
     Parameters
     ----------
@@ -28,9 +29,9 @@ def portal_client_manager(portal_client_fn):
     Examples
     --------
 
-    Assuming you already have a dataset defined as `ds`, call `to_records` and
-    use an existing cache in the current working directory if present or create
-    a new one automatically:
+    Assuming you already have a dataset defined as ``ds``, call ``to_records``
+    and use an existing cache in the current working directory if present or
+    create a new one automatically:
 
     >>> from openff.qcsubmit.utils import portal_client_manager
     >>> from qcportal import PortalClient
