@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from typing import Dict, Generator, List, Tuple
+from typing import Callable, Dict, Generator, List, Tuple
 
 from openff.toolkit import topology as off
 from openff.toolkit.utils.toolkits import (
@@ -14,7 +14,7 @@ def _default_portal_client(client_address) -> PortalClient:
 
 
 @contextmanager
-def portal_client_manager(portal_client_fn):
+def portal_client_manager(portal_client_fn: Callable[[str], PortalClient]):
     """A context manager that temporarily changes the default
     ``qcportal.PortalClient`` constructor used internally in functions like
     ``BasicResultCollection.to_records`` and many of the ``ResultFilter``
