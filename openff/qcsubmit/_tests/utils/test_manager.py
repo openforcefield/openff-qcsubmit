@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from qcportal import PortalClient
 
 from openff.qcsubmit.results import OptimizationResultCollection
@@ -52,4 +53,6 @@ def test_manager2():
         # same client in the lambda prevents the network access that occurs
         # when creating the client
         with portal_client_manager(lambda _: client), no_internet():
+            opt.to_records()
+        with no_internet(), pytest.raises(Exception, match="socket accessed"):
             opt.to_records()
