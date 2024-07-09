@@ -19,6 +19,8 @@ dependencies:
   - pytest-randomly
   - requests-mock
   - nbval
+  - plotly
+  - nglview
 
   - qcengine >=0.25
   - qcelemental >=0.25.1
