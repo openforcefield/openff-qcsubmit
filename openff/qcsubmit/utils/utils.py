@@ -26,6 +26,8 @@ from qcportal.torsiondrive.record_models import TorsiondriveRecord
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_CACHE_DIR = "./qcsubmit_qcportal_cache"
+
 
 class CachedPortalClient(PortalClient):
     def __init__(self, addr, cache_dir, **client_kwargs):
@@ -108,7 +110,7 @@ class CachedPortalClient(PortalClient):
 
 
 def _default_portal_client(client_address) -> PortalClient:
-    return CachedPortalClient(client_address, cache_dir="./qcsubmit_qcportal_cache")
+    return CachedPortalClient(client_address, cache_dir=_DEFAULT_CACHE_DIR)
 
 
 @contextmanager
