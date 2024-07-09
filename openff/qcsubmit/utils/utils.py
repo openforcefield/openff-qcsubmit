@@ -86,7 +86,7 @@ class CachedPortalClient(PortalClient):
 
 
 def _default_portal_client(client_address) -> PortalClient:
-    return PortalClient(client_address)
+    return CachedPortalClient(client_address, cache_dir="./qcsubmit_qcportal_cache")
 
 
 @contextmanager
