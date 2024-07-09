@@ -223,7 +223,7 @@ def test_basic_submissions_property_driver(fulltest_client, water):
     """Make sure the keywords are formatted properly if we use the property driver."""
 
     if not has_program("psi4"):
-        pytest.skip(f"Program psi4 not found.")
+        pytest.skip("Program psi4 not found.")
 
     client = fulltest_client
 
