@@ -45,8 +45,9 @@ class CachedPortalClient(PortalClient):
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
         if not isinstance(record_ids, Sequence):
+            unpack = True
             record_ids = [record_ids]
-        return get_records_with_cache(
+        res = get_records_with_cache(
             client=self,
             record_cache=self.record_cache,
             record_type=OptimizationRecord,
@@ -54,6 +55,10 @@ class CachedPortalClient(PortalClient):
             include=include,
             force_fetch=False,
         )
+        if unpack:
+            return res[0]
+        else:
+            return res
 
     def get_singlepoints(
         self,
@@ -65,8 +70,9 @@ class CachedPortalClient(PortalClient):
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
         if not isinstance(record_ids, Sequence):
+            unpack = True
             record_ids = [record_ids]
-        return get_records_with_cache(
+        res = get_records_with_cache(
             client=self,
             record_cache=self.record_cache,
             record_type=SinglepointRecord,
@@ -74,6 +80,10 @@ class CachedPortalClient(PortalClient):
             include=include,
             force_fetch=False,
         )
+        if unpack:
+            return res[0]
+        else:
+            return res
 
     def get_torsiondrives(
         self,
@@ -85,8 +95,9 @@ class CachedPortalClient(PortalClient):
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
         if not isinstance(record_ids, Sequence):
+            unpack = True
             record_ids = [record_ids]
-        return get_records_with_cache(
+        res = get_records_with_cache(
             client=self,
             record_cache=self.record_cache,
             record_type=TorsiondriveRecord,
@@ -94,6 +105,10 @@ class CachedPortalClient(PortalClient):
             include=include,
             force_fetch=False,
         )
+        if unpack:
+            return res[0]
+        else:
+            return res
 
     def get_molecules(
         self,
@@ -103,8 +118,9 @@ class CachedPortalClient(PortalClient):
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
         if not isinstance(molecule_ids, Sequence):
+            unpack = True
             molecule_ids = [molecule_ids]
-        return get_records_with_cache(
+        res = get_records_with_cache(
             client=self,
             record_cache=self.record_cache,
             record_type=Molecule,
@@ -112,6 +128,10 @@ class CachedPortalClient(PortalClient):
             include=None,
             force_fetch=False,
         )
+        if unpack:
+            return res[0]
+        else:
+            return res
 
 
 def _default_portal_client(client_address) -> PortalClient:
