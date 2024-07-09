@@ -27,7 +27,6 @@ from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
 from qcportal import PortalClient
-from qcportal.cache import get_records_with_cache
 from qcportal.dataset_models import BaseDataset as QCPDataset
 from qcportal.optimization import OptimizationDataset, OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
@@ -44,7 +43,6 @@ from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSp
 from openff.qcsubmit.datasets import BasicDataset
 from openff.qcsubmit.exceptions import RecordTypeError
 from openff.qcsubmit.utils.smirnoff import smirnoff_coverage, smirnoff_torsion_coverage
-from openff.qcsubmit.utils.utils import client_record_cache
 
 if TYPE_CHECKING:
     from openff.qcsubmit.results.filters import ResultFilter
@@ -384,22 +382,10 @@ class BasicResultCollection(_BaseResultCollection):
 
         for client_address, records in self.entries.items():
             client = PortalClient(client_address)
-            use_cache = client_record_cache(client)
 
             # TODO - batching/chunking (maybe in portal?)
             for record in records:
-                if use_cache:
-                    rec = get_records_with_cache(
-                        client,
-                        client.record_cache,
-                        SinglepointRecord,
-                        [record.record_id],
-                        include=["molecule"],
-                    )[0]
-                else:
-                    rec = client.get_singlepoints(
-                        record.record_id, include=["molecule"]
-                    )
+                rec = client.get_singlepoints(record.record_id, include=["molecule"])
 
                 # OpenFF molecule
                 try:
@@ -548,23 +534,12 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         for client_address, results in self.entries.items():
             client = PortalClient(client_address)
-            use_cache = client_record_cache(client)
 
-            # Do one big request to save time
             rec_ids = [result.record_id for result in results]
-
-            if use_cache:
-                opt_records = get_records_with_cache(
-                    client,
-                    client.record_cache,
-                    OptimizationRecord,
-                    rec_ids,
-                    include=["initial_molecule", "final_molecule"],
-                )
-            else:
-                opt_records = client.get_optimizations(
-                    rec_ids, include=["initial_molecule", "final_molecule"]
-                )
+            # Do one big request to save time
+            opt_records = client.get_optimizations(
+                rec_ids, include=["initial_molecule", "final_molecule"]
+            )
             # Sort out which records from the request line up with which results
             opt_rec_id_to_result = dict()
             for result in results:
@@ -828,23 +803,13 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
         for client_address, records in self.entries.items():
             client = PortalClient(client_address)
-            use_cache = client_record_cache(client)
 
             # retrieve all torsiondrives at once, including their
             # minimum_optimizations
             record_ids = [r.record_id for r in records]
-            if use_cache:
-                torsion_drive_records = get_records_with_cache(
-                    client,
-                    client.record_cache,
-                    TorsiondriveRecord,
-                    record_ids,
-                    include=["minimum_optimizations"],
-                )
-            else:
-                torsion_drive_records = client.get_torsiondrives(
-                    record_ids, include=["minimum_optimizations"]
-                )
+            torsion_drive_records = client.get_torsiondrives(
+                record_ids, include=["minimum_optimizations"]
+            )
             for record, rec in zip(records, torsion_drive_records):
                 # OpenFF molecule
                 try:
@@ -860,26 +825,10 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
                 # retrieve all minimum_optimizations at once
                 opt_ids = [v.id for v in rec.minimum_optimizations.values()]
-                if use_cache:
-                    opt_records = get_records_with_cache(
-                        client,
-                        client.record_cache,
-                        OptimizationRecord,
-                        opt_ids,
-                    )
-                else:
-                    opt_records = client.get_optimizations(opt_ids)
+                opt_records = client.get_optimizations(opt_ids)
                 # retrieve all final_molecules at once
                 opt_final_molecule_ids = [r.final_molecule_id for r in opt_records]
-                if use_cache:
-                    opt_final_molecules = get_records_with_cache(
-                        client,
-                        client.record_cache,
-                        qcportal.molecules.Molecule,  # not sure this is right
-                        opt_final_molecule_ids,
-                    )
-                else:
-                    opt_final_molecules = client.get_molecules(opt_final_molecule_ids)
+                opt_final_molecules = client.get_molecules(opt_final_molecule_ids)
                 # Map of torsion drive keys to minimum optimization
                 qc_grid_molecules = list(
                     zip(rec.minimum_optimizations.keys(), opt_final_molecules)
