@@ -460,7 +460,7 @@ def test_adding_specifications(water):
         program="openmm",
         spec_description="default openff spec",
         spec_name="openff-1.0.0",
-        overwrite=True
+        overwrite=True,
     )
     assert opt_dataset.qc_specifications["openff-1.0.0"].method == "openff-1.0.0"
 
