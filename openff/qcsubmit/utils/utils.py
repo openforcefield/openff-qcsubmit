@@ -106,35 +106,6 @@ class CachedPortalClient(PortalClient):
         else:
             return res
 
-    # Molecule is not a true record type (it's just re-exported from
-    # qcelemental), so it doesn't play well with the get_records_with_cache
-    # approach. get_records_with_cache calls client._fetch_records, which peeks
-    # at record_type.__fields__["record_type"] that Molecules don't have.
-    # PortalClient.get_molecules does all the work itself instead of delegating
-    # to _get_records_by_type and _fetch_records
-
-    # def get_molecules(
-    #     self,
-    #     molecule_ids: Union[int, Sequence[int]],
-    #     missing_ok: bool = False,
-    # ) -> Union[Optional[Molecule], List[Optional[Molecule]]]:
-    #     if missing_ok:
-    #         logger.warning("missing_ok provided but unused by CachedPortalClient")
-    #     if unpack := not isinstance(molecule_ids, Sequence):
-    #         molecule_ids = [molecule_ids]
-    #     res = get_records_with_cache(
-    #         client=self,
-    #         record_cache=self.record_cache,
-    #         record_type=Molecule,
-    #         record_ids=molecule_ids,
-    #         include=None,
-    #         force_fetch=False,
-    #     )
-    #     if unpack:
-    #         return res[0]
-    #     else:
-    #         return res
-
 
 def _default_portal_client(client_address) -> PortalClient:
     return CachedPortalClient(client_address, cache_dir="./qcsubmit_qcportal_cache")
