@@ -43,8 +43,7 @@ class CachedPortalClient(PortalClient):
     ) -> Union[Optional[OptimizationRecord], List[Optional[OptimizationRecord]]]:
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
-        if not isinstance(record_ids, Sequence):
-            unpack = True
+        if unpack := not isinstance(record_ids, Sequence):
             record_ids = [record_ids]
         res = get_records_with_cache(
             client=self,
@@ -68,8 +67,7 @@ class CachedPortalClient(PortalClient):
     ) -> Union[Optional[SinglepointRecord], List[Optional[SinglepointRecord]]]:
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
-        if not isinstance(record_ids, Sequence):
-            unpack = True
+        if unpack := not isinstance(record_ids, Sequence):
             record_ids = [record_ids]
         res = get_records_with_cache(
             client=self,
@@ -93,8 +91,7 @@ class CachedPortalClient(PortalClient):
     ) -> Union[Optional[TorsiondriveRecord], List[Optional[TorsiondriveRecord]]]:
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
-        if not isinstance(record_ids, Sequence):
-            unpack = True
+        if unpack := not isinstance(record_ids, Sequence):
             record_ids = [record_ids]
         res = get_records_with_cache(
             client=self,
@@ -123,8 +120,7 @@ class CachedPortalClient(PortalClient):
     # ) -> Union[Optional[Molecule], List[Optional[Molecule]]]:
     #     if missing_ok:
     #         logger.warning("missing_ok provided but unused by CachedPortalClient")
-    #     if not isinstance(molecule_ids, Sequence):
-    #         unpack = True
+    #     if unpack := not isinstance(molecule_ids, Sequence):
     #         molecule_ids = [molecule_ids]
     #     res = get_records_with_cache(
     #         client=self,
