@@ -29,7 +29,7 @@ MIT. See the [License File](LICENSE) for more information.
 
 #### Copyright
 
-Copyright (c) 2019-2021, Open Force Field Initiative
+Copyright (c) 2019-2024, Open Force Field Initiative
 
 #### Acknowledgements
 

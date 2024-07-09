@@ -12,7 +12,7 @@ from qcportal import PortalClient
 from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit.common_structures import MoleculeAttributes, PCMSettings
+from openff.qcsubmit.common_structures import MoleculeAttributes, PCMSettings, SCFProperties
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets import (
     BasicDataset,
@@ -208,6 +208,61 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
             assert record.error is None
             assert record.return_result is not None
             assert record.specification == spec
+
+
+def test_basic_submissions_property_driver(fulltest_client, water):
+    """Make sure the keywords are formatted properly if we use the property driver."""
+
+    client = fulltest_client
+
+    dataset = BasicDataset(
+        dataset_name="testing properties",
+        dataset_tagline="testing properties driver",
+        description="testing properties driver",
+        driver="properties"
+
+    )
+    dataset.clear_qcspecs()
+    dataset.add_qc_spec(
+        method="hf",
+        basis="sto-3g",
+        program="psi4",
+        scf_properties=[SCFProperties.DipolePolarizabilities, SCFProperties.Dipole, SCFProperties.MBISCharges],
+        spec_name="hf/sto3g",
+        spec_description="Quick hf spec",
+    )
+
+    dataset.add_molecule(index="water", molecule=water)
+    # make sure the keywords are formatted correctly
+    qc_keywords = dataset.qc_specifications["hf/sto3g"].qc_keywords(properties=True)
+    assert "dipole_polarizabilities" in qc_keywords["function_kwargs"]["properties"]
+
+    # submit and check the dipole polarizability was calculated
+    dataset.submit(client=client)
+    await_results(client)
+
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
+    # make sure all specifications were added
+    check_added_specs(ds=ds, dataset=dataset)
+
+    record = ds.get_record(
+        entry_name="water",
+        specification_name="hf/sto3g"
+    )
+    assert record.status == RecordStatusEnum.complete
+    assert record.error is None
+    # make sure normal scf properties were calculated
+    assert "mbis charges" in record.properties
+    # check the method specific dipole was added
+    assert "hf dipole" in record.properties
+    # make sure the response property was calculated
+    assert "dipole polarizability xx" in record.properties
+    # check the specification on the record
+    assert record.specification.program == "psi4"
+    assert record.specification.driver == "properties"
+    assert record.specification.method == "hf"
 
 
 def test_basic_submissions_multiple_spec(fulltest_client):

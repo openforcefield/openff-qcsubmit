@@ -15,3 +15,10 @@ def public_client():
 @pytest.fixture()
 def imatinib_mesylate() -> Molecule:
     return Molecule.from_file(get_data("imatinib_mesylate.sdf"))
+
+
+@pytest.fixture()
+def water() -> Molecule:
+    water = Molecule.from_smiles("O")
+    water.generate_conformers(n_conformers=1)
+    return water
