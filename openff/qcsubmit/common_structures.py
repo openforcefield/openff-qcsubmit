@@ -593,7 +593,6 @@ class QCSpec(ResultsConfig):
         """Return the qcelmental schema for this method and basis."""
         return Model(method=self.method, basis=self.basis)
 
-
     def qc_keywords(self, properties: bool = False) -> Dict[str, Any]:
         """
         Return the formatted keywords for this calculation.
@@ -604,9 +603,7 @@ class QCSpec(ResultsConfig):
         """
         data = self.dict(include={"maxiter"})
         if self.program.lower() == "psi4" and properties:
-            data["function_kwargs"] = {
-                "properties": self.scf_properties
-            }
+            data["function_kwargs"] = {"properties": self.scf_properties}
         else:
             data["scf_properties"] = self.scf_properties
 

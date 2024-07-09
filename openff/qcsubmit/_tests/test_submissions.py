@@ -12,7 +12,11 @@ from qcportal import PortalClient
 from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit.common_structures import MoleculeAttributes, PCMSettings, SCFProperties
+from openff.qcsubmit.common_structures import (
+    MoleculeAttributes,
+    PCMSettings,
+    SCFProperties,
+)
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets import (
     BasicDataset,
@@ -219,15 +223,18 @@ def test_basic_submissions_property_driver(fulltest_client, water):
         dataset_name="testing properties",
         dataset_tagline="testing properties driver",
         description="testing properties driver",
-        driver="properties"
-
+        driver="properties",
     )
     dataset.clear_qcspecs()
     dataset.add_qc_spec(
         method="hf",
         basis="sto-3g",
         program="psi4",
-        scf_properties=[SCFProperties.DipolePolarizabilities, SCFProperties.Dipole, SCFProperties.MBISCharges],
+        scf_properties=[
+            SCFProperties.DipolePolarizabilities,
+            SCFProperties.Dipole,
+            SCFProperties.MBISCharges,
+        ],
         spec_name="hf/sto3g",
         spec_description="Quick hf spec",
     )
@@ -247,10 +254,7 @@ def test_basic_submissions_property_driver(fulltest_client, water):
     # make sure all specifications were added
     check_added_specs(ds=ds, dataset=dataset)
 
-    record = ds.get_record(
-        entry_name="water",
-        specification_name="hf/sto3g"
-    )
+    record = ds.get_record(entry_name="water", specification_name="hf/sto3g")
     assert record.status == RecordStatusEnum.complete
     assert record.error is None
     # make sure normal scf properties were calculated
