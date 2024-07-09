@@ -1,5 +1,17 @@
+import logging
+import os
 from contextlib import contextmanager
-from typing import Callable, Dict, Generator, List, Tuple
+from typing import (
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from openff.toolkit import topology as off
 from openff.toolkit.utils.toolkits import (
@@ -7,6 +19,70 @@ from openff.toolkit.utils.toolkits import (
     UndefinedStereochemistryError,
 )
 from qcportal import PortalClient
+from qcportal.cache import RecordCache, get_records_with_cache
+from qcportal.molecules import Molecule
+from qcportal.optimization.record_models import OptimizationRecord
+from qcportal.singlepoint.record_models import SinglepointRecord
+from qcportal.torsiondrive.record_models import TorsiondriveRecord
+
+logger = logging.getLogger(__name__)
+
+
+class CachedPortalClient(PortalClient):
+    def __init__(self, addr, cache_dir, **client_kwargs):
+        super().__init__(addr, cache_dir=cache_dir, **client_kwargs)
+        self.record_cache = RecordCache(
+            os.path.join(self.cache.cache_dir, "cache.sqlite"), read_only=False
+        )
+
+    def get_optimizations(
+        self,
+        record_ids: Union[int, Sequence[int]],
+        missing_ok: bool = False,
+        *,
+        include: Optional[Iterable[str]] = None,
+    ) -> Union[Optional[OptimizationRecord], List[Optional[OptimizationRecord]]]:
+        if missing_ok:
+            logger.warning("missing_ok provided but unused by CachedPortalClient")
+        return get_records_with_cache(
+            client=self,
+            record_cache=self.record_cache,
+            record_type=OptimizationRecord,
+            record_ids=record_ids,
+            include=include,
+            force_fetch=False,
+        )
+
+    def get_singlepoints(
+        self,
+        record_ids: Union[int, Sequence[int]],
+        missing_ok: bool = False,
+        *,
+        include: Optional[Iterable[str]] = None,
+    ) -> Union[Optional[SinglepointRecord], List[Optional[SinglepointRecord]]]:
+        if missing_ok:
+            logger.warning("missing_ok provided but unused by CachedPortalClient")
+        raise NotImplementedError()
+
+    def get_torsiondrives(
+        self,
+        record_ids: Union[int, Sequence[int]],
+        missing_ok: bool = False,
+        *,
+        include: Optional[Iterable[str]] = None,
+    ) -> Union[Optional[TorsiondriveRecord], List[Optional[TorsiondriveRecord]]]:
+        if missing_ok:
+            logger.warning("missing_ok provided but unused by CachedPortalClient")
+        raise NotImplementedError()
+
+    def get_molecules(
+        self,
+        molecule_ids: Union[int, Sequence[int]],
+        missing_ok: bool = False,
+    ) -> Union[Optional[Molecule], List[Optional[Molecule]]]:
+        if missing_ok:
+            logger.warning("missing_ok provided but unused by CachedPortalClient")
+        raise NotImplementedError()
 
 
 def _default_portal_client(client_address) -> PortalClient:
