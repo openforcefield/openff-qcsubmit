@@ -2,22 +2,33 @@ ci:
   autoupdate_schedule: "quarterly"
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.5.0
+  rev: v4.6.0
   hooks:
   - id: check-yaml
   - id: debug-statements
 - repo: https://github.com/psf/black
-  rev: 23.12.1
+  rev: 24.4.2
   hooks:
   - id: black
     files: ^openff
+  - id: black-jupyter
+    files: ^examples
 - repo: https://github.com/PyCQA/isort
   rev: 5.13.2
   hooks:
   - id: isort
     files: ^openff
 - repo: https://github.com/PyCQA/flake8
-  rev: 6.1.0
+  rev: 7.1.0
   hooks:
   - id: flake8
     files: ^openff
+    additional_dependencies:
+      - 'flake8-all-not-strings'
+- repo: https://github.com/nbQA-dev/nbQA
+  rev: 1.8.5
+  hooks:
+    - id: nbqa-isort
+    - id: nbqa-flake8
+      args:
+        - '--select=F'

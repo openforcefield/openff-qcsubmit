@@ -10,6 +10,40 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
+## Current development
+
+### Examples updated
+
+* [PR #283:] Run examples in CI, updates for QCPortal 0.54 and API changes in #141
+* [PR #285:] Add 2D torsion drive visualization
+
+### New Features
+
+* [PR #284:] Add `portal_client_manager` for using custom `PortalClient` settings
+
+## 0.51.0 / 23-04-2024
+
+### Behaviors changed
+
+* [PR #277:] Changes the behavior of the `max_states` named argument to `workflow_components.EnumerateProtomers`. Previously this could return anywhere from `1` to `max_states+2`, but now it can return `1` to `max_states+1` (depending on whether the backend includes the input in the protomers that are generated).  
+
+### Bugfixes
+
+* [PR #277:] Updates for QCPortal 0.54 (#275) and OpenFF Toolkit 0.16 (#278) [@bennybp @mattwthompson @j-wags]
+
+
+## 0.50.3 / 24-03-2024
+
+### Bugfixes
+
+* [PR #257:] Fixes dataset visualization with the RDKit backend (#257) [@pavankum]
+* [PR #260:] Fixes a bug where adding different tautomers of the same molecule to a ComponentResult would raise an error. Also fixes a case where ComponentResult.add_molecule would fail to return a bool  (#255) [@mattwthompson]
+* [PR #268:] Fix broken star imports (#268) [@mattwthompson]
+
+### Performance Improvements
+
+* [PR #270:] Speed up `TorsionDriveResultCollection.to_records` by batching requests [@ntBre]
+
 ## 0.50.2 / 24-01-2024
 
 ### New Features
@@ -95,6 +129,14 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #242:]: https://github.com/openforcefield/openff-qcsubmit/pull/242
 [PR #251:]: https://github.com/openforcefield/openff-qcsubmit/pull/251
 [PR #252:]: https://github.com/openforcefield/openff-qcsubmit/pull/252
+[PR #257:]: https://github.com/openforcefield/openff-qcsubmit/pull/257
+[PR #260:]: https://github.com/openforcefield/openff-qcsubmit/pull/260
+[PR #268:]: https://github.com/openforcefield/openff-qcsubmit/pull/268
+[PR #270:]: https://github.com/openforcefield/openff-qcsubmit/pull/270
+[PR #277:]: https://github.com/openforcefield/openff-qcsubmit/pull/277
+[PR #283:]: https://github.com/openforcefield/openff-qcsubmit/pull/283
+[PR #284:]: https://github.com/openforcefield/openff-qcsubmit/pull/284
+[PR #285:]: https://github.com/openforcefield/openff-qcsubmit/pull/285
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
@@ -102,3 +144,5 @@ For more information on this release, see https://github.com/openforcefield/open
 [@mattwthompson]: https://github.com/mattwthompson
 [@chapincavender]: https://github.com/chapincavender
 [@j-wags]: https://github.com/j-wags
+[@pavankum]: https://github.com/pavankum
+[@ntBre]: https://github.com/ntBre

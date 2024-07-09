@@ -406,7 +406,7 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
                         ),
                     ),
                     id=entry.record_id,
-                    initial_molecules_=[],
+                    initial_molecules=[],
                     status=RecordStatusEnum.complete,
                     is_service=False,
                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),

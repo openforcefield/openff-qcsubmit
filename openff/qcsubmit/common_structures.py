@@ -1,6 +1,7 @@
 """
 This file contains common starting structures which can be mixed into datasets, results and factories.
 """
+
 import copy
 import getpass
 import re
@@ -376,8 +377,7 @@ class PCMSettings(ResultsConfig):
                 kwargs["cavity_MinRadius"] = cavity_MinRadius
             if "cavity_Area" not in kwargs:
                 cavity_Area = (
-                    self.__fields__["cavity_Area"].default
-                    * constants.bohr2angstroms**2
+                    self.__fields__["cavity_Area"].default * constants.bohr2angstroms**2
                 )
                 kwargs["cavity_Area"] = cavity_Area
         super(PCMSettings, self).__init__(**kwargs)
@@ -397,8 +397,7 @@ class PCMSettings(ResultsConfig):
         pcm_string = f"""
         Units = {self.units}
         CODATA = {self.codata}
-        Medium {{{medium_str
-        }}}
+        Medium {{{medium_str}}}
         Cavity {{{cavity_str}}}"""
         return pcm_string
 

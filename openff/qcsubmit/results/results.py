@@ -2,6 +2,7 @@
 A module which contains convenience classes for referencing, retrieving and filtering
 results from a QCFractal instance.
 """
+
 from __future__ import annotations
 
 import abc
@@ -25,7 +26,6 @@ import qcportal
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from openff.units import unit
-from qcportal import PortalClient
 from qcportal.dataset_models import BaseDataset as QCPDataset
 from qcportal.optimization import OptimizationDataset, OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
@@ -376,11 +376,12 @@ class BasicResultCollection(_BaseResultCollection):
 
         Each molecule will contain the conformer referenced by the record.
         """
+        from openff.qcsubmit.utils.utils import _default_portal_client
 
         records_and_molecules = []
 
         for client_address, records in self.entries.items():
-            client = PortalClient(client_address)
+            client = _default_portal_client(client_address)
 
             # TODO - batching/chunking (maybe in portal?)
             for record in records:
@@ -528,16 +529,17 @@ class OptimizationResultCollection(_BaseResultCollection):
         Each molecule will contain the minimum energy conformer referenced by the
         record.
         """
+        from openff.qcsubmit.utils.utils import _default_portal_client
 
         records_and_molecules = []
 
         for client_address, results in self.entries.items():
-            client = PortalClient(client_address)
+            client = _default_portal_client(client_address)
 
             rec_ids = [result.record_id for result in results]
             # Do one big request to save time
             opt_records = client.get_optimizations(
-                rec_ids, include=["initial_molecule"]
+                rec_ids, include=["initial_molecule", "final_molecule"]
             )
             # Sort out which records from the request line up with which results
             opt_rec_id_to_result = dict()
@@ -583,6 +585,7 @@ class OptimizationResultCollection(_BaseResultCollection):
             The results collection referencing records created from the final optimized
             structures referenced by this collection.
         """
+        from openff.qcsubmit.utils.utils import _default_portal_client
 
         records_and_molecules = self.to_records()
 
@@ -596,7 +599,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         result_entries = defaultdict(list)
 
         for client_address in result_records:
-            client = PortalClient(client_address)
+            client = _default_portal_client(client_address)
 
             # Batch all the queries into one big request here
             mol_ids = [i[0] for i in result_records[client_address]]
@@ -653,9 +656,9 @@ class OptimizationResultCollection(_BaseResultCollection):
             The created basic dataset.
         """
 
-        records_by_cmiles: Dict[
-            str, List[Tuple[OptimizationRecord, Molecule]]
-        ] = defaultdict(list)
+        records_by_cmiles: Dict[str, List[Tuple[OptimizationRecord, Molecule]]] = (
+            defaultdict(list)
+        )
 
         for record, molecule in self.to_records():
             records_by_cmiles[
@@ -668,12 +671,14 @@ class OptimizationResultCollection(_BaseResultCollection):
             dataset_tagline=tagline,
             driver=driver,
             metadata={} if metadata is None else metadata,
-            qc_specifications={"default": QCSpec()}
-            if qc_specifications is None
-            else {
-                qc_specification.spec_name: qc_specification
-                for qc_specification in qc_specifications
-            },
+            qc_specifications=(
+                {"default": QCSpec()}
+                if qc_specifications is None
+                else {
+                    qc_specification.spec_name: qc_specification
+                    for qc_specification in qc_specifications
+                }
+            ),
         )
 
         for records in records_by_cmiles.values():
@@ -795,15 +800,20 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         Each molecule will contain the minimum energy conformer referenced by the
         record.
         """
+        from openff.qcsubmit.utils.utils import _default_portal_client
 
         records_and_molecules = []
 
         for client_address, records in self.entries.items():
-            client = PortalClient(client_address)
+            client = _default_portal_client(client_address)
 
-            for record in records:
-                rec = client.get_torsiondrives(record.record_id)
-
+            # retrieve all torsiondrives at once, including their
+            # minimum_optimizations
+            record_ids = [r.record_id for r in records]
+            torsion_drive_records = client.get_torsiondrives(
+                record_ids, include=["minimum_optimizations"]
+            )
+            for record, rec in zip(records, torsion_drive_records):
                 # OpenFF molecule
                 try:
                     molecule: Molecule = Molecule.from_mapped_smiles(
@@ -816,10 +826,16 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                     )
                     continue
 
+                # retrieve all minimum_optimizations at once
+                opt_ids = [v.id for v in rec.minimum_optimizations.values()]
+                opt_records = client.get_optimizations(opt_ids)
+                # retrieve all final_molecules at once
+                opt_final_molecule_ids = [r.final_molecule_id for r in opt_records]
+                opt_final_molecules = client.get_molecules(opt_final_molecule_ids)
                 # Map of torsion drive keys to minimum optimization
-                qc_grid_molecules = [
-                    (k, v.final_molecule) for k, v in rec.minimum_optimizations.items()
-                ]
+                qc_grid_molecules = list(
+                    zip(rec.minimum_optimizations.keys(), opt_final_molecules)
+                )
 
                 # order the ids so the conformers follow the torsiondrive scan range
                 # x[0] is the torsiondrive key, ie Tuple[float]

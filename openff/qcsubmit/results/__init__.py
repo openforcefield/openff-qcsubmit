@@ -8,10 +8,10 @@ from openff.qcsubmit.results.results import (
 )
 
 __all__ = [
-    BasicResult,
-    BasicResultCollection,
-    OptimizationResult,
-    OptimizationResultCollection,
-    TorsionDriveResult,
-    TorsionDriveResultCollection,
+    "BasicResult",
+    "BasicResultCollection",
+    "OptimizationResult",
+    "OptimizationResultCollection",
+    "TorsionDriveResult",
+    "TorsionDriveResultCollection",
 ]

@@ -114,9 +114,9 @@ class DatasetEntry(DatasetConfig):
         initial_molecules = []
         for mol in self.initial_molecules:
             extras = mol.extras or {}
-            extras[
-                "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-            ] = self.attributes.canonical_isomeric_explicit_hydrogen_mapped_smiles
+            extras["canonical_isomeric_explicit_hydrogen_mapped_smiles"] = (
+                self.attributes.canonical_isomeric_explicit_hydrogen_mapped_smiles
+            )
             identifiers = mol.identifiers or {}
             mol_data = mol.dict()
             mol_data["extras"] = extras

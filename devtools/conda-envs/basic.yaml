@@ -18,10 +18,13 @@ dependencies:
   - pytest-xdist
   - pytest-randomly
   - requests-mock
+  - nbval
+  - plotly
+  - nglview
 
   - qcengine >=0.25
   - qcelemental >=0.25.1
-  - qcfractal >=0.52
+  - qcfractal >=0.54
   - qcarchivetesting
   - qcportal
 
@@ -34,7 +37,7 @@ dependencies:
   # openmmforcefields brings in the full toolkit; if that is ever re-packaged
   # this should be changed to openff-toolkit-base
 
-  - openff-toolkit >= 0.14.0
+  - openff-toolkit
   - openff-units >=0.2.1
   - pydantic
   - pyyaml

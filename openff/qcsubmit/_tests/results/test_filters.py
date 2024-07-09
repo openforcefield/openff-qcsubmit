@@ -224,7 +224,7 @@ def test_connectivity_filter():
         modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
         molecule_id=1,
         status=RecordStatusEnum.complete,
-        is_service=False
+        is_service=False,
         # client=_PortalClient(address=address)
     )
 

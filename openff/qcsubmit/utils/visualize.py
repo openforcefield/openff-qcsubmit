@@ -75,7 +75,7 @@ def _create_openeye_pdf(molecules: List[Molecule], file_name: str, columns: int)
     # now we load the molecules
     for off_mol in molecules:
         off_mol = copy.deepcopy(off_mol)
-        off_mol._conformers = []
+        off_mol._conformers = None
         off_mol.name = None
 
         cell = report.NewCell()
@@ -180,6 +180,7 @@ def _create_rdkit_pdf(molecules: List[Molecule], file_name: str, columns: int):
             molsPerRow=columns,
             subImgSize=(500, 500),
             highlightAtomLists=tag_chunk,
+            returnPNG=False,
         )
         # write the pdf to bytes and pass straight to the pdf merger
         images.append(image)

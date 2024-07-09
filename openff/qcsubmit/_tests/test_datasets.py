@@ -174,7 +174,7 @@ def test_componentresult_str():
     )
 
 
-def test_componetresult_deduplication_standard():
+def test_componentresult_deduplication_standard():
     """
     Test the components results ability to deduplicate molecules.
     """
@@ -202,7 +202,7 @@ def test_componetresult_deduplication_standard():
     assert len(result.filtered) == 0
 
 
-def test_componetresult_directory():
+def test_componentresult_directory():
     """
     Test loading up some molecules from a directory of files.
     """
@@ -233,7 +233,7 @@ def test_componetresult_directory():
         pytest.param("hdf5-example.hdf5", id="HDF5 file"),
     ],
 )
-def test_componetresult_input_file(file_name):
+def test_componentresult_input_file(file_name):
     """
     Test loading up some molecules from an input file
     """
@@ -336,9 +336,41 @@ def test_componentresult_deduplication_iso():
     mol2.generate_conformers(n_conformers=1)
 
     # add the molecules
-    result.add_molecule(mol1)
-    result.add_molecule(mol2)
+    assert result.add_molecule(mol1) is False
+    assert result.add_molecule(mol2) is True
 
+    assert result.n_molecules == 1
+    assert result.n_conformers == 2
+
+
+def test_componentresult_deduplication_tautomer():
+    """Reproduce issue #255 using molecules in the reported issue."""
+
+    result = ComponentResult(
+        component_name="Test iso deduplication",
+        component_description={},
+        component_provenance={},
+    )
+
+    # these two molecules have the same InChI key but differ in aromaticity ...
+    mol1 = Molecule.from_smiles(
+        smiles="[H]c1c(c(c(c2c1N(C(=C2C3=C(N(C(=O)C(=C3[H])[H])C([H])([H])C([H])([H])[H])[H])[H])[H])[H])F)[H]",
+        hydrogens_are_explicit=True,
+    )
+    mol1.generate_conformers(n_conformers=1)
+
+    mol2 = Molecule.from_smiles(
+        smiles="[H]c1c(c([n+](c(c1C2=C(N(c3c2c(c(c(c3[H])[H])F)[H])[H])[H])[H])C([H])([H])C([H])([H])[H])[O-])[H]",
+        hydrogens_are_explicit=True,
+    )
+    mol2.generate_conformers(n_conformers=1)
+
+    # this function returns a boolean equal to "is this molecule already in this dataset"
+    assert result.add_molecule(mol1) is False
+    assert result.add_molecule(mol2) is True
+
+    # ... and so the expected behavior is that they're deduplicated into the same
+    # "molecule" but the separate `Molecule` objects exist as distinct conformers
     assert result.n_molecules == 1
     assert result.n_conformers == 2
 

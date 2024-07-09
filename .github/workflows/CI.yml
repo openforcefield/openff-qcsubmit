@@ -9,7 +9,8 @@ on:
       - "main"
   schedule:
     - cron: "0 0 * * *"
-
+  workflow_dispatch:
+  
 defaults:
   run:
     shell: bash -l {0}
@@ -24,15 +25,14 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.9"
+          - "3.10"
         pydantic-version:
-          - "1"
           - "2"
         cfg:
           - os: ubuntu-latest
             conda-env: basic
 
-          - os: macOS-latest
+          - os: macOS-12
             conda-env: basic
 
           - os: ubuntu-latest
@@ -71,10 +71,17 @@ jobs:
 
       - name: Run Tests
         run: |
-          python -m pytest -v --cov=openff --cov-config=setup.cfg openff/qcsubmit/_tests/ --cov-report=xml
+          python -m pytest -r xfEs -n logical --cov=openff --cov-config=setup.cfg openff/qcsubmit/_tests/ --cov-report=xml
+
+      - name: Run example notebooks
+        env:
+          PYTEST_ARGS: -p no:randomly -r fE -v -x --tb=short -nauto
+          NB_ARGS: --nbval-lax --dist loadscope
+        run: |
+          python -m pytest $PYTEST_ARGS $NB_ARGS examples
 
       - name: Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           fail_ci_if_error: false

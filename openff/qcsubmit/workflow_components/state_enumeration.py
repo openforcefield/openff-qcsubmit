@@ -1,6 +1,7 @@
 """
 Components to expand stereochemistry and tautomeric states of molecules.
 """
+
 from typing import List, Optional, Tuple
 
 from openff.toolkit.topology import Molecule
@@ -202,7 +203,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
         self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
     ) -> ComponentResult:
         """
-        Enumerate the formal charges of the molecule.
+        Enumerate the protonation states of the molecule.
 
         Parameters:
             molecules: The list of molecules the component should be applied on.
@@ -211,6 +212,9 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
         Returns:
             A [ComponentResult][qcsubmit.datasets.ComponentResult] instance containing information about the molecules
             that passed and were filtered by the component and details about the component which generated the result.
+            Note that the input molecule is guaranteed to be included in this output, which in some cases may cause the
+            number of molecules in the result to be one greater than max_states, or may cause a molecule in the results
+            to have multiple conformers.
 
         Important:
             This is only possible using Openeye so far, if openeye is not available this step will fail.

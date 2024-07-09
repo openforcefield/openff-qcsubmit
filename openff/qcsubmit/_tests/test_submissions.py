@@ -1479,6 +1479,7 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     entries[0].attributes[
         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
     ] = "[H:4][C:2](=[O:1])[OH:3]"
+    ds._cache_data.update_entries(entries)
     results = result_collection_type.from_datasets(datasets=ds)
     assert results.n_molecules == 1
     with pytest.warns(UserWarning, match="invalid CMILES"):
