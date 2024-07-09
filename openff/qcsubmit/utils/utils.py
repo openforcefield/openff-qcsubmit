@@ -44,6 +44,8 @@ class CachedPortalClient(PortalClient):
     ) -> Union[Optional[OptimizationRecord], List[Optional[OptimizationRecord]]]:
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
+        if not isinstance(record_ids, Sequence):
+            record_ids = [record_ids]
         return get_records_with_cache(
             client=self,
             record_cache=self.record_cache,
@@ -62,7 +64,16 @@ class CachedPortalClient(PortalClient):
     ) -> Union[Optional[SinglepointRecord], List[Optional[SinglepointRecord]]]:
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
-        raise NotImplementedError()
+        if not isinstance(record_ids, Sequence):
+            record_ids = [record_ids]
+        return get_records_with_cache(
+            client=self,
+            record_cache=self.record_cache,
+            record_type=SinglepointRecord,
+            record_ids=record_ids,
+            include=include,
+            force_fetch=False,
+        )
 
     def get_torsiondrives(
         self,
@@ -73,7 +84,16 @@ class CachedPortalClient(PortalClient):
     ) -> Union[Optional[TorsiondriveRecord], List[Optional[TorsiondriveRecord]]]:
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
-        raise NotImplementedError()
+        if not isinstance(record_ids, Sequence):
+            record_ids = [record_ids]
+        return get_records_with_cache(
+            client=self,
+            record_cache=self.record_cache,
+            record_type=TorsiondriveRecord,
+            record_ids=record_ids,
+            include=include,
+            force_fetch=False,
+        )
 
     def get_molecules(
         self,
@@ -82,7 +102,16 @@ class CachedPortalClient(PortalClient):
     ) -> Union[Optional[Molecule], List[Optional[Molecule]]]:
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
-        raise NotImplementedError()
+        if not isinstance(molecule_ids, Sequence):
+            molecule_ids = [molecule_ids]
+        return get_records_with_cache(
+            client=self,
+            record_cache=self.record_cache,
+            record_type=Molecule,
+            record_ids=molecule_ids,
+            include=None,
+            force_fetch=False,
+        )
 
 
 def _default_portal_client(client_address) -> PortalClient:
