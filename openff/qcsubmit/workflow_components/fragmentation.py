@@ -2,12 +2,11 @@
 Components that aid with Fragmentation of molecules.
 """
 
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Literal
 
-from openff.toolkit.topology import Molecule
+from openff.toolkit import Molecule
 from openff.toolkit.utils import ToolkitRegistry
 from qcelemental.util import which_import
-from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import Field, validator
 from openff.qcsubmit.common_structures import ComponentProperties
@@ -223,5 +222,87 @@ class PfizerFragmenter(FragmenterBase):
             except (RuntimeError, ValueError):
                 # this will catch cmiles errors for molecules with undefined stero
                 result.filter_molecule(molecule)
+
+        return result
+
+
+class RECAPFragmenter(ToolkitValidator, CustomWorkflowComponent):
+    """
+    Fragment the molecules using the RECAP algorithm in rdkit from Lewell et al. JCICS 38 511-522 (1998).
+
+    Note:
+        This is not used to identify rotatable torsions it is to split the molecule into chemically realistic
+        building blocks
+    """
+
+    type: Literal["RECAPFragmenter"] = "RECAPFragmenter"
+
+    @classmethod
+    def description(cls) -> str:
+        return "Fragment a molecule into building blocks using the RECAP method."
+
+    @classmethod
+    def fail_reason(cls) -> str:
+        return "The molecule could not be fragmented."
+
+    @classmethod
+    def properties(cls) -> ComponentProperties:
+        return ComponentProperties(process_parallel=True, produces_duplicates=True)
+
+    @classmethod
+    def is_available(cls) -> bool:
+        """Check if Rdkit is installed"""
+        rdkit = which_import(
+            module=".Chem",
+            raise_error=True,
+            return_bool=True,
+            package="rdkit",
+            raise_msg="Please install via `mamba install rdkit -c conda-forge`."
+        )
+        return rdkit
+
+    def _apply(
+        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
+    ) -> ComponentResult:
+        """
+        Fragment the molecules using the RECAP method in rdkit.
+
+        Note:
+            Method adapted from
+            <https://github.com/SimonBoothroyd/gnn-charge-models/blob/ee02a4426eb14c48bfb30c9894af267510efcac0/data-set-curation/generate-fragments.py>
+        """
+        from rdkit import Chem
+        from rdkit.Chem import Recap, Descriptors, AllChem
+
+        result = self._create_result(toolkit_registry=toolkit_registry)
+
+        # define some substructure replacements to cap the molecules
+        rd_dummy_replacements = [
+            # Handle the special case of -S(=O)(=O)[*] -> -S(=O)(-[O-])
+            (Chem.MolFromSmiles("S(=O)(=O)*"), Chem.MolFromSmiles("S(=O)([O-])")),
+            # Handle the general case
+            (Chem.MolFromSmiles("*"), Chem.MolFromSmiles("[H]")),
+        ]
+
+        for molecule in molecules:
+            rd_parent = Chem.RemoveAllHs(molecule.to_rdkit())
+
+            leaves = Recap.RecapDecompose(rd_parent).GetLeaves()
+            for fragment_node in leaves.values():
+
+                rd_fragment = fragment_node.mol
+
+                for rd_dummy, rd_replacement in rd_dummy_replacements:
+                    rd_fragment = AllChem.ReplaceSubstructs(
+                        rd_fragment, rd_dummy, rd_replacement, True
+                    )[0]
+                    # Do a SMILES round-trip to avoid wierd issues with radical formation...
+                    rd_fragment = Chem.MolFromSmiles(Chem.MolToSmiles(rd_fragment))
+
+                if Descriptors.NumRadicalElectrons(rd_fragment) > 0:
+                    # if the fragment is radical skip it
+                    continue
+
+                result.add_molecule(molecule=Molecule.from_rdkit(rd_fragment))
 
         return result

@@ -25,6 +25,7 @@ from openff.qcsubmit.workflow_components.filters import (
 from openff.qcsubmit.workflow_components.fragmentation import (
     PfizerFragmenter,
     WBOFragmenter,
+    RECAPFragmenter,
 )
 from openff.qcsubmit.workflow_components.state_enumeration import (
     EnumerateProtomers,
@@ -62,6 +63,7 @@ __all__ = [
     "SmartsFilter",
     "PfizerFragmenter",
     "WBOFragmenter",
+    "RECAPFragmenter",
     "EnumerateProtomers",
     "EnumerateStereoisomers",
     "EnumerateTautomers",

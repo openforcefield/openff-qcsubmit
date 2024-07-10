@@ -25,6 +25,7 @@ from openff.qcsubmit.workflow_components.filters import (
 from openff.qcsubmit.workflow_components.fragmentation import (
     PfizerFragmenter,
     WBOFragmenter,
+    RECAPFragmenter,
 )
 from openff.qcsubmit.workflow_components.state_enumeration import (
     EnumerateProtomers,
@@ -54,6 +55,7 @@ Components = Union[
     EnumerateStereoisomers,
     WBOFragmenter,
     PfizerFragmenter,
+    RECAPFragmenter,
     ChargeFilter,
     ScanFilter,
     ScanEnumerator,
@@ -159,6 +161,7 @@ register_component(StandardConformerGenerator)
 # fragmentation
 register_component(WBOFragmenter)
 register_component(PfizerFragmenter)
+register_component(RECAPFragmenter)
 
 # filters
 register_component(RotorFilter)
