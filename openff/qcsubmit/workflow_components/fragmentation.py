@@ -303,6 +303,10 @@ class RECAPFragmenter(ToolkitValidator, CustomWorkflowComponent):
                     # if the fragment is radical skip it
                     continue
 
-                result.add_molecule(molecule=Molecule.from_rdkit(rd_fragment, allow_undefined_stereo=True))
+                result.add_molecule(
+                    molecule=Molecule.from_rdkit(
+                        rd_fragment, allow_undefined_stereo=True
+                    )
+                )
 
         return result
