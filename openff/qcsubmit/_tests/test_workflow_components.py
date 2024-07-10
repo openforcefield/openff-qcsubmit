@@ -828,7 +828,9 @@ def test_recap_fragmentation_apply():
     assert fragmenter.is_available()
     # try running the example from the rdkit docs
     molecule = Molecule.from_smiles("C1CC1Oc1ccccc1-c1ncc(OC)cc1")
-    result = fragmenter.apply(molecules=[molecule], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY)
+    result = fragmenter.apply(
+        molecules=[molecule], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
     assert result.n_molecules == 3
     for molecule in result.molecules:
         assert "dihedrals" not in molecule.properties
@@ -836,7 +838,7 @@ def test_recap_fragmentation_apply():
     expected_molecules = [
         Molecule.from_smiles("C1CC1"),
         Molecule.from_smiles("c1ccccc1"),
-        Molecule.from_smiles("COc1cccnc1")
+        Molecule.from_smiles("COc1cccnc1"),
     ]
     assert list(result.molecules) == expected_molecules
 

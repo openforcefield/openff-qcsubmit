@@ -2,7 +2,7 @@
 Components that aid with Fragmentation of molecules.
 """
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Literal
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional
 
 from openff.toolkit import Molecule
 from openff.toolkit.utils import ToolkitRegistry
@@ -257,7 +257,7 @@ class RECAPFragmenter(ToolkitValidator, CustomWorkflowComponent):
             raise_error=True,
             return_bool=True,
             package="rdkit",
-            raise_msg="Please install via `mamba install rdkit -c conda-forge`."
+            raise_msg="Please install via `mamba install rdkit -c conda-forge`.",
         )
         return rdkit
 
@@ -272,7 +272,7 @@ class RECAPFragmenter(ToolkitValidator, CustomWorkflowComponent):
             <https://github.com/SimonBoothroyd/gnn-charge-models/blob/ee02a4426eb14c48bfb30c9894af267510efcac0/data-set-curation/generate-fragments.py>
         """
         from rdkit import Chem
-        from rdkit.Chem import Recap, Descriptors, AllChem
+        from rdkit.Chem import AllChem, Descriptors, Recap
 
         result = self._create_result(toolkit_registry=toolkit_registry)
 
