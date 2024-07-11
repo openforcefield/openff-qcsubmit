@@ -3,6 +3,7 @@ Test the results packages when collecting from the public qcarchive.
 """
 
 import datetime
+from tempfile import TemporaryDirectory
 
 import pytest
 from openff.toolkit.topology import Molecule
@@ -27,7 +28,7 @@ from openff.qcsubmit.results import (
 )
 from openff.qcsubmit.results.filters import ResultFilter
 from openff.qcsubmit.results.results import TorsionDriveResult, _BaseResultCollection
-from openff.qcsubmit.utils import portal_client_manager
+from openff.qcsubmit.utils import CachedPortalClient, portal_client_manager
 
 from . import (
     OptimizationRecord,
@@ -317,7 +318,10 @@ def test_to_records(
         public_client, collection_name, spec_name=spec_name
     )
     assert collection.n_molecules == expected_n_mols
-    with portal_client_manager(PortalClient):
+    with (
+        TemporaryDirectory() as d,
+        portal_client_manager(lambda a: CachedPortalClient(a, d)),
+    ):
         records_and_molecules = collection.to_records()
     assert len(records_and_molecules) == expected_n_recs
     record, molecule = records_and_molecules[0]
@@ -354,7 +358,10 @@ def test_optimization_to_basic_result_collection(public_client):
     optimization_result_collection = OptimizationResultCollection.from_server(
         public_client, ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"]
     )
-    with portal_client_manager(PortalClient):
+    with (
+        TemporaryDirectory() as d,
+        portal_client_manager(lambda a: CachedPortalClient(a, d)),
+    ):
         basic_collection = optimization_result_collection.to_basic_result_collection(
             "hessian"
         )

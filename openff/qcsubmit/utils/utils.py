@@ -67,7 +67,6 @@ class CachedPortalClient(PortalClient):
         *,
         include: Optional[Iterable[str]] = None,
     ) -> Union[Optional[SinglepointRecord], List[Optional[SinglepointRecord]]]:
-        raise NotImplementedError()
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
         if unpack := not isinstance(record_ids, Sequence):
@@ -92,7 +91,6 @@ class CachedPortalClient(PortalClient):
         *,
         include: Optional[Iterable[str]] = None,
     ) -> Union[Optional[TorsiondriveRecord], List[Optional[TorsiondriveRecord]]]:
-        raise NotImplementedError()
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
         if unpack := not isinstance(record_ids, Sequence):
