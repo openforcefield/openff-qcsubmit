@@ -281,11 +281,11 @@ def test_basic_submissions_multiple_spec(fulltest_client):
             assert record.specification == spec
 
 
-@pytest.mark.parametrize("solvent_model, solvent_energy", [
-    pytest.param(PCMSettings(units="au", medium_Solvent="water"), "pcm polarization energy", id="PCM"),
-    pytest.param(DDXSettings(ddx_solvent_epsilon=4), "dd solvation energy", id="DDX")
+@pytest.mark.parametrize("solvent_model, solvent_energy, solvent_evidence", [
+    pytest.param(PCMSettings(units="au", medium_Solvent="water"), "pcm polarization energy", "Solvent name:          Water", id="PCM"),
+    pytest.param(DDXSettings(ddx_solvent_epsilon=4), "dd solvation energy", "solvent_epsilon         = 4.0", id="DDX")
 ])
-def test_basic_submissions_single_solvent_spec(fulltest_client, solvent_model, solvent_energy):
+def test_basic_submissions_single_solvent_spec(fulltest_client, solvent_model, solvent_energy, solvent_evidence):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
     client = fulltest_client
@@ -350,6 +350,8 @@ def test_basic_submissions_single_solvent_spec(fulltest_client, solvent_model, s
             assert record.return_result is not None
             # make sure the PCM result was captured
             assert record.properties[solvent_energy] < 0
+            # make sure the correct solvent was used
+            assert solvent_evidence in record.stdout
             assert record.specification.dict(include={"method", "basis", "program"}) == spec.dict(include={"method", "basis", "program"})
 
 
