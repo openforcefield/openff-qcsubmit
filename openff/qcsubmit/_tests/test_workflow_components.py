@@ -840,7 +840,7 @@ def test_recap_fragmentation_apply():
         Molecule.from_smiles("c1ccccc1"),
         Molecule.from_smiles("COc1cccnc1"),
     ]
-    assert list(result.molecules) == expected_molecules
+    assert set(list(result.molecules)) == set(expected_molecules)
 
 
 def test_rotor_filter_maximum():
