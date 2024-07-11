@@ -1,7 +1,7 @@
 """
 This file contains common starting structures which can be mixed into datasets, results and factories.
 """
-
+import abc
 import copy
 import getpass
 import re
@@ -19,6 +19,7 @@ from typing import (
     Set,
     Tuple,
     Union,
+    Literal,
 )
 
 import numpy as np
@@ -47,6 +48,7 @@ try:
         StrictStr,
         constr,
         validator,
+        PositiveFloat,
     )
 except ImportError:
     from pydantic import (
@@ -60,6 +62,7 @@ except ImportError:
         StrictStr,
         constr,
         validator,
+        PositiveFloat,
     )
 
 if TYPE_CHECKING:
@@ -188,7 +191,18 @@ class TDSettings(DatasetConfig):
     )
 
 
-class PCMSettings(ResultsConfig):
+class _BaseSolvent(ResultsConfig, abc.ABC):
+    """
+    A base class to add new implicit solvent models
+    """
+
+    @abc.abstractmethod
+    def add_keywords(self, keyword_data: dict) -> dict:
+        """Add the keywords of this solvent model to the keyword data dict."""
+        ...
+
+
+class PCMSettings(_BaseSolvent):
     """
     A class to handle PCM settings which can be used with PSi4.
     """
@@ -400,6 +414,31 @@ class PCMSettings(ResultsConfig):
         Cavity {{{cavity_str}}}"""
         return pcm_string
 
+    def add_keywords(self, keyword_data: dict) -> dict:
+        keyword_data["pcm"] = True
+        keyword_data["pcm__input"] = self.to_string()
+        return keyword_data
+
+
+class DDXSettings(_BaseSolvent):
+    """
+    A simple settings class for the ddx solvent model to be used with Psi4
+    """
+
+    ddx_model: Literal["pcm", "cosmo"] = Field("pcm", description="The solvation model to use.")
+    ddx_radii_scaling: PositiveFloat = Field(1.1, description="The scaling factor for the cavity spheres this also depends on the radii set chosen.")
+    ddx_radii_set: Literal["uff", "bondi"] = Field("uff", description="The atomic radii set to use.")
+    ddx_solvent_epsilon: Optional[float] = Field(None, description="The dielectric constant of the solvent, if not specified the solvent type should be set.")
+    ddx_solvent: str = Field("water", description="The name of the ddx supported solvent which should used, the epsilon value will be determined from `pyddx.data.solvent_epsilon`. Note that this value is ignored if the `ddx_solvent_epsilon` is provided.")
+
+    def add_keywords(self, keyword_data: dict) -> dict:
+        keyword_data["ddx"] = True
+        ddx_data = self.dict()
+        if self.ddx_solvent_epsilon is None:
+            del ddx_data["ddx_solvent_epsilon"]
+        keyword_data.update(self.dict())
+        return keyword_data
+
 
 class QCSpec(ResultsConfig):
     method: constr(strip_whitespace=True) = Field(
@@ -426,9 +465,9 @@ class QCSpec(ResultsConfig):
         WavefunctionProtocolEnum.none,
         description="The level of wavefunction detail that should be saved in QCArchive. Note that this is done for every calculation and should not be used with optimizations.",
     )
-    implicit_solvent: Optional[PCMSettings] = Field(
+    implicit_solvent: Optional[Union[PCMSettings, DDXSettings]] = Field(
         None,
-        description="If PCM is to be used with psi4 this is the full description of the settings that should be used.",
+        description="If PCM or DDX is to be used with psi4 this is the full description of the settings that should be used.",
     )
     maxiter: PositiveInt = Field(
         200,
@@ -525,7 +564,7 @@ class QCSpec(ResultsConfig):
             # make sure PCM is not set
             if implicit_solvent is not None:
                 raise QCSpecificationError(
-                    "PCM can only be used with PSI4 please set implicit solvent to None."
+                    "PCM and DDX can only be used with PSI4 please set implicit solvent to None."
                 )
             # we need to make sure it is valid in the above list
             program_settings = settings.get(program.lower(), None)
@@ -603,10 +642,9 @@ class QCSpec(ResultsConfig):
         if self.implicit_solvent is not None:
             if self.program.lower() != "psi4":
                 raise QCSpecificationError(
-                    "PCM can only be used with PSI4 please set implicit solvent to None."
+                    "PCM and DDX can only be used with PSI4 please set implicit solvent to None."
                 )
-            data["pcm"] = True
-            data["pcm__input"] = self.implicit_solvent.to_string()
+            data = self.implicit_solvent.add_keywords(keyword_data=data)
         return data
 
 
@@ -661,7 +699,7 @@ class QCSpecificationHandler(BaseModel):
         spec_description: str,
         store_wavefunction: str = "none",
         overwrite: bool = False,
-        implicit_solvent: Optional[PCMSettings] = None,
+        implicit_solvent: Optional[Union[PCMSettings, DDXSettings]] = None,
         maxiter: PositiveInt = 200,
         scf_properties: Optional[List[SCFProperties]] = None,
         keywords: Optional[

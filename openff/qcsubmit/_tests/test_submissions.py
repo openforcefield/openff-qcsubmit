@@ -12,7 +12,7 @@ from qcportal import PortalClient
 from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit.common_structures import MoleculeAttributes, PCMSettings
+from openff.qcsubmit.common_structures import MoleculeAttributes, PCMSettings, DDXSettings
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets import (
     BasicDataset,
@@ -281,7 +281,11 @@ def test_basic_submissions_multiple_spec(fulltest_client):
             assert record.specification == spec
 
 
-def test_basic_submissions_single_pcm_spec(fulltest_client):
+@pytest.mark.parametrize("solvent_model, solvent_energy", [
+    pytest.param(PCMSettings(units="au", medium_Solvent="water"), "pcm polarization energy", id="PCM"),
+    pytest.param(DDXSettings(ddx_solvent_epsilon=4), "dd solvation energy", id="DDX")
+])
+def test_basic_submissions_single_solvent_spec(fulltest_client, solvent_model, solvent_energy):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
     client = fulltest_client
@@ -299,7 +303,7 @@ def test_basic_submissions_single_pcm_spec(fulltest_client):
         program=program,
         spec_name="default",
         spec_description="testing the single points with pcm",
-        implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
+        implicit_solvent=solvent_model,
         overwrite=True,
     )
 
@@ -336,17 +340,17 @@ def test_basic_submissions_single_pcm_spec(fulltest_client):
     check_added_specs(ds=ds, dataset=dataset)
 
     for spec_name, spec in dataset.qc_specifications.items():
-        query = ds.iterate_records(
+        query = list(ds.iterate_records(
             specification_names=spec_name,
-        )
-        assert len(list(query)) == 1  # only used 1 molecule above
+        ))
+        assert len(query) == 1  # only used 1 molecule above
         for name, _, record in query:
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert record.return_result is not None
             # make sure the PCM result was captured
-            assert record.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
-            assert record.specification == spec
+            assert record.properties[solvent_energy] < 0
+            assert record.specification.dict(include={"method", "basis", "program"}) == spec.dict(include={"method", "basis", "program"})
 
 
 def test_adding_specifications(fulltest_client):

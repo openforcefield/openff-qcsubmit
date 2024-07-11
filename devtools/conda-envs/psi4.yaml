@@ -29,6 +29,7 @@ dependencies:
   - openeye-toolkits
 
   - psi4 >=1.9.1
+  - pyddx
 
   ### Core dependencies.
 
