@@ -108,6 +108,23 @@ class CachedPortalClient(PortalClient):
         else:
             return res
 
+    @contextmanager
+    def _no_session(self):
+        """This is a supplemental context manager to the ``no_internet``
+        manager in _tests/utils/test_manager.py. ``PortalClient`` creates a
+        ``requests.Session`` on initialization that can be reused without
+        accessing ``socket.socket`` again. Combining ``no_internet`` and
+        ``client._no_session`` should completely ensure that the local cache is
+        used rather than re-fetching data from QCArchive.
+
+        """
+        tmp = self._req_session
+        self._req_session = None
+        try:
+            yield
+        finally:
+            self._req_session = tmp
+
 
 def _default_portal_client(client_address) -> PortalClient:
     return CachedPortalClient(client_address, cache_dir=_DEFAULT_CACHE_DIR)
