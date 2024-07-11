@@ -8,6 +8,7 @@ import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from qcelemental.models import DriverEnum
+from qcportal import PortalClient
 from qcportal.torsiondrive import (
     TorsiondriveKeywords,
     TorsiondriveRecord,
@@ -26,6 +27,7 @@ from openff.qcsubmit.results import (
 )
 from openff.qcsubmit.results.filters import ResultFilter
 from openff.qcsubmit.results.results import TorsionDriveResult, _BaseResultCollection
+from openff.qcsubmit.utils import portal_client_manager
 
 from . import (
     OptimizationRecord,
@@ -315,7 +317,8 @@ def test_to_records(
         public_client, collection_name, spec_name=spec_name
     )
     assert collection.n_molecules == expected_n_mols
-    records_and_molecules = collection.to_records()
+    with portal_client_manager(PortalClient):
+        records_and_molecules = collection.to_records()
     assert len(records_and_molecules) == expected_n_recs
     record, molecule = records_and_molecules[0]
 
@@ -351,9 +354,10 @@ def test_optimization_to_basic_result_collection(public_client):
     optimization_result_collection = OptimizationResultCollection.from_server(
         public_client, ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"]
     )
-    basic_collection = optimization_result_collection.to_basic_result_collection(
-        "hessian"
-    )
+    with portal_client_manager(PortalClient):
+        basic_collection = optimization_result_collection.to_basic_result_collection(
+            "hessian"
+        )
     assert basic_collection.n_results == 197
     assert basic_collection.n_molecules == 49
 

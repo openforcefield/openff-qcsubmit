@@ -37,7 +37,7 @@ from openff.qcsubmit.results import (
     OptimizationResultCollection,
     TorsionDriveResultCollection,
 )
-from openff.qcsubmit.utils import get_data
+from openff.qcsubmit.utils import get_data, portal_client_manager
 
 
 def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, ids=[1]):
@@ -1408,7 +1408,8 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     assert ds.specifications.keys() == {"default"}
     results = result_collection_type.from_datasets(datasets=ds)
     assert results.n_molecules == 1
-    records = results.to_records()
+    with portal_client_manager(PortalClient):
+        records = results.to_records()
     assert len(records) == 1
     # Single points and optimizations look here
     fulltest_client.modify_molecule(
@@ -1427,6 +1428,9 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     ds._cache_data.update_entries(entries)
     results = result_collection_type.from_datasets(datasets=ds)
     assert results.n_molecules == 1
-    with pytest.warns(UserWarning, match="invalid CMILES"):
+    with (
+        pytest.warns(UserWarning, match="invalid CMILES"),
+        portal_client_manager(PortalClient),
+    ):
         records = results.to_records()
     assert len(records) == 0
