@@ -317,11 +317,22 @@ def test_to_records(
         public_client, collection_name, spec_name=spec_name
     )
     assert collection.n_molecules == expected_n_mols
-    with (
-        TemporaryDirectory() as d,
-        portal_client_manager(lambda a: CachedPortalClient(a, d)),
-    ):
-        records_and_molecules = collection.to_records()
+
+    with TemporaryDirectory() as d:
+        client = CachedPortalClient(public_client.address, d)
+        with portal_client_manager(lambda _: client):
+            with (
+                client._no_session(),
+                pytest.raises(Exception, match="no attribute 'prepare_request'"),
+            ):
+                collection.to_records()
+            records_and_molecules = collection.to_records()
+            # TorsionDriveResultCollection.to_records requires fetching
+            # molecules, which cannot currently be cached
+            if collection_type is not TorsionDriveResultCollection:
+                with client._no_session():
+                    assert len(collection.to_records()) == len(records_and_molecules)
+
     assert len(records_and_molecules) == expected_n_recs
     record, molecule = records_and_molecules[0]
 
