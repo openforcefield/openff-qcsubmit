@@ -20,6 +20,7 @@ Releases are given with dates in DD-MM-YYYY format.
 ### New Features
 
 * [PR #284:] Add `portal_client_manager` for using custom `PortalClient` settings
+* [PR #289:] Add `workflow_components.RECAPFragmenter` to fragment molecules using the rdkit implementation of RECAP [@jthorton]
 
 ## 0.51.0 / 23-04-2024
 
@@ -137,6 +138,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #283:]: https://github.com/openforcefield/openff-qcsubmit/pull/283
 [PR #284:]: https://github.com/openforcefield/openff-qcsubmit/pull/284
 [PR #285:]: https://github.com/openforcefield/openff-qcsubmit/pull/285
+[PR #289:]: https://github.com/openforcefield/openff-qcsubmit/pull/289
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl

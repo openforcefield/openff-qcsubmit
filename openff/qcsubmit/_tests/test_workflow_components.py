@@ -821,6 +821,28 @@ def test_pfizer_fragmentation_apply():
         assert "dihedrals" in molecule.properties
 
 
+def test_recap_fragmentation_apply():
+    """Make sure we can use the recap fragmentation method and that it does not tag bonds."""
+
+    fragmenter = workflow_components.RECAPFragmenter()
+    assert fragmenter.is_available()
+    # try running the example from the rdkit docs
+    molecule = Molecule.from_smiles("C1CC1Oc1ccccc1-c1ncc(OC)cc1")
+    result = fragmenter.apply(
+        molecules=[molecule], processors=1, toolkit_registry=GLOBAL_TOOLKIT_REGISTRY
+    )
+    assert result.n_molecules == 3
+    for molecule in result.molecules:
+        assert "dihedrals" not in molecule.properties
+    # make sure we have the correct set of molecules
+    expected_molecules = [
+        Molecule.from_smiles("C1CC1"),
+        Molecule.from_smiles("c1ccccc1"),
+        Molecule.from_smiles("COc1cccnc1"),
+    ]
+    assert set(list(result.molecules)) == set(expected_molecules)
+
+
 def test_rotor_filter_maximum():
     """
     Remove molecules with too many rotatable bonds.
