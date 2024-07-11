@@ -9,7 +9,6 @@ import pytest
 from openff.toolkit.topology import Molecule
 from openff.toolkit.typing.engines.smirnoff import ForceField
 from qcelemental.models import DriverEnum
-from qcportal import PortalClient
 from qcportal.torsiondrive import (
     TorsiondriveKeywords,
     TorsiondriveRecord,
