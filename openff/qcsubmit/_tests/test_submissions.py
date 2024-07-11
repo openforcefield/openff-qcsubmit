@@ -12,7 +12,11 @@ from qcportal import PortalClient
 from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit.common_structures import MoleculeAttributes, PCMSettings, DDXSettings
+from openff.qcsubmit.common_structures import (
+    DDXSettings,
+    MoleculeAttributes,
+    PCMSettings,
+)
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets import (
     BasicDataset,
@@ -281,11 +285,26 @@ def test_basic_submissions_multiple_spec(fulltest_client):
             assert record.specification == spec
 
 
-@pytest.mark.parametrize("solvent_model, solvent_energy, solvent_evidence", [
-    pytest.param(PCMSettings(units="au", medium_Solvent="water"), "pcm polarization energy", "Solvent name:          Water", id="PCM"),
-    pytest.param(DDXSettings(ddx_solvent_epsilon=4), "dd solvation energy", "solvent_epsilon         = 4.0", id="DDX")
-])
-def test_basic_submissions_single_solvent_spec(fulltest_client, solvent_model, solvent_energy, solvent_evidence):
+@pytest.mark.parametrize(
+    "solvent_model, solvent_energy, solvent_evidence",
+    [
+        pytest.param(
+            PCMSettings(units="au", medium_Solvent="water"),
+            "pcm polarization energy",
+            "Solvent name:          Water",
+            id="PCM",
+        ),
+        pytest.param(
+            DDXSettings(ddx_solvent_epsilon=4),
+            "dd solvation energy",
+            "solvent_epsilon         = 4.0",
+            id="DDX",
+        ),
+    ],
+)
+def test_basic_submissions_single_solvent_spec(
+    fulltest_client, solvent_model, solvent_energy, solvent_evidence
+):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
     client = fulltest_client
@@ -340,9 +359,11 @@ def test_basic_submissions_single_solvent_spec(fulltest_client, solvent_model, s
     check_added_specs(ds=ds, dataset=dataset)
 
     for spec_name, spec in dataset.qc_specifications.items():
-        query = list(ds.iterate_records(
-            specification_names=spec_name,
-        ))
+        query = list(
+            ds.iterate_records(
+                specification_names=spec_name,
+            )
+        )
         assert len(query) == 1  # only used 1 molecule above
         for name, _, record in query:
             assert record.status == RecordStatusEnum.complete
@@ -352,7 +373,9 @@ def test_basic_submissions_single_solvent_spec(fulltest_client, solvent_model, s
             assert record.properties[solvent_energy] < 0
             # make sure the correct solvent was used
             assert solvent_evidence in record.stdout
-            assert record.specification.dict(include={"method", "basis", "program"}) == spec.dict(include={"method", "basis", "program"})
+            assert record.specification.dict(
+                include={"method", "basis", "program"}
+            ) == spec.dict(include={"method", "basis", "program"})
 
 
 def test_adding_specifications(fulltest_client):

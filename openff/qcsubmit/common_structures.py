@@ -1,6 +1,7 @@
 """
 This file contains common starting structures which can be mixed into datasets, results and factories.
 """
+
 import abc
 import copy
 import getpass
@@ -14,12 +15,12 @@ from typing import (
     ClassVar,
     Dict,
     List,
+    Literal,
     Mapping,
     Optional,
     Set,
     Tuple,
     Union,
-    Literal,
 )
 
 import numpy as np
@@ -41,6 +42,7 @@ try:
         BaseModel,
         Field,
         HttpUrl,
+        PositiveFloat,
         PositiveInt,
         StrictBool,
         StrictFloat,
@@ -48,13 +50,13 @@ try:
         StrictStr,
         constr,
         validator,
-        PositiveFloat,
     )
 except ImportError:
     from pydantic import (
         BaseModel,
         Field,
         HttpUrl,
+        PositiveFloat,
         PositiveInt,
         StrictBool,
         StrictFloat,
@@ -62,7 +64,6 @@ except ImportError:
         StrictStr,
         constr,
         validator,
-        PositiveFloat,
     )
 
 if TYPE_CHECKING:
@@ -425,11 +426,24 @@ class DDXSettings(_BaseSolvent):
     A simple settings class for the ddx solvent model to be used with Psi4
     """
 
-    ddx_model: Literal["pcm", "cosmo"] = Field("pcm", description="The solvation model to use.")
-    ddx_radii_scaling: PositiveFloat = Field(1.1, description="The scaling factor for the cavity spheres this also depends on the radii set chosen.")
-    ddx_radii_set: Literal["uff", "bondi"] = Field("uff", description="The atomic radii set to use.")
-    ddx_solvent_epsilon: Optional[float] = Field(None, description="The dielectric constant of the solvent, if not specified the solvent type should be set.")
-    ddx_solvent: str = Field("water", description="The name of the ddx supported solvent which should used, the epsilon value will be determined from `pyddx.data.solvent_epsilon`. Note that this value is ignored if the `ddx_solvent_epsilon` is provided.")
+    ddx_model: Literal["pcm", "cosmo"] = Field(
+        "pcm", description="The solvation model to use."
+    )
+    ddx_radii_scaling: PositiveFloat = Field(
+        1.1,
+        description="The scaling factor for the cavity spheres this also depends on the radii set chosen.",
+    )
+    ddx_radii_set: Literal["uff", "bondi"] = Field(
+        "uff", description="The atomic radii set to use."
+    )
+    ddx_solvent_epsilon: Optional[float] = Field(
+        None,
+        description="The dielectric constant of the solvent, if not specified the solvent type should be set.",
+    )
+    ddx_solvent: str = Field(
+        "water",
+        description="The name of the ddx supported solvent which should used, the epsilon value will be determined from `pyddx.data.solvent_epsilon`. Note that this value is ignored if the `ddx_solvent_epsilon` is provided.",
+    )
 
     def add_keywords(self, keyword_data: dict) -> dict:
         keyword_data["ddx"] = True
