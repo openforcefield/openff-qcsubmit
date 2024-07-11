@@ -1,12 +1,12 @@
 import datetime
 import logging
+from tempfile import TemporaryDirectory
 
 import numpy
 import pytest
 from openff.toolkit.topology import Molecule
 from openff.units import unit
 from qcelemental.models import DriverEnum
-from qcportal import PortalClient
 from qcportal.singlepoint import QCSpecification
 
 from openff.qcsubmit._pydantic import ValidationError
@@ -32,7 +32,7 @@ from openff.qcsubmit.results.filters import (
     SMILESFilter,
     UnperceivableStereoFilter,
 )
-from openff.qcsubmit.utils import portal_client_manager
+from openff.qcsubmit.utils import CachedPortalClient, portal_client_manager
 
 from . import RecordStatusEnum, SinglepointRecord
 
@@ -547,6 +547,9 @@ def test_unperceivable_stereo_filter(toolkits, n_expected, public_client):
     )
     assert collection.n_results == 1
 
-    with portal_client_manager(PortalClient):
+    with (
+        TemporaryDirectory() as d,
+        portal_client_manager(lambda a: CachedPortalClient(a, cache_dir=d)),
+    ):
         filtered = collection.filter(UnperceivableStereoFilter(toolkits=toolkits))
     assert filtered.n_results == n_expected

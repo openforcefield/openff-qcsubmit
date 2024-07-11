@@ -43,7 +43,6 @@ class CachedPortalClient(PortalClient):
         *,
         include: Optional[Iterable[str]] = None,
     ) -> Union[Optional[OptimizationRecord], List[Optional[OptimizationRecord]]]:
-        raise NotImplementedError()
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
         if unpack := not isinstance(record_ids, Sequence):
