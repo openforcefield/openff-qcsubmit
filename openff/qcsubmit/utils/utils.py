@@ -82,6 +82,19 @@ class CachedPortalClient(PortalClient):
             os.path.join(self.cache.cache_dir, "cache.sqlite"), read_only=False
         )
 
+    def __repr__(self) -> str:
+        """A short representation of the current PortalClient.
+
+        Returns
+        -------
+        str
+            The desired representation.
+        """
+        ret = "CachedPortalClient(server_name='{}', address='{}', username='{}', cache_dir='{}')".format(
+            self.server_name, self.address, self.username, self.cache.cache_dir
+        )
+        return ret
+
     def get_optimizations(
         self,
         record_ids: Union[int, Sequence[int]],
