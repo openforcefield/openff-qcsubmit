@@ -30,8 +30,54 @@ _DEFAULT_CACHE_DIR = "./qcsubmit_qcportal_cache"
 
 
 class CachedPortalClient(PortalClient):
-    def __init__(self, addr, cache_dir, **client_kwargs):
-        super().__init__(addr, cache_dir=cache_dir, **client_kwargs)
+    """A cached version of a `qcportal.PortalClient
+    <https://molssi.github.io/QCFractal/user_guide/qcportal_reference.html#qcportal.client.PortalClient>`.
+    """
+
+    def __init__(
+        self,
+        address: str,
+        cache_dir: str,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        verify: bool = True,
+        show_motd: bool = True,
+        *,
+        cache_max_size: int = 0,
+        memory_cache_key: Optional[str] = None,
+    ):
+        """Parameters
+        ----------
+        address
+            The host or IP address of the FractalServer instance, including
+            protocol and port if necessary ("https://ml.qcarchive.molssi.org",
+            "http://192.168.1.10:8888")
+        cache_dir
+            Directory to store an internal cache of records and other data.
+            Unlike a normal ``PortalClient``, this argument is required.
+        username
+            The username to authenticate with.
+        password
+            The password to authenticate with.
+        verify
+            Verifies the SSL connection with a third party server. This may be
+            False if a FractalServer was not provided an SSL certificate and
+            defaults back to self-signed SSL keys.
+        show_motd
+            If a Message-of-the-Day is available, display it
+        cache_max_size
+            Maximum size of the cache directory
+        """
+        super().__init__(
+            address,
+            username=username,
+            password=password,
+            verify=verify,
+            show_motd=show_motd,
+            cache_dir=cache_dir,
+            cache_max_size=cache_max_size,
+            memory_cache_key=memory_cache_key,
+        )
         self.record_cache = RecordCache(
             os.path.join(self.cache.cache_dir, "cache.sqlite"), read_only=False
         )
