@@ -31,7 +31,7 @@ _DEFAULT_CACHE_DIR = "./qcsubmit_qcportal_cache"
 
 class CachedPortalClient(PortalClient):
     """A cached version of a `qcportal.PortalClient
-    <https://molssi.github.io/QCFractal/user_guide/qcportal_reference.html#qcportal.client.PortalClient>`.
+    <https://molssi.github.io/QCFractal/user_guide/qcportal_reference.html#qcportal.client.PortalClient>`_.
     """
 
     def __init__(
