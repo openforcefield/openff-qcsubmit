@@ -102,6 +102,27 @@ class CachedPortalClient(PortalClient):
         *,
         include: Optional[Iterable[str]] = None,
     ) -> Union[Optional[OptimizationRecord], List[Optional[OptimizationRecord]]]:
+        """Obtain optimization records with the specified IDs.
+
+        Records will be returned in the same order as the record ids.
+
+        Parameters
+        ----------
+        record_ids
+            Single ID or sequence/list of records to obtain
+        missing_ok
+            Unlike a ``PortalClient``, this argument is ignored. If set to
+            True, a warning will be printed. Any missing records will cause a
+            ``RuntimeError`` to be raised.
+        include
+            Additional fields to include in the returned record
+
+        Returns
+        -------
+        :
+            If a single ID was specified, returns just that record. Otherwise,
+            returns a list of records.
+        """
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
         if unpack := not isinstance(record_ids, Sequence):
@@ -126,6 +147,28 @@ class CachedPortalClient(PortalClient):
         *,
         include: Optional[Iterable[str]] = None,
     ) -> Union[Optional[SinglepointRecord], List[Optional[SinglepointRecord]]]:
+        """
+        Obtain singlepoint records with the specified IDs.
+
+        Records will be returned in the same order as the record ids.
+
+        Parameters
+        ----------
+        record_ids
+            Single ID or sequence/list of records to obtain
+        missing_ok
+            Unlike a ``PortalClient``, this argument is ignored. If set to
+            True, a warning will be printed. Any missing records will cause a
+            ``RuntimeError`` to be raised.
+        include
+            Additional fields to include in the returned record
+
+        Returns
+        -------
+        :
+            If a single ID was specified, returns just that record. Otherwise,
+            returns a list of records.
+        """
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
         if unpack := not isinstance(record_ids, Sequence):
@@ -150,6 +193,28 @@ class CachedPortalClient(PortalClient):
         *,
         include: Optional[Iterable[str]] = None,
     ) -> Union[Optional[TorsiondriveRecord], List[Optional[TorsiondriveRecord]]]:
+        """
+        Obtain torsiondrive records with the specified IDs.
+
+        Records will be returned in the same order as the record ids.
+
+        Parameters
+        ----------
+        record_ids
+            Single ID or sequence/list of records to obtain
+        missing_ok
+            Unlike a ``PortalClient``, this argument is ignored. If set to
+            True, a warning will be printed. Any missing records will cause a
+            ``RuntimeError`` to be raised.
+        include
+            Additional fields to include in the returned record
+
+        Returns
+        -------
+        :
+            If a single ID was specified, returns just that record. Otherwise,
+            returns a list of records.
+        """
         if missing_ok:
             logger.warning("missing_ok provided but unused by CachedPortalClient")
         if unpack := not isinstance(record_ids, Sequence):
@@ -175,7 +240,6 @@ class CachedPortalClient(PortalClient):
         accessing ``socket.socket`` again. Combining ``no_internet`` and
         ``client._no_session`` should completely ensure that the local cache is
         used rather than re-fetching data from QCArchive.
-
         """
         tmp = self._req_session
         self._req_session = None
