@@ -230,6 +230,7 @@ Utilities
     :nosignatures:
     :toctree: api/generated/
 
+	CachedPortalClient
 	portal_client_manager
 
 Exceptions
