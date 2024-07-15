@@ -277,7 +277,7 @@ def test_basic_submissions_property_driver(fulltest_client, water):
     assert record.specification.method == "hf"
 
 
-def test_basic_submissions_multiple_spec(fulltest_client, water):
+def test_basic_submissions_multiple_spec(fulltest_client, conformer_water):
     """Test submitting a basic dataset to a snowflake server with multiple qcspecs."""
 
     client = fulltest_client
@@ -304,7 +304,7 @@ def test_basic_submissions_multiple_spec(fulltest_client, water):
 
     dataset = factory.create_dataset(
         dataset_name="Test single points multiple specs",
-        molecules=water,
+        molecules=conformer_water,
         description="Test basics dataset",
         tagline="Testing single point datasets",
     )
@@ -320,8 +320,8 @@ def test_basic_submissions_multiple_spec(fulltest_client, water):
 
     # now submit again
     dataset.submit(client=client)
-
-    await_results(client)
+    # 2 conformers * 2 specs check all 4 results
+    await_results(client, ids=[1, 2, 3, 4])
 
     # make sure of the results are complete
     ds = client.get_dataset(
@@ -337,7 +337,7 @@ def test_basic_submissions_multiple_spec(fulltest_client, water):
     # check the results of each spec
     for spec_name, spec in dataset.qc_specifications.items():
         query = list(ds.iterate_records(specification_names=[spec_name]))
-        assert len(query) == 1
+        assert len(query) == 2
         for name, _, record in query:
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
@@ -616,7 +616,7 @@ def test_adding_compute(fulltest_client, dataset_data):
                 assert len(record.trajectory) > 1
 
 
-def test_basic_submissions_wavefunction(fulltest_client, water):
+def test_basic_submissions_wavefunction(fulltest_client, conformer_water):
     """
     Test submitting a basic dataset with a wavefunction protocol and make sure it is executed.
     """
@@ -639,7 +639,7 @@ def test_basic_submissions_wavefunction(fulltest_client, water):
 
     dataset = factory.create_dataset(
         dataset_name="Test single points with wavefunction",
-        molecules=water,
+        molecules=conformer_water,
         description="Test basics dataset",
         tagline="Testing single point datasets with wavefunction",
     )
@@ -666,7 +666,7 @@ def test_basic_submissions_wavefunction(fulltest_client, water):
             specification_names="default",
         )
     )
-    assert len(query) == 1
+    assert len(query) == 2
     for _, _, result in query:
         assert result.status == RecordStatusEnum.complete
         assert result.error is None
