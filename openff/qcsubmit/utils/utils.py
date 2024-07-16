@@ -122,7 +122,10 @@ class _CachedPortalClient(PortalClient):
             returns a list of records.
         """
         if missing_ok:
-            logger.warning("missing_ok provided but unused by CachedPortalClient")
+            logger.warning(
+                "missing_ok was set to True, but CachedPortalClient"
+                " doesn't actually support this so it's being set to False"
+            )
         if unpack := not isinstance(record_ids, Sequence):
             record_ids = [record_ids]
         res = get_records_with_cache(
@@ -168,7 +171,10 @@ class _CachedPortalClient(PortalClient):
             returns a list of records.
         """
         if missing_ok:
-            logger.warning("missing_ok provided but unused by CachedPortalClient")
+            logger.warning(
+                "missing_ok was set to True, but CachedPortalClient"
+                " doesn't actually support this so it's being set to False"
+            )
         if unpack := not isinstance(record_ids, Sequence):
             record_ids = [record_ids]
         res = get_records_with_cache(
@@ -214,7 +220,10 @@ class _CachedPortalClient(PortalClient):
             returns a list of records.
         """
         if missing_ok:
-            logger.warning("missing_ok provided but unused by CachedPortalClient")
+            logger.warning(
+                "missing_ok was set to True, but CachedPortalClient"
+                " doesn't actually support this so it's being set to False"
+            )
         if unpack := not isinstance(record_ids, Sequence):
             record_ids = [record_ids]
         res = get_records_with_cache(
