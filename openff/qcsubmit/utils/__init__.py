@@ -1,5 +1,5 @@
 from openff.qcsubmit.utils.utils import (
-    CachedPortalClient,
+    _CachedPortalClient,
     check_missing_stereo,
     chunk_generator,
     clean_strings,

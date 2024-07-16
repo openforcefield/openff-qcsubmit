@@ -27,7 +27,7 @@ from openff.qcsubmit.results import (
 )
 from openff.qcsubmit.results.filters import ResultFilter
 from openff.qcsubmit.results.results import TorsionDriveResult, _BaseResultCollection
-from openff.qcsubmit.utils import CachedPortalClient, portal_client_manager
+from openff.qcsubmit.utils import _CachedPortalClient, portal_client_manager
 
 from . import (
     OptimizationRecord,
@@ -319,12 +319,12 @@ def test_to_records(
     assert collection.n_molecules == expected_n_mols
 
     def disconnected_client(addr, cache_dir):
-        ret = CachedPortalClient(addr, cache_dir)
+        ret = _CachedPortalClient(addr, cache_dir)
         ret._req_session = None
         return ret
 
     with TemporaryDirectory() as d:
-        client = CachedPortalClient(public_client.address, d)
+        client = _CachedPortalClient(public_client.address, d)
         with portal_client_manager(lambda _: client):
             with (
                 client._no_session(),
@@ -381,7 +381,7 @@ def test_optimization_to_basic_result_collection(public_client):
     )
     with (
         TemporaryDirectory() as d,
-        portal_client_manager(lambda a: CachedPortalClient(a, d)),
+        portal_client_manager(lambda a: _CachedPortalClient(a, d)),
     ):
         basic_collection = optimization_result_collection.to_basic_result_collection(
             "hessian"

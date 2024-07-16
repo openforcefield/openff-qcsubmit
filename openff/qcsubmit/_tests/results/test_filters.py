@@ -32,7 +32,7 @@ from openff.qcsubmit.results.filters import (
     SMILESFilter,
     UnperceivableStereoFilter,
 )
-from openff.qcsubmit.utils import CachedPortalClient, portal_client_manager
+from openff.qcsubmit.utils import _CachedPortalClient, portal_client_manager
 
 from . import RecordStatusEnum, SinglepointRecord
 
@@ -549,7 +549,7 @@ def test_unperceivable_stereo_filter(toolkits, n_expected, public_client):
 
     with (
         TemporaryDirectory() as d,
-        portal_client_manager(lambda a: CachedPortalClient(a, cache_dir=d)),
+        portal_client_manager(lambda a: _CachedPortalClient(a, cache_dir=d)),
     ):
         filtered = collection.filter(UnperceivableStereoFilter(toolkits=toolkits))
     assert filtered.n_results == n_expected

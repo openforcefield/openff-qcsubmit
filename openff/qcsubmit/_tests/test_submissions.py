@@ -39,7 +39,7 @@ from openff.qcsubmit.results import (
     OptimizationResultCollection,
     TorsionDriveResultCollection,
 )
-from openff.qcsubmit.utils import CachedPortalClient, get_data, portal_client_manager
+from openff.qcsubmit.utils import _CachedPortalClient, get_data, portal_client_manager
 
 
 def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, ids=[1]):
@@ -1412,7 +1412,7 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     assert results.n_molecules == 1
     with (
         TemporaryDirectory() as d,
-        portal_client_manager(lambda a: CachedPortalClient(a, d)),
+        portal_client_manager(lambda a: _CachedPortalClient(a, d)),
     ):
         records = results.to_records()
     assert len(records) == 1
@@ -1436,7 +1436,7 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     with (
         pytest.warns(UserWarning, match="invalid CMILES"),
         TemporaryDirectory() as d,
-        portal_client_manager(lambda a: CachedPortalClient(a, d)),
+        portal_client_manager(lambda a: _CachedPortalClient(a, d)),
     ):
         records = results.to_records()
     assert len(records) == 0

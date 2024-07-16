@@ -27,7 +27,7 @@ from qcportal.torsiondrive.record_models import TorsiondriveRecord
 logger = logging.getLogger(__name__)
 
 
-class CachedPortalClient(PortalClient):
+class _CachedPortalClient(PortalClient):
     """A cached version of a `qcportal.PortalClient
     <https://molssi.github.io/QCFractal/user_guide/qcportal_reference.html#qcportal.client.PortalClient>`_.
     """
