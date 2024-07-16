@@ -23,5 +23,5 @@ __all__ = [
     "get_symmetry_classes",
     "get_symmetry_group",
     "portal_client_manager",
-    "CachedPortalClient",
+    "_CachedPortalClient",
 ]
