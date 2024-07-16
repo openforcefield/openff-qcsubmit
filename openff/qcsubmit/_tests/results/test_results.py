@@ -318,6 +318,11 @@ def test_to_records(
     )
     assert collection.n_molecules == expected_n_mols
 
+    def disconnected_client(addr, cache_dir):
+        ret = CachedPortalClient(addr, cache_dir)
+        ret._req_session = None
+        return ret
+
     with TemporaryDirectory() as d:
         client = CachedPortalClient(public_client.address, d)
         with portal_client_manager(lambda _: client):
@@ -331,6 +336,12 @@ def test_to_records(
             # molecules, which cannot currently be cached
             if collection_type is not TorsionDriveResultCollection:
                 with client._no_session():
+                    assert len(collection.to_records()) == len(records_and_molecules)
+                # the previous checks show that the *same* client can access
+                # its cache without making new requests. disconnected_client
+                # instead shows that a newly-constructed client pointing at the
+                # same cache_dir can still access the cache
+                with portal_client_manager(lambda addr: disconnected_client(addr, d)):
                     assert len(collection.to_records()) == len(records_and_molecules)
 
     assert len(records_and_molecules) == expected_n_recs
