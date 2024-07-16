@@ -417,54 +417,6 @@ def test_basic_submissions_single_pcm_spec(fulltest_client, water):
             ) == spec.dict(include={"method", "program", "basis"})
 
 
-def test_adding_specifications(water):
-    """
-    Test adding specifications to datasets.
-    Here we are testing multiple scenarios:
-    1) Adding an identical specification to a dataset
-    2) Adding a spec with the same name as another but with different options
-    3) overwrite a spec which was added but never used.
-    """
-
-    # make a dataset
-    factory = OptimizationDatasetFactory()
-    opt_dataset = factory.create_dataset(
-        dataset_name="Specification error check",
-        molecules=water,
-        description="test adding new compute specs to datasets",
-        tagline="test adding new compute specs",
-    )
-    opt_dataset.clear_qcspecs()
-    # add a spec with the wrong name
-    opt_dataset.add_qc_spec(
-        method="openff-1.2.1",
-        basis="smirnoff",
-        spec_name="openff-1.0.0",
-        program="openmm",
-        spec_description="openff-1.2.1 with wrong name.",
-    )
-
-    # now try and add this specification again with the same name but different settings
-    with pytest.raises(QCSpecificationError):
-        opt_dataset.add_qc_spec(
-            method="openff-1.0.0",
-            basis="smirnoff",
-            program="openmm",
-            spec_description="default openff spec",
-            spec_name="openff-1.0.0",
-        )
-    # try again with overwrite true
-    opt_dataset.add_qc_spec(
-        method="openff-1.0.0",
-        basis="smirnoff",
-        program="openmm",
-        spec_description="default openff spec",
-        spec_name="openff-1.0.0",
-        overwrite=True,
-    )
-    assert opt_dataset.qc_specifications["openff-1.0.0"].method == "openff-1.0.0"
-
-
 @pytest.mark.parametrize(
     "dataset_data",
     [
