@@ -288,6 +288,9 @@ def portal_client_manager(portal_client_fn: Callable[[str], PortalClient]):
     >>> with portal_client_manager(my_portal_client):
     >>>     records_and_molecules = ds.to_records()
 
+    .. warning::
+        It is not safe to share the same client across threads or to construct
+        multiple clients accessing the same cache database.
     """
     global _default_portal_client
     original_client_fn = _default_portal_client
