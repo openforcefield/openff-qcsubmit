@@ -1,4 +1,5 @@
 from openff.qcsubmit.utils.utils import (
+    _CachedPortalClient,
     check_missing_stereo,
     chunk_generator,
     clean_strings,
@@ -22,4 +23,5 @@ __all__ = [
     "get_symmetry_classes",
     "get_symmetry_group",
     "portal_client_manager",
+    "_CachedPortalClient",
 ]

@@ -3,6 +3,7 @@ Test the results packages when collecting from the public qcarchive.
 """
 
 import datetime
+from tempfile import TemporaryDirectory
 
 import pytest
 from openff.toolkit.topology import Molecule
@@ -26,6 +27,7 @@ from openff.qcsubmit.results import (
 )
 from openff.qcsubmit.results.filters import ResultFilter
 from openff.qcsubmit.results.results import TorsionDriveResult, _BaseResultCollection
+from openff.qcsubmit.utils import _CachedPortalClient, portal_client_manager
 
 from . import (
     OptimizationRecord,
@@ -315,7 +317,33 @@ def test_to_records(
         public_client, collection_name, spec_name=spec_name
     )
     assert collection.n_molecules == expected_n_mols
-    records_and_molecules = collection.to_records()
+
+    def disconnected_client(addr, cache_dir):
+        ret = _CachedPortalClient(addr, cache_dir)
+        ret._req_session = None
+        return ret
+
+    with TemporaryDirectory() as d:
+        client = _CachedPortalClient(public_client.address, d)
+        with portal_client_manager(lambda _: client):
+            with (
+                client._no_session(),
+                pytest.raises(Exception, match="no attribute 'prepare_request'"),
+            ):
+                collection.to_records()
+            records_and_molecules = collection.to_records()
+            # TorsionDriveResultCollection.to_records requires fetching
+            # molecules, which cannot currently be cached
+            if collection_type is not TorsionDriveResultCollection:
+                with client._no_session():
+                    assert len(collection.to_records()) == len(records_and_molecules)
+                # the previous checks show that the *same* client can access
+                # its cache without making new requests. disconnected_client
+                # instead shows that a newly-constructed client pointing at the
+                # same cache_dir can still access the cache
+                with portal_client_manager(lambda addr: disconnected_client(addr, d)):
+                    assert len(collection.to_records()) == len(records_and_molecules)
+
     assert len(records_and_molecules) == expected_n_recs
     record, molecule = records_and_molecules[0]
 
@@ -351,9 +379,13 @@ def test_optimization_to_basic_result_collection(public_client):
     optimization_result_collection = OptimizationResultCollection.from_server(
         public_client, ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"]
     )
-    basic_collection = optimization_result_collection.to_basic_result_collection(
-        "hessian"
-    )
+    with (
+        TemporaryDirectory() as d,
+        portal_client_manager(lambda a: _CachedPortalClient(a, d)),
+    ):
+        basic_collection = optimization_result_collection.to_basic_result_collection(
+            "hessian"
+        )
     assert basic_collection.n_results == 197
     assert basic_collection.n_molecules == 49
 
