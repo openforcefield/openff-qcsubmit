@@ -827,7 +827,7 @@ class BasicDataset(_BaseDataset):
                 driver=self.driver,
                 method=spec.method,
                 basis=spec.basis,
-                keywords=spec.qc_keywords,
+                keywords=spec.qc_keywords(properties=self.driver == "properties"),
                 program=spec.program,
                 protocols={"wavefunction": spec.store_wavefunction},
             )
@@ -869,7 +869,7 @@ class BasicDataset(_BaseDataset):
         data = defaultdict(list)
         for spec in self.qc_specifications.values():
             qc_model = spec.qc_model
-            keywords = spec.qc_keywords
+            keywords = spec.qc_keywords(properties=self.driver == "properties")
             protocols = {"wavefunction": spec.store_wavefunction.value}
             program = spec.program.lower()
             for index, entry in self.dataset.items():
@@ -1023,7 +1023,7 @@ class OptimizationDataset(BasicDataset):
                 driver=self.driver,
                 method=spec.method,
                 basis=spec.basis,
-                keywords=spec.qc_keywords,
+                keywords=spec.qc_keywords(properties=False),
                 program=spec.program,
                 protocols={"wavefunction": spec.store_wavefunction},
             )
@@ -1079,7 +1079,7 @@ class OptimizationDataset(BasicDataset):
         opt_program = self.optimization_procedure.program.lower()
         for spec in self.qc_specifications.values():
             qc_model = spec.qc_model
-            qc_keywords = spec.qc_keywords
+            qc_keywords = spec.qc_keywords(properties=False)
             qc_spec = QCInputSpecification(
                 # TODO: self.driver is now set to "deferred" - is it safe to put "gradient" here?
                 driver="gradient",
@@ -1244,7 +1244,7 @@ class TorsiondriveDataset(OptimizationDataset):
                 driver=self.driver,
                 method=spec.method,
                 basis=spec.basis,
-                keywords=spec.qc_keywords,
+                keywords=spec.qc_keywords(properties=False),
                 program=spec.program,
                 protocols={"wavefunction": spec.store_wavefunction},
             )

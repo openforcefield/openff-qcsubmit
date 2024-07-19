@@ -116,6 +116,7 @@ class SCFProperties(str, Enum):
     WibergLowdinIndices = "wiberg_lowdin_indices"
     MayerIndices = "mayer_indices"
     MBISCharges = "mbis_charges"
+    DipolePolarizabilities = "dipole_polarizabilities"
 
     @classmethod
     def _missing_(cls, value):
@@ -592,12 +593,20 @@ class QCSpec(ResultsConfig):
         """Return the qcelmental schema for this method and basis."""
         return Model(method=self.method, basis=self.basis)
 
-    @property
-    def qc_keywords(self) -> Dict[str, Any]:
+    def qc_keywords(self, properties: bool = False) -> Dict[str, Any]:
         """
         Return the formatted keywords for this calculation.
+
+        Args:
+            properties: If the properties driver has been selected which will change how the keywords are formatted,
+                see https://github.com/psi4/psi4/issues/3129 for more.
         """
-        data = self.dict(include={"maxiter", "scf_properties"})
+        data = self.dict(include={"maxiter"})
+        if self.program.lower() == "psi4" and properties:
+            data["function_kwargs"] = {"properties": self.scf_properties}
+        else:
+            data["scf_properties"] = self.scf_properties
+
         if self.keywords is not None:
             data.update(self.keywords)
         if self.implicit_solvent is not None:
@@ -926,7 +935,7 @@ class CommonBase(DatasetConfig, IndexCleaner, QCSpecificationHandler):
 
     driver: SinglepointDriver = Field(
         SinglepointDriver.energy,
-        description="The type of single point calculations which will be computed. Note some services require certain calculations for example optimizations require graident calculations.",
+        description="The type of single point calculations which will be computed. Note some services require certain calculations for example optimizations require gradient calculations.",
     )
     priority: str = Field(
         "normal",

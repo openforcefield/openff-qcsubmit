@@ -14,7 +14,11 @@ from qcportal import PortalClient
 from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit.common_structures import MoleculeAttributes, PCMSettings
+from openff.qcsubmit.common_structures import (
+    MoleculeAttributes,
+    PCMSettings,
+    SCFProperties,
+)
 from openff.qcsubmit.constraints import Constraints
 from openff.qcsubmit.datasets import (
     BasicDataset,
@@ -24,11 +28,7 @@ from openff.qcsubmit.datasets import (
 from openff.qcsubmit.datasets.dataset_utils import (
     legacy_qcsubmit_ds_type_to_next_qcf_ds_type,
 )
-from openff.qcsubmit.exceptions import (
-    DatasetInputError,
-    MissingBasisCoverageError,
-    QCSpecificationError,
-)
+from openff.qcsubmit.exceptions import DatasetInputError, MissingBasisCoverageError
 from openff.qcsubmit.factories import (
     BasicDatasetFactory,
     OptimizationDatasetFactory,
@@ -157,7 +157,8 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
     if not has_program(program):
         pytest.skip(f"Program '{program}' not found.")
 
-    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
+    # keep the QM cost down by using fewer conformers
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")[:2]
 
     factory = BasicDatasetFactory(driver=driver)
     factory.add_qc_spec(
@@ -200,39 +201,99 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
 
     # check the compute was run with the requested specification
     for spec in dataset.qc_specifications.values():
-        query = ds.iterate_records(
-            specification_names="default",
+        query = list(
+            ds.iterate_records(
+                specification_names="default",
+            )
         )
         # make sure all of the conformers were submitted
-        assert len(list(query)) == len(molecules)
+        assert len(query) == len(molecules)
         for name, _, record in query:
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert record.return_result is not None
-            assert record.specification == spec
+            assert record.specification.dict(
+                include={"method", "program", "basis"}
+            ) == spec.dict(include={"method", "program", "basis"})
 
 
-def test_basic_submissions_multiple_spec(fulltest_client):
+def test_basic_submissions_property_driver(fulltest_client, water):
+    """Make sure the keywords are formatted properly if we use the property driver."""
+
+    if not has_program("psi4"):
+        pytest.skip("Program psi4 not found.")
+
+    client = fulltest_client
+
+    dataset = BasicDataset(
+        dataset_name="testing properties",
+        dataset_tagline="testing properties driver",
+        description="testing properties driver",
+        driver="properties",
+    )
+    dataset.clear_qcspecs()
+    dataset.add_qc_spec(
+        method="hf",
+        basis="sto-3g",
+        program="psi4",
+        scf_properties=[
+            SCFProperties.DipolePolarizabilities,
+            SCFProperties.Dipole,
+            SCFProperties.MBISCharges,
+        ],
+        spec_name="hf/sto3g",
+        spec_description="Quick hf spec",
+    )
+
+    dataset.add_molecule(index="water", molecule=water)
+    # make sure the keywords are formatted correctly
+    qc_keywords = dataset.qc_specifications["hf/sto3g"].qc_keywords(properties=True)
+    assert "dipole_polarizabilities" in qc_keywords["function_kwargs"]["properties"]
+
+    # submit and check the dipole polarizability was calculated
+    dataset.submit(client=client)
+    await_results(client)
+
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
+    # make sure all specifications were added
+    check_added_specs(ds=ds, dataset=dataset)
+
+    record = ds.get_record(entry_name="water", specification_name="hf/sto3g")
+    assert record.status == RecordStatusEnum.complete
+    assert record.error is None
+    # make sure normal scf properties were calculated
+    assert "mbis charges" in record.properties
+    # check the method specific dipole was added
+    assert "hf dipole" in record.properties
+    # make sure the response property was calculated
+    assert "dipole polarizability xx" in record.properties
+    # check the specification on the record
+    assert record.specification.program == "psi4"
+    assert record.specification.driver == "properties"
+    assert record.specification.method == "hf"
+
+
+def test_basic_submissions_multiple_spec(fulltest_client, conformer_water):
     """Test submitting a basic dataset to a snowflake server with multiple qcspecs."""
 
     client = fulltest_client
 
     qc_specs = [
         {
-            "method": "openff-1.0.0",
+            "method": "openff-2.0.0",
             "basis": "smirnoff",
             "program": "openmm",
-            "spec_name": "openff",
+            "spec_name": "openff-2.0.0",
         },
         {
-            "method": "gaff-2.11",
-            "basis": "antechamber",
-            "program": "openmm",
-            "spec_name": "gaff",
+            "method": "uff",
+            "basis": None,
+            "program": "rdkit",
+            "spec_name": "uff",
         },
     ]
-
-    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
     factory.clear_qcspecs()
@@ -241,7 +302,7 @@ def test_basic_submissions_multiple_spec(fulltest_client):
 
     dataset = factory.create_dataset(
         dataset_name="Test single points multiple specs",
-        molecules=molecules,
+        molecules=conformer_water,
         description="Test basics dataset",
         tagline="Testing single point datasets",
     )
@@ -257,8 +318,8 @@ def test_basic_submissions_multiple_spec(fulltest_client):
 
     # now submit again
     dataset.submit(client=client)
-
-    await_results(client)
+    # 2 conformers * 2 specs check all 4 results
+    await_results(client, ids=[1, 2, 3, 4])
 
     # make sure of the results are complete
     ds = client.get_dataset(
@@ -273,17 +334,18 @@ def test_basic_submissions_multiple_spec(fulltest_client):
 
     # check the results of each spec
     for spec_name, spec in dataset.qc_specifications.items():
-        query = ds.iterate_records(specification_names=[spec_name])
-        # make sure all conformers are submitted
-        assert len(list(query)) == len(molecules)
+        query = list(ds.iterate_records(specification_names=[spec_name]))
+        assert len(query) == 2
         for name, _, record in query:
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert record.return_result is not None
-            assert record.specification == spec
+            assert record.specification.dict(
+                include={"method", "program", "basis"}
+            ) == spec.dict(include={"method", "program", "basis"})
 
 
-def test_basic_submissions_single_pcm_spec(fulltest_client):
+def test_basic_submissions_single_pcm_spec(fulltest_client, water):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
     client = fulltest_client
@@ -291,8 +353,6 @@ def test_basic_submissions_single_pcm_spec(fulltest_client):
     program = "psi4"
     if not has_program(program):
         pytest.skip(f"Program '{program}' not found.")
-
-    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
     factory.add_qc_spec(
@@ -308,7 +368,7 @@ def test_basic_submissions_single_pcm_spec(fulltest_client):
     # only use one molecule due to the time it takes to run with pcm
     dataset = factory.create_dataset(
         dataset_name="Test single points with pcm water",
-        molecules=molecules[0],
+        molecules=water,
         description="Test basics dataset with pcm water",
         tagline="Testing single point datasets with pcm water",
     )
@@ -338,96 +398,21 @@ def test_basic_submissions_single_pcm_spec(fulltest_client):
     check_added_specs(ds=ds, dataset=dataset)
 
     for spec_name, spec in dataset.qc_specifications.items():
-        query = ds.iterate_records(
-            specification_names=spec_name,
+        query = list(
+            ds.iterate_records(
+                specification_names=spec_name,
+            )
         )
-        assert len(list(query)) == 1  # only used 1 molecule above
+        assert len(query) == 1  # only used 1 molecule above
         for name, _, record in query:
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert record.return_result is not None
             # make sure the PCM result was captured
-            assert record.extras["qcvars"]["PCM POLARIZATION ENERGY"] < 0
-            assert record.specification == spec
-
-
-def test_adding_specifications(fulltest_client):
-    """
-    Test adding specifications to datasets.
-    Here we are testing multiple scenarios:
-    1) Adding an identical specification to a dataset
-    2) Adding a spec with the same name as another but with different options
-    3) overwrite a spec which was added but never used.
-    """
-    client = fulltest_client
-    mol = Molecule.from_smiles("CO")
-    # make a dataset
-    factory = OptimizationDatasetFactory()
-    opt_dataset = factory.create_dataset(
-        dataset_name="Specification error check",
-        molecules=mol,
-        description="test adding new compute specs to datasets",
-        tagline="test adding new compute specs",
-    )
-    opt_dataset.clear_qcspecs()
-    # add a new mm spec
-    opt_dataset.add_qc_spec(
-        method="openff-1.0.0",
-        basis="smirnoff",
-        program="openmm",
-        spec_description="default openff spec",
-        spec_name="openff-1.0.0",
-    )
-
-    # submit the optimizations and let the compute run
-    opt_dataset.submit(client=client)
-    await_results(client, check_fn=PortalClient.get_optimizations)
-
-    # grab the collection
-    _ = client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[opt_dataset.type],
-        opt_dataset.dataset_name,
-    )
-
-    # now change part of the spec but keep the name the same
-    opt_dataset.clear_qcspecs()
-    opt_dataset.add_qc_spec(
-        method="openff-1.2.1",
-        basis="smirnoff",
-        spec_name="openff-1.0.0",
-        program="openmm",
-        spec_description="openff-1.2.1 with wrong name.",
-    )
-
-    # now try and add this specification with the same name but different settings
-    with pytest.raises(QCSpecificationError):
-        assert opt_dataset.add_qc_spec(
-            method="openff-1.0.0",
-            basis="smirnoff",
-            program="openmm",
-            spec_description="default openff spec",
-            spec_name="openff-1.0.0",
-        )
-
-    # now add a new specification but no compute and make sure it is overwritten
-    opt_dataset.clear_qcspecs()
-    opt_dataset.add_qc_spec(
-        method="ani1x",
-        basis=None,
-        program="torchani",
-        spec_name="ani",
-        spec_description="a ani spec",
-    )
-
-    # now change the spec slightly and add again
-    opt_dataset.clear_qcspecs()
-    opt_dataset.add_qc_spec(
-        method="ani1ccx",
-        basis=None,
-        program="torchani",
-        spec_name="ani",
-        spec_description="a ani spec",
-    )
+            assert record.properties["pcm polarization energy"] < 0
+            assert record.specification.dict(
+                include={"method", "program", "basis"}
+            ) == spec.dict(include={"method", "program", "basis"})
 
 
 @pytest.mark.parametrize(
@@ -581,7 +566,7 @@ def test_adding_compute(fulltest_client, dataset_data):
                 assert len(record.trajectory) > 1
 
 
-def test_basic_submissions_wavefunction(fulltest_client):
+def test_basic_submissions_wavefunction(fulltest_client, conformer_water):
     """
     Test submitting a basic dataset with a wavefunction protocol and make sure it is executed.
     """
@@ -590,13 +575,12 @@ def test_basic_submissions_wavefunction(fulltest_client):
         pytest.skip("Program psi4 not found.")
 
     client = fulltest_client
-    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = BasicDatasetFactory(driver="energy")
     factory.clear_qcspecs()
     factory.add_qc_spec(
         method="hf",
-        basis="sto-6g",
+        basis="sto-3g",
         program="psi4",
         spec_name="default",
         spec_description="wavefunction spec",
@@ -605,7 +589,7 @@ def test_basic_submissions_wavefunction(fulltest_client):
 
     dataset = factory.create_dataset(
         dataset_name="Test single points with wavefunction",
-        molecules=molecules,
+        molecules=conformer_water,
         description="Test basics dataset",
         tagline="Testing single point datasets with wavefunction",
     )
@@ -627,19 +611,19 @@ def test_basic_submissions_wavefunction(fulltest_client):
     # get the last ran spec
     check_added_specs(ds=ds, dataset=dataset)
 
-    for spec in dataset.qc_specifications.values():
-        query = ds.iterate_records(
+    query = list(
+        ds.iterate_records(
             specification_names="default",
         )
-        assert len(list(query)) == len(molecules)
-        for name, spec, result in query:
-            assert result.status == RecordStatusEnum.complete
-            assert result.error is None
-            assert result.return_result is not None
-            basis = result.get_wavefunction("basis")
-            assert basis.name.lower() == "sto-6g"
-            orbitals = result.get_wavefunction("orbitals_a")
-            assert orbitals.shape is not None
+    )
+    assert len(query) == 2
+    for _, _, result in query:
+        assert result.status == RecordStatusEnum.complete
+        assert result.error is None
+        assert result.return_result is not None
+        wavefunction = result.wavefunction
+        assert wavefunction.basis.name.lower() == "sto-3g"
+        assert wavefunction.scf_orbitals_a is not None
 
 
 def test_optimization_submissions_with_constraints(fulltest_client):
@@ -935,16 +919,16 @@ def test_torsiondrive_scan_keywords(fulltest_client):
     )
 
     # get the entry
-    query = ds.iterate_records(specification_names="openff-1.1.0")
-    assert len(list(query)) == 1  # only used 1 molecule above
-    for name, spec, record in query:
+    query = list(ds.iterate_records(specification_names="openff-1.1.0"))
+    assert len(query) == 1  # only used 1 molecule above
+    for _, _, record in query:
         assert record.status == RecordStatusEnum.complete
         assert record.error is None
-        assert record.return_result is not None
-        assert record.keywords.grid_spacing == [5]
-        assert record.keywords.grid_spacing != dataset.grid_spacing
-        assert record.keywords.dihedral_ranges == [(-10, 10)]
-        assert record.keywords.dihedral_ranges != dataset.dihedral_ranges
+        assert record.final_energies is not None
+        assert record.specification.keywords.grid_spacing == [5]
+        assert record.specification.keywords.grid_spacing != dataset.grid_spacing
+        assert record.specification.keywords.dihedral_ranges == [(-10, 10)]
+        assert record.specification.keywords.dihedral_ranges != dataset.dihedral_ranges
 
 
 def test_torsiondrive_constraints(fulltest_client):

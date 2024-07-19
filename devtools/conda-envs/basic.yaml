@@ -30,7 +30,7 @@ dependencies:
 
   - postgresql
 
-  - openeye-toolkits
+  - openeye-toolkits !=2024.1.1
 
   ### Core dependencies.
 
