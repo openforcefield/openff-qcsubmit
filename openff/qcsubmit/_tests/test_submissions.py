@@ -29,7 +29,6 @@ from openff.qcsubmit.datasets.dataset_utils import (
 from openff.qcsubmit.exceptions import (
     DatasetInputError,
     MissingBasisCoverageError,
-    QCSpecificationError,
 )
 from openff.qcsubmit.factories import (
     BasicDatasetFactory,
