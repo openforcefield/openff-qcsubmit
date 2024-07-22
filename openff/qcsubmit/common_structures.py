@@ -444,8 +444,8 @@ class DDXSettings(_BaseSolvent):
     ddx_solvent: str = Field(
         "water",
         description="The name of the ddx supported solvent which should be used, the epsilon value will be determined "
-                    "from `pyddx.data.solvent_epsilon`. Note that this value is ignored if the `ddx_solvent_epsilon` "
-                    "is provided.",
+        "from `pyddx.data.solvent_epsilon`. Note that this value is ignored if the `ddx_solvent_epsilon` "
+        "is provided.",
     )
 
     def add_keywords(self, keyword_data: dict) -> dict:
