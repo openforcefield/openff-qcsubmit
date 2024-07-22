@@ -370,9 +370,8 @@ def test_basic_submissions_multiple_spec(fulltest_client, conformer_water):
     ],
 )
 def test_basic_submissions_single_solvent_spec(
-    fulltest_client, solvent_model, solvent_energy, solvent_evidence
+    fulltest_client, solvent_model, solvent_energy, solvent_evidence, water
 ):
-def test_basic_submissions_single_pcm_spec(fulltest_client, water):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
     client = fulltest_client
