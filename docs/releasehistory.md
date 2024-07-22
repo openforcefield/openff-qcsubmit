@@ -12,6 +12,9 @@ Releases are given with dates in DD-MM-YYYY format.
 <!--## Version / Date DD-MM-YYYY -->
 ## Current development
 
+### API breaking changes
+* [PR #288:]: Adds a new named argument, `properties=False` to `QCSpec.qc_keywords`, changing it from a property to a method. 
+
 ### Examples updated
 
 * [PR #283:] Run examples in CI, updates for QCPortal 0.54 and API changes in #141
@@ -20,6 +23,8 @@ Releases are given with dates in DD-MM-YYYY format.
 ### New Features
 
 * [PR #284:] Add `portal_client_manager` for using custom `PortalClient` settings
+* [PR #288:] Adds better support for property driver psi4 calculations which require the keywords to be formatted differently (see [this issue](https://github.com/psi4/psi4/issues/3129) for an example which can be run locally). This also allows for response properties to be calculated such as the dipole polarizabilities, which is included as a new property type.
+* [PR #289:] Add `workflow_components.RECAPFragmenter` to fragment molecules using the rdkit implementation of RECAP [@jthorton]
 
 ## 0.51.0 / 23-04-2024
 
@@ -137,6 +142,8 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #283:]: https://github.com/openforcefield/openff-qcsubmit/pull/283
 [PR #284:]: https://github.com/openforcefield/openff-qcsubmit/pull/284
 [PR #285:]: https://github.com/openforcefield/openff-qcsubmit/pull/285
+[PR #288:]: https://github.com/openforcefield/openff-qcsubmit/pull/288
+[PR #289:]: https://github.com/openforcefield/openff-qcsubmit/pull/289
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
