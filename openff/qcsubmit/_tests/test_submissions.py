@@ -365,8 +365,8 @@ def test_basic_submissions_multiple_spec(fulltest_client, conformer_water):
             DDXSettings(ddx_solvent="1-bromooctane"),
             "dd solvation energy",
             "solvent_epsilon         = 5.0244",
-            id="DDX Solvent"
-        )
+            id="DDX Solvent",
+        ),
     ],
 )
 def test_basic_submissions_single_solvent_spec(
