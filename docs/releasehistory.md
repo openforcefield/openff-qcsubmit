@@ -25,6 +25,7 @@ Releases are given with dates in DD-MM-YYYY format.
 * [PR #284:] Add `portal_client_manager` for using custom `PortalClient` settings
 * [PR #288:] Adds better support for property driver psi4 calculations which require the keywords to be formatted differently (see [this issue](https://github.com/psi4/psi4/issues/3129) for an example which can be run locally). This also allows for response properties to be calculated such as the dipole polarizabilities, which is included as a new property type.
 * [PR #289:] Add `workflow_components.RECAPFragmenter` to fragment molecules using the rdkit implementation of RECAP [@jthorton]
+* [PR #290:] Add support for the DDX implicit solvent interface in Psi4 [@jthorton]
 
 ## 0.51.0 / 23-04-2024
 
@@ -144,6 +145,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #285:]: https://github.com/openforcefield/openff-qcsubmit/pull/285
 [PR #288:]: https://github.com/openforcefield/openff-qcsubmit/pull/288
 [PR #289:]: https://github.com/openforcefield/openff-qcsubmit/pull/289
+[PR #290:]: https://github.com/openforcefield/openff-qcsubmit/pull/290
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl

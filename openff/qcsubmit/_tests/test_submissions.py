@@ -15,6 +15,7 @@ from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
 from openff.qcsubmit.common_structures import (
+    DDXSettings,
     MoleculeAttributes,
     PCMSettings,
     SCFProperties,
@@ -345,7 +346,32 @@ def test_basic_submissions_multiple_spec(fulltest_client, conformer_water):
             ) == spec.dict(include={"method", "program", "basis"})
 
 
-def test_basic_submissions_single_pcm_spec(fulltest_client, water):
+@pytest.mark.parametrize(
+    "solvent_model, solvent_energy, solvent_evidence",
+    [
+        pytest.param(
+            PCMSettings(units="au", medium_Solvent="water"),
+            "pcm polarization energy",
+            "Solvent name:          Water",
+            id="PCM",
+        ),
+        pytest.param(
+            DDXSettings(ddx_solvent_epsilon=4),
+            "dd solvation energy",
+            "solvent_epsilon         = 4.0",
+            id="DDX Epsilon",
+        ),
+        pytest.param(
+            DDXSettings(ddx_solvent="1-bromooctane"),
+            "dd solvation energy",
+            "solvent_epsilon         = 5.0244",
+            id="DDX Solvent",
+        ),
+    ],
+)
+def test_basic_submissions_single_solvent_spec(
+    fulltest_client, solvent_model, solvent_energy, solvent_evidence, water
+):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
     client = fulltest_client
@@ -361,7 +387,7 @@ def test_basic_submissions_single_pcm_spec(fulltest_client, water):
         program=program,
         spec_name="default",
         spec_description="testing the single points with pcm",
-        implicit_solvent=PCMSettings(units="au", medium_Solvent="water"),
+        implicit_solvent=solvent_model,
         overwrite=True,
     )
 
@@ -409,10 +435,12 @@ def test_basic_submissions_single_pcm_spec(fulltest_client, water):
             assert record.error is None
             assert record.return_result is not None
             # make sure the PCM result was captured
-            assert record.properties["pcm polarization energy"] < 0
+            assert record.properties[solvent_energy] < 0
+            # make sure the correct solvent was used
+            assert solvent_evidence in record.stdout
             assert record.specification.dict(
-                include={"method", "program", "basis"}
-            ) == spec.dict(include={"method", "program", "basis"})
+                include={"method", "basis", "program"}
+            ) == spec.dict(include={"method", "basis", "program"})
 
 
 @pytest.mark.parametrize(
