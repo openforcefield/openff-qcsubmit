@@ -298,8 +298,14 @@ def test_basic_submissions_multiple_spec(fulltest_client):
             DDXSettings(ddx_solvent_epsilon=4),
             "dd solvation energy",
             "solvent_epsilon         = 4.0",
-            id="DDX",
+            id="DDX Epsilon",
         ),
+        pytest.param(
+            DDXSettings(ddx_solvent="1-bromooctane"),
+            "dd solvation energy",
+            "solvent_epsilon         = 5.0244",
+            id="DDX Solvent"
+        )
     ],
 )
 def test_basic_submissions_single_solvent_spec(

@@ -431,7 +431,7 @@ class DDXSettings(_BaseSolvent):
     )
     ddx_radii_scaling: PositiveFloat = Field(
         1.1,
-        description="The scaling factor for the cavity spheres this also depends on the radii set chosen.",
+        description="The scaling factor for the cavity spheres. This also depends on the radii set chosen.",
     )
     ddx_radii_set: Literal["uff", "bondi"] = Field(
         "uff", description="The atomic radii set to use."
@@ -442,7 +442,9 @@ class DDXSettings(_BaseSolvent):
     )
     ddx_solvent: str = Field(
         "water",
-        description="The name of the ddx supported solvent which should used, the epsilon value will be determined from `pyddx.data.solvent_epsilon`. Note that this value is ignored if the `ddx_solvent_epsilon` is provided.",
+        description="The name of the ddx supported solvent which should be used, the epsilon value will be determined "
+                    "from `pyddx.data.solvent_epsilon`. Note that this value is ignored if the `ddx_solvent_epsilon` "
+                    "is provided.",
     )
 
     def add_keywords(self, keyword_data: dict) -> dict:
@@ -450,7 +452,7 @@ class DDXSettings(_BaseSolvent):
         ddx_data = self.dict()
         if self.ddx_solvent_epsilon is None:
             del ddx_data["ddx_solvent_epsilon"]
-        keyword_data.update(self.dict())
+        keyword_data.update(ddx_data)
         return keyword_data
 
 
