@@ -379,13 +379,9 @@ def test_optimization_to_basic_result_collection(public_client):
     optimization_result_collection = OptimizationResultCollection.from_server(
         public_client, ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"]
     )
-    with (
-        TemporaryDirectory() as d,
-        portal_client_manager(lambda a: _CachedPortalClient(a, d)),
-    ):
-        basic_collection = optimization_result_collection.to_basic_result_collection(
-            "hessian"
-        )
+    basic_collection = optimization_result_collection.to_basic_result_collection(
+        "hessian"
+    )
     assert basic_collection.n_results == 197
     assert basic_collection.n_molecules == 49
 

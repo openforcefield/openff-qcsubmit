@@ -4,8 +4,6 @@ Test submissions to a local qcarchive instance using different compute backends,
 Here we use the qcfractal snowflake fixture to set up the database.
 """
 
-from tempfile import TemporaryDirectory
-
 import pytest
 from openff.toolkit.topology import Molecule
 from qcelemental.models.procedures import OptimizationProtocols
@@ -40,7 +38,7 @@ from openff.qcsubmit.results import (
     OptimizationResultCollection,
     TorsionDriveResultCollection,
 )
-from openff.qcsubmit.utils import _CachedPortalClient, get_data, portal_client_manager
+from openff.qcsubmit.utils import get_data
 
 
 def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, ids=[1]):
@@ -1422,11 +1420,7 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     assert ds.specifications.keys() == {"default"}
     results = result_collection_type.from_datasets(datasets=ds)
     assert results.n_molecules == 1
-    with (
-        TemporaryDirectory() as d,
-        portal_client_manager(lambda a: _CachedPortalClient(a, d)),
-    ):
-        records = results.to_records()
+    records = results.to_records()
     assert len(records) == 1
     # Single points and optimizations look here
     fulltest_client.modify_molecule(
@@ -1445,10 +1439,6 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     ds._cache_data.update_entries(entries)
     results = result_collection_type.from_datasets(datasets=ds)
     assert results.n_molecules == 1
-    with (
-        pytest.warns(UserWarning, match="invalid CMILES"),
-        TemporaryDirectory() as d,
-        portal_client_manager(lambda a: _CachedPortalClient(a, d)),
-    ):
+    with pytest.warns(UserWarning, match="invalid CMILES"):
         records = results.to_records()
     assert len(records) == 0
