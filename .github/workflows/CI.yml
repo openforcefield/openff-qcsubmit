@@ -35,6 +35,9 @@ jobs:
           - os: macOS-12
             conda-env: basic
 
+          - os: macOS-latest
+            conda-env: basic
+
           - os: ubuntu-latest
             conda-env: psi4
 
