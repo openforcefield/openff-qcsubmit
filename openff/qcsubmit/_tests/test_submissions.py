@@ -54,14 +54,27 @@ def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, i
 
         for rec in recs:
             print(rec.status)
-            if rec.status == RecordStatusEnum.error:
+            # would be nice to replace this with match, but black wasn't
+            # accepting it
+            if rec.status in [
+                RecordStatusEnum.error,
+                RecordStatusEnum.invalid,
+                RecordStatusEnum.cancelled,
+                RecordStatusEnum.deleted,
+            ]:
                 print("stderr", rec._get_output(OutputTypeEnum.stderr))
                 print("stdout", rec._get_output(OutputTypeEnum.stdout))
                 print("error: ")
                 pprint(rec._get_output(OutputTypeEnum.error))
                 raise RuntimeError(f"calculation failed: {rec}")
-            if rec.status not in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
+            elif rec.status in [RecordStatusEnum.running, RecordStatusEnum.waiting]:
+                pass  # still running
+            elif rec.status == RecordStatusEnum.complete:
                 finished += 1
+            else:
+                raise RuntimeError(
+                    f"Unrecognized status ({rec.status}) for record: {rec}"
+                )
         if finished == len(recs):
             return True
     else:
