@@ -313,6 +313,12 @@ def test_to_records(
     expected_n_recs,
     expected_n_mols,
 ):
+    # as of Aug 2024, this is the one place we're testing caching with
+    # _CachedPortalClient and portal_client_manager, which is why the code is
+    # so complicated. to_records itself is called in several other tests, where
+    # it will use the _default_portal_client (PortalClient), and the assertions
+    # at the end of this test expect the same results as a normal PortalClient.
+    # Only the middle section of this test is cache-specific.
     collection = collection_type.from_server(
         public_client, collection_name, spec_name=spec_name
     )
@@ -379,13 +385,9 @@ def test_optimization_to_basic_result_collection(public_client):
     optimization_result_collection = OptimizationResultCollection.from_server(
         public_client, ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"]
     )
-    with (
-        TemporaryDirectory() as d,
-        portal_client_manager(lambda a: _CachedPortalClient(a, d)),
-    ):
-        basic_collection = optimization_result_collection.to_basic_result_collection(
-            "hessian"
-        )
+    basic_collection = optimization_result_collection.to_basic_result_collection(
+        "hessian"
+    )
     assert basic_collection.n_results == 197
     assert basic_collection.n_molecules == 49
 

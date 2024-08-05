@@ -241,12 +241,16 @@ class _CachedPortalClient(PortalClient):
 
     @contextmanager
     def _no_session(self):
-        """This is a supplemental context manager to the ``no_internet``
-        manager in _tests/utils/test_manager.py. ``PortalClient`` creates a
-        ``requests.Session`` on initialization that can be reused without
-        accessing ``socket.socket`` again. Combining ``no_internet`` and
-        ``client._no_session`` should completely ensure that the local cache is
-        used rather than re-fetching data from QCArchive.
+        """This is a context manager to prevent the ``_CachedPortalClient``
+        from accessing the internet.
+
+        ``PortalClient`` creates a ``requests.Session`` on initialization that
+        can be reused without accessing ``socket.socket`` again, so this is a
+        more reliable way to ensure that the local cache is used than
+        overriding ``socket.socket``.
+
+        Attempting to access the session will raise an ``AttributeError`` with
+        the message ``'NoneType' object has no attribute 'prepare_request'``.
         """
         tmp = self._req_session
         self._req_session = None
