@@ -31,6 +31,7 @@ from openff.qcsubmit.results.filters import (
     SMILESFilter,
     UnperceivableStereoFilter,
 )
+from openff.qcsubmit.utils import get_data
 
 from . import RecordStatusEnum, SinglepointRecord
 
@@ -395,6 +396,18 @@ def test_rmsd_conformer_filter_canonical_order(monkeypatch):
 
     assert filtered_collection.n_molecules == 1
     assert filtered_collection.n_results == 1
+
+def test_issue_223(monkeypatch):
+    mols = Molecule.from_file(get_data("issue_223_confs.sdf"))
+    result_collection = mock_optimization_result_collection(
+        {"http://localhost:442": mols}, monkeypatch
+    )
+
+    filtered_collection = result_collection.filter(ConformerRMSDFilter())
+
+    assert filtered_collection.n_molecules == 1
+    assert filtered_collection.n_results == 1
+
 
 
 @pytest.mark.parametrize(
