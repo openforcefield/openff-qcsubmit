@@ -384,7 +384,7 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
 
         [_, _, molecule, _] = entries[0]
 
-        molecule = copy.deepcopy(molecule)
+        molecule = copy.deepcopy(molecule.canonical_order_atoms())
         molecule._conformers = conformers
 
         rmsd_matrix = self._compute_rmsd_matrix(molecule)
