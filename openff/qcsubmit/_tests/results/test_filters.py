@@ -397,6 +397,7 @@ def test_rmsd_conformer_filter_canonical_order(monkeypatch):
     assert filtered_collection.n_molecules == 1
     assert filtered_collection.n_results == 1
 
+
 def test_issue_223(monkeypatch):
     mols = Molecule.from_file(get_data("issue_223_confs.sdf"))
     result_collection = mock_optimization_result_collection(
@@ -407,7 +408,6 @@ def test_issue_223(monkeypatch):
 
     assert filtered_collection.n_molecules == 1
     assert filtered_collection.n_results == 1
-
 
 
 @pytest.mark.parametrize(
