@@ -10,7 +10,14 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
-## Current development
+
+## 0.53.0 / 12-8-2024
+
+### Bugfixes
+* [PR #294:]: Fixes [a bug](https://github.com/openforcefield/openff-qcsubmit/issues/223) in ConformerRMSDFilter where automorphs are sometimes incorrectly handled, leading to incorrect atom mappings used in RMSD calculations.  
+
+
+## 0.52.0 / 22-07-2024
 
 ### API breaking changes
 * [PR #288:]: Adds a new named argument, `properties=False` to `QCSpec.qc_keywords`, changing it from a property to a method. 
