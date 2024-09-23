@@ -30,41 +30,25 @@ from qcelemental.models.common_models import Model
 from qcelemental.models.results import WavefunctionProtocolEnum
 from qcportal.singlepoint import SinglepointDriver
 
+from openff.qcsubmit._pydantic import (
+    BaseModel,
+    Field,
+    HttpUrl,
+    PositiveFloat,
+    PositiveInt,
+    StrictBool,
+    StrictFloat,
+    StrictInt,
+    StrictStr,
+    constr,
+    validator,
+)
 from openff.qcsubmit.exceptions import (
     DatasetInputError,
     PCMSettingError,
     QCSpecificationError,
 )
 from openff.qcsubmit.utils.smirnoff import split_openff_molecule
-
-try:
-    from pydantic.v1 import (
-        BaseModel,
-        Field,
-        HttpUrl,
-        PositiveFloat,
-        PositiveInt,
-        StrictBool,
-        StrictFloat,
-        StrictInt,
-        StrictStr,
-        constr,
-        validator,
-    )
-except ImportError:
-    from pydantic import (
-        BaseModel,
-        Field,
-        HttpUrl,
-        PositiveFloat,
-        PositiveInt,
-        StrictBool,
-        StrictFloat,
-        StrictInt,
-        StrictStr,
-        constr,
-        validator,
-    )
 
 if TYPE_CHECKING:
     DictStrAny = Dict[str, Any]
