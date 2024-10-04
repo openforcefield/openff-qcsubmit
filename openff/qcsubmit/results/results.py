@@ -321,9 +321,9 @@ class BasicResultCollection(_BaseResultCollection):
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
                 if not cmiles:
-                    cmiles = entry.attributes[
+                    cmiles = entry.attributes.get(
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                    ]
+                    )
                 if not cmiles:
                     print(f"MISSING CMILES! entry = {entry_name}")
                     continue
@@ -470,9 +470,9 @@ class OptimizationResultCollection(_BaseResultCollection):
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
                 if not cmiles:
-                    cmiles = entry.attributes[
+                    cmiles = entry.attributes.get(
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                    ]
+                    )
                 if not cmiles:
                     print(f"MISSING CMILES! entry = {entry_name}")
                     continue
