@@ -26,7 +26,7 @@ from openff.qcsubmit.results import (
     TorsionDriveResultCollection,
 )
 from openff.qcsubmit.results.filters import ResultFilter
-from openff.qcsubmit.results.results import TorsionDriveResult, _BaseResultCollection
+from openff.qcsubmit.results.results import MissingCMILESWarning, TorsionDriveResult, _BaseResultCollection
 from openff.qcsubmit.utils import _CachedPortalClient, portal_client_manager
 
 from . import (
@@ -472,9 +472,10 @@ def test_missing_cmiles_basic_result_collection(public_client):
     datasets. Such entries should now be skipped, but this can lead to empty
     datasets, so we also print a warning for each missing CMILES.
     """
-    basic_collection = BasicResultCollection.from_server(
-        public_client,
-        ["OpenFF Gen 2 Opt Set 1 Roche"],
-        spec_name="spec_1",
-    )
+    with pytest.warns(MissingCMILESWarning):
+        basic_collection = BasicResultCollection.from_server(
+            public_client,
+            ["OpenFF Gen 2 Opt Set 1 Roche"],
+            spec_name="spec_1",
+        )
     assert basic_collection.n_results == 0
