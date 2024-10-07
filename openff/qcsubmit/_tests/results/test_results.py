@@ -26,7 +26,11 @@ from openff.qcsubmit.results import (
     TorsionDriveResultCollection,
 )
 from openff.qcsubmit.results.filters import ResultFilter
-from openff.qcsubmit.results.results import MissingCMILESWarning, TorsionDriveResult, _BaseResultCollection
+from openff.qcsubmit.results.results import (
+    MissingCMILESWarning,
+    TorsionDriveResult,
+    _BaseResultCollection,
+)
 from openff.qcsubmit.utils import _CachedPortalClient, portal_client_manager
 
 from . import (

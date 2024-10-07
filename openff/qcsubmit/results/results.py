@@ -330,7 +330,9 @@ class BasicResultCollection(_BaseResultCollection):
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
                 if not cmiles:
-                    warnings.warn(f"MISSING CMILES! entry = {entry_name}", MissingCMILESWarning)
+                    warnings.warn(
+                        f"MISSING CMILES! entry = {entry_name}", MissingCMILESWarning
+                    )
                     continue
 
                 inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
@@ -479,7 +481,9 @@ class OptimizationResultCollection(_BaseResultCollection):
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
                 if not cmiles:
-                    warnings.warn(f"MISSING CMILES! entry = {entry_name}", MissingCMILESWarning)
+                    warnings.warn(
+                        f"MISSING CMILES! entry = {entry_name}", MissingCMILESWarning
+                    )
                     continue
 
                 inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
