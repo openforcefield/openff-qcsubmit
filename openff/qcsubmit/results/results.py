@@ -353,7 +353,14 @@ class BasicResultCollection(_BaseResultCollection):
                 result_records[client.address][record.id] = br
 
         if missing_cmiles > 0:
-            logger.warning(f"Missing {missing_cmiles}/{total_entries} CMILES")
+            logger.warning(
+                f"Missing {missing_cmiles}/{total_entries} CMILES. "
+                "Some legacy datasets may only have CMILES in their "
+                "optimization datasets (often with the same name as the "
+                "singlepoint dataset). "
+                "See OptimizationResultCollection.to_basic_result_collection "
+                "for a way to convert to a BasicResultCollection."
+            )
 
         return cls(
             entries={
