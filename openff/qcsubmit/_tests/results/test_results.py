@@ -3,6 +3,7 @@ Test the results packages when collecting from the public qcarchive.
 """
 
 import datetime
+import logging
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -475,10 +476,11 @@ def test_missing_cmiles_basic_result_collection(public_client, caplog):
     datasets. Such entries should now be skipped, but this can lead to empty
     datasets, so we also print a warning for each missing CMILES.
     """
-    basic_collection = BasicResultCollection.from_server(
-        public_client,
-        ["OpenFF Gen 2 Opt Set 1 Roche"],
-        spec_name="spec_1",
-    )
-    assert "MISSING CMILES" in caplog.text
-    assert basic_collection.n_results == 0
+    with caplog.at_level(logging.INFO):
+        basic_collection = BasicResultCollection.from_server(
+            public_client,
+            ["OpenFF Gen 2 Opt Set 1 Roche"],
+            spec_name="spec_1",
+        )
+        assert "MISSING CMILES" in caplog.text
+        assert basic_collection.n_results == 0
