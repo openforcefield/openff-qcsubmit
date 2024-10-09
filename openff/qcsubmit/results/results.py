@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import abc
 import warnings
+import logging
 from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
@@ -49,10 +50,7 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 S = TypeVar("S")
 
-
-class MissingCMILESWarning(Warning):
-    "Warning used to signal a missing CMILES in BaseResultCollection.from_datasets"
-    pass
+logger = logging.getLogger(__name__)
 
 
 class _BaseResult(BaseModel, abc.ABC):
@@ -330,9 +328,7 @@ class BasicResultCollection(_BaseResultCollection):
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
                 if not cmiles:
-                    warnings.warn(
-                        f"MISSING CMILES! entry = {entry_name}", MissingCMILESWarning
-                    )
+                    logger.warning(f"MISSING CMILES! entry = {entry_name}")
                     continue
 
                 inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
@@ -481,9 +477,7 @@ class OptimizationResultCollection(_BaseResultCollection):
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
                 if not cmiles:
-                    warnings.warn(
-                        f"MISSING CMILES! entry = {entry_name}", MissingCMILESWarning
-                    )
+                    logger.warning(f"MISSING CMILES! entry = {entry_name}")
                     continue
 
                 inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")

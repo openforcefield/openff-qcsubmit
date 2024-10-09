@@ -27,7 +27,6 @@ from openff.qcsubmit.results import (
 )
 from openff.qcsubmit.results.filters import ResultFilter
 from openff.qcsubmit.results.results import (
-    MissingCMILESWarning,
     TorsionDriveResult,
     _BaseResultCollection,
 )
@@ -470,16 +469,16 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
     assert {*coverage["ProperTorsions"].values()} == {1, 3}
 
 
-def test_missing_cmiles_basic_result_collection(public_client):
+def test_missing_cmiles_basic_result_collection(public_client, caplog):
     """Some older datasets don't have CMILES in the single-point records. As
     reported in #299, this would cause a KeyError when retrieving these
     datasets. Such entries should now be skipped, but this can lead to empty
     datasets, so we also print a warning for each missing CMILES.
     """
-    with pytest.warns(MissingCMILESWarning):
-        basic_collection = BasicResultCollection.from_server(
-            public_client,
-            ["OpenFF Gen 2 Opt Set 1 Roche"],
-            spec_name="spec_1",
-        )
+    basic_collection = BasicResultCollection.from_server(
+        public_client,
+        ["OpenFF Gen 2 Opt Set 1 Roche"],
+        spec_name="spec_1",
+    )
+    assert "MISSING CMILES" in caplog.text
     assert basic_collection.n_results == 0
