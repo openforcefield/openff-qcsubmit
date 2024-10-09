@@ -50,6 +50,7 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 S = TypeVar("S")
 
+logging.basicConfig()
 logger = logging.getLogger(__name__)
 
 
