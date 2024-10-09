@@ -4,6 +4,7 @@ Test the results packages when collecting from the public qcarchive.
 
 import datetime
 import logging
+from collections import defaultdict
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -482,5 +483,18 @@ def test_missing_cmiles_basic_result_collection(public_client, caplog):
             ["OpenFF Gen 2 Opt Set 1 Roche"],
             spec_name="spec_1",
         )
+
+        logs = defaultdict(int)
+        for record in caplog.records:
+            logs[record.levelname] += 1
+
+        # should be 298 of these at the INFO level
+        assert logs["INFO"] == 298
         assert "MISSING CMILES" in caplog.text
+
+        # should be 1 of these at the end at the default WARNING level
+        assert logs["WARNING"] == 1
+        assert "Missing 298/298" in caplog.text
+
+        # no results because they are all missing CMILES
         assert basic_collection.n_results == 0

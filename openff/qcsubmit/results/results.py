@@ -299,6 +299,8 @@ class BasicResultCollection(_BaseResultCollection):
 
         result_records = defaultdict(dict)
 
+        missing_cmiles = 0
+        total_entries = 0
         for dataset in datasets:
             client = dataset._client
 
@@ -314,6 +316,7 @@ class BasicResultCollection(_BaseResultCollection):
             for entry_name, spec_name, record in dataset.iterate_records(
                 specification_names=spec_name, status=RecordStatusEnum.complete
             ):
+                total_entries += 1
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.molecule
 
@@ -330,6 +333,7 @@ class BasicResultCollection(_BaseResultCollection):
                     )
                 if not cmiles:
                     logger.info(f"MISSING CMILES! entry = {entry_name}")
+                    missing_cmiles += 1
                     continue
 
                 inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
@@ -347,6 +351,9 @@ class BasicResultCollection(_BaseResultCollection):
                     record_id=record.id, cmiles=cmiles, inchi_key=inchi_key
                 )
                 result_records[client.address][record.id] = br
+
+        if missing_cmiles > 0:
+            logger.warning(f"Missing {missing_cmiles}/{total_entries} CMILES")
 
         return cls(
             entries={
