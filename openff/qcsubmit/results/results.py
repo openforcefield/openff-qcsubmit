@@ -6,8 +6,8 @@ results from a QCFractal instance.
 from __future__ import annotations
 
 import abc
-import warnings
 import logging
+import warnings
 from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
