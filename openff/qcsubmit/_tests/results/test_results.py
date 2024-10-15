@@ -381,6 +381,35 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
     assert dataset.n_records == 5  # the collection contains 1 duplicate
 
 
+def test_optimization_create_basic_dataset_297(public_client):
+    """
+    Test creating a new ``BasicDataset`` from the result of an optimization dataset.
+    """
+
+    opt = OptimizationResultCollection.from_server(
+        public_client,
+        datasets=["OpenFF Sulfur Optimization Training Coverage Supplement v1.0"],
+        spec_name="default",
+    )
+
+    opt_hashes = {rec.final_molecule.get_hash() for rec, _mol in opt.to_records()}
+
+    basic = opt.create_basic_dataset(
+        "dummy basic dataset name",
+        "descdesc",
+        "tagtagtag",
+        driver="hessian",
+    )
+
+    bas_hashes = {mol.molecule.get_hash() for mol in basic._get_entries()}
+
+    n_results = opt.n_results
+
+    assert len(opt_hashes) == n_results
+    assert len(bas_hashes) == n_results
+    assert len(opt_hashes & bas_hashes) == n_results
+
+
 def test_optimization_to_basic_result_collection(public_client):
     optimization_result_collection = OptimizationResultCollection.from_server(
         public_client, ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"]
