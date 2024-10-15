@@ -14,7 +14,7 @@ Releases are given with dates in DD-MM-YYYY format.
 ## Current development
 
 ### Bugfixes
-* [PR #300:]: Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/299) where methods to retrieve `BasicResultCollection` and `OptimizationResultCollection` objects from QCArchive would crash if an entry was missing a CMILES.
+* [PR #300:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/299) where methods to retrieve `BasicResultCollection` and `OptimizationResultCollection` objects from QCArchive would crash if an entry was missing a CMILES.
 
 
 ## 0.53.0 / 12-8-2024
