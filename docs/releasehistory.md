@@ -11,6 +11,12 @@ Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
 
+## Current development
+
+### Bugfixes
+* [PR #300:]: Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/299) where methods to retrieve `BasicResultCollection` and `OptimizationResultCollection` objects from QCArchive would crash if an entry was missing a CMILES.
+
+
 ## 0.53.0 / 12-8-2024
 
 ### Bugfixes
@@ -153,6 +159,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #288:]: https://github.com/openforcefield/openff-qcsubmit/pull/288
 [PR #289:]: https://github.com/openforcefield/openff-qcsubmit/pull/289
 [PR #290:]: https://github.com/openforcefield/openff-qcsubmit/pull/290
+[PR #300:]: https://github.com/openforcefield/openff-qcsubmit/pull/300
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
