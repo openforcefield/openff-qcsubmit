@@ -6,6 +6,7 @@ results from a QCFractal instance.
 from __future__ import annotations
 
 import abc
+import logging
 import warnings
 from collections import defaultdict
 from typing import (
@@ -48,6 +49,9 @@ if TYPE_CHECKING:
 
 T = TypeVar("T")
 S = TypeVar("S")
+
+logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 
 class _BaseResult(BaseModel, abc.ABC):
@@ -295,6 +299,8 @@ class BasicResultCollection(_BaseResultCollection):
 
         result_records = defaultdict(dict)
 
+        missing_cmiles = 0
+        total_entries = 0
         for dataset in datasets:
             client = dataset._client
 
@@ -310,6 +316,7 @@ class BasicResultCollection(_BaseResultCollection):
             for entry_name, spec_name, record in dataset.iterate_records(
                 specification_names=spec_name, status=RecordStatusEnum.complete
             ):
+                total_entries += 1
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.molecule
 
@@ -321,11 +328,12 @@ class BasicResultCollection(_BaseResultCollection):
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
                 if not cmiles:
-                    cmiles = entry.attributes[
+                    cmiles = entry.attributes.get(
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                    ]
+                    )
                 if not cmiles:
-                    print(f"MISSING CMILES! entry = {entry_name}")
+                    logger.info(f"MISSING CMILES! entry = {entry_name}")
+                    missing_cmiles += 1
                     continue
 
                 inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
@@ -343,6 +351,16 @@ class BasicResultCollection(_BaseResultCollection):
                     record_id=record.id, cmiles=cmiles, inchi_key=inchi_key
                 )
                 result_records[client.address][record.id] = br
+
+        if missing_cmiles > 0:
+            logger.warning(
+                f"Missing {missing_cmiles}/{total_entries} CMILES. "
+                "Some legacy datasets may only have CMILES in their "
+                "optimization datasets (often with the same name as the "
+                "singlepoint dataset). "
+                "See OptimizationResultCollection.to_basic_result_collection "
+                "for a way to convert to a BasicResultCollection."
+            )
 
         return cls(
             entries={
@@ -470,11 +488,11 @@ class OptimizationResultCollection(_BaseResultCollection):
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
                     )
                 if not cmiles:
-                    cmiles = entry.attributes[
+                    cmiles = entry.attributes.get(
                         "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                    ]
+                    )
                 if not cmiles:
-                    print(f"MISSING CMILES! entry = {entry_name}")
+                    logger.info(f"MISSING CMILES! entry = {entry_name}")
                     continue
 
                 inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
