@@ -382,8 +382,9 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
 
 
 def test_optimization_create_basic_dataset_297(public_client):
-    """
-    Test creating a new ``BasicDataset`` from the result of an optimization dataset.
+    """Test creating a new ``BasicDataset`` from the result of an optimization
+    dataset, and verify that the molecule hashes match to prevent the creation
+    of separate records on QCArchive. See issue #297 for more details.
     """
 
     opt = OptimizationResultCollection.from_server(
