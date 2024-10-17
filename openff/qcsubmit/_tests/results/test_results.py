@@ -381,16 +381,39 @@ def test_optimization_create_basic_dataset(optimization_result_collection):
     assert dataset.n_records == 5  # the collection contains 1 duplicate
 
 
-def test_optimization_create_basic_dataset_297(public_client):
+def test_optimization_create_basic_dataset_297():
     """Test creating a new ``BasicDataset`` from the result of an optimization
     dataset, and verify that the molecule hashes match to prevent the creation
     of separate records on QCArchive. See issue #297 for more details.
     """
 
-    opt = OptimizationResultCollection.from_server(
-        public_client,
-        datasets=["OpenFF Sulfur Optimization Training Coverage Supplement v1.0"],
-        spec_name="default",
+    # these are two real entries from the "OpenFF Sulfur Optimization Training
+    # Coverage Supplement v1.0" dataset used in issue #297. the first fails the
+    # round-trip in the previous create_basic_dataset implemenation but the
+    # second works with either
+    opt = OptimizationResultCollection.parse_raw(
+        """
+        {
+            "entries": {
+                "https://api.qcarchive.molssi.org:443/": [
+                {
+                    "type": "optimization",
+                    "record_id": 138340682,
+                    "cmiles": "[H:11][c:10]1[c:12]([c:14]([c:16]2[c:7]([c:8]1[H:9])[C:5](=[O:6])[C:3](=[C:1]([S:17]2(=[O:18])=[O:19])[H:2])[Br:4])[H:15])[H:13]",
+                    "inchi_key": "UKQYACGPJCUZJN-UHFFFAOYNA-N"
+                },
+                {
+                    "type": "optimization",
+                    "record_id": 138341382,
+                    "cmiles": "[H:18][C@@:10]([C:11](=[O:12])[O:13][H:14])([C:9]([H:19])([H:20])[C:8]([H:21])([H:22])[S:2](=[N:1][H:23])(=[O:3])[C:4]([H:5])([H:6])[H:7])[N:15]([H:16])[H:17]",
+                    "inchi_key": "SXTAYKAGBXMACB-AIXGRKOHNA-N"
+                }
+                ]
+            },
+            "provenance": {},
+            "type": "OptimizationResultCollection"
+        }
+        """
     )
 
     opt_hashes = {rec.final_molecule.get_hash() for rec, _mol in opt.to_records()}
