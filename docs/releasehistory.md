@@ -20,13 +20,13 @@ Releases are given with dates in DD-MM-YYYY format.
 ## 0.53.0 / 12-8-2024
 
 ### Bugfixes
-* [PR #294:]: Fixes [a bug](https://github.com/openforcefield/openff-qcsubmit/issues/223) in ConformerRMSDFilter where automorphs are sometimes incorrectly handled, leading to incorrect atom mappings used in RMSD calculations.  
+* [PR #294:] Fixes [a bug](https://github.com/openforcefield/openff-qcsubmit/issues/223) in ConformerRMSDFilter where automorphs are sometimes incorrectly handled, leading to incorrect atom mappings used in RMSD calculations.  
 
 
 ## 0.52.0 / 22-07-2024
 
 ### API breaking changes
-* [PR #288:]: Adds a new named argument, `properties=False` to `QCSpec.qc_keywords`, changing it from a property to a method. 
+* [PR #288:] Adds a new named argument, `properties=False` to `QCSpec.qc_keywords`, changing it from a property to a method. 
 
 ### Examples updated
 
@@ -159,6 +159,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #288:]: https://github.com/openforcefield/openff-qcsubmit/pull/288
 [PR #289:]: https://github.com/openforcefield/openff-qcsubmit/pull/289
 [PR #290:]: https://github.com/openforcefield/openff-qcsubmit/pull/290
+[PR #294:]: https://github.com/openforcefield/openff-qcsubmit/pull/294
 [PR #300:]: https://github.com/openforcefield/openff-qcsubmit/pull/300
 
 [@jthorton]: https://github.com/jthorton
