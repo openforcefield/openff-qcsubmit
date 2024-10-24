@@ -1,22 +1,18 @@
 """Centralized shim for Pydantic v1/v2 compatible import."""
 
-try:
-    from pydantic.v1 import (
-        BaseModel,
-        Field,
-        PrivateAttr,
-        ValidationError,
-        constr,
-        root_validator,
-        validator,
-    )
-except ImportError:
-    from pydantic import (
-        BaseModel,
-        Field,
-        PrivateAttr,
-        ValidationError,
-        constr,
-        root_validator,
-        validator,
-    )
+from pydantic.v1 import (
+    BaseModel,
+    Field,
+    HttpUrl,
+    PositiveFloat,
+    PositiveInt,
+    PrivateAttr,
+    StrictBool,
+    StrictFloat,
+    StrictInt,
+    StrictStr,
+    ValidationError,
+    constr,
+    root_validator,
+    validator,
+)
