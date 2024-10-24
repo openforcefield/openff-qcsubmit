@@ -51,3 +51,6 @@ dependencies:
   - pint=0.21
   - openff-units=0.2.1
   - postgresql
+
+  # Shim for QCFractal deployment issues
+  - apsw >=3.42

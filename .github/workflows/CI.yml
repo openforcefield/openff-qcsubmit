@@ -32,7 +32,10 @@ jobs:
           - os: ubuntu-latest
             conda-env: basic
 
-          - os: macOS-12
+          - os: macOS-13
+            conda-env: basic
+
+          - os: macOS-latest
             conda-env: basic
 
           - os: ubuntu-latest
@@ -63,11 +66,6 @@ jobs:
 
       - name: Install Package
         run: python -m pip install .
-
-      - name: Conda Environment Information
-        run: |
-          conda info
-          conda list
 
       - name: Run Tests
         run: |
