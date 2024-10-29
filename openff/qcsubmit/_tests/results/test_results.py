@@ -367,7 +367,7 @@ def test_optimization_create_basic_dataset():
 
     # these are three real entries from the "OpenFF Sulfur Optimization
     # Training Coverage Supplement v1.0" dataset used in issue #297. the first
-    # fails the round-trip in the previous create_basic_dataset implemenation
+    # fails the round-trip in the previous create_basic_dataset implementation
     # but the next two work with either
     opt = OptimizationResultCollection.parse_raw(
         """
