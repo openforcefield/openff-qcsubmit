@@ -26,20 +26,6 @@ from openff.qcsubmit.results.results import _BaseResult
 class _PortalClient(BaseModel):
     address: str
 
-    def get_molecules(self, *args):
-        """This is needed by ``test_optimization_create_basic_dataset`` because
-        ``create_basic_dataset`` now accesses the ``final_molecule`` property
-        of the ``OptimizationRecord`` instances, which can attempt to fetch
-        molecules from the QCArchive server.
-
-        pydantic does a lot of validation along the way, so trying to return
-        empty qcelemental Molecules or Molecules without conformers doesn't
-        work.
-        """
-        mol = Molecule.from_smiles("C")
-        mol.generate_conformers(n_conformers=1)
-        return [mol.to_qcschema()]
-
 
 def _mock_molecule(entry: _BaseResult, n_conformers: int = 1) -> Molecule:
     molecule: Molecule = Molecule.from_smiles(entry.cmiles)

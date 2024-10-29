@@ -359,38 +359,16 @@ def test_to_records(
         assert molecule.n_conformers == 1
 
 
-def test_optimization_create_basic_dataset(optimization_result_collection):
-    """
-    Test creating a new ``BasicDataset`` from the result of an optimization dataset.
-    """
-
-    dataset = optimization_result_collection.create_basic_dataset(
-        dataset_name="new basicdataset",
-        description="test new optimizationdataset",
-        tagline="new optimization dataset",
-        driver="energy",
-        qc_specifications=[QCSpec(spec_name="some-name", basis="6-31G")],
-    )
-
-    assert len(dataset.qc_specifications) == 1
-    assert {*dataset.qc_specifications} == {"some-name"}
-    assert dataset.qc_specifications["some-name"].basis == "6-31G"
-
-    assert dataset.dataset_name == "new basicdataset"
-    assert dataset.n_molecules == 4
-    assert dataset.n_records == 5  # the collection contains 1 duplicate
-
-
-def test_optimization_create_basic_dataset_297():
+def test_optimization_create_basic_dataset():
     """Test creating a new ``BasicDataset`` from the result of an optimization
     dataset, and verify that the molecule hashes match to prevent the creation
     of separate records on QCArchive. See issue #297 for more details.
     """
 
-    # these are two real entries from the "OpenFF Sulfur Optimization Training
-    # Coverage Supplement v1.0" dataset used in issue #297. the first fails the
-    # round-trip in the previous create_basic_dataset implemenation but the
-    # second works with either
+    # these are three real entries from the "OpenFF Sulfur Optimization
+    # Training Coverage Supplement v1.0" dataset used in issue #297. the first
+    # fails the round-trip in the previous create_basic_dataset implemenation
+    # but the next two work with either
     opt = OptimizationResultCollection.parse_raw(
         """
         {
@@ -405,6 +383,12 @@ def test_optimization_create_basic_dataset_297():
                 {
                     "type": "optimization",
                     "record_id": 138341382,
+                    "cmiles": "[H:18][C@@:10]([C:11](=[O:12])[O:13][H:14])([C:9]([H:19])([H:20])[C:8]([H:21])([H:22])[S:2](=[N:1][H:23])(=[O:3])[C:4]([H:5])([H:6])[H:7])[N:15]([H:16])[H:17]",
+                    "inchi_key": "SXTAYKAGBXMACB-AIXGRKOHNA-N"
+                },
+                {
+                    "type": "optimization",
+                    "record_id": 138341384,
                     "cmiles": "[H:18][C@@:10]([C:11](=[O:12])[O:13][H:14])([C:9]([H:19])([H:20])[C:8]([H:21])([H:22])[S:2](=[N:1][H:23])(=[O:3])[C:4]([H:5])([H:6])[H:7])[N:15]([H:16])[H:17]",
                     "inchi_key": "SXTAYKAGBXMACB-AIXGRKOHNA-N"
                 }
@@ -423,15 +407,26 @@ def test_optimization_create_basic_dataset_297():
         "descdesc",
         "tagtagtag",
         driver="hessian",
+        qc_specifications=[QCSpec(spec_name="some-name", basis="6-31G")],
     )
 
     bas_hashes = {mol.molecule.get_hash() for mol in basic._get_entries()}
 
     n_results = opt.n_results
 
+    # check for molecule agreement between optimization and basic datasets
     assert len(opt_hashes) == n_results
     assert len(bas_hashes) == n_results
     assert len(opt_hashes & bas_hashes) == n_results
+
+    # check general basic dataset construction
+    assert len(basic.qc_specifications) == 1
+    assert {*basic.qc_specifications} == {"some-name"}
+    assert basic.qc_specifications["some-name"].basis == "6-31G"
+
+    assert basic.dataset_name == "dummy basic dataset name"
+    assert basic.n_molecules == 2
+    assert basic.n_records == 3  # the collection contains 1 duplicate
 
 
 def test_optimization_to_basic_result_collection(public_client):
