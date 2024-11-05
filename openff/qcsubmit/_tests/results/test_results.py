@@ -3,6 +3,8 @@ Test the results packages when collecting from the public qcarchive.
 """
 
 import datetime
+import logging
+from collections import defaultdict
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -512,3 +514,32 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
     assert {*coverage["Bonds"].values()} == {3}
     assert {*coverage["Angles"].values()} == {3}
     assert {*coverage["ProperTorsions"].values()} == {1, 3}
+
+
+def test_missing_cmiles_basic_result_collection(public_client, caplog):
+    """Some older datasets don't have CMILES in the single-point records. As
+    reported in #299, this would cause a KeyError when retrieving these
+    datasets. Such entries should now be skipped, but this can lead to empty
+    datasets, so we also print a warning for each missing CMILES.
+    """
+    with caplog.at_level(logging.INFO):
+        basic_collection = BasicResultCollection.from_server(
+            public_client,
+            ["OpenFF Gen 2 Opt Set 1 Roche"],
+            spec_name="spec_1",
+        )
+
+        logs = defaultdict(int)
+        for record in caplog.records:
+            logs[record.levelname] += 1
+
+        # should be 298 of these at the INFO level
+        assert logs["INFO"] == 298
+        assert "MISSING CMILES" in caplog.text
+
+        # should be 1 of these at the end at the default WARNING level
+        assert logs["WARNING"] == 1
+        assert "Missing 298/298" in caplog.text
+
+        # no results because they are all missing CMILES
+        assert basic_collection.n_results == 0
