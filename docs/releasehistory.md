@@ -15,6 +15,7 @@ Releases are given with dates in DD-MM-YYYY format.
 
 ### Bugfixes
 * [PR #300:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/299) where methods to retrieve `BasicResultCollection` and `OptimizationResultCollection` objects from QCArchive would crash if an entry was missing a CMILES.
+* [PR #303:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/297) where `OptimizationResultCollection.create_basic_dataset` was not reusing molecule IDs from QCArchive.
 
 
 ## 0.53.0 / 12-8-2024
@@ -161,6 +162,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #290:]: https://github.com/openforcefield/openff-qcsubmit/pull/290
 [PR #294:]: https://github.com/openforcefield/openff-qcsubmit/pull/294
 [PR #300:]: https://github.com/openforcefield/openff-qcsubmit/pull/300
+[PR #303:]: https://github.com/openforcefield/openff-qcsubmit/pull/303
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl

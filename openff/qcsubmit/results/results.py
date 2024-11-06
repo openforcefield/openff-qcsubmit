@@ -707,7 +707,8 @@ class OptimizationResultCollection(_BaseResultCollection):
                 index=base_molecule.to_smiles(
                     isomeric=True, explicit_hydrogens=False, mapped=False
                 ),
-                molecule=base_molecule,
+                molecule=None,
+                initial_molecules=[rec.final_molecule for rec, _ in records],
                 attributes=MoleculeAttributes.from_openff_molecule(base_molecule),
                 extras=base_record.extras,
                 keywords=base_record.specification.keywords,
