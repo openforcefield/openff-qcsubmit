@@ -6,20 +6,15 @@ import abc
 import copy
 import getpass
 import re
+from collections.abc import Mapping, Set
 from datetime import date, datetime
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
-    AbstractSet,
     Any,
     ClassVar,
-    Dict,
-    List,
     Literal,
-    Mapping,
     Optional,
-    Set,
-    Tuple,
     Union,
 )
 
@@ -51,10 +46,10 @@ from openff.qcsubmit.exceptions import (
 from openff.qcsubmit.utils.smirnoff import split_openff_molecule
 
 if TYPE_CHECKING:
-    DictStrAny = Dict[str, Any]
+    DictStrAny = dict[str, Any]
     IntStr = Union[int, str]
-    AbstractSetIntStr = AbstractSet[IntStr]
-    DictIntStrAny = Dict[IntStr, Any]
+    AbstractSetIntStr = Set[IntStr]
+    DictIntStrAny = dict[IntStr, Any]
     MappingIntStrAny = Mapping[IntStr, Any]
 
 
@@ -71,7 +66,7 @@ class DatasetConfig(BaseModel):
         arbitrary_types_allowed: bool = True
         allow_mutation: bool = True
         validate_assignment: bool = True
-        json_encoders: Dict[str, Any] = {
+        json_encoders: dict[str, Any] = {
             np.ndarray: lambda v: v.flatten().tolist(),
             Enum: lambda v: v.value,
         }
@@ -86,7 +81,7 @@ class ResultsConfig(BaseModel):
     class Config:
         arbitrary_types_allowed: bool = True
         allow_mutation: bool = False
-        json_encoders: Dict[str, Any] = {
+        json_encoders: dict[str, Any] = {
             np.ndarray: lambda v: v.flatten().tolist(),
             Enum: lambda v: v.value,
         }
@@ -115,7 +110,7 @@ class SCFProperties(str, Enum):
             if member._value_ == value.lower():
                 return member
         raise QCSpecificationError(
-            f"{value} is not a valid {cls.__name__} please chose from {cls.__members__.values()}"
+            f"{value} is not a valid {cls.__name__} please chose from {cls.__members__.values()}",
         )
 
 
@@ -149,29 +144,29 @@ class ComponentProperties(BaseModel):
 
 class TDSettings(DatasetConfig):
     """
-    A replacement of the TDKeywords class in the QCFractal which drops the dihedrals field as this is moved up the model.
+    A replacement of the TDKeywords class in the QCFractal which drops the dihedrals field as this is moved up the
+    model.
+
     The settings here overwrite the global dataset and allow the user to have control over the individual scans.
     """
 
-    grid_spacing: Optional[List[int]] = Field(
-        None, description="List of grid spacings for the dihedral scan in degrees."
-    )
-    dihedral_ranges: Optional[List[Tuple[int, int]]] = Field(
+    grid_spacing: list[int] | None = Field(None, description="List of grid spacings for the dihedral scan in degrees.")
+    dihedral_ranges: list[tuple[int, int]] | None = Field(
         None,
         description="A list of the dihedral scan limits of the form (lower, upper)",
     )
-    energy_decrease_thresh: Optional[float] = Field(
+    energy_decrease_thresh: float | None = Field(
         None,
         description="The threshold of the smallest energy decrease amount to trigger activating optimizations from "
         "grid point.",
     )
-    energy_upper_limit: Optional[float] = Field(
+    energy_upper_limit: float | None = Field(
         None,
         description="The threshold if the energy of a grid point that is higher than the current global minimum, to "
         "start new optimizations, in unit of a.u. I.e. if energy_upper_limit = 0.05, current global "
         "minimum energy is -9.9 , then a new task starting with energy -9.8 will be skipped.",
     )
-    additional_keywords: Dict[str, Any] = Field(
+    additional_keywords: dict[str, Any] = Field(
         {},
         description="Additional keywords to add to the torsiondrive's optimization runs",
     )
@@ -207,19 +202,31 @@ class PCMSettings(_BaseSolvent):
     )
     cavity_Area: float = Field(
         0.3,
-        description="Average area (weight) of the surface partition for the GePol cavity in the specified units. By default this is in AU.",
+        description="Average area (weight) of the surface partition for the GePol cavity in the specified units. By "
+        "default this is in AU.",
     )
     cavity_Scaling: bool = Field(
         True,
-        description="If true, the radii for the spheres will be scaled by 1.2. For finer control on the scaling factor for each sphere, select explicit creation mode.",
+        description=(
+            "If true, the radii for the spheres will be scaled by 1.2. For finer control on the scaling "
+            "factor for each sphere, select explicit creation mode.",
+        ),
     )
     cavity_RadiiSet: str = Field(
         "Bondi",
-        description="Select set of atomic radii to be used. Currently Bondi-Mantina Bondi, UFF  and Allinger’s MM3 sets available. Radii in Allinger’s MM3 set are obtained by dividing the value in the original paper by 1.2, as done in the ADF COSMO implementation We advise to turn off scaling of the radii by 1.2 when using this set.",
+        description=(
+            "Select set of atomic radii to be used. Currently Bondi-Mantina Bondi, UFF  and Allinger's MM3 "
+            "sets available. Radii in Allinger's MM3 set are obtained by dividing the value in the original paper by "
+            "1.2, as done in the ADF COSMO implementation We advise to turn off scaling of the radii by 1.2 when "
+            "using this set.",
+        ),
     )
     cavity_MinRadius: float = Field(
         100,
-        description="Minimal radius for additional spheres not centered on atoms. An arbitrarily big value is equivalent to switching off the use of added spheres, which is the default in AU.",
+        description=(
+            "Minimal radius for additional spheres not centered on atoms. An arbitrarily big value is equivalent "
+            "to switching off the use of added spheres, which is the default in AU.",
+        ),
     )
     cavity_Mode: str = Field(
         "Implicit",
@@ -227,15 +234,19 @@ class PCMSettings(_BaseSolvent):
     )
     medium_SolverType: str = Field(
         "IEFPCM",
-        description="Type of solver to be used. All solvers are based on the Integral Equation Formulation of the Polarizable Continuum Model.",
+        description="Type of solver to be used. All solvers are based on the Integral Equation Formulation of the "
+        "Polarizable Continuum Model.",
     )
     medium_Nonequilibrium: bool = Field(
         False,
-        description="Initializes an additional solver using the dynamic permittivity. To be used in response calculations.",
+        description=(
+            "Initializes an additional solver using the dynamic permittivity. To be used in response calculations.",
+        ),
     )
     medium_Solvent: str = Field(
         ...,
-        description="Specification of the dielectric medium outside the cavity. Note this will always be converted to the molecular formula to aid parsing via PCM.",
+        description="Specification of the dielectric medium outside the cavity. Note this will always be converted to "
+        "the molecular formula to aid parsing via PCM.",
     )
     medium_MatrixSymm: bool = Field(
         True,
@@ -248,14 +259,17 @@ class PCMSettings(_BaseSolvent):
     )
     medium_DiagonalScaling: float = Field(
         1.07,
-        description="Scaling factor for diagonal of collocation matrices, values commonly used in the literature are 1.07 and 1.0694.",
+        description="Scaling factor for diagonal of collocation matrices, values commonly used in the literature are "
+        "1.07 and 1.0694.",
         ge=0,
     )
     medium_ProbeRadius: float = Field(
         1.0,
-        description="Radius of the spherical probe approximating a solvent molecule. Used for generating the solvent-excluded surface (SES) or an approximation of it. Overridden by the built-in value for the chosen solvent. Default in AU.",
+        description="Radius of the spherical probe approximating a solvent molecule. Used for generating the "
+        "solvent-excluded surface (SES) or an approximation of it. Overridden by the built-in value for the chosen "
+        "solvent. Default in AU.",
     )
-    _solvents: ClassVar[Dict[str, str]] = {
+    _solvents: ClassVar[dict[str, str]] = {
         "water": "H2O",
         "dimethylsulfoxide": "DMSO",
         "nitromethane": "CH3NO2",
@@ -292,9 +306,7 @@ class PCMSettings(_BaseSolvent):
         """
         datasets = [2010, 2006, 2002, 1998]
         if codata not in datasets:
-            raise PCMSettingError(
-                f"{codata} is not valid only {datasets} are supported."
-            )
+            raise PCMSettingError(f"{codata} is not valid only {datasets} are supported.")
         return codata
 
     @validator("cavity_Type")
@@ -303,9 +315,7 @@ class PCMSettings(_BaseSolvent):
         Make sure the cavity type is GePol as this is the only kind supported.
         """
         if cavity.lower() != "gepol":
-            raise PCMSettingError(
-                f"{cavity} is not a supported type only GePol is available."
-            )
+            raise PCMSettingError(f"{cavity} is not a supported type only GePol is available.")
         return "GePol"
 
     @validator("cavity_RadiiSet")
@@ -315,9 +325,7 @@ class PCMSettings(_BaseSolvent):
         """
         radiisets = ["bondi", "uff", "allinger"]
         if radiiset.lower() not in radiisets:
-            raise PCMSettingError(
-                f"{radiiset} is not a supported set please chose from {radiisets}"
-            )
+            raise PCMSettingError(f"{radiiset} is not a supported set please chose from {radiisets}")
         return radiiset
 
     @validator("cavity_Mode")
@@ -327,7 +335,7 @@ class PCMSettings(_BaseSolvent):
         """
         if cavity.lower() != "implicit":
             raise PCMSettingError(
-                f"{cavity} is not supported via QCSubmit only implicit can be used for collection based calculations."
+                f"{cavity} is not supported via QCSubmit only implicit can be used for collection based calculations.",
             )
         return "Implicit"
 
@@ -350,7 +358,8 @@ class PCMSettings(_BaseSolvent):
         solvent_formula = cls._solvents.get(solvent.lower(), solvent.upper())
         if solvent_formula not in cls._solvents.values():
             raise PCMSettingError(
-                f"The solvent {solvent} is not supported please chose from the following solvents or formulas {cls._solvents.items()}"
+                f"The solvent {solvent} is not supported please chose from the following solvents or formulas "
+                f"{cls._solvents.items()}",
             )
         return solvent_formula
 
@@ -363,23 +372,15 @@ class PCMSettings(_BaseSolvent):
         if units is not None and units.lower() == "angstrom":
             # we need to convert the default values only which have length scales
             if "medium_ProbeRadius" not in kwargs:
-                medium_ProbeRadius = (
-                    self.__fields__["medium_ProbeRadius"].default
-                    * constants.bohr2angstroms
-                )
+                medium_ProbeRadius = self.__fields__["medium_ProbeRadius"].default * constants.bohr2angstroms
                 kwargs["medium_ProbeRadius"] = medium_ProbeRadius
             if "cavity_MinRadius" not in kwargs:
-                cavity_MinRadius = (
-                    self.__fields__["cavity_MinRadius"].default
-                    * constants.bohr2angstroms
-                )
+                cavity_MinRadius = self.__fields__["cavity_MinRadius"].default * constants.bohr2angstroms
                 kwargs["cavity_MinRadius"] = cavity_MinRadius
             if "cavity_Area" not in kwargs:
-                cavity_Area = (
-                    self.__fields__["cavity_Area"].default * constants.bohr2angstroms**2
-                )
+                cavity_Area = self.__fields__["cavity_Area"].default * constants.bohr2angstroms**2
                 kwargs["cavity_Area"] = cavity_Area
-        super(PCMSettings, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def to_string(self) -> str:
         """
@@ -411,25 +412,23 @@ class DDXSettings(_BaseSolvent):
     A simple settings class for the ddx solvent model to be used with Psi4
     """
 
-    ddx_model: Literal["pcm", "cosmo"] = Field(
-        "pcm", description="The solvation model to use."
-    )
+    ddx_model: Literal["pcm", "cosmo"] = Field("pcm", description="The solvation model to use.")
     ddx_radii_scaling: PositiveFloat = Field(
         1.1,
         description="The scaling factor for the cavity spheres. This also depends on the radii set chosen.",
     )
-    ddx_radii_set: Literal["uff", "bondi"] = Field(
-        "uff", description="The atomic radii set to use."
-    )
-    ddx_solvent_epsilon: Optional[float] = Field(
+    ddx_radii_set: Literal["uff", "bondi"] = Field("uff", description="The atomic radii set to use.")
+    ddx_solvent_epsilon: float | None = Field(
         None,
         description="The dielectric constant of the solvent, if not specified the solvent type should be set.",
     )
     ddx_solvent: str = Field(
         "water",
-        description="The name of the ddx supported solvent which should be used, the epsilon value will be determined "
-        "from `pyddx.data.solvent_epsilon`. Note that this value is ignored if the `ddx_solvent_epsilon` "
-        "is provided.",
+        description=(
+            "The name of the ddx supported solvent which should be used, the epsilon value will be determined "
+            "from `pyddx.data.solvent_epsilon`. Note that this value is ignored if the `ddx_solvent_epsilon` "
+            "is provided.",
+        ),
     )
 
     def add_keywords(self, keyword_data: dict) -> dict:
@@ -444,11 +443,17 @@ class DDXSettings(_BaseSolvent):
 class QCSpec(ResultsConfig):
     method: constr(strip_whitespace=True) = Field(
         "B3LYP-D3BJ",
-        description="The name of the computational model used to execute the calculation. This could be the QC method or the forcefield name.",
+        description=(
+            "The name of the computational model used to execute the calculation. This could be the QC "
+            "method or the forcefield name.",
+        ),
     )
-    basis: Optional[constr(strip_whitespace=True)] = Field(
+    basis: constr(strip_whitespace=True) | None = Field(
         "DZVP",
-        description="The name of the basis that should be used with the given method, outside of QC this can be the parameterization ie antechamber or None.",
+        description=(
+            "The name of the basis that should be used with the given method, outside of QC this can be the "
+            "parameterization ie antechamber or None.",
+        ),
     )
     program: constr(strip_whitespace=True) = Field(
         "psi4",
@@ -464,17 +469,21 @@ class QCSpec(ResultsConfig):
     )
     store_wavefunction: WavefunctionProtocolEnum = Field(
         WavefunctionProtocolEnum.none,
-        description="The level of wavefunction detail that should be saved in QCArchive. Note that this is done for every calculation and should not be used with optimizations.",
+        description="The level of wavefunction detail that should be saved in QCArchive. Note that this is done for "
+        "every calculation and should not be used with optimizations.",
     )
-    implicit_solvent: Optional[Union[PCMSettings, DDXSettings]] = Field(
+    implicit_solvent: PCMSettings | DDXSettings | None = Field(
         None,
-        description="If PCM or DDX is to be used with psi4 this is the full description of the settings that should be used.",
+        description=(
+            "If PCM or DDX is to be used with psi4 this is the full description of the settings that should be used.",
+        ),
     )
     maxiter: PositiveInt = Field(
         200,
-        description="The maximum number of SCF iterations in QM calculations this will be ignored by programs where this does not make sense.",
+        description="The maximum number of SCF iterations in QM calculations this will be ignored by programs where "
+        "this does not make sense.",
     )
-    scf_properties: Optional[List[SCFProperties]] = Field(
+    scf_properties: list[SCFProperties] | None = Field(
         [
             SCFProperties.Dipole,
             SCFProperties.Quadrupole,
@@ -483,9 +492,7 @@ class QCSpec(ResultsConfig):
         ],
         description="The SCF properties which should be extracted after every single point calculation.",
     )
-    keywords: Dict[
-        str, Union[StrictStr, StrictInt, StrictFloat, StrictBool, List[StrictFloat]]
-    ] = Field(
+    keywords: dict[str, StrictStr | StrictInt | StrictFloat | StrictBool | list[StrictFloat]] = Field(
         {},
         # None,
         description="An optional set of program specific computational keywords that "
@@ -496,20 +503,21 @@ class QCSpec(ResultsConfig):
     def __init__(
         self,
         method: constr(strip_whitespace=True) = "B3LYP-D3BJ",
-        basis: Optional[constr(strip_whitespace=True)] = "DZVP",
+        basis: constr(strip_whitespace=True) | None = "DZVP",
         program: constr(strip_whitespace=True) = "psi4",
         spec_name: constr(strip_whitespace=True) = "default",
         spec_description: str = "Standard OpenFF optimization quantum chemistry specification.",
         store_wavefunction: WavefunctionProtocolEnum = WavefunctionProtocolEnum.none,
-        implicit_solvent: Optional[PCMSettings] = None,
+        implicit_solvent: PCMSettings | None = None,
         maxiter: PositiveInt = 200,
-        scf_properties: List[SCFProperties] = DefaultProperties,
-        keywords: Optional[
-            Dict[
+        scf_properties: list[SCFProperties] = DefaultProperties,
+        keywords: None
+        | (
+            dict[
                 str,
-                Union[StrictStr, StrictInt, StrictFloat, StrictBool, List[StrictFloat]],
+                StrictStr | StrictInt | StrictFloat | StrictBool | list[StrictFloat],
             ]
-        ] = None,
+        ) = None,
     ):
         """
         Validate the combination of method, basis and program.
@@ -534,9 +542,7 @@ class QCSpec(ResultsConfig):
 
         # set up the valid method basis and program combinations
         ani_methods = {"ani1x", "ani1ccx", "ani2x"}
-        openff_forcefields = list(
-            ff.split(".offxml")[0].lower() for ff in get_available_force_fields()
-        )
+        openff_forcefields = list(ff.split(".offxml")[0].lower() for ff in get_available_force_fields())
 
         openmm_forcefields = {
             "smirnoff": openff_forcefields,
@@ -565,25 +571,28 @@ class QCSpec(ResultsConfig):
             # make sure PCM is not set
             if implicit_solvent is not None:
                 raise QCSpecificationError(
-                    "PCM and DDX can only be used with PSI4 please set implicit solvent to None."
+                    "PCM and DDX can only be used with PSI4 please set implicit solvent to None.",
                 )
             # we need to make sure it is valid in the above list
             program_settings = settings.get(program.lower(), None)
             if program_settings is None:
                 raise QCSpecificationError(
-                    f"The program {program.lower()} is not supported please use one of the following {settings.keys()}"
+                    f"The program {program.lower()} is not supported please use one of the following "
+                    f"{settings.keys()}",
                 )
             allowed_methods = program_settings.get(basis, None)
             if allowed_methods is None:
                 raise QCSpecificationError(
-                    f"The Basis {basis} is not supported for the program {program}, chose from {program_settings.keys()}"
+                    f"The Basis {basis} is not supported for the program {program}, chose from "
+                    f"{program_settings.keys()}",
                 )
             # now we need to check the methods
             # strip the offxml if present
             method = method.split(".offxml")[0].lower()
             if method not in allowed_methods:
                 raise QCSpecificationError(
-                    f"The method {method} is not supported for the program {program} with basis {basis}, please chose from {allowed_methods}"
+                    f"The method {method} is not supported for the program {program} with basis {basis}, please chose "
+                    f"from {allowed_methods}",
                 )
 
         if keywords is None:
@@ -607,7 +616,7 @@ class QCSpec(ResultsConfig):
         include: Union["AbstractSetIntStr", "MappingIntStrAny"] = None,
         exclude: Union["AbstractSetIntStr", "MappingIntStrAny"] = None,
         by_alias: bool = False,
-        skip_defaults: bool = None,
+        skip_defaults: Optional[bool] = None,
         exclude_unset: bool = False,
         exclude_defaults: bool = False,
         exclude_none: bool = False,
@@ -632,7 +641,7 @@ class QCSpec(ResultsConfig):
         """Return the qcelmental schema for this method and basis."""
         return Model(method=self.method, basis=self.basis)
 
-    def qc_keywords(self, properties: bool = False) -> Dict[str, Any]:
+    def qc_keywords(self, properties: bool = False) -> dict[str, Any]:
         """
         Return the formatted keywords for this calculation.
 
@@ -651,7 +660,7 @@ class QCSpec(ResultsConfig):
         if self.implicit_solvent is not None:
             if self.program.lower() != "psi4":
                 raise QCSpecificationError(
-                    "PCM and DDX can only be used with PSI4 please set implicit solvent to None."
+                    "PCM and DDX can only be used with PSI4 please set implicit solvent to None.",
                 )
             data = self.implicit_solvent.add_keywords(keyword_data=data)
         return data
@@ -662,7 +671,7 @@ class QCSpecificationHandler(BaseModel):
     A mixin class for handling the QCSpecification
     """
 
-    qc_specifications: Dict[str, QCSpec] = Field(
+    qc_specifications: dict[str, QCSpec] = Field(
         {"default": QCSpec()},
         description="The QCSpecifications which will be computed for this dataset.",
     )
@@ -681,7 +690,8 @@ class QCSpecificationHandler(BaseModel):
             spec_name: The name of the spec that should be removed.
 
         Note:
-            The QCSpec settings are not mutable and so they must be removed and a new one added to ensure they are fully validated.
+            The QCSpec settings are not mutable and so they must be removed and a new one added to ensure they are
+            fully validated.
         """
         if spec_name in self.qc_specifications.keys():
             del self.qc_specifications[spec_name]
@@ -696,27 +706,28 @@ class QCSpecificationHandler(BaseModel):
     def _check_qc_specs(self) -> None:
         if self.n_qc_specs == 0:
             raise QCSpecificationError(
-                "There are no QCSpecifications for this dataset please add some using `add_qc_spec`"
+                "There are no QCSpecifications for this dataset please add some using `add_qc_spec`",
             )
 
     def add_qc_spec(
         self,
         method: str,
-        basis: Optional[str],
+        basis: str | None,
         program: str,
         spec_name: str,
         spec_description: str,
         store_wavefunction: str = "none",
         overwrite: bool = False,
-        implicit_solvent: Optional[Union[PCMSettings, DDXSettings]] = None,
+        implicit_solvent: PCMSettings | DDXSettings | None = None,
         maxiter: PositiveInt = 200,
-        scf_properties: Optional[List[SCFProperties]] = None,
-        keywords: Optional[
-            Dict[
+        scf_properties: list[SCFProperties] | None = None,
+        keywords: None
+        | (
+            dict[
                 str,
-                Union[StrictStr, StrictInt, StrictFloat, StrictBool, List[StrictFloat]],
+                StrictStr | StrictInt | StrictFloat | StrictBool | list[StrictFloat],
             ]
-        ] = None,
+        ) = None,
     ) -> None:
         """
         Add a new qcspecification to the factory which will be applied to the dataset.
@@ -754,7 +765,7 @@ class QCSpecificationHandler(BaseModel):
             self.qc_specifications[spec.spec_name] = spec
         else:
             raise QCSpecificationError(
-                f"A specification is already stored under {spec_name} to replace it set `overwrite=True`."
+                f"A specification is already stored under {spec_name} to replace it set `overwrite=True`.",
             )
 
 
@@ -765,7 +776,7 @@ class IndexCleaner:
     """
 
     @staticmethod
-    def _clean_index(index: str) -> Tuple[str, int]:
+    def _clean_index(index: str) -> tuple[str, int]:
         """
         Take an index and clean it by checking if it already has an enumerator in it.
         Return the core index and any numeric tags.
@@ -802,36 +813,41 @@ class Metadata(DatasetConfig):
 
     submitter: str = Field(
         getpass.getuser(),
-        description="The name of the submitter/creator of the dataset, this is automatically generated but can be changed.",
+        description="The name of the submitter/creator of the dataset, this is automatically generated but can be "
+        "changed.",
     )
     creation_date: date = Field(
         datetime.today().date(),
         description="The date the dataset was created on, this is automatically generated.",
     )
-    collection_type: Optional[str] = Field(
+    collection_type: str | None = Field(
         None,
-        description="The type of collection that will be created in QCArchive this is automatically updated when attached to a dataset.",
+        description="The type of collection that will be created in QCArchive this is automatically updated when "
+        "attached to a dataset.",
     )
-    dataset_name: Optional[str] = Field(
+    dataset_name: str | None = Field(
         None,
-        description="The name that will be given to the collection once it is put into QCArchive, this is updated when attached to a dataset.",
+        description="The name that will be given to the collection once it is put into QCArchive, this is updated "
+        "when attached to a dataset.",
     )
-    short_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = Field(  # noqa
-        None, description="A short informative description of the dataset."
-    )
-    long_description_url: Optional[HttpUrl] = Field(
+    short_description: constr(min_length=8, regex="[a-zA-Z]") | None = Field(
         None,
-        description="The url which links to more information about the submission normally a github repo with scripts showing how the dataset was created.",
+        description="A short informative description of the dataset.",
     )
-    long_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = Field(  # noqa
+    long_description_url: HttpUrl | None = Field(
+        None,
+        description=(
+            "The url which links to more information about the submission normally a github repo with scripts "
+            "showing how the dataset was created.",
+        ),
+    )
+    long_description: constr(min_length=8, regex="[a-zA-Z]") | None = Field(
         None,
         description="A long description of the purpose of the dataset and the molecules within.",
     )
-    elements: Set[str] = Field(
-        set(), description="The unique set of elements present in the dataset"
-    )
+    elements: set[str] = Field(set(), description="The unique set of elements present in the dataset")
 
-    def validate_metadata(self, raise_errors: bool = False) -> Optional[List[str]]:
+    def validate_metadata(self, raise_errors: bool = False) -> list[str] | None:
         """
         Before submitting this function should be called to highlight any incomplete fields.
         """
@@ -848,9 +864,7 @@ class Metadata(DatasetConfig):
                 empty_fields.append(field)
 
         if empty_fields and raise_errors:
-            raise DatasetInputError(
-                f"The metadata has the following incomplete fields {empty_fields}"
-            )
+            raise DatasetInputError(f"The metadata has the following incomplete fields {empty_fields}")
         else:
             return empty_fields
 
@@ -861,7 +875,8 @@ class MoleculeAttributes(DatasetConfig):
     to be entered into a dataset.
 
     Note:
-        The attributes here are not exhaustive but are based on those given by cmiles and can all be obtain through the openforcefield toolkit Molecule class.
+        The attributes here are not exhaustive but are based on those given by cmiles and can all be obtain through
+        the openforcefield toolkit Molecule class.
     """
 
     class Config:
@@ -873,7 +888,10 @@ class MoleculeAttributes(DatasetConfig):
     canonical_isomeric_explicit_hydrogen_smiles: str
     canonical_isomeric_explicit_hydrogen_mapped_smiles: str = Field(
         ...,
-        description="The fully mapped smiles where every atom should have a numerical tag so that the molecule can be rebuilt to match the order of the coordinates.",
+        description=(
+            "The fully mapped smiles where every atom should have a numerical tag so that the molecule can be "
+            "rebuilt to match the order of the coordinates.",
+        ),
     )
     molecular_formula: str = Field(
         ...,
@@ -883,17 +901,16 @@ class MoleculeAttributes(DatasetConfig):
         ...,
         description="The standard inchi given by the inchi program ie not fixed hydrogen layer.",
     )
-    inchi_key: str = Field(
-        ..., description="The standard inchi key given by the inchi program."
-    )
-    fixed_hydrogen_inchi: Optional[str] = Field(
+    inchi_key: str = Field(..., description="The standard inchi key given by the inchi program.")
+    fixed_hydrogen_inchi: str | None = Field(
         None,
         description="The non-standard inchi with a fixed hydrogen layer to distinguish tautomers.",
     )
-    fixed_hydrogen_inchi_key: Optional[str] = Field(
-        None, description="The non-standard inchikey with a fixed hydrogen layer."
+    fixed_hydrogen_inchi_key: str | None = Field(
+        None,
+        description="The non-standard inchikey with a fixed hydrogen layer.",
     )
-    unique_fixed_hydrogen_inchi_keys: Optional[Set[str]] = Field(
+    unique_fixed_hydrogen_inchi_keys: set[str] | None = Field(
         None,
         description="The list of unique non-standard inchikey with a fixed hydrogen layer.",
     )
@@ -924,27 +941,27 @@ class MoleculeAttributes(DatasetConfig):
             - `unique_fixed_hydrogen_inchi_keys`
         """
         molecules = split_openff_molecule(molecule=molecule)
-        unique_fixed_hydrogen_inchi_keys = {
-            mol.to_inchikey(fixed_hydrogens=True) for mol in molecules
-        }
+        unique_fixed_hydrogen_inchi_keys = {mol.to_inchikey(fixed_hydrogens=True) for mol in molecules}
         off_mol = copy.deepcopy(molecule)
         if "atom_map" in off_mol.properties:
             del off_mol.properties["atom_map"]
         cmiles = {
-            "canonical_smiles": off_mol.to_smiles(
-                isomeric=False, explicit_hydrogens=False, mapped=False
-            ),
-            "canonical_isomeric_smiles": off_mol.to_smiles(
-                isomeric=True, explicit_hydrogens=False, mapped=False
-            ),
+            "canonical_smiles": off_mol.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False),
+            "canonical_isomeric_smiles": off_mol.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False),
             "canonical_explicit_hydrogen_smiles": off_mol.to_smiles(
-                isomeric=False, explicit_hydrogens=True, mapped=False
+                isomeric=False,
+                explicit_hydrogens=True,
+                mapped=False,
             ),
             "canonical_isomeric_explicit_hydrogen_smiles": off_mol.to_smiles(
-                isomeric=True, explicit_hydrogens=True, mapped=False
+                isomeric=True,
+                explicit_hydrogens=True,
+                mapped=False,
             ),
             "canonical_isomeric_explicit_hydrogen_mapped_smiles": off_mol.to_smiles(
-                isomeric=True, explicit_hydrogens=True, mapped=True
+                isomeric=True,
+                explicit_hydrogens=True,
+                mapped=True,
             ),
             "molecular_formula": off_mol.hill_formula,
             "standard_inchi": off_mol.to_inchi(fixed_hydrogens=False),
@@ -973,25 +990,29 @@ class CommonBase(DatasetConfig, IndexCleaner, QCSpecificationHandler):
 
     driver: SinglepointDriver = Field(
         SinglepointDriver.energy,
-        description="The type of single point calculations which will be computed. Note some services require certain calculations for example optimizations require gradient calculations.",
+        description=(
+            "The type of single point calculations which will be computed. Note some services require certain "
+            "calculations for example optimizations require gradient calculations.",
+        ),
     )
     priority: str = Field(
         "normal",
         description="The priority the dataset should be computed at compared to other datasets currently running.",
     )
-    dataset_tags: List[str] = Field(
-        ["openff"], description="The dataset tags which help identify the dataset."
-    )
+    dataset_tags: list[str] = Field(["openff"], description="The dataset tags which help identify the dataset.")
     compute_tag: str = Field(
         "openff",
-        description="The tag the computes tasks will be assigned to, managers wishing to execute these tasks should use this compute tag.",
+        description=(
+            "The tag the computes tasks will be assigned to, managers wishing to execute these tasks should "
+            "use this compute tag.",
+        ),
     )
 
     def dict(self, *args, **kwargs):
         """
         Overwrite the dict method to handle any enums when saving to yaml/json via a dict call.
         """
-        data = super(CommonBase, self).dict(*args, **kwargs)
+        data = super().dict(*args, **kwargs)
         # now add the enum values
         if "driver" in data:
             data["driver"] = self.driver.value

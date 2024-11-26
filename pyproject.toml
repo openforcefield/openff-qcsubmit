@@ -1,22 +1,23 @@
-[tool.black]
-line-length = 88
-target-version = ['py39']
-exclude = '''
+[tool.ruff]
+line-length = 119
+namespace-packages = ["openff/qcsubmit/"]
+exclude = ["versioneer.py", "openff/qcsubmit/_version.py"]
 
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-  )/
-  | _tests           # also separately exclude a file named foo.py in
-                     # the root of the project
-)
-'''
+[tool.ruff.lint]
+ignore = ["E721","D105","D107","D200","D203","D212", "RUF012"]
+select = ["F", "E", "W", "UP", "RUF", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"openff/qcsubmit/**/__init__.py" = ["F401"]
+"openff/qcsubmit/_pydantic.py" = ["F401"]
+"openff/qcsubmit/_tests/data/*" = ["INP001"]
+"openff/qcsubmit/_tests/*" = ["RUF015", "E501"]
+"openff/qcsubmit/_tests/results/conftest.py" = ["E501"]
+"examples/*.ipynb" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-third-party = ["openff.toolkit", "openff.utilities", "openff.units"]
+known-first-party = ["openff.qcsubmit"]
+
+[tool.ruff.lint.pydocstyle]
+property-decorators=["validator"]

@@ -1,18 +1,12 @@
 import abc
 import json
 from collections import defaultdict
+from collections.abc import Generator
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    Generator,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Type,
+    Literal,
     TypeVar,
-    Union,
 )
 
 import qcelemental as qcel
@@ -28,7 +22,6 @@ from qcportal.singlepoint import (
     SinglepointDriver,
 )
 from qcportal.torsiondrive import TorsiondriveDatasetNewEntry, TorsiondriveSpecification
-from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import Field, constr, validator
 from openff.qcsubmit.common_structures import CommonBase, Metadata, MoleculeAttributes
@@ -66,29 +59,28 @@ class _BaseDataset(abc.ABC, CommonBase):
         ...,
         description="The name of the dataset, this will be the name given to the collection in QCArchive.",
     )
-    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = Field(  # noqa
+    dataset_tagline: constr(min_length=8, regex="[a-zA-Z]") = Field(
         ...,
-        description="The tagline should be a short description of the dataset which will be displayed by the QCArchive client when the datasets are listed.",
+        description=(
+            "The tagline should be a short description of the dataset which will be displayed by the QCArchive "
+            "client when the datasets are listed.",
+        ),
     )
     type: Literal["_BaseDataset"] = Field(
         "_BaseDataset",
         description="The dataset type corresponds to the type of collection that will be made in QCArchive.",
     )
-    description: constr(min_length=8, regex="[a-zA-Z]") = Field(  # noqa
+    description: constr(min_length=8, regex="[a-zA-Z]") = Field(
         ...,
         description="A long description of the datasets purpose and details about the molecules within.",
     )
-    metadata: Metadata = Field(
-        Metadata(), description="The metadata describing the dataset."
-    )
-    provenance: Dict[str, str] = Field(
+    metadata: Metadata = Field(Metadata(), description="The metadata describing the dataset.")
+    provenance: dict[str, str] = Field(
         {},
         description="A dictionary of the software and versions used to generate the dataset.",
     )
-    dataset: Dict[str, DatasetEntry] = Field(
-        {}, description="The actual dataset to be stored in QCArchive."
-    )
-    filtered_molecules: Dict[str, FilterEntry] = Field(
+    dataset: dict[str, DatasetEntry] = Field({}, description="The actual dataset to be stored in QCArchive.")
+    filtered_molecules: dict[str, FilterEntry] = Field(
         {},
         description="The set of workflow components used to generate the dataset with any filtered molecules.",
     )
@@ -113,7 +105,7 @@ class _BaseDataset(abc.ABC, CommonBase):
 
     @classmethod
     @abc.abstractmethod
-    def _entry_class(cls) -> Type[E]:
+    def _entry_class(cls) -> type[E]:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -149,7 +141,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def _get_entries(self) -> List[Any]:
+    def _get_entries(self) -> list[Any]:
         """Add entries to the Dataset's corresponding Collection.
 
         This method allows for handling of e.g. generating the index/name for
@@ -165,15 +157,14 @@ class _BaseDataset(abc.ABC, CommonBase):
         pass
 
     @abc.abstractmethod
-    def to_tasks(self) -> Dict[str, List[Union[AtomicInput, OptimizationInput]]]:
+    def to_tasks(self) -> dict[str, list[AtomicInput | OptimizationInput]]:
         """
-        Create a dictionary of QCengine tasks which correspond to this dataset stored by the program which should be used for the task.
+        Create a dictionary of QCengine tasks which correspond to this dataset stored by the program which should be
+        used for the task.
         """
         raise NotImplementedError()
 
-    def submit(
-        self, client: "PortalClient", ignore_errors: bool = False, verbose: bool = False
-    ) -> Dict:
+    def submit(self, client: "PortalClient", ignore_errors: bool = False, verbose: bool = False) -> dict:
         """
         Submit the dataset to a QCFractal server.
 
@@ -230,9 +221,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         # TODO - check if entries already exist
         insert_metadata = collection.add_entries(entries)
         if verbose:
-            print(
-                f"Number of new entries: {len(insert_metadata.inserted_idx)}/{self.n_records}"
-            )
+            print(f"Number of new entries: {len(insert_metadata.inserted_idx)}/{self.n_records}")
 
         return collection.submit(
             tag=self.compute_tag,
@@ -258,12 +247,13 @@ class _BaseDataset(abc.ABC, CommonBase):
         data = deserialize(file_name=file_name)
         return cls(**data)
 
-    def get_molecule_entry(self, molecule: Union[off.Molecule, str]) -> List[str]:
+    def get_molecule_entry(self, molecule: off.Molecule | str) -> list[str]:
         """
         Search through the dataset for a molecule and return the dataset index of any exact molecule matches.
 
         Args:
-            molecule: The smiles string for the molecule or an openforcefield.topology.Molecule that is to be searched for.
+            molecule: The smiles string for the molecule or an openforcefield.topology.Molecule that is to be searched
+            for.
 
         Returns:
             A list of dataset indices which contain the target molecule.
@@ -286,7 +276,8 @@ class _BaseDataset(abc.ABC, CommonBase):
     @property
     def filtered(self) -> off.Molecule:
         """
-        A generator which yields a openff molecule representation for each molecule filtered while creating this dataset.
+        A generator which yields a openff molecule representation for each molecule filtered while creating this
+        dataset.
 
         Note:
             Modifying the molecule will have no effect on the data stored.
@@ -302,9 +293,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         """
         Calculate the total number of molecules filtered by the components used in a workflow to create this dataset.
         """
-        filtered = sum(
-            [len(data.molecules) for data in self.filtered_molecules.values()]
-        )
+        filtered = sum([len(data.molecules) for data in self.filtered_molecules.values()])
         return filtered
 
     @property
@@ -326,7 +315,8 @@ class _BaseDataset(abc.ABC, CommonBase):
         Calculate the number of unique molecules to be submitted.
 
         Notes:
-            * This method has been improved for better performance on large datasets and has been tested on an optimization dataset of over 10500 molecules.
+            * This method has been improved for better performance on large datasets and has been tested on an
+                optimization dataset of over 10500 molecules.
             * This function does not calculate the total number of entries of the dataset see `n_records`
         """
         molecules = {}
@@ -334,13 +324,9 @@ class _BaseDataset(abc.ABC, CommonBase):
             inchikey = entry.attributes.inchi_key
             try:
                 like_mols = molecules[inchikey]
-                mol_to_add = entry.get_off_molecule(False).to_inchikey(
-                    fixed_hydrogens=True
-                )
+                mol_to_add = entry.get_off_molecule(False).to_inchikey(fixed_hydrogens=True)
                 for index in like_mols:
-                    if mol_to_add == self.dataset[index].get_off_molecule(
-                        False
-                    ).to_inchikey(fixed_hydrogens=True):
+                    if mol_to_add == self.dataset[index].get_off_molecule(False).to_inchikey(fixed_hydrogens=True):
                         break
                 else:
                     molecules[inchikey].append(entry.index)
@@ -373,7 +359,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         return n_filtered
 
     @property
-    def components(self) -> List[Dict[str, Union[str, Dict[str, str]]]]:
+    def components(self) -> list[dict[str, str | dict[str, str]]]:
         """
         Gather the details of the components that were ran during the creation of this dataset.
         """
@@ -386,10 +372,10 @@ class _BaseDataset(abc.ABC, CommonBase):
 
     def filter_molecules(
         self,
-        molecules: Union[off.Molecule, List[off.Molecule]],
+        molecules: off.Molecule | list[off.Molecule],
         component: str,
-        component_settings: Dict[str, Any],
-        component_provenance: Dict[str, str],
+        component_settings: dict[str, Any],
+        component_provenance: dict[str, str],
     ) -> None:
         """
         Filter a molecule or list of molecules by the component they failed.
@@ -410,10 +396,7 @@ class _BaseDataset(abc.ABC, CommonBase):
             molecules = [molecules]
 
         if component in self.filtered_molecules:
-            filter_mols = [
-                molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
-                for molecule in molecules
-            ]
+            filter_mols = [molecule.to_smiles(isomeric=True, explicit_hydrogens=True) for molecule in molecules]
             self.filtered_molecules[component].molecules.extend(filter_mols)
         else:
             filter_data = FilterEntry(
@@ -428,9 +411,9 @@ class _BaseDataset(abc.ABC, CommonBase):
     def add_molecule(
         self,
         index: str,
-        molecule: Optional[off.Molecule],
-        extras: Optional[Dict[str, Any]] = None,
-        keywords: Optional[Dict[str, Any]] = None,
+        molecule: off.Molecule | None,
+        extras: dict[str, Any] | None = None,
+        keywords: dict[str, Any] | None = None,
         **kwargs,
     ) -> None:
         """
@@ -482,15 +465,14 @@ class _BaseDataset(abc.ABC, CommonBase):
                 component_provenance=self.provenance,
             )
 
-    def _get_missing_basis_coverage(
-        self, raise_errors: bool = True
-    ) -> Dict[str, Set[str]]:
+    def _get_missing_basis_coverage(self, raise_errors: bool = True) -> dict[str, set[str]]:
         """
-        Work out if the selected basis set covers all of the elements in the dataset for each specification if not return the missing
-        element symbols.
+        Work out if the selected basis set covers all of the elements in the dataset for each specification if not
+        return the missing element symbols.
 
         Args:
-            raise_errors: If `True` the function will raise an error for missing basis coverage, else we return the missing data and just print warnings.
+            raise_errors: If `True` the function will raise an error for missing basis coverage, else we return the
+            missing data and just print warnings.
         """
         import re
         import warnings
@@ -520,7 +502,7 @@ class _BaseDataset(abc.ABC, CommonBase):
                     basis = psi4_converter.get(spec.basis.lower(), spec.basis.lower())
                     # here we need to apply conversions for special characters to match bse
                     # replace the *
-                    basis = re.sub("\*", "_st_", basis)  # noqa
+                    basis = re.sub(r"\*", "_st_", basis)
                     # replace any /
                     basis = re.sub("/", "_sl_", basis)
                     # check for heavy tags
@@ -535,13 +517,9 @@ class _BaseDataset(abc.ABC, CommonBase):
                         # now try and get the basis again
                         basis_meta = bse.get_metadata()[basis]
 
-                    elements = basis_meta["versions"][basis_meta["latest_version"]][
-                        "elements"
-                    ]
+                    elements = basis_meta["versions"][basis_meta["latest_version"]]["elements"]
 
-                    covered_elements: set[Union[int, str]] = {
-                        SYMBOLS[int(element)] for element in elements
-                    }
+                    covered_elements: set[int | str] = {SYMBOLS[int(element)] for element in elements}
 
                     difference = self.metadata.elements.difference(covered_elements)
 
@@ -574,17 +552,21 @@ class _BaseDataset(abc.ABC, CommonBase):
             if report:
                 if raise_errors:
                     raise MissingBasisCoverageError(
-                        f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis} and method : {self.qc_specifications[spec_name].method}"
+                        f"The following elements: {report} are not covered by the selected basis : "
+                        f"{self.qc_specifications[spec_name].basis} and "
+                        f"method : {self.qc_specifications[spec_name].method}",
                     )
                 else:
                     warnings.warn(
-                        f"The following elements: {report} are not covered by the selected basis : {self.qc_specifications[spec_name].basis} and method : {self.qc_specifications[spec_name].method}",
+                        f"The following elements: {report} are not covered by the selected basis : "
+                        f"{self.qc_specifications[spec_name].basis} and "
+                        f"method : {self.qc_specifications[spec_name].method}",
                         UserWarning,
                     )
         if not raise_errors:
             return basis_report
 
-    def export_dataset(self, file_name: str, compression: Optional[str] = None) -> None:
+    def export_dataset(self, file_name: str, compression: str | None = None) -> None:
         """
         Export the dataset to file so that it can be used to make another dataset quickly.
 
@@ -621,14 +603,12 @@ class _BaseDataset(abc.ABC, CommonBase):
         if "json" not in split:
             raise UnsupportedFiletypeError(
                 f"The dataset export file name with leading extension {split[-1]} is not supported, "
-                "please end the file name with json."
+                "please end the file name with json.",
             )
 
         serialize(serializable=self, file_name=file_name, compression=compression)
 
-    def coverage_report(
-        self, force_field: "ForceField", verbose: bool = False
-    ) -> Dict[str, Dict[str, int]]:
+    def coverage_report(self, force_field: "ForceField", verbose: bool = False) -> dict[str, dict[str, int]]:
         """Returns a summary of how many molecules within this dataset would be assigned
         each of the parameters in a force field.
 
@@ -652,7 +632,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         self,
         file_name: str,
         columns: int = 4,
-        toolkit: Optional[Literal["openeye", "rdkit"]] = None,
+        toolkit: Literal["openeye", "rdkit"] | None = None,
     ) -> None:
         """
         Create a pdf file of the molecules with any torsions highlighted using either openeye or rdkit.
@@ -712,21 +692,18 @@ class _BaseDataset(abc.ABC, CommonBase):
                     output.write(f"{molecule}\n")
         except KeyError:
             raise UnsupportedFiletypeError(
-                f"The requested file type {file_type} is not supported, supported types are"
-                f"{file_writers.keys()}."
+                f"The requested file type {file_type} is not supported, supported types are" f"{file_writers.keys()}.",
             )
 
-    def _molecules_to_smiles(self) -> List[str]:
+    def _molecules_to_smiles(self) -> list[str]:
         """
         Create a list of molecules canonical isomeric smiles.
         """
 
-        smiles = [
-            data.attributes.canonical_isomeric_smiles for data in self.dataset.values()
-        ]
+        smiles = [data.attributes.canonical_isomeric_smiles for data in self.dataset.values()]
         return smiles
 
-    def _molecules_to_inchi(self) -> List[str]:
+    def _molecules_to_inchi(self) -> list[str]:
         """
         Create a list of the molecules standard InChI.
         """
@@ -734,7 +711,7 @@ class _BaseDataset(abc.ABC, CommonBase):
         inchi = [data.attributes.standard_inchi for data in self.dataset.values()]
         return inchi
 
-    def _molecules_to_inchikey(self) -> List[str]:
+    def _molecules_to_inchikey(self) -> list[str]:
         """
         Create a list of the molecules standard InChIKey.
         """
@@ -760,7 +737,7 @@ class BasicDataset(_BaseDataset):
     type: Literal["DataSet"] = "DataSet"
 
     @classmethod
-    def _entry_class(cls) -> Type[DatasetEntry]:
+    def _entry_class(cls) -> type[DatasetEntry]:
         return DatasetEntry
 
     def __add__(self, other: "BasicDataset") -> "BasicDataset":
@@ -769,7 +746,7 @@ class BasicDataset(_BaseDataset):
         # make sure the dataset types match
         if self.type != other.type:
             raise DatasetCombinationError(
-                f"The datasets must be the same type, you can not add types {self.type} and {other.type}"
+                f"The datasets must be the same type, you can not add types {self.type} and {other.type}",
             )
 
         # create a new datset
@@ -778,9 +755,7 @@ class BasicDataset(_BaseDataset):
         new_dataset.metadata.elements.update(other.metadata.elements)
         for index, entry in other.dataset.items():
             # search for the molecule
-            entry_ids = new_dataset.get_molecule_entry(
-                entry.get_off_molecule(include_conformers=False)
-            )
+            entry_ids = new_dataset.get_molecule_entry(entry.get_off_molecule(include_conformers=False))
             if not entry_ids:
                 new_dataset.dataset[index] = entry
             else:
@@ -796,16 +771,15 @@ class BasicDataset(_BaseDataset):
                 mapped_mol = entry_mol.remap(mapping_dict=atom_map, current_to_new=True)
                 for i in range(mapped_mol.n_conformers):
                     mapped_schema = mapped_mol.to_qcschema(
-                        conformer=i, extras=current_entry.initial_molecules[0].extras
+                        conformer=i,
+                        extras=current_entry.initial_molecules[0].extras,
                     )
                     if mapped_schema not in current_entry.initial_molecules:
                         current_entry.initial_molecules.append(mapped_schema)
 
         return new_dataset
 
-    def _generate_collection(
-        self, client: "PortalClient"
-    ) -> ptl.singlepoint.SinglepointDataset:
+    def _generate_collection(self, client: "PortalClient") -> ptl.singlepoint.SinglepointDataset:
         return client.add_dataset(
             dataset_type="singlepoint",
             name=self.dataset_name,
@@ -818,7 +792,7 @@ class BasicDataset(_BaseDataset):
             metadata=self.metadata.dict(),
         )
 
-    def _get_specifications(self) -> Dict[str, QCSpecification]:
+    def _get_specifications(self) -> dict[str, QCSpecification]:
         """Needed for `submit` usage."""
 
         ret = {}
@@ -834,8 +808,8 @@ class BasicDataset(_BaseDataset):
 
         return ret
 
-    def _get_entries(self) -> List[SinglepointDatasetNewEntry]:
-        entries: List[SinglepointDatasetNewEntry] = []
+    def _get_entries(self) -> list[SinglepointDatasetNewEntry]:
+        entries: list[SinglepointDatasetNewEntry] = []
 
         for entry_name, entry in self.dataset.items():
             if len(entry.initial_molecules) > 1:
@@ -846,9 +820,7 @@ class BasicDataset(_BaseDataset):
                 for j, molecule in enumerate(entry.initial_molecules):
                     name = index + f"-{tag + j}"
                     entries.append(
-                        SinglepointDatasetNewEntry(
-                            name=name, molecule=molecule, attributes=entry.attributes
-                        )
+                        SinglepointDatasetNewEntry(name=name, molecule=molecule, attributes=entry.attributes),
                     )
             else:
                 entries.append(
@@ -856,15 +828,15 @@ class BasicDataset(_BaseDataset):
                         name=entry_name,
                         molecule=entry.initial_molecules[0],
                         attributes=entry.attributes,
-                    )
+                    ),
                 )
 
         return entries
 
-    def to_tasks(self) -> Dict[str, List[AtomicInput]]:
+    def to_tasks(self) -> dict[str, list[AtomicInput]]:
         """
-        Build a dictionary of single QCEngine tasks that correspond to this dataset organised by program name. The tasks can be passed directly
-        to qcengine.compute.
+        Build a dictionary of single QCEngine tasks that correspond to this dataset organised by program name. The
+        tasks can be passed directly to qcengine.compute.
         """
         data = defaultdict(list)
         for spec in self.qc_specifications.values():
@@ -887,7 +859,7 @@ class BasicDataset(_BaseDataset):
                             model=qc_model,
                             keywords=keywords,
                             protocols=protocols,
-                        )
+                        ),
                     )
         return data
 
@@ -908,10 +880,10 @@ class OptimizationDataset(BasicDataset):
         OptimizationProtocols(),
         description="Protocols regarding the manipulation of Optimization output data.",
     )
-    dataset: Dict[str, OptimizationEntry] = {}
+    dataset: dict[str, OptimizationEntry] = {}
 
     @classmethod
-    def _entry_class(cls) -> Type[OptimizationEntry]:
+    def _entry_class(cls) -> type[OptimizationEntry]:
         return OptimizationEntry
 
     @validator("driver")
@@ -921,7 +893,8 @@ class OptimizationDataset(BasicDataset):
 
     def __add__(self, other: "OptimizationDataset") -> "OptimizationDataset":
         """
-        Add two Optimization datasets together, if the constraints are different then the entries are considered different.
+        Add two Optimization datasets together, if the constraints are different then the entries are considered
+        different.
         """
         import copy
 
@@ -930,7 +903,7 @@ class OptimizationDataset(BasicDataset):
         # make sure the dataset types match
         if self.type != other.type:
             raise DatasetCombinationError(
-                f"The datasets must be the same type, you can not add types {self.type} and {other.type}"
+                f"The datasets must be the same type, you can not add types {self.type} and {other.type}",
             )
 
         # create a new dataset
@@ -939,9 +912,7 @@ class OptimizationDataset(BasicDataset):
         new_dataset.metadata.elements.update(other.metadata.elements)
         for entry in other.dataset.values():
             # search for the molecule
-            entry_ids = new_dataset.get_molecule_entry(
-                entry.get_off_molecule(include_conformers=False)
-            )
+            entry_ids = new_dataset.get_molecule_entry(entry.get_off_molecule(include_conformers=False))
             if entry_ids:
                 records = 0
                 for mol_id in entry_ids:
@@ -960,7 +931,8 @@ class OptimizationDataset(BasicDataset):
                     entry_constraints = Constraints()
                     for constraint in entry.constraints.freeze:
                         entry_constraints.add_freeze_constraint(
-                            constraint.type, remap_list(constraint.indices, atom_map)
+                            constraint.type,
+                            remap_list(constraint.indices, atom_map),
                         )
                     for constraint in entry.constraints.set:
                         entry_constraints.add_set_constraint(
@@ -973,9 +945,7 @@ class OptimizationDataset(BasicDataset):
                         # transfer the entries
                         # remap and transfer
                         off_mol = entry.get_off_molecule(include_conformers=True)
-                        mapped_mol = off_mol.remap(
-                            mapping_dict=atom_map, current_to_new=True
-                        )
+                        mapped_mol = off_mol.remap(mapping_dict=atom_map, current_to_new=True)
                         for i in range(mapped_mol.n_conformers):
                             mapped_schema = mapped_mol.to_qcschema(
                                 conformer=i,
@@ -998,9 +968,7 @@ class OptimizationDataset(BasicDataset):
 
         return new_dataset
 
-    def _generate_collection(
-        self, client: "PortalClient"
-    ) -> ptl.optimization.OptimizationDataset:
+    def _generate_collection(self, client: "PortalClient") -> ptl.optimization.OptimizationDataset:
         return client.add_dataset(
             dataset_type="optimization",
             name=self.dataset_name,
@@ -1013,7 +981,7 @@ class OptimizationDataset(BasicDataset):
             metadata=self.metadata.dict(),
         )
 
-    def _get_specifications(self) -> Dict[str, OptimizationSpecification]:
+    def _get_specifications(self) -> dict[str, OptimizationSpecification]:
         opt_kw = self.optimization_procedure.get_optimzation_keywords()
 
         ret = {}
@@ -1037,8 +1005,8 @@ class OptimizationDataset(BasicDataset):
 
         return ret
 
-    def _get_entries(self) -> List[OptimizationDatasetNewEntry]:
-        entries: List[OptimizationDatasetNewEntry] = []
+    def _get_entries(self) -> list[OptimizationDatasetNewEntry]:
+        entries: list[OptimizationDatasetNewEntry] = []
 
         for entry_name, entry in self.dataset.items():
             # TODO this probably needs even more keywords
@@ -1057,7 +1025,7 @@ class OptimizationDataset(BasicDataset):
                             initial_molecule=molecule,
                             additional_keywords=opt_kw,
                             attributes=entry.attributes,
-                        )
+                        ),
                     )
             else:
                 entries.append(
@@ -1066,14 +1034,15 @@ class OptimizationDataset(BasicDataset):
                         initial_molecule=entry.initial_molecules[0],
                         additional_keywords=opt_kw,
                         attributes=entry.attributes,
-                    )
+                    ),
                 )
 
         return entries
 
-    def to_tasks(self) -> Dict[str, List[OptimizationInput]]:
+    def to_tasks(self) -> dict[str, list[OptimizationInput]]:
         """
-        Build a list of QCEngine optimisation inputs organised by the optimisation engine which should be used to run the task.
+        Build a list of QCEngine optimisation inputs organised by the optimisation engine which should be used to run
+        the task.
         """
         data = defaultdict(list)
         opt_program = self.optimization_procedure.program.lower()
@@ -1102,7 +1071,7 @@ class OptimizationDataset(BasicDataset):
                             input_specification=qc_spec,
                             initial_molecule=molecule,
                             protocols=self.protocols,
-                        )
+                        ),
                     )
 
         return data
@@ -1114,46 +1083,52 @@ class TorsiondriveDataset(OptimizationDataset):
     torsiondrive datasets in the public or local qcarchive instance.
 
     Important:
-        The dihedral_ranges for the whole dataset can be defined here or if different scan ranges are required on a case
-        by case basis they can be defined for each torsion in a molecule separately in the keywords of the torsiondrive entry.
+        The dihedral_ranges for the whole dataset can be defined here or if different scan ranges are required on a
+        case by case basis they can be defined for each torsion in a molecule separately in the keywords of the
+        torsiondrive entry.
     """
 
-    dataset: Dict[str, TorsionDriveEntry] = {}
+    dataset: dict[str, TorsionDriveEntry] = {}
     type: Literal["TorsionDriveDataset"] = "TorsionDriveDataset"
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
-        {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0}
+        {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0},
     )
-    grid_spacing: List[int] = Field(
+    grid_spacing: list[int] = Field(
         [15],
-        description="The grid spcaing that should be used for all torsiondrives, this can be overwriten on a per entry basis.",
+        description=(
+            "The grid spcaing that should be used for all torsiondrives, this can be overwriten on a per entry basis.",
+        ),
     )
     energy_upper_limit: float = Field(
         0.05,
         description="The upper energy limit to spawn new optimizations in the torsiondrive.",
     )
-    dihedral_ranges: Optional[List[Tuple[int, int]]] = Field(
+    dihedral_ranges: list[tuple[int, int]] | None = Field(
         None,
-        description="The scan range that should be used for each torsiondrive, this can be overwriten on a per entry basis.",
+        description=(
+            "The scan range that should be used for each torsiondrive, this can be overwriten on a per entry basis.",
+        ),
     )
-    energy_decrease_thresh: Optional[float] = Field(
+    energy_decrease_thresh: float | None = Field(
         None,
         description="The energy lower threshold to trigger new optimizations in the torsiondrive.",
     )
 
     @classmethod
-    def _entry_class(cls) -> Type[TorsionDriveEntry]:
+    def _entry_class(cls) -> type[TorsionDriveEntry]:
         return TorsionDriveEntry
 
     def __add__(self, other: "TorsiondriveDataset") -> "TorsiondriveDataset":
         """
-        Add two TorsiondriveDatasets together, if the central bond in the dihedral is the same the entries are considered the same.
+        Add two TorsiondriveDatasets together, if the central bond in the dihedral is the same the entries are
+        considered the same.
         """
         import copy
 
         # make sure the dataset types match
         if self.type != other.type:
             raise DatasetCombinationError(
-                f"The datasets must be the same type, you can not add types {self.type} and {other.type}"
+                f"The datasets must be the same type, you can not add types {self.type} and {other.type}",
             )
 
         # create a new dataset
@@ -1162,9 +1137,7 @@ class TorsiondriveDataset(OptimizationDataset):
         new_dataset.metadata.elements.update(other.metadata.elements)
         for index, entry in other.dataset.items():
             # search for the molecule
-            entry_ids = new_dataset.get_molecule_entry(
-                entry.get_off_molecule(include_conformers=False)
-            )
+            entry_ids = new_dataset.get_molecule_entry(entry.get_off_molecule(include_conformers=False))
             for mol_id in entry_ids:
                 current_entry = new_dataset.dataset[mol_id]
                 _, atom_map = off.Molecule.are_isomorphic(
@@ -1174,12 +1147,10 @@ class TorsiondriveDataset(OptimizationDataset):
                 )
 
                 # gather the current dihedrals forward and backwards
-                current_dihedrals = set(
-                    [(dihedral[1:3]) for dihedral in current_entry.dihedrals]
-                )
+                current_dihedrals = {(dihedral[1:3]) for dihedral in current_entry.dihedrals}
                 for dihedral in current_entry.dihedrals:
-                    current_dihedrals.add((dihedral[1:3]))
-                    current_dihedrals.add((dihedral[2:0:-1]))
+                    current_dihedrals.add(dihedral[1:3])
+                    current_dihedrals.add(dihedral[2:0:-1])
 
                 # now gather the other entry dihedrals forwards and backwards
                 other_dihedrals = set()
@@ -1191,9 +1162,7 @@ class TorsiondriveDataset(OptimizationDataset):
                 if not difference:
                     # the entry is already there so add new conformers and skip
                     off_mol = entry.get_off_molecule(include_conformers=True)
-                    mapped_mol = off_mol.remap(
-                        mapping_dict=atom_map, current_to_new=True
-                    )
+                    mapped_mol = off_mol.remap(mapping_dict=atom_map, current_to_new=True)
                     for i in range(mapped_mol.n_conformers):
                         mapped_schema = mapped_mol.to_qcschema(
                             conformer=i,
@@ -1215,9 +1184,7 @@ class TorsiondriveDataset(OptimizationDataset):
         """
         return len(self.dataset)
 
-    def _generate_collection(
-        self, client: "PortalClient"
-    ) -> ptl.torsiondrive.TorsiondriveDataset:
+    def _generate_collection(self, client: "PortalClient") -> ptl.torsiondrive.TorsiondriveDataset:
         return client.add_dataset(
             dataset_type="torsiondrive",
             name=self.dataset_name,
@@ -1230,7 +1197,7 @@ class TorsiondriveDataset(OptimizationDataset):
             metadata=self.metadata.dict(),
         )
 
-    def _get_specifications(self) -> Dict[str, TorsiondriveSpecification]:
+    def _get_specifications(self) -> dict[str, TorsiondriveSpecification]:
         td_kw = dict(
             grid_spacing=self.grid_spacing,
             dihedral_ranges=self.dihedral_ranges,
@@ -1260,8 +1227,8 @@ class TorsiondriveDataset(OptimizationDataset):
 
         return ret
 
-    def _get_entries(self) -> List[TorsiondriveDatasetNewEntry]:
-        entries: List[TorsiondriveDatasetNewEntry] = []
+    def _get_entries(self) -> list[TorsiondriveDatasetNewEntry]:
+        entries: list[TorsiondriveDatasetNewEntry] = []
 
         for entry_name, entry in self.dataset.items():
             td_keywords = dict(
@@ -1283,12 +1250,12 @@ class TorsiondriveDataset(OptimizationDataset):
                     additional_keywords=td_keywords,
                     additional_optimization_keywords=opt_keywords,
                     attributes=entry.attributes,
-                )
+                ),
             )
 
         return entries
 
-    def to_tasks(self) -> Dict[str, List[OptimizationInput]]:
+    def to_tasks(self) -> dict[str, list[OptimizationInput]]:
         """Build a list of QCEngine procedure tasks which correspond to this dataset."""
 
         raise NotImplementedError()

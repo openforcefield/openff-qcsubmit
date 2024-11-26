@@ -72,7 +72,7 @@ def test_base_molecule_property():
                     record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
-                )
+                ),
             ],
             does_not_raise(),
         ),
@@ -82,7 +82,7 @@ def test_base_molecule_property():
                     record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
-                )
+                ),
             ]
             * 2,
             pytest.raises(ValidationError, match="duplicate entries were found for"),
@@ -105,16 +105,16 @@ def test_base_n_results_property():
                     record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
-                )
+                ),
             ],
             "http://localhost:443": [
                 BasicResult(
                     record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
-                )
+                ),
             ],
-        }
+        },
     )
 
     assert collection.n_results == 2
@@ -128,7 +128,7 @@ def test_base_n_molecules_property():
                     record_id=1,
                     cmiles="[He:1]",
                     inchi_key="SWQJXJOGLNCZEY-UHFFFAOYSA-N",
-                )
+                ),
             ],
             "http://localhost:443": [
                 BasicResult(
@@ -142,7 +142,7 @@ def test_base_n_molecules_property():
                     inchi_key="KZBUYRJDOAKODT-UHFFFAOYSA-N",
                 ),
             ],
-        }
+        },
     )
 
     assert collection.n_molecules == 2
@@ -195,11 +195,7 @@ def test_base_validate_record_types():
 def test_base_filter(basic_result_collection):
     class DummyFilter(ResultFilter):
         def _apply(self, result_collection):
-            result_collection.entries = {
-                "http://localhost:442": result_collection.entries[
-                    "http://localhost:442"
-                ]
-            }
+            result_collection.entries = {"http://localhost:442": result_collection.entries["http://localhost:442"]}
 
             return result_collection
 
@@ -229,10 +225,10 @@ def test_base_smirnoff_coverage():
                     [
                         "[H:1][C:2]([H:3])([H:4])([H:5])",
                         "[C:1]([H:2])([H:3])([H:4])([H:5])",
-                    ]
+                    ],
                 )
-            ]
-        }
+            ],
+        },
     )
 
     coverage = collection.smirnoff_coverage(ForceField("openff-1.3.0.offxml"))
@@ -264,9 +260,7 @@ def test_base_smirnoff_coverage():
         (TorsionDriveResultCollection, "TorsionDrive Paper", "default", 1, 3),
     ],
 )
-def test_collection_from_server(
-    collection_type, dataset, spec, n_molecules, n_results, public_client
-):
+def test_collection_from_server(collection_type, dataset, spec, n_molecules, n_results, public_client):
     """Test downloading a dataset from the QCArchive."""
 
     result = collection_type.from_server(
@@ -321,9 +315,7 @@ def test_to_records(
     # it will use the _default_portal_client (PortalClient), and the assertions
     # at the end of this test expect the same results as a normal PortalClient.
     # Only the middle section of this test is cache-specific.
-    collection = collection_type.from_server(
-        public_client, collection_name, spec_name=spec_name
-    )
+    collection = collection_type.from_server(public_client, collection_name, spec_name=spec_name)
     assert collection.n_molecules == expected_n_mols
 
     def disconnected_client(addr, cache_dir):
@@ -399,7 +391,7 @@ def test_optimization_create_basic_dataset():
             "provenance": {},
             "type": "OptimizationResultCollection"
         }
-        """
+        """,
     )
 
     opt_hashes = {rec.final_molecule.get_hash() for rec, _mol in opt.to_records()}
@@ -433,21 +425,17 @@ def test_optimization_create_basic_dataset():
 
 def test_optimization_to_basic_result_collection(public_client):
     optimization_result_collection = OptimizationResultCollection.from_server(
-        public_client, ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"]
+        public_client,
+        ["OpenFF Gen 2 Opt Set 3 Pfizer Discrepancy"],
     )
-    basic_collection = optimization_result_collection.to_basic_result_collection(
-        "hessian"
-    )
+    basic_collection = optimization_result_collection.to_basic_result_collection("hessian")
     assert basic_collection.n_results == 197
     assert basic_collection.n_molecules == 49
 
 
 def test_torsion_smirnoff_coverage(public_client, monkeypatch):
     molecule: Molecule = Molecule.from_mapped_smiles(
-        "[H:1][C:2]([H:7])([H:8])"
-        "[C:3]([H:9])([H:10])"
-        "[C:4]([H:11])([H:12])"
-        "[C:5]([H:13])([H:14])[H:6]"
+        "[H:1][C:2]([H:7])([H:8])" "[C:3]([H:9])([H:10])" "[C:4]([H:11])([H:12])" "[C:5]([H:13])([H:14])[H:6]",
     )
 
     dihedrals = [(0, 1, 2, 3), (1, 2, 3, 4), (2, 3, 4, 5)]
@@ -461,8 +449,8 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
                     inchi_key=molecule.to_inchikey(),
                 )
                 for i in range(len(dihedrals))
-            ]
-        }
+            ],
+        },
     )
 
     monkeypatch.setattr(
@@ -505,9 +493,7 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
         ],
     )
 
-    coverage = collection.smirnoff_coverage(
-        ForceField("openff-1.3.0.offxml"), driven_only=True
-    )
+    coverage = collection.smirnoff_coverage(ForceField("openff-1.3.0.offxml"), driven_only=True)
 
     assert {*coverage} == {"Bonds", "Angles", "ProperTorsions"}
 

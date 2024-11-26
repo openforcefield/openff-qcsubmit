@@ -31,10 +31,7 @@ def _mock_molecule(entry: _BaseResult, n_conformers: int = 1) -> Molecule:
     molecule: Molecule = Molecule.from_smiles(entry.cmiles)
 
     for _ in range(n_conformers):
-        molecule.add_conformer(
-            numpy.arange(molecule.n_atoms * 3).reshape((molecule.n_atoms, 3))
-            * unit.angstrom
-        )
+        molecule.add_conformer(numpy.arange(molecule.n_atoms * 3).reshape((molecule.n_atoms, 3)) * unit.angstrom)
 
     return molecule
 
@@ -51,7 +48,7 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
                 for i, molecule in enumerate(molecules[address])
             ]
             for address in molecules
-        }
+        },
     )
 
     monkeypatch.setattr(
@@ -85,9 +82,7 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
     return collection
 
 
-def mock_optimization_result_collection(
-    molecules, monkeypatch
-) -> OptimizationResultCollection:
+def mock_optimization_result_collection(molecules, monkeypatch) -> OptimizationResultCollection:
     collection = OptimizationResultCollection(
         entries={
             address: [
@@ -99,7 +94,7 @@ def mock_optimization_result_collection(
                 for i, molecule in enumerate(molecules[address])
             ]
             for address in molecules
-        }
+        },
     )
 
     monkeypatch.setattr(
@@ -142,9 +137,7 @@ def mock_optimization_result_collection(
     return collection
 
 
-def mock_torsion_drive_result_collection(
-    molecules, monkeypatch
-) -> TorsionDriveResultCollection:
+def mock_torsion_drive_result_collection(molecules, monkeypatch) -> TorsionDriveResultCollection:
     collection = TorsionDriveResultCollection(
         entries={
             address: [
@@ -156,7 +149,7 @@ def mock_torsion_drive_result_collection(
                 for i, molecule in enumerate(molecules[address])
             ]
             for address in molecules
-        }
+        },
     )
 
     monkeypatch.setattr(
@@ -181,10 +174,7 @@ def mock_torsion_drive_result_collection(
                         ),
                     ),
                     initial_molecules_ids=[
-                        i + 1
-                        for i in range(
-                            molecules[address][int(entry.record_id) - 1].n_conformers
-                        )
+                        i + 1 for i in range(molecules[address][int(entry.record_id) - 1].n_conformers)
                     ],
                     status=RecordStatusEnum.complete,
                     client=_PortalClient(address=address),
@@ -210,8 +200,6 @@ def mock_torsion_drive_result_collection(
 
         return return_value
 
-    monkeypatch.setattr(
-        TorsiondriveRecord, "minimum_optimizations", lambda self: get_molecules(self)
-    )
+    monkeypatch.setattr(TorsiondriveRecord, "minimum_optimizations", lambda self: get_molecules(self))
 
     return collection

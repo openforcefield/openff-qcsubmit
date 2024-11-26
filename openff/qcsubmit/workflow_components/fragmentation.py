@@ -2,7 +2,7 @@
 Components that aid with Fragmentation of molecules.
 """
 
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Literal
 
 from openff.toolkit import Molecule
 from openff.toolkit.utils import ToolkitRegistry
@@ -27,9 +27,12 @@ class FragmenterBase(ToolkitValidator, CustomWorkflowComponent):
 
     type: Literal["FragmenterBase"]
 
-    target_torsion_smarts: Optional[List[str]] = Field(
+    target_torsion_smarts: list[str] | None = Field(
         None,
-        description="The list of SMARTS patterns used to identify central target bonds to fragment around. By default this is any single non-termial bond.",
+        description=(
+            "The list of SMARTS patterns used to identify central target bonds to fragment around. By default this is "
+            "any single non-termial bond.",
+        ),
     )
 
     _check_smarts = validator(
@@ -68,7 +71,7 @@ class FragmenterBase(ToolkitValidator, CustomWorkflowComponent):
 
         return toolkit and fragmenter
 
-    def provenance(self, toolkit_registry: ToolkitRegistry) -> Dict:
+    def provenance(self, toolkit_registry: ToolkitRegistry) -> dict:
         """
         Collect the toolkit information and add the fragmenter version information.
         """
@@ -82,17 +85,16 @@ class FragmenterBase(ToolkitValidator, CustomWorkflowComponent):
         return provenance
 
     @classmethod
-    def _process_fragments(
-        cls, fragments: "FragmentationResult", component_result: ComponentResult
-    ):
+    def _process_fragments(cls, fragments: "FragmentationResult", component_result: ComponentResult):
         """Process the resulting fragments and tag the targeted bonds ready for torsiondrives."""
         from openff.fragmenter.utils import get_atom_index
 
         for bond_map, fragment in fragments.fragments_by_bond.items():
             fragment_mol = fragment.molecule
             # get the index of the atoms in the fragment
-            atom1, atom2 = get_atom_index(fragment_mol, bond_map[0]), get_atom_index(
-                fragment_mol, bond_map[1]
+            atom1, atom2 = (
+                get_atom_index(fragment_mol, bond_map[0]),
+                get_atom_index(fragment_mol, bond_map[1]),
             )
             bond = fragment_mol.get_bond_between(atom1, atom2)
             symmetry_classes = get_symmetry_classes(fragment_mol)
@@ -117,11 +119,17 @@ class WBOFragmenter(FragmenterBase):
     type: Literal["WBOFragmenter"] = "WBOFragmenter"
     threshold: float = Field(
         0.03,
-        description="The WBO error threshold between the parent and the fragment value, the fragmentation will stop when the difference between the fragment and parent is less than this value.",
+        description=(
+            "The WBO error threshold between the parent and the fragment value, the fragmentation will stop when the "
+            "difference between the fragment and parent is less than this value.",
+        ),
     )
     keep_non_rotor_ring_substituents: bool = Field(
         False,
-        description="If any non rotor ring substituents should be kept during the fragmentation resulting in smaller fragments when `False`.",
+        description=(
+            "If any non rotor ring substituents should be kept during the fragmentation resulting in smaller "
+            "fragments when `False`.",
+        ),
     )
     heuristic: Literal["path_length", "wbo"] = Field(
         "path_length",
@@ -131,13 +139,9 @@ class WBOFragmenter(FragmenterBase):
 
     @classmethod
     def description(cls) -> str:
-        return (
-            "Fragment a molecule across all rotatable bonds using the WBO fragmenter."
-        )
+        return "Fragment a molecule across all rotatable bonds using the WBO fragmenter."
 
-    def _apply(
-        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
-    ) -> ComponentResult:
+    def _apply(self, molecules: list[Molecule], toolkit_registry: ToolkitRegistry) -> ComponentResult:
         """
         Fragment the molecules using the WBOFragmenter.
 
@@ -147,8 +151,8 @@ class WBOFragmenter(FragmenterBase):
 
         Note:
             * If the input molecule fails fragmentation it will fail this component and be removed.
-            * When a molecule can not be fragmented to meet the wbo threshold the parent is likely to be included in the
-            dataset.
+            * When a molecule can not be fragmented to meet the wbo threshold the parent is likely to be included in
+              the dataset.
         """
         from openff.fragmenter.fragment import WBOFragmenter
 
@@ -167,9 +171,7 @@ class WBOFragmenter(FragmenterBase):
                     toolkit_registry=toolkit_registry,
                     target_bond_smarts=self.target_torsion_smarts,
                 )
-                self._process_fragments(
-                    fragments=fragment_result, component_result=result
-                )
+                self._process_fragments(fragments=fragment_result, component_result=result)
 
             except (RuntimeError, ValueError):
                 # this will catch cmiles errors for molecules with undefined stero
@@ -189,9 +191,7 @@ class PfizerFragmenter(FragmenterBase):
     def description(cls) -> str:
         return "Fragment a molecule across all rotatable bonds using the Pfizer fragmentation scheme."
 
-    def _apply(
-        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
-    ) -> ComponentResult:
+    def _apply(self, molecules: list[Molecule], toolkit_registry: ToolkitRegistry) -> ComponentResult:
         """
         Fragment the molecules using the PfizerFragmenter.
 
@@ -215,9 +215,7 @@ class PfizerFragmenter(FragmenterBase):
                     toolkit_registry=toolkit_registry,
                     target_bond_smarts=self.target_torsion_smarts,
                 )
-                self._process_fragments(
-                    fragments=fragment_result, component_result=result
-                )
+                self._process_fragments(fragments=fragment_result, component_result=result)
 
             except (RuntimeError, ValueError):
                 # this will catch cmiles errors for molecules with undefined stero
@@ -261,9 +259,7 @@ class RECAPFragmenter(ToolkitValidator, CustomWorkflowComponent):
         )
         return rdkit
 
-    def _apply(
-        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
-    ) -> ComponentResult:
+    def _apply(self, molecules: list[Molecule], toolkit_registry: ToolkitRegistry) -> ComponentResult:
         """
         Fragment the molecules using the RECAP method in rdkit.
 
@@ -289,13 +285,10 @@ class RECAPFragmenter(ToolkitValidator, CustomWorkflowComponent):
 
             leaves = Recap.RecapDecompose(rd_parent).GetLeaves()
             for fragment_node in leaves.values():
-
                 rd_fragment = fragment_node.mol
 
                 for rd_dummy, rd_replacement in rd_dummy_replacements:
-                    rd_fragment = AllChem.ReplaceSubstructs(
-                        rd_fragment, rd_dummy, rd_replacement, True
-                    )[0]
+                    rd_fragment = AllChem.ReplaceSubstructs(rd_fragment, rd_dummy, rd_replacement, True)[0]
                     # Do a SMILES round-trip to avoid wierd issues with radical formation...
                     rd_fragment = Chem.MolFromSmiles(Chem.MolToSmiles(rd_fragment))
 
@@ -303,10 +296,6 @@ class RECAPFragmenter(ToolkitValidator, CustomWorkflowComponent):
                     # if the fragment is radical skip it
                     continue
 
-                result.add_molecule(
-                    molecule=Molecule.from_rdkit(
-                        rd_fragment, allow_undefined_stereo=True
-                    )
-                )
+                result.add_molecule(molecule=Molecule.from_rdkit(rd_fragment, allow_undefined_stereo=True))
 
         return result

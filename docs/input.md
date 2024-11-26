@@ -14,7 +14,7 @@ dataset = factory.create_dataset(
     dataset_name="My exotic dataset",
     # pass the single/multiple molecule sdf here
     molecules="my_exotic_sdf.sdf",
-    ...
+    ...,
 )
 ```
 
@@ -53,7 +53,7 @@ dataset = factory.create_dataset(
     dataset_name="My exotic dataset",
     # pass the list of molecules
     molecules=molecules,
-    ...
+    ...,
 )
 ```
 
@@ -102,26 +102,26 @@ output_file = h5py.File("my_exotic_molecules.hdf5", "w")
 # Create a list of OpenFF Toolkit Molecule instances with conformations
 target_molecules = [...]
 
-for mol in target_molecules: 
+for mol in target_molecules:
     smiles = mol.to_smiles(
-        isomeric=True, 
-        explicit_hydrogens=True, 
+        isomeric=True,
+        explicit_hydrogens=True,
         mapped=True,
     )
     conformations = [c.m_as(unit.nanometers) for c in mol.conformers]
 
     group = output_file.create_group(mol.name)
     group.create_dataset(
-        'smiles', 
-        data=[smiles], 
+        "smiles",
+        data=[smiles],
         dtype=h5py.string_dtype(),
     )
     ds = group.create_dataset(
-        'conformations', 
-        data=np.array(conformations), 
+        "conformations",
+        data=np.array(conformations),
         dtype=np.float32,
     )
-    ds.attrs['units'] = 'nanometers'
+    ds.attrs["units"] = "nanometers"
 
 output_file.close()
 ```

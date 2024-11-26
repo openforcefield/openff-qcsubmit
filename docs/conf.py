@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # Configuration file for the Sphinx documentation builder.
 #
@@ -12,6 +11,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import importlib
 import os
 import sys
 
@@ -52,7 +52,7 @@ source_suffix = ".rst"
 
 master_doc = "index"
 
-language = 'en'
+language = "en"
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
@@ -125,7 +125,6 @@ myst_enable_extensions = [
 # sphinx-notfound-page
 # https://github.com/readthedocs/sphinx-notfound-page
 # Renders a 404 page with absolute links
-import importlib
 
 if importlib.util.find_spec("notfound"):
     extensions.append("notfound.extension")
@@ -212,9 +211,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, "openff-qcsubmit", "OpenFF QCSubmit Documentation", [author], 1)
-]
+man_pages = [(master_doc, "openff-qcsubmit", "OpenFF QCSubmit Documentation", [author], 1)]
 
 # -- Options for Texinfo output ----------------------------------------------
 

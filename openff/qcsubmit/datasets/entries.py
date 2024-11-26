@@ -2,7 +2,7 @@
 All of the individual dataset entry types are defined here.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Literal, Optional
 
 import networkx as nx
 import numpy as np
@@ -10,7 +10,6 @@ import openff.toolkit.topology as off
 import qcelemental as qcel
 import qcelemental.models
 from openff.units import unit
-from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import Field, validator
 from openff.qcsubmit.common_structures import (
@@ -45,26 +44,35 @@ class DatasetEntry(DatasetConfig):
 
     index: str = Field(
         ...,
-        description="The index name the molecule will be stored under in QCArchive. Note that if multipule geometries are provided the index will be augmented with a value indecating the conformer number so -0, -1.",
+        description=(
+            "The index name the molecule will be stored under in QCArchive. Note that if multipule geometries "
+            "are provided the index will be augmented with a value indecating the conformer number so -0, -1.",
+        ),
     )
-    initial_molecules: List[qcel.models.Molecule] = Field(
+    initial_molecules: list[qcel.models.Molecule] = Field(
         ...,
-        description="A list of QCElemental Molecule objects which contain the geometries to be used as inputs for the calculation.",
+        description=(
+            "A list of QCElemental Molecule objects which contain the geometries to be used as inputs for the "
+            "calculation.",
+        ),
     )
     attributes: MoleculeAttributes = Field(
         ...,
         description="The complete set of required cmiles attributes for the molecule.",
     )
-    extras: Optional[Dict[str, Any]] = Field(
+    extras: dict[str, Any] | None = Field(
         {},
-        description="Any extra information that should be injected into the QCElemental models before being submited like the cmiles information.",
+        description=(
+            "Any extra information that should be injected into the QCElemental models before being submited like the "
+            "cmiles information.",
+        ),
     )
-    keywords: Optional[Dict[str, Any]] = Field(
+    keywords: dict[str, Any] | None = Field(
         {},
         description="Any extra keywords that should be used in the QCArchive calculation should be passed here.",
     )
 
-    def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
+    def __init__(self, off_molecule: off.Molecule | None = None, **kwargs):
         """
         Init the dataclass handling conversions of the molecule first.
         This is needed to make sure the extras are passed into the qcschema molecule.
@@ -80,23 +88,11 @@ class DatasetEntry(DatasetConfig):
                 # recombine the molecule in the correct ordering
                 off_molecule = combine_openff_molecules(split_molecules)
                 # we need to remake the attributes for the new ordering
-                kwargs["attributes"] = MoleculeAttributes.from_openff_molecule(
-                    molecule=off_molecule
-                )
+                kwargs["attributes"] = MoleculeAttributes.from_openff_molecule(molecule=off_molecule)
 
-            molecule_ids = [
-                list(sorted(ids))
-                for ids in nx.connected_components(off_molecule.to_networkx())
-            ]
+            molecule_ids = [list(sorted(ids)) for ids in nx.connected_components(off_molecule.to_networkx())]
             charges = [
-                sum(
-                    [
-                        off_molecule.atoms[atom].formal_charge.m_as(
-                            unit.elementary_charge
-                        )
-                        for atom in graph
-                    ]
-                )
+                sum([off_molecule.atoms[atom].formal_charge.m_as(unit.elementary_charge) for atom in graph])
                 for graph in molecule_ids
             ]
             if off_molecule.n_conformers == 0:
@@ -159,7 +155,7 @@ class OptimizationEntry(DatasetEntry):
         description="Any constraints which should be used during an optimization.",
     )
 
-    def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
+    def __init__(self, off_molecule: off.Molecule | None = None, **kwargs):
         """
         Here we handle the constraints before calling the super.
         """
@@ -180,7 +176,7 @@ class OptimizationEntry(DatasetEntry):
         self,
         constraint: Literal["set", "freeze"],
         constraint_type: ConstraintType,
-        indices: List[int],
+        indices: list[int],
         bonded: bool = True,
         **kwargs,
     ) -> None:
@@ -195,9 +191,7 @@ class OptimizationEntry(DatasetEntry):
             kwargs: Any extra information needed by the constraint, for the set class they need a value `value=float`
         """
         if constraint.lower() == "freeze":
-            self.constraints.add_freeze_constraint(
-                constraint_type=constraint_type, indices=indices, bonded=bonded
-            )
+            self.constraints.add_freeze_constraint(constraint_type=constraint_type, indices=indices, bonded=bonded)
         elif constraint.lower() == "set":
             self.constraints.add_set_constraint(
                 constraint_type=constraint_type,
@@ -206,9 +200,7 @@ class OptimizationEntry(DatasetEntry):
                 **kwargs,
             )
         else:
-            raise ConstraintError(
-                f"The constraint {constraint} is not available please chose from freeze or set."
-            )
+            raise ConstraintError(f"The constraint {constraint} is not available please chose from freeze or set.")
         # run the constraint check
         check_constraints(
             constraints=self.constraints,
@@ -216,7 +208,7 @@ class OptimizationEntry(DatasetEntry):
         )
 
     @property
-    def formatted_keywords(self) -> Dict[str, Any]:
+    def formatted_keywords(self) -> dict[str, Any]:
         """
         Format the keywords with the constraints values.
         """
@@ -233,31 +225,33 @@ class OptimizationEntry(DatasetEntry):
 
 class TorsionDriveEntry(OptimizationEntry):
     """
-    A Torsiondrive dataset specific class which can check dihedral indices and store torsiondrive specific settings with built in validation.
+    A Torsiondrive dataset specific class which can check dihedral indices and store torsiondrive specific settings
+    with built in validation.
     """
 
-    dihedrals: List[Tuple[int, int, int, int]] = Field(
+    dihedrals: list[tuple[int, int, int, int]] = Field(
         ...,
         description="The list of dihedrals that should be driven, currently only 1D or 2D torsions are supported.",
     )
-    keywords: Optional[TDSettings] = Field(
+    keywords: TDSettings | None = Field(
         TDSettings(),
-        description="The torsiondrive keyword settings which can be used to overwrite the general global settings used in the dataset allowing for finner control.",
+        description=(
+            "The torsiondrive keyword settings which can be used to overwrite the general global settings used in the "
+            "dataset allowing for finner control.",
+        ),
     )
 
     # we do not yet support multi component torsion drives so validate
     # we have to define the validation this way due to pydantic
     # <https://pydantic-docs.helpmanual.io/usage/validators/#subclass-validators-and-each_item>
     @validator("initial_molecules")
-    def _check_conectivity(
-        cls, molecules: List[qcelemental.models.Molecule]
-    ) -> List[qcelemental.models.Molecule]:
+    def _check_conectivity(cls, molecules: list[qcelemental.models.Molecule]) -> list[qcelemental.models.Molecule]:
         for mol in molecules:
             check_connectivity(mol)
         return molecules
 
     @property
-    def formatted_keywords(self) -> Dict[str, Any]:
+    def formatted_keywords(self) -> dict[str, Any]:
         """Format the keywords with constraints."""
 
         if self.constraints.has_constraints:
@@ -267,7 +261,7 @@ class TorsionDriveEntry(OptimizationEntry):
         else:
             return self.keywords.additional_keywords
 
-    def __init__(self, off_molecule: Optional[off.Molecule] = None, **kwargs):
+    def __init__(self, off_molecule: off.Molecule | None = None, **kwargs):
         super().__init__(off_molecule, **kwargs)
         # now validate the torsions check proper first
         off_molecule = self.get_off_molecule(include_conformers=False)
@@ -285,39 +279,36 @@ class TorsionDriveEntry(OptimizationEntry):
                 except DihedralConnectionError:
                     raise DihedralConnectionError(
                         f"The dihedral {torsion} for molecule {off_molecule} is not a valid"
-                        f" proper/improper torsion."
+                        f" proper/improper torsion.",
                     )
 
 
 class FilterEntry(DatasetConfig):
     """
-    A basic data class that contains information on components run in a workflow and the associated molecules which were
-    removed by it.
+    A basic data class that contains information on components run in a workflow and the associated molecules which
+    were removed by it.
     """
 
     component: str = Field(
         ...,
         description="The name of the component ran, this should be one of the components registered with qcsubmit.",
     )
-    component_settings: Dict[str, Any] = Field(
+    component_settings: dict[str, Any] = Field(
         ...,
         description="The run time settings of the component used to filter the molecules.",
     )
-    component_provenance: Dict[str, str] = Field(
+    component_provenance: dict[str, str] = Field(
         ...,
         description="A dictionary of the version information of all dependencies of the component.",
     )
-    molecules: List[str]
+    molecules: list[str]
 
-    def __init__(self, off_molecules: List[off.Molecule] = None, **kwargs):
+    def __init__(self, off_molecules: Optional[list[off.Molecule]] = None, **kwargs):
         """
         Init the dataclass handling conversions of the molecule first.
         """
         if off_molecules is not None:
-            molecules = [
-                molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
-                for molecule in off_molecules
-            ]
+            molecules = [molecule.to_smiles(isomeric=True, explicit_hydrogens=True) for molecule in off_molecules]
             kwargs["molecules"] = molecules
 
         super().__init__(**kwargs)
@@ -326,6 +317,4 @@ class FilterEntry(DatasetConfig):
         """
         Add a molecule to this filter.
         """
-        self.molecules.append(
-            molecule.to_smiles(isomeric=True, explicit_hydrogens=True)
-        )
+        self.molecules.append(molecule.to_smiles(isomeric=True, explicit_hydrogens=True))

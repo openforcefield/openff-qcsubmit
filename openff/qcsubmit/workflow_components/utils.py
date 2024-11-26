@@ -1,7 +1,6 @@
 """WorkFlow related utility classes and functions."""
 
 import os
-from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import openff.toolkit.topology as off
@@ -13,7 +12,7 @@ from openff.qcsubmit.common_structures import DatasetConfig, ResultsConfig
 from openff.qcsubmit.validators import check_environments
 
 
-def order_torsion(torsion: Tuple[int, int, int, int]) -> Tuple[int, int, int, int]:
+def order_torsion(torsion: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
     """
     Order a torsion string to ensure the central bond is ordered.
     """
@@ -23,7 +22,7 @@ def order_torsion(torsion: Tuple[int, int, int, int]) -> Tuple[int, int, int, in
         return torsion[::-1]
 
 
-def order_scan_range(scan_range: Tuple[int, int]) -> Optional[Tuple[int, int]]:
+def order_scan_range(scan_range: tuple[int, int]) -> tuple[int, int] | None:
     """
     Order the scan range.
     """
@@ -42,12 +41,11 @@ class Scan1D(ResultsConfig):
         ...,
         description="The numerically tagged SMARTs pattern used to select the torsion.",
     )
-    scan_range1: Optional[Tuple[int, int]] = Field(
-        None, description="The scan range that should be given to this torsion drive."
+    scan_range1: tuple[int, int] | None = Field(
+        None,
+        description="The scan range that should be given to this torsion drive.",
     )
-    scan_increment: List[int] = Field(
-        15, description="The angle in degrees between each grid point in the scan."
-    )
+    scan_increment: list[int] = Field(15, description="The angle in degrees between each grid point in the scan.")
 
     _check_smarts1 = validator("smarts1", allow_reuse=True)(check_environments)
     _order_scan_range1 = validator("scan_range1", allow_reuse=True)(order_scan_range)
@@ -62,11 +60,11 @@ class Scan2D(Scan1D):
         ...,
         description="The second numerically tagged SMARTs pattern used to select a torsion.",
     )
-    scan_range2: Optional[Tuple[int, int]] = Field(
+    scan_range2: tuple[int, int] | None = Field(
         None,
         description="The scan range which should be given to the second torsion drive.",
     )
-    scan_increment: List[int] = [15, 15]
+    scan_increment: list[int] = [15, 15]
 
     _check_smarts2 = validator("smarts2", allow_reuse=True)(check_environments)
     _order_scan_range2 = validator("scan_range2", allow_reuse=True)(order_scan_range)
@@ -83,19 +81,15 @@ class ImproperScan(ResultsConfig):
     )
     central_smarts: str = Field(
         ...,
-        description="The numerically tagged SMARTSs pattern used to select the central"
-        "of the improper torsion.",
+        description="The numerically tagged SMARTSs pattern used to select the central" "of the improper torsion.",
     )
-    scan_range: Optional[Tuple[int, int]] = Field(
-        None, description="The scan range which should be used for the improper."
+    scan_range: tuple[int, int] | None = Field(
+        None,
+        description="The scan range which should be used for the improper.",
     )
-    scan_increment: List[int] = Field(
-        15, description="The angle in degrees between each grid point in the scan."
-    )
+    scan_increment: list[int] = Field(15, description="The angle in degrees between each grid point in the scan.")
 
-    _chack_smarts = validator("smarts", "central_smarts", allow_reuse=True)(
-        check_environments
-    )
+    _chack_smarts = validator("smarts", "central_smarts", allow_reuse=True)(check_environments)
     _check_scan_range = validator("scan_range", allow_reuse=True)(order_scan_range)
 
 
@@ -107,34 +101,26 @@ class SingleTorsion(ResultsConfig):
         This is only for 1D torsiondrives.
     """
 
-    torsion1: Tuple[int, int, int, int] = Field(
-        ..., description="The torsion which is to be driven."
-    )
-    scan_range1: Optional[Tuple[int, int]] = Field(
-        None, description="The scan range used in the torsion drive"
-    )
-    scan_increment: List[int] = Field(
-        [15], description="The value in degrees between each grid point in the scan."
-    )
-    symmetry_group1: Tuple[int, int] = Field(
+    torsion1: tuple[int, int, int, int] = Field(..., description="The torsion which is to be driven.")
+    scan_range1: tuple[int, int] | None = Field(None, description="The scan range used in the torsion drive")
+    scan_increment: list[int] = Field([15], description="The value in degrees between each grid point in the scan.")
+    symmetry_group1: tuple[int, int] = Field(
         ...,
         description="The symmetry of the central atoms in the torsion used to deduplicate symmetrical torsions.",
     )
 
     _order_torsion1 = validator("torsion1", allow_reuse=True)(order_torsion)
     _order_scan_range1 = validator("scan_range1", allow_reuse=True)(order_scan_range)
-    _order_symmetry_group1 = validator("symmetry_group1", allow_reuse=True)(
-        order_scan_range
-    )
+    _order_symmetry_group1 = validator("symmetry_group1", allow_reuse=True)(order_scan_range)
 
     @property
-    def central_bond(self) -> Tuple[int, int]:
+    def central_bond(self) -> tuple[int, int]:
         """Get the sorted index of the central bond."""
 
         return tuple(sorted(self.torsion1[1:3]))
 
     @property
-    def get_dihedrals(self) -> List[Tuple[int, int, int, int]]:
+    def get_dihedrals(self) -> list[tuple[int, int, int, int]]:
         """
         Get the formatted representation of the dihedrals to scan over.
         """
@@ -143,7 +129,7 @@ class SingleTorsion(ResultsConfig):
         ]
 
     @property
-    def get_scan_range(self) -> Optional[List[Tuple[int, int]]]:
+    def get_scan_range(self) -> list[tuple[int, int]] | None:
         """
         Get the formatted representation of the dihedral scan ranges.
         """
@@ -155,38 +141,36 @@ class SingleTorsion(ResultsConfig):
             return self.scan_range1
 
     @property
-    def get_atom_map(self) -> Dict[int, int]:
+    def get_atom_map(self) -> dict[int, int]:
         """
         Create an atom map which will tag the correct dihedral atoms.
         """
-        return dict((atom, i) for i, atom in enumerate(self.torsion1))
+        return {atom: i for i, atom in enumerate(self.torsion1)}
 
 
 class DoubleTorsion(SingleTorsion):
     """A class used to mark coupled torsions which should be scanned."""
 
-    torsion2: Tuple[int, int, int, int] = Field(
+    torsion2: tuple[int, int, int, int] = Field(
         ...,
         description="The torsion tuple of the second dihedral to be drive at the same time as the first.",
     )
-    scan_range2: Optional[Tuple[int, int]] = Field(
+    scan_range2: tuple[int, int] | None = Field(
         None,
         description="The separate scan range that should be used for the second dihedral.",
     )
-    scan_increment: List[int] = [15, 15]
-    symmetry_group2: Tuple[int, int] = Field(
+    scan_increment: list[int] = [15, 15]
+    symmetry_group2: tuple[int, int] = Field(
         ...,
         description="The symmetry group of the second torsion, used to deduplicate torsions.",
     )
 
     _order_torsion2 = validator("torsion2", allow_reuse=True)(order_torsion)
     _order_scan_range2 = validator("scan_range2", allow_reuse=True)(order_scan_range)
-    _order_symmetry_group2 = validator("symmetry_group2", allow_reuse=True)(
-        order_scan_range
-    )
+    _order_symmetry_group2 = validator("symmetry_group2", allow_reuse=True)(order_scan_range)
 
     @property
-    def central_bond(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+    def central_bond(self) -> tuple[tuple[int, int], tuple[int, int]]:
         """Get the 4 integer tuple of the two central bonds."""
 
         central_bond = tuple(
@@ -194,13 +178,13 @@ class DoubleTorsion(SingleTorsion):
                 [
                     tuple(sorted(self.torsion1[1:3])),
                     tuple(sorted(self.torsion2[1:3])),
-                ]
-            )
+                ],
+            ),
         )
         return central_bond
 
     @property
-    def get_dihedrals(self) -> List[Tuple[int, int, int, int]]:
+    def get_dihedrals(self) -> list[tuple[int, int, int, int]]:
         """
         Get the formatted representation of the dihedrals to scan over.
         """
@@ -210,7 +194,7 @@ class DoubleTorsion(SingleTorsion):
         ]
 
     @property
-    def get_scan_range(self) -> Optional[List[Tuple[int, int]]]:
+    def get_scan_range(self) -> list[tuple[int, int]] | None:
         """
         Get the formatted representation of the dihedral scan ranges.
         """
@@ -223,7 +207,7 @@ class DoubleTorsion(SingleTorsion):
             return None
 
     @property
-    def get_atom_map(self) -> Dict[int, int]:
+    def get_atom_map(self) -> dict[int, int]:
         """
         Create an atom map which will tag the correct dihedral atoms.
         """
@@ -241,20 +225,14 @@ class ImproperTorsion(ResultsConfig):
     A class to keep track of improper torsions being scanned.
     """
 
-    central_atom: int = Field(
-        ..., description="The index of the central atom of an improper torsion."
-    )
-    improper: Tuple[int, int, int, int] = Field(
-        ..., description="The tuple of the atoms in the improper torsion."
-    )
-    scan_range: Optional[Tuple[int, int]] = Field(
+    central_atom: int = Field(..., description="The index of the central atom of an improper torsion.")
+    improper: tuple[int, int, int, int] = Field(..., description="The tuple of the atoms in the improper torsion.")
+    scan_range: tuple[int, int] | None = Field(
         None,
         description="The scan range of the improper dihedral which should normally be limited.",
     )
-    scan_increment: List[int] = Field(
-        [15], description="The value in degrees between each grid point in the scan."
-    )
-    symmetry_group: Tuple[int, int, int, int] = Field(
+    scan_increment: list[int] = Field([15], description="The value in degrees between each grid point in the scan.")
+    symmetry_group: tuple[int, int, int, int] = Field(
         ...,
         description="The symmetry group of the improper used to deduplicate improper torsions.",
     )
@@ -262,14 +240,12 @@ class ImproperTorsion(ResultsConfig):
     _order_scan_range = validator("scan_range", allow_reuse=True)(order_scan_range)
 
     @validator("symmetry_group")
-    def _sort_symmetry(
-        cls, symmetry_group: Tuple[int, int, int, int]
-    ) -> Tuple[int, int, int, int]:
+    def _sort_symmetry(cls, symmetry_group: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
         """Sort the symmetry group for easier comparison."""
         return tuple(sorted(symmetry_group))
 
     @property
-    def get_dihedrals(self) -> List[Tuple[int, int, int, int]]:
+    def get_dihedrals(self) -> list[tuple[int, int, int, int]]:
         """
         Get the formatted representation of the dihedrals to scan over.
         """
@@ -278,7 +254,7 @@ class ImproperTorsion(ResultsConfig):
         ]
 
     @property
-    def get_scan_range(self) -> Optional[List[Tuple[int, int]]]:
+    def get_scan_range(self) -> list[tuple[int, int]] | None:
         """
         Get the formatted representation of the dihedral scan ranges.
         """
@@ -290,11 +266,11 @@ class ImproperTorsion(ResultsConfig):
             return self.scan_range
 
     @property
-    def get_atom_map(self) -> Dict[int, int]:
+    def get_atom_map(self) -> dict[int, int]:
         """
         Create an atom map which will tag the correct dihedral atoms.
         """
-        return dict((atom, i) for i, atom in enumerate(self.improper))
+        return {atom: i for i, atom in enumerate(self.improper)}
 
 
 class TorsionIndexer(DatasetConfig):
@@ -302,17 +278,17 @@ class TorsionIndexer(DatasetConfig):
     A class to keep track of the torsions highlighted for scanning, with methods for combining and deduplication.
     """
 
-    torsions: Dict[Tuple[int, int], SingleTorsion] = Field(
+    torsions: dict[tuple[int, int], SingleTorsion] = Field(
         {},
         description="A dictionary of the torsions to be scanned grouped by the central bond in the torsion.",
     )
-    double_torsions: Dict[Tuple[Tuple[int, int], Tuple[int, int]], DoubleTorsion] = (
-        Field(
-            {},
-            description="A dictionary of the 2D torsions to be scanned grouped by the sorted combination of the central bonds.",
-        )
+    double_torsions: dict[tuple[tuple[int, int], tuple[int, int]], DoubleTorsion] = Field(
+        {},
+        description=(
+            "A dictionary of the 2D torsions to be scanned grouped by the sorted combination of the central bonds.",
+        ),
     )
-    impropers: Dict[int, ImproperTorsion] = Field(
+    impropers: dict[int, ImproperTorsion] = Field(
         {},
         description="A dictionary of the improper torsions to be scanned grouped by the central atom in the torsion.",
     )
@@ -320,7 +296,7 @@ class TorsionIndexer(DatasetConfig):
     @property
     def get_dihedrals(
         self,
-    ) -> List[Union[SingleTorsion, DoubleTorsion, ImproperTorsion]]:
+    ) -> list[SingleTorsion | DoubleTorsion | ImproperTorsion]:
         """
         Return a list of all of the dihedrals tagged making it easy to loop over.
         """
@@ -331,12 +307,15 @@ class TorsionIndexer(DatasetConfig):
         return all_torsions
 
     @property
-    def torsion_groups(self) -> List[Tuple[int, int]]:
-        """Return a list of all of the currently covered torsion symmetry groups. Note this only includes central bond atoms."""
+    def torsion_groups(self) -> list[tuple[int, int]]:
+        """
+        Return a list of all of the currently covered torsion symmetry groups. Note this only includes central bond
+        atoms.
+        """
         return [torsion.symmetry_group1 for torsion in self.torsions.values()]
 
     @property
-    def double_torsion_groups(self) -> List[Tuple[Tuple[int, int], Tuple[int, int]]]:
+    def double_torsion_groups(self) -> list[tuple[tuple[int, int], tuple[int, int]]]:
         """Return a list of all of the currently covered pairs of torsion symmetry groups."""
         return [
             (double_torsion.symmetry_group1, double_torsion.symmetry_group2)
@@ -344,16 +323,16 @@ class TorsionIndexer(DatasetConfig):
         ]
 
     @property
-    def improper_groups(self) -> List[Tuple[int, int, int, int]]:
+    def improper_groups(self) -> list[tuple[int, int, int, int]]:
         """Return a list of all of the currently covered improper torsion symmetry groups."""
         return [improper.symmetry_group for improper in self.impropers.values()]
 
     def add_torsion(
         self,
-        torsion: Tuple[int, int, int, int],
-        symmetry_group: Tuple[int, int],
-        scan_range: Optional[Tuple[int, int]] = None,
-        scan_increment: List[int] = [15],
+        torsion: tuple[int, int, int, int],
+        symmetry_group: tuple[int, int],
+        scan_range: tuple[int, int] | None = None,
+        scan_increment: list[int] = [15],
         overwrite: bool = False,
     ) -> None:
         """
@@ -367,28 +346,25 @@ class TorsionIndexer(DatasetConfig):
             symmetry_group1=symmetry_group,
         )
 
-        if (
-            torsion.central_bond not in self.torsions
-            and torsion.symmetry_group1 not in self.torsion_groups
-        ):
+        if torsion.central_bond not in self.torsions and torsion.symmetry_group1 not in self.torsion_groups:
             self.torsions[torsion.central_bond] = torsion
         elif overwrite:
             self.torsions[torsion.central_bond] = torsion
 
     def add_double_torsion(
         self,
-        torsion1: Tuple[int, int, int, int],
-        torsion2: Tuple[int, int, int, int],
-        symmetry_group1: Tuple[int, int],
-        symmetry_group2: Tuple[int, int],
-        scan_range1: Optional[Tuple[int, int]] = None,
-        scan_range2: Optional[Tuple[int, int]] = None,
-        scan_increment: List[int] = [15, 15],
+        torsion1: tuple[int, int, int, int],
+        torsion2: tuple[int, int, int, int],
+        symmetry_group1: tuple[int, int],
+        symmetry_group2: tuple[int, int],
+        scan_range1: tuple[int, int] | None = None,
+        scan_range2: tuple[int, int] | None = None,
+        scan_increment: list[int] = [15, 15],
         overwrite: bool = False,
     ) -> None:
         """
-        Add a double torsion to the indexer if this central bond combination has not been tagged and the torsion pair are
-        symmetry unique.
+        Add a double torsion to the indexer if this central bond combination has not been tagged and the torsion pair
+        are symmetry unique.
         """
 
         double_torsion = DoubleTorsion(
@@ -403,8 +379,7 @@ class TorsionIndexer(DatasetConfig):
 
         if (
             double_torsion.central_bond not in self.double_torsions
-            and (double_torsion.symmetry_group1, double_torsion.symmetry_group2)
-            not in self.double_torsion_groups
+            and (double_torsion.symmetry_group1, double_torsion.symmetry_group2) not in self.double_torsion_groups
         ):
             self.double_torsions[double_torsion.central_bond] = double_torsion
         elif overwrite:
@@ -413,10 +388,10 @@ class TorsionIndexer(DatasetConfig):
     def add_improper(
         self,
         central_atom: int,
-        improper: Tuple[int, int, int, int],
-        symmetry_group: Tuple[int, int, int, int],
-        scan_range: Optional[Tuple[int, int]] = None,
-        scan_increment: List[int] = [15],
+        improper: tuple[int, int, int, int],
+        symmetry_group: tuple[int, int, int, int],
+        scan_range: tuple[int, int] | None = None,
+        scan_increment: list[int] = [15],
         overwrite: bool = False,
     ) -> None:
         """
@@ -443,7 +418,7 @@ class TorsionIndexer(DatasetConfig):
     def update(
         self,
         torsion_indexer: "TorsionIndexer",
-        reorder_mapping: Optional[Dict[int, int]] = None,
+        reorder_mapping: dict[int, int] | None = None,
     ) -> None:
         """
         Update the current torsion indexer with another.
@@ -488,9 +463,7 @@ class TorsionIndexer(DatasetConfig):
         for improper in torsion_indexer.impropers.values():
             self.add_improper(
                 central_atom=(
-                    reorder_mapping[improper.central_atom]
-                    if reorder_mapping is not None
-                    else improper.central_atom
+                    reorder_mapping[improper.central_atom] if reorder_mapping is not None else improper.central_atom
                 ),
                 improper=(
                     self._reorder_torsion(improper.improper, reorder_mapping)
@@ -503,9 +476,7 @@ class TorsionIndexer(DatasetConfig):
             )
 
     @staticmethod
-    def _reorder_torsion(
-        torsion: Tuple[int, int, int, int], mapping: Dict[int, int]
-    ) -> Tuple[int, int, int, int]:
+    def _reorder_torsion(torsion: tuple[int, int, int, int], mapping: dict[int, int]) -> tuple[int, int, int, int]:
         """
         Reorder the given torsion based on the mapping.
 
@@ -541,9 +512,9 @@ class TorsionIndexer(DatasetConfig):
 
 class ComponentResult:
     """
-    Class to contain molecules after the execution of a workflow component. This automatically applies de-duplication to
-    the molecules. For example if a molecule is already in the molecules list it will not be added but any conformers
-    will be kept and transferred.
+    Class to contain molecules after the execution of a workflow component. This automatically applies de-duplication
+    to the molecules. For example if a molecule is already in the molecules list it will not be added but any
+    conformers will be kept and transferred.
 
 
     If a molecule in the molecules list is then filtered it will be removed from the molecules list.
@@ -552,12 +523,12 @@ class ComponentResult:
     def __init__(
         self,
         component_name: str,
-        component_description: Dict[str, str],
-        component_provenance: Dict[str, str],
-        molecules: Optional[Union[List[off.Molecule], off.Molecule]] = None,
-        input_file: Optional[str] = None,
-        input_directory: Optional[str] = None,
-        skip_unique_check: Optional[bool] = False,
+        component_description: dict[str, str],
+        component_provenance: dict[str, str],
+        molecules: list[off.Molecule] | off.Molecule | None = None,
+        input_file: str | None = None,
+        input_directory: str | None = None,
+        skip_unique_check: bool | None = False,
         verbose: bool = True,
     ):
         """Register the list of molecules to process.
@@ -581,13 +552,13 @@ class ComponentResult:
                 Set to True if it is sure that all molecules will be unique in this result
         """
 
-        self._molecules: Dict[str, off.Molecule] = {}
-        self._filtered: Dict[str, off.Molecule] = {}
+        self._molecules: dict[str, off.Molecule] = {}
+        self._filtered: dict[str, off.Molecule] = {}
         self.component_name: str = component_name
-        self.component_description: Dict = component_description
-        self.component_provenance: Dict = component_provenance
+        self.component_description: dict = component_description
+        self.component_provenance: dict = component_provenance
         self.skip_unique_check: bool = skip_unique_check
-        self._unit_conversion: Dict[str, unit.Unit] = {
+        self._unit_conversion: dict[str, unit.Unit] = {
             "nanometer": unit.nanometers,
             "nanometers": unit.nanometers,
             "angstrom": unit.angstrom,
@@ -596,18 +567,14 @@ class ComponentResult:
             "bohrs": unit.bohr,
         }
 
-        assert (
-            molecules is None or input_file is None
-        ), "Provide either a list of molecules or an input file name."
+        assert molecules is None or input_file is None, "Provide either a list of molecules or an input file name."
 
         # if we have an input file load it
         if input_file is not None:
             if "hdf5" in input_file:
                 molecules = self._read_hdf5(input_file=input_file)
             else:
-                molecules = off.Molecule.from_file(
-                    file_path=input_file, allow_undefined_stereo=True
-                )
+                molecules = off.Molecule.from_file(file_path=input_file, allow_undefined_stereo=True)
             if not isinstance(molecules, list):
                 molecules = [
                     molecules,
@@ -637,7 +604,7 @@ class ComponentResult:
             ):
                 self.add_molecule(molecule)
 
-    def _read_hdf5(self, input_file: str) -> List[off.Molecule]:
+    def _read_hdf5(self, input_file: str) -> list[off.Molecule]:
         """
         Read a set of molecules and conformers from an hdf5 file in a specified format.
         """
@@ -648,9 +615,7 @@ class ComponentResult:
         f = h5py.File(input_file, "r")
         for name, entry in f.items():
             mapped_smiles = entry["smiles"][0].decode("utf-8")
-            molecule: off.Molecule = off.Molecule.from_mapped_smiles(
-                mapped_smiles, allow_undefined_stereo=True
-            )
+            molecule: off.Molecule = off.Molecule.from_mapped_smiles(mapped_smiles, allow_undefined_stereo=True)
             molecule.name = name
             units = self._unit_conversion[entry["conformations"].attrs["units"].lower()]
             # now add the conformers
@@ -663,14 +628,14 @@ class ComponentResult:
         return molecules
 
     @property
-    def molecules(self) -> List[off.Molecule]:
+    def molecules(self) -> list[off.Molecule]:
         """
         Get the list of molecules which can be iterated over.
         """
         return list(self._molecules.values())
 
     @property
-    def filtered(self) -> List[off.Molecule]:
+    def filtered(self) -> list[off.Molecule]:
         """
         Get the list of molecule that have been filtered to iterate over.
         """
@@ -690,9 +655,7 @@ class ComponentResult:
         The number of conformers stored in the molecules.
         """
 
-        conformers = sum(
-            [molecule.n_conformers for molecule in self._molecules.values()]
-        )
+        conformers = sum([molecule.n_conformers for molecule in self._molecules.values()])
         return conformers
 
     @property
@@ -737,9 +700,7 @@ class ComponentResult:
             if "dihedrals" in molecule.properties:
                 # we need to transfer the properties; get the current molecule dihedrals indexer
                 # if one is missing create a new one
-                current_indexer = self._molecules[molecule_hash].properties.get(
-                    "dihedrals", TorsionIndexer()
-                )
+                current_indexer = self._molecules[molecule_hash].properties.get("dihedrals", TorsionIndexer())
 
                 # update it with the new molecule info
                 current_indexer.update(
@@ -767,9 +728,7 @@ class ComponentResult:
                         if old_conformer.tolist() == new_conf.tolist():
                             break
                     else:
-                        self._molecules[molecule_hash].add_conformer(
-                            new_conformer * unit.angstrom
-                        )
+                        self._molecules[molecule_hash].add_conformer(new_conformer * unit.angstrom)
             return True
 
         else:
@@ -801,7 +760,13 @@ class ComponentResult:
                 self._filtered[molecule_hash] = molecule
 
     def __repr__(self):
-        return f"ComponentResult(name={self.component_name}, molecules={self.n_molecules}, filtered={self.n_filtered})"
+        return (
+            f"ComponentResult(name={self.component_name}, molecules={self.n_molecules}, "
+            f"filtered={self.n_filtered})"
+        )
 
     def __str__(self):
-        return f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' filtered='{self.n_filtered}'>"
+        return (
+            f"<ComponentResult name='{self.component_name}' molecules='{self.n_molecules}' "
+            f"filtered='{self.n_filtered}'>"
+        )

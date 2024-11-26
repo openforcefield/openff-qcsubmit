@@ -1,11 +1,10 @@
 import abc
-from typing import Dict, List, Optional
+from typing import Literal
 
 import tqdm
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils import ToolkitRegistry
 from qcelemental.util import which_import
-from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import BaseModel, Field, PrivateAttr
 from openff.qcsubmit.common_structures import ComponentProperties
@@ -28,7 +27,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         description="The name of the component which should match the class name.",
     )
     # new pydantic private attr is loaded into slots
-    _cache: Dict = PrivateAttr(default={})
+    _cache: dict = PrivateAttr(default={})
 
     @classmethod
     @abc.abstractmethod
@@ -49,7 +48,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         ...
 
     @classmethod
-    def info(cls) -> Dict[str, str]:
+    def info(cls) -> dict[str, str]:
         """Returns a dictionary of the friendly descriptions of the class."""
         return dict(
             name=cls.__name__,
@@ -69,9 +68,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         ...
 
     @abc.abstractmethod
-    def _apply(
-        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
-    ) -> ComponentResult:
+    def _apply(self, molecules: list[Molecule], toolkit_registry: ToolkitRegistry) -> ComponentResult:
         """
         This is the main feature of the workflow component which should accept a molecule, perform the component action
         and then return the result.
@@ -88,8 +85,8 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
 
     def _apply_init(self, result: ComponentResult) -> None:
         """
-        Any actions that should be performed before running the main apply method should set up such as setting up the _cache for multiprocessing.
-        Here we clear out the _cache in case something has been set.
+        Any actions that should be performed before running the main apply method should set up such as setting up the
+        _cache for multiprocessing.  Here we clear out the _cache in case something has been set.
         """
         self._cache.clear()
 
@@ -101,9 +98,9 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
 
     def apply(
         self,
-        molecules: List[Molecule],
+        molecules: list[Molecule],
         toolkit_registry: ToolkitRegistry,
-        processors: Optional[int] = None,
+        processors: int | None = None,
         verbose: bool = True,
     ) -> ComponentResult:
         """
@@ -132,22 +129,17 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         # Use a Pool to get around the GIL. As long as self does not contain
         # too much data, this should be efficient.
 
-        if (
-            processors is None or processors > 1
-        ) and self.properties().process_parallel:
+        if (processors is None or processors > 1) and self.properties().process_parallel:
             from multiprocessing.pool import Pool
 
             with Pool(processes=processors) as pool:
                 # Assumes to process in batches of 1 for now
-                work_list = [
-                    pool.apply_async(self._apply, ([molecule], toolkit_registry))
-                    for molecule in molecules
-                ]
+                work_list = [pool.apply_async(self._apply, ([molecule], toolkit_registry)) for molecule in molecules]
                 for work in tqdm.tqdm(
                     work_list,
                     total=len(work_list),
                     ncols=80,
-                    desc="{:30s}".format(self.type),
+                    desc=f"{self.type:30s}",
                     disable=not verbose,
                 ):
                     work = work.get()
@@ -161,7 +153,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
                 molecules,
                 total=len(molecules),
                 ncols=80,
-                desc="{:30s}".format(self.type),
+                desc=f"{self.type:30s}",
                 disable=not verbose,
             ):
                 work = self._apply([molecule], toolkit_registry)
@@ -175,7 +167,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         return result
 
     @abc.abstractmethod
-    def provenance(self, toolkit_registry: ToolkitRegistry) -> Dict:
+    def provenance(self, toolkit_registry: ToolkitRegistry) -> dict:
         """
         This function should detail the programs with version information and procedures called during activation
         of the workflow component.
@@ -185,9 +177,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         """
         ...
 
-    def _create_result(
-        self, toolkit_registry: ToolkitRegistry, **kwargs
-    ) -> ComponentResult:
+    def _create_result(self, toolkit_registry: ToolkitRegistry, **kwargs) -> ComponentResult:
         """
         A helpful method to build to create the component result with the required information.
 
@@ -215,12 +205,13 @@ class ToolkitValidator(BaseModel):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    def provenance(self, toolkit_registry: ToolkitRegistry) -> Dict:
+    def provenance(self, toolkit_registry: ToolkitRegistry) -> dict:
         """
         This component calls the OFFTK to perform the task and logs information on the backend toolkit used.
 
         Args:
-            toolkit_registry: The openff.toolkit.utils.ToolkitRegistry which declares the available toolkits for the component.
+            toolkit_registry: The openff.toolkit.utils.ToolkitRegistry which declares the available toolkits for the
+            component.
 
         Returns:
             A dictionary containing the version information about the backend toolkit called to perform the task.

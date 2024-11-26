@@ -1,9 +1,8 @@
-from typing import List, Optional
+from typing import Literal
 
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils import ToolkitRegistry
 from openff.units import Quantity, unit
-from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import Field
 from openff.qcsubmit.common_structures import ComponentProperties
@@ -21,16 +20,18 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
 
     type: Literal["StandardConformerGenerator"] = "StandardConformerGenerator"
 
-    rms_cutoff: Optional[float] = Field(
+    rms_cutoff: float | None = Field(
         None,
-        description="The rms cut off in angstroms to be used when generating the conformers. Passing None will use the default in toolkit of 1.",
+        description=(
+            "The rms cut off in angstroms to be used when generating the conformers. Passing None will use the "
+            "default in toolkit of 1.",
+        ),
     )
     max_conformers: int = Field(
-        10, description="The maximum number of conformers to be generated per molecule."
+        10,
+        description="The maximum number of conformers to be generated per molecule.",
     )
-    clear_existing: bool = Field(
-        True, description="If any pre-existing conformers should be kept."
-    )
+    clear_existing: bool = Field(True, description="If any pre-existing conformers should be kept.")
 
     @classmethod
     def description(cls) -> str:
@@ -53,9 +54,7 @@ class StandardConformerGenerator(ToolkitValidator, CustomWorkflowComponent):
         else:
             self._cache["cutoff"] = None
 
-    def _apply(
-        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
-    ) -> ComponentResult:
+    def _apply(self, molecules: list[Molecule], toolkit_registry: ToolkitRegistry) -> ComponentResult:
         """
         Generate conformers for the molecules using the selected toolkit backend.
 

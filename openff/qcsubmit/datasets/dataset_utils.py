@@ -2,7 +2,7 @@
 A set of utility functions to help with loading datasets.
 """
 
-from typing import Any, Dict, List, Union
+from typing import Any
 
 from openff.qcsubmit.datasets.datasets import (
     BasicDataset,
@@ -12,7 +12,7 @@ from openff.qcsubmit.datasets.datasets import (
 from openff.qcsubmit.exceptions import DatasetRegisterError, InvalidDatasetError
 from openff.qcsubmit.serializers import deserialize
 
-registered_datasets: Dict[str, Any] = {}
+registered_datasets: dict[str, Any] = {}
 
 # The QCS Dataset.type field was originally a mapping from QCS datasets to QCF collection type.
 # As of the QCF "next" (0.50) release, QCF has its own dataset classes. However,
@@ -26,9 +26,10 @@ legacy_qcsubmit_ds_type_to_next_qcf_ds_type = {
 }
 
 
-def load_dataset(data: Union[str, Dict]) -> "BasicDataset":
+def load_dataset(data: str | dict) -> "BasicDataset":
     """
-    Create a new instance dataset from the file or dict of the dataset. This removes the need of knowing what the dataset type is.
+    Create a new instance dataset from the file or dict of the dataset. This removes the need of knowing what the
+    dataset type is.
 
     Parameters:
         data: The file path or dict of the dataset from which we should load the data.
@@ -49,9 +50,7 @@ def load_dataset(data: Union[str, Dict]) -> "BasicDataset":
     if dataset_type is not None:
         return dataset_type(**raw_data)
     else:
-        raise DatasetRegisterError(
-            f"No registered dataset can load the type {dataset_type}."
-        )
+        raise DatasetRegisterError(f"No registered dataset can load the type {dataset_type}.")
 
 
 def register_dataset(dataset: Any, replace: bool = False) -> None:
@@ -70,22 +69,19 @@ def register_dataset(dataset: Any, replace: bool = False) -> None:
     if issubclass(dataset, BasicDataset):
         dataset_type = dataset.__fields__["type"].default.lower()
 
-        if dataset_type not in registered_datasets or (
-            dataset_type in registered_datasets and replace
-        ):
+        if dataset_type not in registered_datasets or (dataset_type in registered_datasets and replace):
             registered_datasets[dataset_type] = dataset
         else:
             raise DatasetRegisterError(
-                f"A dataset was already registered with the type {dataset_type}, to replace this use the `replace=True` flag."
+                f"A dataset was already registered with the type {dataset_type}, to replace this use the "
+                "`replace=True` flag.",
             )
 
     else:
-        raise InvalidDatasetError(
-            f"Dataset {dataset} rejected as it is not a valid sub class of the BasicDataset."
-        )
+        raise InvalidDatasetError(f"Dataset {dataset} rejected as it is not a valid sub class of the BasicDataset.")
 
 
-def list_datasets() -> List[str]:
+def list_datasets() -> list[str]:
     """
     Returns:
         A list of all of the currently registered dataset classes.
@@ -94,8 +90,9 @@ def list_datasets() -> List[str]:
 
 
 def update_specification_and_metadata(
-    dataset: Union[BasicDataset, OptimizationDataset, TorsiondriveDataset], client
-) -> Union[BasicDataset, OptimizationDataset, TorsiondriveDataset]:
+    dataset: BasicDataset | OptimizationDataset | TorsiondriveDataset,
+    client,
+) -> BasicDataset | OptimizationDataset | TorsiondriveDataset:
     """
     For the given dataset update the metadata and specifications using data from an archive instance.
 
@@ -151,7 +148,7 @@ def update_specification_and_metadata(
             for entry in ds.iterate_entries():
                 formula = entry.attributes["molecular_formula"]
                 # use regex to parse the formula
-                match = re.findall("[A-Z][a-z]?|\d+|.", formula)  # noqa
+                match = re.findall(r"[A-Z][a-z]?|\d+|.", formula)
                 for element in match:
                     if not element.isnumeric():
                         elements.add(element)
@@ -173,7 +170,7 @@ def update_specification_and_metadata(
             for entry in ds.iterate_entries():
                 formula = entry.attributes["molecular_formula"]
                 # use regex to parse the formula
-                match = re.findall("[A-Z][a-z]?|\d+|.", formula)  # noqa
+                match = re.findall(r"[A-Z][a-z]?|\d+|.", formula)
                 for element in match:
                     if not element.isnumeric():
                         elements.add(element)

@@ -39,11 +39,7 @@ from . import RecordStatusEnum, SinglepointRecord
 def test_apply_filter(basic_result_collection, caplog):
     class DummyFilter(ResultFilter):
         def _apply(self, result_collection):
-            result_collection.entries = {
-                "http://localhost:442": result_collection.entries[
-                    "http://localhost:442"
-                ]
-            }
+            result_collection.entries = {"http://localhost:442": result_collection.entries["http://localhost:442"]}
 
             return result_collection
 
@@ -130,9 +126,7 @@ def test_molecule_filter_apply(result_filter, expected_ids, basic_result_collect
     assert {*expected_ids} == {*filtered_collection.entries}
 
     for address, entry_ids in expected_ids.items():
-        assert entry_ids == {
-            entry.record_id for entry in filtered_collection.entries[address]
-        }
+        assert entry_ids == {entry.record_id for entry in filtered_collection.entries[address]}
 
 
 def test_molecule_filter_tautomers(tautomer_basic_result_collection):
@@ -156,17 +150,13 @@ def test_molecule_filter_tautomers(tautomer_basic_result_collection):
         ),
     ],
 )
-def test_basic_record_filter_apply(
-    result_filter, expected_ids, h_bond_basic_result_collection
-):
+def test_basic_record_filter_apply(result_filter, expected_ids, h_bond_basic_result_collection):
     filtered_collection = result_filter.apply(h_bond_basic_result_collection)
 
     assert {*expected_ids} == {*filtered_collection.entries}
 
     for address, entry_ids in expected_ids.items():
-        assert entry_ids == {
-            entry.record_id for entry in filtered_collection.entries[address]
-        }
+        assert entry_ids == {entry.record_id for entry in filtered_collection.entries[address]}
 
 
 @pytest.mark.parametrize(
@@ -178,17 +168,13 @@ def test_basic_record_filter_apply(
         ),
     ],
 )
-def test_optimization_record_filter_apply(
-    result_filter, expected_ids, optimization_result_collection
-):
+def test_optimization_record_filter_apply(result_filter, expected_ids, optimization_result_collection):
     filtered_collection = result_filter.apply(optimization_result_collection)
 
     assert {*expected_ids} == {*filtered_collection.entries}
 
     for address, entry_ids in expected_ids.items():
-        assert entry_ids == {
-            entry.record_id for entry in filtered_collection.entries[address]
-        }
+        assert entry_ids == {entry.record_id for entry in filtered_collection.entries[address]}
 
 
 @pytest.mark.parametrize(
@@ -197,17 +183,13 @@ def test_optimization_record_filter_apply(
         (HydrogenBondFilter(method="baker-hubbard"), {"http://localhost:443": {1}}),
     ],
 )
-def test_torsion_drive_record_filter_apply(
-    result_filter, expected_ids, torsion_drive_result_collection
-):
+def test_torsion_drive_record_filter_apply(result_filter, expected_ids, torsion_drive_result_collection):
     filtered_collection = result_filter.apply(torsion_drive_result_collection)
 
     assert {*expected_ids} == {*filtered_collection.entries}
 
     for address, entry_ids in expected_ids.items():
-        assert entry_ids == {
-            entry.record_id for entry in filtered_collection.entries[address]
-        }
+        assert entry_ids == {entry.record_id for entry in filtered_collection.entries[address]}
 
 
 def test_connectivity_filter():
@@ -218,9 +200,7 @@ def test_connectivity_filter():
     )
     record = SinglepointRecord(
         id=1,
-        specification=QCSpecification(
-            program="psi4", driver=DriverEnum.gradient, method="scf", basis="sto-3g"
-        ),
+        specification=QCSpecification(program="psi4", driver=DriverEnum.gradient, method="scf", basis="sto-3g"),
         created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
         modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
         molecule_id=1,
@@ -247,9 +227,7 @@ def test_connectivity_filter():
 def test_record_status_filter():
     record = SinglepointRecord(
         id=1,
-        specification=QCSpecification(
-            program="psi4", driver=DriverEnum.gradient, method="scf", basis="sto-3g"
-        ),
+        specification=QCSpecification(program="psi4", driver=DriverEnum.gradient, method="scf", basis="sto-3g"),
         created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
         modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
         molecule_id=1,
@@ -303,9 +281,7 @@ def test_lowest_energy_filter(optimization_result_collection_duplicates):
 
     # should have 2 results
     assert optimization_result_collection_duplicates.n_results == 2
-    result = energy_filter.apply(
-        result_collection=optimization_result_collection_duplicates
-    )
+    result = energy_filter.apply(result_collection=optimization_result_collection_duplicates)
 
     # make sure we only have one result
     assert result.n_molecules == 1
@@ -313,17 +289,13 @@ def test_lowest_energy_filter(optimization_result_collection_duplicates):
 
 
 @pytest.mark.parametrize("min_conformers, n_expected_results", [(1, 2), (3, 0)])
-def test_min_conformers_filter(
-    optimization_result_collection_duplicates, min_conformers, n_expected_results
-):
+def test_min_conformers_filter(optimization_result_collection_duplicates, min_conformers, n_expected_results):
     min_conformers_filter = MinimumConformersFilter(min_conformers=min_conformers)
 
     assert optimization_result_collection_duplicates.n_results == 2
     assert optimization_result_collection_duplicates.n_molecules == 1
 
-    result = min_conformers_filter.apply(
-        result_collection=optimization_result_collection_duplicates
-    )
+    result = min_conformers_filter.apply(result_collection=optimization_result_collection_duplicates)
 
     assert result.n_results == n_expected_results
 
@@ -341,9 +313,7 @@ def test_min_conformers_filter(
         (1, 0.1, True, {1}),
     ],
 )
-def test_rmsd_conformer_filter(
-    max_conformers, rmsd_tolerance, heavy_atoms_only, expected_record_ids, monkeypatch
-):
+def test_rmsd_conformer_filter(max_conformers, rmsd_tolerance, heavy_atoms_only, expected_record_ids, monkeypatch):
     molecules = []
 
     for conformer in [
@@ -356,9 +326,7 @@ def test_rmsd_conformer_filter(
 
         molecules.append(molecule)
 
-    result_collection = mock_optimization_result_collection(
-        {"http://localhost:442": molecules}, monkeypatch
-    )
+    result_collection = mock_optimization_result_collection({"http://localhost:442": molecules}, monkeypatch)
 
     filtered_collection = result_collection.filter(
         ConformerRMSDFilter(
@@ -366,30 +334,23 @@ def test_rmsd_conformer_filter(
             rmsd_tolerance=rmsd_tolerance,
             heavy_atoms_only=heavy_atoms_only,
             check_automorphs=False,
-        )
+        ),
     )
 
-    found_entry_ids = {
-        entry.record_id
-        for entries in filtered_collection.entries.values()
-        for entry in entries
-    }
+    found_entry_ids = {entry.record_id for entries in filtered_collection.entries.values() for entry in entries}
 
     assert found_entry_ids == expected_record_ids
 
 
 def test_rmsd_conformer_filter_canonical_order(monkeypatch):
     molecule_a = Molecule.from_mapped_smiles("[Cl:1][H:2]")
-    molecule_a._conformers = [
-        numpy.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]) * unit.angstrom
-    ]
+    molecule_a._conformers = [numpy.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]) * unit.angstrom]
     molecule_b = Molecule.from_mapped_smiles("[Cl:2][H:1]")
-    molecule_b._conformers = [
-        numpy.array([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]) * unit.angstrom
-    ]
+    molecule_b._conformers = [numpy.array([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]) * unit.angstrom]
 
     result_collection = mock_optimization_result_collection(
-        {"http://localhost:442": [molecule_a, molecule_b]}, monkeypatch
+        {"http://localhost:442": [molecule_a, molecule_b]},
+        monkeypatch,
     )
 
     filtered_collection = result_collection.filter(ConformerRMSDFilter())
@@ -400,9 +361,7 @@ def test_rmsd_conformer_filter_canonical_order(monkeypatch):
 
 def test_issue_223(monkeypatch):
     mols = Molecule.from_file(get_data("issue_223_confs.sdf"))
-    result_collection = mock_optimization_result_collection(
-        {"http://localhost:442": mols}, monkeypatch
-    )
+    result_collection = mock_optimization_result_collection({"http://localhost:442": mols}, monkeypatch)
 
     filtered_collection = result_collection.filter(ConformerRMSDFilter())
 
@@ -421,19 +380,15 @@ def test_issue_223(monkeypatch):
 def test_rmsd_conformer_filter_rmsd_matrix(rmsd_function_name):
     molecule = Molecule.from_mapped_smiles("[O:1]=[C:2]=[O:3]")
     molecule._conformers = [
-        numpy.array([[-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
-        * unit.angstrom,
-        numpy.array([[-2.0, 0.0, 0.0], [0.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
-        * unit.angstrom,
+        numpy.array([[-1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]) * unit.angstrom,
+        numpy.array([[-2.0, 0.0, 0.0], [0.0, 0.0, 0.0], [2.0, 0.0, 0.0]]) * unit.angstrom,
     ]
 
     rmsd_filter = ConformerRMSDFilter(check_automorphs=True, heavy_atoms_only=False)
     rmsd_function = getattr(rmsd_filter, rmsd_function_name)
 
     actual_rmsd_matrix = rmsd_function(molecule)
-    expected_rmsd_matrix = numpy.array(
-        [[0.0, numpy.sqrt(2.0 / 3)], [numpy.sqrt(2.0 / 3), 0.0]]
-    )
+    expected_rmsd_matrix = numpy.array([[0.0, numpy.sqrt(2.0 / 3)], [numpy.sqrt(2.0 / 3), 0.0]])
 
     assert numpy.allclose(actual_rmsd_matrix, expected_rmsd_matrix)
 
@@ -453,18 +408,14 @@ def test_rmsd_conformer_filter_rmsd_matrix(rmsd_function_name):
         (True, numpy.array([[0.0, 0.0], [0.0, 0.0]])),
     ],
 )
-def test_rmsd_conformer_filter_rmsd_matrix_heavy_only(
-    rmsd_function_name, heavy_atoms_only, expected_rmsd_matrix
-):
+def test_rmsd_conformer_filter_rmsd_matrix_heavy_only(rmsd_function_name, heavy_atoms_only, expected_rmsd_matrix):
     molecule = Molecule.from_smiles("Cl[H]")
     molecule._conformers = [
         numpy.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]) * unit.angstrom,
         numpy.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]]) * unit.angstrom,
     ]
 
-    rmsd_filter = ConformerRMSDFilter(
-        check_automorphs=True, heavy_atoms_only=heavy_atoms_only
-    )
+    rmsd_filter = ConformerRMSDFilter(check_automorphs=True, heavy_atoms_only=heavy_atoms_only)
     rmsd_function = getattr(rmsd_filter, rmsd_function_name)
 
     actual_rmsd_matrix = rmsd_function(molecule)
@@ -487,9 +438,7 @@ def test_rmsd_conformer_filter_rmsd_matrix_heavy_only(
         (True, numpy.array([[0.0, 0.0], [0.0, 0.0]])),
     ],
 )
-def test_rmsd_conformer_filter_rmsd_matrix_automorphs(
-    rmsd_function_name, check_automorphs, expected_rmsd_matrix
-):
+def test_rmsd_conformer_filter_rmsd_matrix_automorphs(rmsd_function_name, check_automorphs, expected_rmsd_matrix):
     molecule = Molecule.from_mapped_smiles("[Br:3][C:1]([Cl:4])=[C:2]([Cl:6])[Cl:5]")
     molecule._conformers = [
         numpy.array(
@@ -500,7 +449,7 @@ def test_rmsd_conformer_filter_rmsd_matrix_automorphs(
                 [-2.0, -1.0, 0.0],
                 [2.0, 1.0, 0.0],
                 [2.0, -1.0, 0.0],
-            ]
+            ],
         )
         * unit.angstrom,
         numpy.array(
@@ -511,14 +460,12 @@ def test_rmsd_conformer_filter_rmsd_matrix_automorphs(
                 [-2.0, -1.0, 0.0],
                 [2.0, -1.0, 0.0],
                 [2.0, 1.0, 0.0],
-            ]
+            ],
         )
         * unit.angstrom,
     ]
 
-    rmsd_filter = ConformerRMSDFilter(
-        check_automorphs=check_automorphs, heavy_atoms_only=False
-    )
+    rmsd_filter = ConformerRMSDFilter(check_automorphs=check_automorphs, heavy_atoms_only=False)
     rmsd_function = getattr(rmsd_filter, rmsd_function_name)
 
     actual_rmsd_matrix = rmsd_function(molecule)
@@ -552,9 +499,9 @@ def test_unperceivable_stereo_filter(toolkits, n_expected, public_client):
                         "[H:39]"
                     ),
                     inchi_key="GMRICROFHKBHBU-MRXNPFEDSA-N",
-                )
-            ]
-        }
+                ),
+            ],
+        },
     )
     assert collection.n_results == 1
 

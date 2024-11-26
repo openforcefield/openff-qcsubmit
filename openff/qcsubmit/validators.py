@@ -3,7 +3,6 @@ Centralise the validators for easy reuse between factories and datasets.
 """
 
 import re
-from typing import List, Tuple, Union
 
 import qcelemental as qcel
 from openff.toolkit import Molecule
@@ -40,8 +39,9 @@ def literal_upper(literal: str) -> str:
 
 
 def check_improper_connection(
-    improper: Tuple[int, int, int, int], molecule: off.Molecule
-) -> Tuple[int, int, int, int]:
+    improper: tuple[int, int, int, int],
+    molecule: off.Molecule,
+) -> tuple[int, int, int, int]:
     """
     Check that the given improper is part of the molecule, this makes sure that all atoms are connected to the
     central atom.
@@ -68,14 +68,10 @@ def check_improper_connection(
                 return improper
         except IndexError:
             continue
-    raise DihedralConnectionError(
-        f"The given improper dihedral {improper} was not valid for molecule {molecule}."
-    )
+    raise DihedralConnectionError(f"The given improper dihedral {improper} was not valid for molecule {molecule}.")
 
 
-def check_torsion_connection(
-    torsion: Tuple[int, int, int, int], molecule: off.Molecule
-) -> Tuple[int, int, int, int]:
+def check_torsion_connection(torsion: tuple[int, int, int, int], molecule: off.Molecule) -> tuple[int, int, int, int]:
     """
     Check that the given torsion indices create a connected torsion in the molecule.
 
@@ -93,15 +89,14 @@ def check_torsion_connection(
         _ = check_general_connection(connected_atoms=torsion, molecule=molecule)
     except AtomConnectionError as e:
         raise DihedralConnectionError(
-            f"The dihedral {torsion} was not valid for the molecule {molecule}, as there is no bond between atoms {e.atoms}."
+            f"The dihedral {torsion} was not valid for the molecule {molecule}, as there is no bond between atoms "
+            f"{e.atoms}.",
         )
 
     return torsion
 
 
-def check_bond_connection(
-    bond: Tuple[int, int], molecule: off.Molecule
-) -> Tuple[int, int]:
+def check_bond_connection(bond: tuple[int, int], molecule: off.Molecule) -> tuple[int, int]:
     """
     Check that the given bond indices create a connected bond in the molecule.
 
@@ -119,15 +114,13 @@ def check_bond_connection(
         _ = check_general_connection(connected_atoms=bond, molecule=molecule)
     except AtomConnectionError:
         raise BondConnectionError(
-            f"The bond {bond} was not valid for the molecule {molecule}, as there is no bond between these atoms."
+            f"The bond {bond} was not valid for the molecule {molecule}, as there is no bond between these atoms.",
         )
 
     return bond
 
 
-def check_angle_connection(
-    angle: Tuple[int, int, int], molecule: off.Molecule
-) -> Tuple[int, int, int]:
+def check_angle_connection(angle: tuple[int, int, int], molecule: off.Molecule) -> tuple[int, int, int]:
     """
     Check that the given angle indices create a connected angle in the molecule.
 
@@ -145,14 +138,13 @@ def check_angle_connection(
         _ = check_general_connection(connected_atoms=angle, molecule=molecule)
     except AtomConnectionError as e:
         raise AngleConnectionError(
-            f"The angle {angle} was not valid for the molecule {molecule}, as there is no bond between atoms {e.atoms}"
+            f"The angle {angle} was not valid for the molecule {molecule}, as there is no bond "
+            f"between atoms {e.atoms}",
         )
     return angle
 
 
-def check_general_connection(
-    connected_atoms: List[int], molecule: off.Molecule
-) -> List[int]:
+def check_general_connection(connected_atoms: list[int], molecule: off.Molecule) -> list[int]:
     """
     Check that the list of atoms are all connected in order by explicit bonds in the given molecule.
 
@@ -174,7 +166,8 @@ def check_general_connection(
         except (off.topology.NotBondedError, IndexError):
             # catch both notbonded errors and tags on atoms not in the molecule
             raise AtomConnectionError(
-                f"The set of atoms {connected_atoms} was not valid for the molecule {molecule}, as there is no bond between atoms {atoms}.",
+                f"The set of atoms {connected_atoms} was not valid for the molecule {molecule}, as there is no bond "
+                f"between atoms {atoms}.",
                 atoms=atoms,
             )
 
@@ -195,32 +188,27 @@ def check_constraints(constraints: Constraints, molecule: off.Molecule) -> Const
     if constraints.has_constraints:
         # check each constraint and warn if it is incorrect
         all_constraints = [
-            constraint
-            for constraint_set in [constraints.freeze, constraints.set]
-            for constraint in constraint_set
+            constraint for constraint_set in [constraints.freeze, constraints.set] for constraint in constraint_set
         ]
         for constraint in all_constraints:
             if constraint.type != "xyz":
                 if constraint.bonded:
                     try:
-                        _constraint_to_check[constraint.type](
-                            constraint.indices, molecule
-                        )
+                        _constraint_to_check[constraint.type](constraint.indices, molecule)
                     except (
                         BondConnectionError,
                         AngleConnectionError,
                         DihedralConnectionError,
                     ) as e:
                         raise ConstraintError(
-                            f"The molecule {molecule} has non bonded constraints, if this is intentional add the constraint with the flag `bonded=False`. See error for more details {e.error_message}"
+                            f"The molecule {molecule} has non bonded constraints, if this is intentional add the "
+                            f"constraint with the flag `bonded=False`. See error for more details {e.error_message}",
                         )
 
     return constraints
 
 
-def check_linear_torsions(
-    torsion: Tuple[int, int, int, int], molecule: off.Molecule
-) -> Tuple[int, int, int, int]:
+def check_linear_torsions(torsion: tuple[int, int, int, int], molecule: off.Molecule) -> tuple[int, int, int, int]:
     """
     Check that the torsion supplied is not for a linear bond.
 
@@ -239,9 +227,7 @@ def check_linear_torsions(
     matches = molecule.chemical_environment_matches(linear_smarts)
 
     if torsion[1:3] in matches or torsion[2:0:-1] in matches:
-        raise LinearTorsionError(
-            f"The dihedral {torsion} in molecule {molecule} highlights a linear bond."
-        )
+        raise LinearTorsionError(f"The dihedral {torsion} in molecule {molecule} highlights a linear bond.")
 
     return torsion
 
@@ -252,13 +238,13 @@ def check_connectivity(molecule: qcel.models.Molecule) -> qcel.models.Molecule:
     """
     if len(molecule.fragment_charges) > 1:
         raise MolecularComplexError(
-            f"The molecule {molecule.name} is a complex made of {len(molecule.fragment_charges)} units."
+            f"The molecule {molecule.name} is a complex made of {len(molecule.fragment_charges)} units.",
         )
 
     return molecule
 
 
-def check_allowed_elements(element: Union[str, int]) -> Union[str, int]:
+def check_allowed_elements(element: str | int) -> str | int:
     """
     Check that each item can be cast to a valid element.
 
@@ -275,9 +261,7 @@ def check_allowed_elements(element: Union[str, int]) -> Union[str, int]:
         return element
 
     else:
-        raise ValueError(
-            f"An element could not be determined from symbol {element}, please enter symbols only."
-        )
+        raise ValueError(f"An element could not be determined from symbol {element}, please enter symbols only.")
 
 
 def check_environments(environment: str) -> str:
@@ -297,15 +281,12 @@ def check_environments(environment: str) -> str:
         # chemical_environment_matches to raise a more specific exception, but
         # it just raises a ValueError
         s = str(e)
-        if (
-            'capability "find_smarts_matches"' not in s
-            or "Available toolkits are: []" in s
-        ):
+        if 'capability "find_smarts_matches"' not in s or "Available toolkits are: []" in s:
             raise e
 
     # we've either already returned successfully, raised an unrelated
     # exception, or failed to parse the smirks
     raise SMIRKSParsingError(
         "The smarts pattern passed had no tagged atoms please tag the atoms in the "
-        "substructure you wish to include/exclude."
+        "substructure you wish to include/exclude.",
     )
