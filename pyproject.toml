@@ -1,6 +1,44 @@
+[build-system]
+requires = [
+    "setuptools",
+    "versioningit",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name="openff-qcsubmit"
+description = "qcsubmit"
+readme = "README.md"
+authors = [{name = "Open Force Field Consortium", email = "info@openforcefield.org"}]
+license = {text = "MIT"}
+dynamic = ["version"]
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.versioningit]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+omit = [
+    "*/*/_tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
 [tool.black]
 line-length = 88
-target-version = ['py39']
+target-version = ['py310']
 exclude = '''
 
 (
@@ -20,3 +58,10 @@ exclude = '''
                      # the root of the project
 )
 '''
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 88

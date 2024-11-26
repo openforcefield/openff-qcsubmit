@@ -3,10 +3,6 @@ qcsubmit
 Automated tools for submitting molecules to QCFractal
 """
 
-# Handle versioneer
-from ._version import get_versions
+from importlib.metadata import version
 
-versions = get_versions()
-__version__ = versions["version"]
-__git_revision__ = versions["full-revisionid"]
-del get_versions, versions
+__version__ = version("openff.qcsubmit")

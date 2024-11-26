@@ -69,7 +69,7 @@ jobs:
 
       - name: Run Tests
         run: |
-          python -m pytest -r xfEs -n logical --cov=openff --cov-config=setup.cfg openff/qcsubmit/_tests/ --cov-report=xml
+          python -m pytest -r xfEs -n logical --cov=openff openff/qcsubmit/_tests/ --cov-report=xml
 
       - name: Run example notebooks
         env:
