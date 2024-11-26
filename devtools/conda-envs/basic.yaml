@@ -3,13 +3,14 @@ name: qcsubmit-test-basic
 channels:
   - openeye
   - conda-forge
-  - defaults
 
 dependencies:
 
   # Base depends
   - python
+  - versioningit
   - pip
+  - setuptools
 
   # Testing
   - pytest
