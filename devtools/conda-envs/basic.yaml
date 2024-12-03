@@ -3,7 +3,6 @@ name: qcsubmit-test-basic
 channels:
   - openeye
   - conda-forge
-  - defaults
 
 dependencies:
 
