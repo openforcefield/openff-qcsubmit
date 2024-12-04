@@ -4,9 +4,8 @@ import pytest
 from openff.toolkit.topology import Molecule
 from openff.units import unit
 from qcportal import PortalClient
-from qcportal.optimization import OptimizationDataset
+from qcportal.optimization import OptimizationDataset, OptimizationRecord
 from qcportal.optimization import OptimizationDatasetEntry as OptEntry
-from qcportal.optimization import OptimizationRecord
 
 from openff.qcsubmit._tests.results import (
     mock_basic_result_collection,
@@ -32,12 +31,8 @@ def basic_result_collection(monkeypatch) -> BasicResultCollection:
     """Create a basic collection which can be filtered."""
 
     smiles = {
-        "http://localhost:442": [
-            _smiles_to_molecule(smiles) for smiles in ["CO", "CCO", "CCO", "CCCO"]
-        ],
-        "http://localhost:443": [
-            _smiles_to_molecule(smiles) for smiles in ["C=O", "CC=O", "CC=O", "CCC=O"]
-        ],
+        "http://localhost:442": [_smiles_to_molecule(smiles) for smiles in ["CO", "CCO", "CCO", "CCCO"]],
+        "http://localhost:443": [_smiles_to_molecule(smiles) for smiles in ["C=O", "CC=O", "CC=O", "CCC=O"]],
     }
 
     return mock_basic_result_collection(smiles, monkeypatch)
@@ -49,9 +44,8 @@ def tautomer_basic_result_collection(monkeypatch) -> BasicResultCollection:
 
     smiles = {
         "http://localhost:442": [
-            _smiles_to_molecule(smiles)
-            for smiles in ["Oc1nnccn1", "C1=NC(=O)NN=C1", "C1=CN=NC(=O)N1"]
-        ]
+            _smiles_to_molecule(smiles) for smiles in ["Oc1nnccn1", "C1=NC(=O)NN=C1", "C1=CN=NC(=O)N1"]
+        ],
     }
     return mock_basic_result_collection(smiles, monkeypatch)
 
@@ -74,9 +68,9 @@ def h_bond_basic_result_collection(monkeypatch) -> BasicResultCollection:
                 [-1.1913352, -0.90038794, 0.19441436],
                 [0.04801793, 1.23909473, -0.37244973],
                 [2.49137521, 1.29117954, 0.29548031],
-            ]
+            ],
         )
-        * unit.angstrom
+        * unit.angstrom,
     )
 
     smiles = {
@@ -105,15 +99,13 @@ def optimization_result_collection(monkeypatch) -> OptimizationResultCollection:
                 [-1.1913352, -0.90038794, 0.19441436],
                 [0.04801793, 1.23909473, -0.37244973],
                 [2.49137521, 1.29117954, 0.29548031],
-            ]
+            ],
         )
-        * unit.angstrom
+        * unit.angstrom,
     )
 
     smiles = {
-        "http://localhost:442": [
-            _smiles_to_molecule(smiles) for smiles in ["CO", "CCO", "CCO", "CCCO"]
-        ],
+        "http://localhost:442": [_smiles_to_molecule(smiles) for smiles in ["CO", "CCO", "CCO", "CCCO"]],
         "http://localhost:443": [h_bond_molecule],
     }
 
@@ -151,9 +143,9 @@ def torsion_drive_result_collection(monkeypatch) -> TorsionDriveResultCollection
                 [-1.1913352, -0.90038794, 0.19441436],
                 [0.04801793, 1.23909473, -0.37244973],
                 [2.48549175, -0.61807805, 0.35823375],
-            ]
+            ],
         )
-        * unit.angstrom
+        * unit.angstrom,
     )
     h_bond_molecule.add_conformer(
         np.array(
@@ -167,17 +159,15 @@ def torsion_drive_result_collection(monkeypatch) -> TorsionDriveResultCollection
                 [-1.1913352, -0.90038794, 0.19441436],
                 [0.04801793, 1.23909473, -0.37244973],
                 [2.49137521, 1.29117954, 0.29548031],
-            ]
+            ],
         )
-        * unit.angstrom
+        * unit.angstrom,
     )
 
     # Create a molecule which contains no internal h-bonds.
     no_h_bond_molecule = Molecule.from_smiles(r"O\C=C/C=O")
     no_h_bond_molecule.add_conformer(h_bond_molecule.conformers[0])
-    no_h_bond_molecule.add_conformer(
-        h_bond_molecule.conformers[0] + 1.0 * unit.angstrom
-    )
+    no_h_bond_molecule.add_conformer(h_bond_molecule.conformers[0] + 1.0 * unit.angstrom)
 
     smiles = {
         "http://localhost:442": [h_bond_molecule],
@@ -218,9 +208,7 @@ def optimization_dataset_invalid_cmiles(monkeypatch, fractal_compute_server):
             object_map={"default": "2"},
         ),
     }
-    dataset = OptimizationDataset(
-        name="invalid-collection", client=client, records=data
-    )
+    dataset = OptimizationDataset(name="invalid-collection", client=client, records=data)
 
     # now mock the query function which is called when processing the results
     def query(spec_name):

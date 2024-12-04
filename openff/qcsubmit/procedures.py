@@ -2,10 +2,9 @@
 The procedure settings controllers
 """
 
-from typing import Any, Dict
+from typing import Any, Literal
 
 from qcportal.optimization import OptimizationSpecification
-from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import BaseModel, Field, validator
 from openff.qcsubmit.validators import literal_lower, literal_upper
@@ -46,32 +45,32 @@ class GeometricProcedure(BaseModel):
             +-------------------+---------------------+--------+---------+--------+--------+-------+
     """
 
-    program: Literal["geometric"] = Field(
-        "geometric", description="The name of the program executing the procedure."
-    )
+    program: Literal["geometric"] = Field("geometric", description="The name of the program executing the procedure.")
     coordsys: Literal["tric", "prim", "dlc", "hdlc", "cart"] = Field(
         "dlc",
-        description="The type of coordinate system which should be used during the optimization. Choices are tric, prim, dlc, hdlc, and cart.",
+        description=(
+            "The type of coordinate system which should be used during the optimization. Choices are tric, prim, dlc, "
+            "hdlc, and cart.",
+        ),
     )
     enforce: float = Field(
         0.0,
         description="The threshold( in a.u / rad) to activate precise constraint satisfaction.",
     )
     epsilon: float = Field(1e-5, description="Small eigenvalue threshold.")
-    reset: bool = Field(
-        True, description="Reset the Hessian when the eigenvalues are under epsilon."
-    )
+    reset: bool = Field(True, description="Reset the Hessian when the eigenvalues are under epsilon.")
     qccnv: bool = Field(
         False,
         description="Activate Q-Chem style convergence criteria(i.e.gradient and either energy or displacement).",
     )
     molcnv: bool = Field(
         False,
-        description="Activate Molpro style convergence criteria (i.e.gradient and either energy or displacement, with different defaults).",
+        description=(
+            "Activate Molpro style convergence criteria (i.e.gradient and either energy or displacement, with "
+            "different defaults).",
+        ),
     )
-    check: int = Field(
-        0, description="The interval for checking the coordinate system for changes."
-    )
+    check: int = Field(0, description="The interval for checking the coordinate system for changes.")
     trust: float = Field(0.1, description="Starting value of the trust radius.")
     tmax: float = Field(0.3, description="Maximum value of trust radius.")
     maxiter: int = Field(300, description="Maximum number of optimization cycles.")
@@ -87,7 +86,7 @@ class GeometricProcedure(BaseModel):
         "GAU",
         description="The set of convergence criteria to be used for the optimisation.",
     )
-    constraints: Dict = Field(
+    constraints: dict = Field(
         {},
         description="The list of constraints orginsed by set and freeze that should be used in the optimization",
     )
@@ -96,12 +95,10 @@ class GeometricProcedure(BaseModel):
         validate_assignment = True
         title = "GeometricProcedure"
 
-    _convergence_set_check = validator("convergence_set", pre=True, allow_reuse=True)(
-        literal_upper
-    )
+    _convergence_set_check = validator("convergence_set", pre=True, allow_reuse=True)(literal_upper)
     _coordsys_check = validator("coordsys", pre=True, allow_reuse=True)(literal_lower)
 
-    def get_optimzation_keywords(self) -> Dict[str, Any]:
+    def get_optimzation_keywords(self) -> dict[str, Any]:
         """
         Create the optimization specification to be used in qcarchive.
 
@@ -115,9 +112,7 @@ class GeometricProcedure(BaseModel):
         return self.dict(exclude=exclude)
 
     @classmethod
-    def from_opt_spec(
-        cls, optimization_specification: OptimizationSpecification
-    ) -> "GeometricProcedure":
+    def from_opt_spec(cls, optimization_specification: OptimizationSpecification) -> "GeometricProcedure":
         """
         Create a geometric procedure from an Optimization spec.
         """

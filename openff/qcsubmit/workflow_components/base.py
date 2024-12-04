@@ -2,7 +2,7 @@
 The base file with functions to register and de register new workflow components.
 """
 
-from typing import Dict, List, Type, Union
+from typing import Union
 
 from openff.qcsubmit.exceptions import (
     ComponentRegisterError,
@@ -35,10 +35,10 @@ from openff.qcsubmit.workflow_components.state_enumeration import (
 )
 
 __all__ = [
-    "register_component",
     "deregister_component",
     "get_component",
     "list_components",
+    "register_component",
 ]
 
 # make a components type
@@ -62,12 +62,10 @@ Components = Union[
 ]
 
 
-workflow_components: Dict[str, Type[CustomWorkflowComponent]] = {}
+workflow_components: dict[str, type[CustomWorkflowComponent]] = {}
 
 
-def register_component(
-    component: Type[CustomWorkflowComponent], replace: bool = False
-) -> None:
+def register_component(component: type[CustomWorkflowComponent], replace: bool = False) -> None:
     """
     Register a valid workflow component with qcsubmit.
 
@@ -82,21 +80,20 @@ def register_component(
 
     if issubclass(component, CustomWorkflowComponent):
         component_name = component.__fields__["type"].default.lower()
-        if component_name not in workflow_components or (
-            component_name in workflow_components and replace
-        ):
+        if component_name not in workflow_components or (component_name in workflow_components and replace):
             workflow_components[component_name] = component
         else:
             raise ComponentRegisterError(
-                f"There is already a component registered with QCSubmit with the name {component.__fields__['type'].default}, to replace this use the `replace=True` flag."
+                "There is already a component registered with QCSubmit with the name "
+                f"{component.__fields__['type'].default}, to replace this use the `replace=True` flag.",
             )
     else:
         raise InvalidWorkflowComponentError(
-            f"Component {component} rejected as it is not a sub class of CustomWorkflowComponent"
+            f"Component {component} rejected as it is not a sub class of CustomWorkflowComponent",
         )
 
 
-def get_component(component_name: str) -> Type[CustomWorkflowComponent]:
+def get_component(component_name: str) -> type[CustomWorkflowComponent]:
     """
     Get the registered workflow component by component name.
 
@@ -112,14 +109,12 @@ def get_component(component_name: str) -> Type[CustomWorkflowComponent]:
 
     component = workflow_components.get(component_name.lower(), None)
     if component is None:
-        raise ComponentRegisterError(
-            f"No component is registered with QCSubmit under the name {component_name}."
-        )
+        raise ComponentRegisterError(f"No component is registered with QCSubmit under the name {component_name}.")
 
     return component
 
 
-def deregister_component(component: Union[Type[CustomWorkflowComponent], str]) -> None:
+def deregister_component(component: type[CustomWorkflowComponent] | str) -> None:
     """
     Deregister the workflow component from QCSubmit.
 
@@ -138,12 +133,10 @@ def deregister_component(component: Union[Type[CustomWorkflowComponent], str]) -
 
     wc = workflow_components.pop(component_name, None)
     if wc is None:
-        raise ComponentRegisterError(
-            f"The component {component} could not be removed as it was not registered."
-        )
+        raise ComponentRegisterError(f"The component {component} could not be removed as it was not registered.")
 
 
-def list_components() -> List[Type[CustomWorkflowComponent]]:
+def list_components() -> list[type[CustomWorkflowComponent]]:
     """
     Get a list of all of the currently registered workflow components.
 

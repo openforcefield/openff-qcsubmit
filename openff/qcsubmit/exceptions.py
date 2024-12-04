@@ -178,7 +178,7 @@ class AtomConnectionError(QCSubmitException):
     header = "Atom Connection Error"
 
     def __init__(self, message: str, atoms):
-        super(AtomConnectionError, self).__init__(message=message)
+        super().__init__(message=message)
         self.atoms = atoms
 
 

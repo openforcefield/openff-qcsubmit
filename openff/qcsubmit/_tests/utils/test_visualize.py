@@ -10,9 +10,7 @@ from openff.qcsubmit.utils.visualize import (
 )
 
 
-@pytest.mark.parametrize(
-    "create_function", [molecules_to_pdf, _create_openeye_pdf, _create_rdkit_pdf]
-)
+@pytest.mark.parametrize("create_function", [molecules_to_pdf, _create_openeye_pdf, _create_rdkit_pdf])
 def test_create_pdf_function(tmpdir, create_function):
     molecules = [
         Molecule.from_smiles("C"),

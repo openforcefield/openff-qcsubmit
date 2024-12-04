@@ -4,7 +4,7 @@ import itertools
 import logging
 from collections import defaultdict
 from tempfile import NamedTemporaryFile
-from typing import List, Optional, Set, Tuple, TypeVar, Union
+from typing import Literal, TypeVar
 
 import numpy
 from openff.toolkit.topology import Molecule
@@ -19,7 +19,6 @@ from qcelemental.molutil import guess_connectivity
 from qcportal.optimization import OptimizationRecord
 from qcportal.record_models import BaseRecord, RecordStatusEnum
 from qcportal.singlepoint import SinglepointRecord
-from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import (
     BaseModel,
@@ -79,14 +78,12 @@ class ResultFilter(BaseModel, abc.ABC):
         filtered_collection = self._apply(result_collection.copy(deep=True))
 
         filtered_collection.entries = {
-            address: entries
-            for address, entries in filtered_collection.entries.items()
-            if len(entries) > 0
+            address: entries for address, entries in filtered_collection.entries.items() if len(entries) > 0
         }
 
         logger.info(
             f"{abs(filtered_collection.n_results - result_collection.n_results)} "
-            f"results were removed after applying a {self.__class__.__name__} filter."
+            f"results were removed after applying a {self.__class__.__name__} filter.",
         )
 
         if "applied-filters" not in filtered_collection.provenance:
@@ -132,9 +129,7 @@ class SinglepointRecordFilter(ResultFilter, abc.ABC):
     corresponding molecules directly."""
 
     @abc.abstractmethod
-    def _filter_function(
-        self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
-    ) -> bool:
+    def _filter_function(self, result: "_BaseResult", record: BaseRecord, molecule: Molecule) -> bool:
         """A method which should return whether to retain a particular result based
         on some property of the associated QC record.
         """
@@ -159,9 +154,7 @@ class SinglepointRecordFilter(ResultFilter, abc.ABC):
                 if self._filter_function(entries_by_id[record.id], record, molecule)
             ]
 
-            filtered_results[address] = [
-                entry for entry in entries if entry.record_id in filtered_ids
-            ]
+            filtered_results[address] = [entry for entry in entries if entry.record_id in filtered_ids]
 
         result_collection.entries = filtered_results
 
@@ -179,8 +172,9 @@ class SinglepointRecordGroupFilter(ResultFilter, abc.ABC):
 
     @abc.abstractmethod
     def _filter_function(
-        self, entries: List[Tuple["_BaseResult", BaseRecord, Molecule, str]]
-    ) -> List[Tuple["_BaseResult", str]]:
+        self,
+        entries: list[tuple["_BaseResult", BaseRecord, Molecule, str]],
+    ) -> list[tuple["_BaseResult", str]]:
         """A method which should reduce a set of results down to a single entry based on
         some property of the QC calculation.
         """
@@ -206,10 +200,7 @@ class SinglepointRecordGroupFilter(ResultFilter, abc.ABC):
 
         for entries in entries_by_inchikey.values():
             results_and_addresses = self._filter_function(
-                [
-                    (entry, *all_records_and_molecules[entry.record_id])
-                    for entry in entries
-                ]
+                [(entry, *all_records_and_molecules[entry.record_id]) for entry in entries],
             )
 
             for result, address in results_and_addresses:
@@ -230,15 +221,15 @@ class LowestEnergyFilter(SinglepointRecordGroupFilter):
 
     def _filter_function(
         self,
-        entries: List[
-            Tuple[
+        entries: list[
+            tuple[
                 "_BaseResult",
-                Union[SinglepointRecord, OptimizationRecord],
+                SinglepointRecord | OptimizationRecord,
                 Molecule,
                 str,
             ]
         ],
-    ) -> List[Tuple["_BaseResult", str]]:
+    ) -> list[tuple["_BaseResult", str]]:
         """Only return the lowest energy entry or final molecule."""
         low_entry, low_energy, low_address = None, 99999999999, ""
         for entry, rec, _, address in entries:
@@ -274,13 +265,11 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
 
     rmsd_tolerance: float = Field(
         0.5,
-        description="The minimum RMSD [A] between two conformers for them to be "
-        "considered distinct.",
+        description="The minimum RMSD [A] between two conformers for them to be " "considered distinct.",
     )
     heavy_atoms_only: bool = Field(
         True,
-        description="Whether to only consider heavy atoms when computing the RMSD "
-        "between two conformers.",
+        description="Whether to only consider heavy atoms when computing the RMSD " "between two conformers.",
     )
     check_automorphs: bool = Field(
         True,
@@ -332,9 +321,7 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
         from openeye import oechem
 
         oe_molecule: oechem.OEMol = molecule.to_openeye()
-        oe_conformers = {
-            i: oe_conformer for i, oe_conformer in enumerate(oe_molecule.GetConfs())
-        }
+        oe_conformers = {i: oe_conformer for i, oe_conformer in enumerate(oe_molecule.GetConfs())}
 
         n_conformers = len(molecule.conformers)
 
@@ -364,23 +351,20 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
 
     def _filter_function(
         self,
-        entries: List[
-            Tuple[
+        entries: list[
+            tuple[
                 "_BaseResult",
-                Union[SinglepointRecord, OptimizationRecord],
+                SinglepointRecord | OptimizationRecord,
                 Molecule,
                 str,
             ]
         ],
-    ) -> List[Tuple["_BaseResult", str]]:
+    ) -> list[tuple["_BaseResult", str]]:
         # Sanity check that all molecules look as we expect.
         assert all(molecule.n_conformers == 1 for _, _, molecule, _ in entries)
 
         # Condense the conformers into a single molecule.
-        conformers = [
-            molecule.canonical_order_atoms().conformers[0]
-            for _, _, molecule, _ in entries
-        ]
+        conformers = [molecule.canonical_order_atoms().conformers[0] for _, _, molecule, _ in entries]
 
         [_, _, molecule, _] = entries[0]
 
@@ -403,11 +387,7 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
 
             # Exclude already selected conformers or conformers which are too similar
             # to those already selected.
-            closed_mask[
-                numpy.any(
-                    rmsd_matrix[closed_list[: i + 1], :] < self.rmsd_tolerance, axis=0
-                )
-            ] = True
+            closed_mask[numpy.any(rmsd_matrix[closed_list[: i + 1], :] < self.rmsd_tolerance, axis=0)] = True
 
             if numpy.all(closed_mask):
                 # Stop of there are no more distinct conformers to select from.
@@ -418,10 +398,7 @@ class ConformerRMSDFilter(SinglepointRecordGroupFilter):
 
             n_selected += 1
 
-        return [
-            (entries[i.item()][0], entries[i.item()][-1])
-            for i in closed_list[:n_selected]
-        ]
+        return [(entries[i.item()][0], entries[i.item()][-1]) for i in closed_list[:n_selected]]
 
 
 class MinimumConformersFilter(SinglepointRecordGroupFilter):
@@ -441,15 +418,15 @@ class MinimumConformersFilter(SinglepointRecordGroupFilter):
 
     def _filter_function(
         self,
-        entries: List[
-            Tuple[
+        entries: list[
+            tuple[
                 "_BaseResult",
-                Union[SinglepointRecord, OptimizationRecord],
+                SinglepointRecord | OptimizationRecord,
                 Molecule,
                 str,
             ]
         ],
-    ) -> List[Tuple["_BaseResult", str]]:
+    ) -> list[tuple["_BaseResult", str]]:
         # Sanity check that all molecules look as we expect.
         assert all(molecule.n_conformers == 1 for _, _, molecule, _ in entries)
 
@@ -464,16 +441,16 @@ class SMILESFilter(CMILESResultFilter):
     described by specific SMILES patterns.
     """
 
-    _inchi_keys_to_include: Optional[Set[str]] = PrivateAttr(None)
-    _inchi_keys_to_exclude: Optional[Set[str]] = PrivateAttr(None)
+    _inchi_keys_to_include: set[str] | None = PrivateAttr(None)
+    _inchi_keys_to_exclude: set[str] | None = PrivateAttr(None)
 
-    smiles_to_include: Optional[List[str]] = Field(
+    smiles_to_include: list[str] | None = Field(
         None,
         description="Only QC records computed for molecules whose SMILES representation "
         "appears in this list will be retained. This option is mutually exclusive with "
         "``smiles_to_exclude``.",
     )
-    smiles_to_exclude: Optional[List[str]] = Field(
+    smiles_to_exclude: list[str] | None = Field(
         None,
         description="Any QC records computed for molecules whose SMILES representation "
         "appears in this list will be discarded. This option is mutually exclusive with "
@@ -485,10 +462,7 @@ class SMILESFilter(CMILESResultFilter):
         smiles_to_include = values.get("smiles_to_include")
         smiles_to_exclude = values.get("smiles_to_exclude")
 
-        message = (
-            "exactly one of `smiles_to_include` and `smiles_to_exclude` must be "
-            "specified"
-        )
+        message = "exactly one of `smiles_to_include` and `smiles_to_exclude` must be " "specified"
 
         assert smiles_to_include is not None or smiles_to_exclude is not None, message
         assert smiles_to_include is None or smiles_to_exclude is None, message
@@ -497,9 +471,7 @@ class SMILESFilter(CMILESResultFilter):
 
     @staticmethod
     def _smiles_to_inchi_key(smiles: str) -> str:
-        return Molecule.from_smiles(smiles, allow_undefined_stereo=True).to_inchikey(
-            fixed_hydrogens=True
-        )
+        return Molecule.from_smiles(smiles, allow_undefined_stereo=True).to_inchikey(fixed_hydrogens=True)
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
         return (
@@ -512,19 +484,15 @@ class SMILESFilter(CMILESResultFilter):
         self._inchi_keys_to_include = (
             None
             if self.smiles_to_include is None
-            else {
-                self._smiles_to_inchi_key(smiles) for smiles in self.smiles_to_include
-            }
+            else {self._smiles_to_inchi_key(smiles) for smiles in self.smiles_to_include}
         )
         self._inchi_keys_to_exclude = (
             None
             if self.smiles_to_exclude is None
-            else {
-                self._smiles_to_inchi_key(smiles) for smiles in self.smiles_to_exclude
-            }
+            else {self._smiles_to_inchi_key(smiles) for smiles in self.smiles_to_exclude}
         )
 
-        return super(SMILESFilter, self)._apply(result_collection)
+        return super()._apply(result_collection)
 
 
 class SMARTSFilter(CMILESResultFilter):
@@ -532,13 +500,13 @@ class SMARTSFilter(CMILESResultFilter):
     which match specific SMARTS patterns.
     """
 
-    smarts_to_include: Optional[List[str]] = Field(
+    smarts_to_include: list[str] | None = Field(
         None,
         description="Only QC records computed for molecules that match one or more of "
         "the SMARTS patterns in this list will be retained. This option is mutually "
         "exclusive with ``smarts_to_exclude``.",
     )
-    smarts_to_exclude: Optional[List[str]] = Field(
+    smarts_to_exclude: list[str] | None = Field(
         None,
         description="Any QC records computed for molecules that match one or more of "
         "the SMARTS patterns in this list will be discarded. This option is mutually "
@@ -550,10 +518,7 @@ class SMARTSFilter(CMILESResultFilter):
         smarts_to_include = values.get("smarts_to_include")
         smarts_to_exclude = values.get("smarts_to_exclude")
 
-        message = (
-            "exactly one of `smarts_to_include` and `smarts_to_exclude` must be "
-            "specified"
-        )
+        message = "exactly one of `smarts_to_include` and `smarts_to_exclude` must be " "specified"
 
         assert smarts_to_include is not None or smarts_to_exclude is not None, message
         assert smarts_to_include is None or smarts_to_exclude is None, message
@@ -561,33 +526,25 @@ class SMARTSFilter(CMILESResultFilter):
         return values
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
-        molecule: Molecule = Molecule.from_mapped_smiles(
-            entry.cmiles, allow_undefined_stereo=True
-        )
+        molecule: Molecule = Molecule.from_mapped_smiles(entry.cmiles, allow_undefined_stereo=True)
 
         if self.smarts_to_include is not None:
-            return any(
-                len(molecule.chemical_environment_matches(smarts)) > 0
-                for smarts in self.smarts_to_include
-            )
+            return any(len(molecule.chemical_environment_matches(smarts)) > 0 for smarts in self.smarts_to_include)
 
-        return all(
-            len(molecule.chemical_environment_matches(smarts)) == 0
-            for smarts in self.smarts_to_exclude
-        )
+        return all(len(molecule.chemical_environment_matches(smarts)) == 0 for smarts in self.smarts_to_exclude)
 
 
 class ChargeFilter(CMILESResultFilter):
     """A filter which will only retain records if their formal charge matches allowed values or is not in the
     exclude list."""
 
-    charges_to_include: Optional[List[int]] = Field(
+    charges_to_include: list[int] | None = Field(
         None,
         description="Only molecules with a net formal charge in this list will be kept. "
         "This option is mutually exclusive with ``charges_to_exclude``.",
     )
 
-    charges_to_exclude: Optional[List[int]] = Field(
+    charges_to_exclude: list[int] | None = Field(
         None,
         description="Any molecules with a net formal charge which matches any of these values will be removed. "
         "This option is mutually exclusive with ``charges_to_include``.",
@@ -598,10 +555,7 @@ class ChargeFilter(CMILESResultFilter):
         charges_to_include = values.get("charges_to_include")
         charges_to_exclude = values.get("charges_to_exclude")
 
-        message = (
-            "exactly one of `charges_to_include` and `charges_to_exclude` must be "
-            "specified"
-        )
+        message = "exactly one of `charges_to_include` and `charges_to_exclude` must be " "specified"
 
         assert charges_to_include is not None or charges_to_exclude is not None, message
         assert charges_to_include is None or charges_to_exclude is None, message
@@ -609,9 +563,7 @@ class ChargeFilter(CMILESResultFilter):
         return values
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
-        molecule: Molecule = Molecule.from_mapped_smiles(
-            entry.cmiles, allow_undefined_stereo=True
-        )
+        molecule: Molecule = Molecule.from_mapped_smiles(entry.cmiles, allow_undefined_stereo=True)
         total_charge = molecule.total_charge.m_as(unit.elementary_charge)
 
         if self.charges_to_include is not None:
@@ -623,33 +575,28 @@ class ChargeFilter(CMILESResultFilter):
 class ElementFilter(CMILESResultFilter):
     """A filter which will only retain records that contain the requested elements."""
 
-    _allowed_atomic_numbers: Optional[Set[int]] = PrivateAttr(None)
+    _allowed_atomic_numbers: set[int] | None = PrivateAttr(None)
 
-    allowed_elements: List[Union[int, str]] = Field(
+    allowed_elements: list[int | str] = Field(
         ...,
         description="The list of allowed elements as symbols or atomic number ints.",
     )
 
-    _check_elements = validator("allowed_elements", each_item=True, allow_reuse=True)(
-        check_allowed_elements
-    )
+    _check_elements = validator("allowed_elements", each_item=True, allow_reuse=True)(check_allowed_elements)
 
     def _filter_function(self, entry: "_BaseResult") -> bool:
-        molecule: Molecule = Molecule.from_mapped_smiles(
-            entry.cmiles, allow_undefined_stereo=True
-        )
+        molecule: Molecule = Molecule.from_mapped_smiles(entry.cmiles, allow_undefined_stereo=True)
         # get a set of atomic numbers
         mol_atoms = {atom.atomic_number for atom in molecule.atoms}
         # get the difference between mol atoms and allowed atoms
         return not bool(mol_atoms.difference(self._allowed_atomic_numbers))
 
     def _apply(self, result_collection: "T") -> "T":
-        self._allowed_atomic_numbers: set[Union[int, str]] = {
-            SYMBOLS_TO_ELEMENTS.get(element, element)
-            for element in self.allowed_elements
+        self._allowed_atomic_numbers: set[int | str] = {
+            SYMBOLS_TO_ELEMENTS.get(element, element) for element in self.allowed_elements
         }
 
-        return super(ElementFilter, self)._apply(result_collection)
+        return super()._apply(result_collection)
 
 
 class HydrogenBondFilter(SinglepointRecordFilter):
@@ -666,29 +613,19 @@ class HydrogenBondFilter(SinglepointRecordFilter):
     """
 
     method: Literal["baker-hubbard"] = Field(
-        "baker-hubbard", description="The method to use to detect any hydrogen bonds."
+        "baker-hubbard",
+        description="The method to use to detect any hydrogen bonds.",
     )
 
     @requires_package("mdtraj")
     @requires_package("openmm")
-    def _filter_function(
-        self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
-    ) -> bool:
+    def _filter_function(self, result: "_BaseResult", record: BaseRecord, molecule: Molecule) -> bool:
         import mdtraj
 
-        conformers = numpy.array(
-            [
-                conformer.m_as(unit.nanometers).tolist()
-                for conformer in molecule.conformers
-            ]
-        )
+        conformers = numpy.array([conformer.m_as(unit.nanometers).tolist() for conformer in molecule.conformers])
 
-        mdtraj_topology = mdtraj.Topology.from_openmm(
-            molecule.to_topology().to_openmm()
-        )
-        mdtraj_trajectory = mdtraj.Trajectory(
-            conformers * unit.nanometers, mdtraj_topology
-        )
+        mdtraj_topology = mdtraj.Topology.from_openmm(molecule.to_topology().to_openmm())
+        mdtraj_trajectory = mdtraj.Trajectory(conformers * unit.nanometers, mdtraj_topology)
 
         if self.method == "baker-hubbard":
             h_bonds = mdtraj.baker_hubbard(mdtraj_trajectory, freq=0.0, periodic=False)
@@ -714,28 +651,17 @@ class ConnectivityFilter(SinglepointRecordFilter):
           angle.
     """
 
-    tolerance: float = Field(
-        1.2, description="Tunes the covalent radii metric safety factor."
-    )
+    tolerance: float = Field(1.2, description="Tunes the covalent radii metric safety factor.")
 
-    def _filter_function(
-        self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
-    ) -> bool:
-        qc_molecules = [
-            molecule.to_qcschema(conformer=i) for i in range(molecule.n_conformers)
-        ]
+    def _filter_function(self, result: "_BaseResult", record: BaseRecord, molecule: Molecule) -> bool:
+        qc_molecules = [molecule.to_qcschema(conformer=i) for i in range(molecule.n_conformers)]
 
-        expected_connectivity = {
-            tuple(sorted([bond.atom1_index, bond.atom2_index]))
-            for bond in molecule.bonds
-        }
+        expected_connectivity = {tuple(sorted([bond.atom1_index, bond.atom2_index])) for bond in molecule.bonds}
 
         for qc_molecule in qc_molecules:
             actual_connectivity = {
                 tuple(sorted(connection))
-                for connection in guess_connectivity(
-                    qc_molecule.symbols, qc_molecule.geometry, self.tolerance
-                )
+                for connection in guess_connectivity(qc_molecule.symbols, qc_molecule.geometry, self.tolerance)
             }
 
             if actual_connectivity == expected_connectivity:
@@ -756,9 +682,7 @@ class RecordStatusFilter(SinglepointRecordFilter):
         description="Records whose status match this value will be retained.",
     )
 
-    def _filter_function(
-        self, result: "_BaseResult", record: BaseRecord, molecule: Molecule
-    ) -> bool:
+    def _filter_function(self, result: "_BaseResult", record: BaseRecord, molecule: Molecule) -> bool:
         return record.status.value.upper() == self.status.value.upper()
 
 
@@ -772,7 +696,7 @@ class UnperceivableStereoFilter(SinglepointRecordFilter):
     toolkit expects.
     """
 
-    toolkits: List[Literal["openeye", "rdkit"]] = Field(
+    toolkits: list[Literal["openeye", "rdkit"]] = Field(
         ["openeye", "rdkit"],
         description="The OpenFF toolkit registries that should be able to perceive "
         "the stereochemistry of each conformer.",
@@ -794,12 +718,8 @@ class UnperceivableStereoFilter(SinglepointRecordFilter):
                     stereo_molecule = copy.deepcopy(molecule)
                     stereo_molecule._conformers = [conformer]
                     with NamedTemporaryFile(suffix=".sdf") as file:
-                        stereo_molecule.to_file(
-                            file.name, "SDF", toolkit_registry=toolkit_registry
-                        )
-                        stereo_molecule.from_file(
-                            file.name, toolkit_registry=toolkit_registry
-                        )
+                        stereo_molecule.to_file(file.name, "SDF", toolkit_registry=toolkit_registry)
+                        stereo_molecule.from_file(file.name, toolkit_registry=toolkit_registry)
 
         except UndefinedStereochemistryError:
             has_stereochemistry = False

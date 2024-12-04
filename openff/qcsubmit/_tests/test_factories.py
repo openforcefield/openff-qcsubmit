@@ -182,9 +182,7 @@ def test_clear_workflow(factory_type):
     assert factory.workflow == []
 
 
-@pytest.mark.parametrize(
-    "file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")]
-)
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 def test_factory_round_trip(file_type, tmpdir):
     """
     Test round tripping a factory to file with a workflow.
@@ -203,9 +201,7 @@ def test_factory_round_trip(file_type, tmpdir):
         assert factory2.workflow == factory.workflow
 
 
-@pytest.mark.parametrize(
-    "file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")]
-)
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 @pytest.mark.parametrize(
     "factory_type",
     [
@@ -236,9 +232,7 @@ def test_exporting_settings_no_workflow(file_type, factory_type):
                 assert str(value) in data
 
 
-@pytest.mark.parametrize(
-    "file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")]
-)
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 @pytest.mark.parametrize(
     "factory_type",
     [
@@ -272,9 +266,7 @@ def test_exporting_settings_workflow(file_type, factory_type):
             assert str(conformer_gen.max_conformers) in data
 
 
-@pytest.mark.parametrize(
-    "file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")]
-)
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 @pytest.mark.parametrize(
     "factory_type",
     [
@@ -301,9 +293,7 @@ def test_importing_settings_no_workflow(file_type, factory_type):
         assert getattr(factory, attr) == value
 
 
-@pytest.mark.parametrize(
-    "file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")]
-)
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 @pytest.mark.parametrize(
     "factory_type",
     [
@@ -335,9 +325,7 @@ def test_importing_settings_workflow(file_type, factory_type):
     assert isinstance(component, workflow_components.StandardConformerGenerator) is True
 
 
-@pytest.mark.parametrize(
-    "file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")]
-)
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 @pytest.mark.parametrize(
     "factory_type",
     [
@@ -364,9 +352,7 @@ def test_import_workflow_only(file_type, factory_type):
     assert factory.workflow != factory2.workflow
 
 
-@pytest.mark.parametrize(
-    "file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")]
-)
+@pytest.mark.parametrize("file_type", [pytest.param("json", id="json"), pytest.param("yaml", id="yaml")])
 @pytest.mark.parametrize(
     "factory_type",
     [
@@ -469,9 +455,7 @@ def test_torsiondrive_linear_torsion():
     """
 
     factory = TorsiondriveDatasetFactory()
-    molecules = Molecule.from_file(
-        get_data("linear_molecules.sdf"), "sdf", allow_undefined_stereo=True
-    )
+    molecules = Molecule.from_file(get_data("linear_molecules.sdf"), "sdf", allow_undefined_stereo=True)
 
     for molecule in molecules:
         assert bool(factory._detect_linear_torsions(molecule)) is True
@@ -498,9 +482,7 @@ def test_torsiondrive_torsion_string():
             dihedral.append(atom.molecule_atom_index)
         reference_torsions.append(tuple(dihedral))
 
-    assert (
-        torsion in reference_torsions or tuple(reversed(torsion)) in reference_torsions
-    )
+    assert torsion in reference_torsions or tuple(reversed(torsion)) in reference_torsions
 
 
 def test_create_dataset_missing_input():
@@ -508,9 +490,7 @@ def test_create_dataset_missing_input():
     Make sure an error is raised if the input can not be found.
     """
     factory = BasicDatasetFactory()
-    with pytest.raises(
-        FileNotFoundError, match="The input missing_file.smi could not be found."
-    ):
+    with pytest.raises(FileNotFoundError, match="The input missing_file.smi could not be found."):
         _ = factory.create_dataset(
             dataset_name="test dataset",
             tagline="test dataset",
@@ -538,14 +518,10 @@ def test_create_dataset(factory_dataset_type):
     element_filter = workflow_components.ElementFilter()
     element_filter.allowed_elements = [1, 6, 8, 7]
     factory.add_workflow_components(element_filter)
-    conformer_generator = workflow_components.StandardConformerGenerator(
-        max_conformers=1
-    )
+    conformer_generator = workflow_components.StandardConformerGenerator(max_conformers=1)
     factory.add_workflow_components(conformer_generator)
 
-    mols = Molecule.from_file(
-        get_data("tautomers_small.smi"), "smi", allow_undefined_stereo=True
-    )
+    mols = Molecule.from_file(get_data("tautomers_small.smi"), "smi", allow_undefined_stereo=True)
 
     # set some settings
     changed_attrs = {"compute_tag": "test tag", "dataset_tags": ["openff", "test"]}
@@ -579,17 +555,11 @@ def test_create_torsiondrive_dataset():
     """
     factory = TorsiondriveDatasetFactory()
     scan_filter = workflow_components.ScanEnumerator()
-    scan_filter.add_torsion_scan(
-        smarts="[*:1]~[*:2]-[#8:3]-[#1:4]", scan_rage=(-90, 90), scan_increment=10
-    )
+    scan_filter.add_torsion_scan(smarts="[*:1]~[*:2]-[#8:3]-[#1:4]", scan_rage=(-90, 90), scan_increment=10)
     factory.add_workflow_components(scan_filter)
-    conformer_generator = workflow_components.StandardConformerGenerator(
-        max_conformers=1
-    )
+    conformer_generator = workflow_components.StandardConformerGenerator(max_conformers=1)
     factory.add_workflow_components(conformer_generator)
-    mols = Molecule.from_file(
-        get_data("tautomers_small.smi"), "smi", allow_undefined_stereo=True
-    )
+    mols = Molecule.from_file(get_data("tautomers_small.smi"), "smi", allow_undefined_stereo=True)
     dataset = factory.create_dataset(
         dataset_name="test name",
         molecules=mols,

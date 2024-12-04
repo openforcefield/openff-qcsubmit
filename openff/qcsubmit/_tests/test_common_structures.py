@@ -13,20 +13,18 @@ def test_attributes_from_openff_molecule():
 
     # now make our own cmiles
     test_cmiles = {
-        "canonical_smiles": mol.to_smiles(
-            isomeric=False, explicit_hydrogens=False, mapped=False
-        ),
-        "canonical_isomeric_smiles": mol.to_smiles(
-            isomeric=True, explicit_hydrogens=False, mapped=False
-        ),
-        "canonical_explicit_hydrogen_smiles": mol.to_smiles(
-            isomeric=False, explicit_hydrogens=True, mapped=False
-        ),
+        "canonical_smiles": mol.to_smiles(isomeric=False, explicit_hydrogens=False, mapped=False),
+        "canonical_isomeric_smiles": mol.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False),
+        "canonical_explicit_hydrogen_smiles": mol.to_smiles(isomeric=False, explicit_hydrogens=True, mapped=False),
         "canonical_isomeric_explicit_hydrogen_smiles": mol.to_smiles(
-            isomeric=True, explicit_hydrogens=True, mapped=False
+            isomeric=True,
+            explicit_hydrogens=True,
+            mapped=False,
         ),
         "canonical_isomeric_explicit_hydrogen_mapped_smiles": mol.to_smiles(
-            isomeric=True, explicit_hydrogens=True, mapped=True
+            isomeric=True,
+            explicit_hydrogens=True,
+            mapped=True,
         ),
         "molecular_formula": mol.hill_formula,
         "standard_inchi": mol.to_inchi(fixed_hydrogens=False),
@@ -55,9 +53,7 @@ def test_attributes_from_openff_multi_component():
     """
     Make sure the unique inchi keys are updated correctly.
     """
-    mol = Molecule.from_smiles(
-        "CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5.CS(=O)(=O)O"
-    )
+    mol = Molecule.from_smiles("CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5.CS(=O)(=O)O")
 
     attributes = MoleculeAttributes.from_openff_molecule(mol)
     assert len(attributes.unique_fixed_hydrogen_inchi_keys) == 2
@@ -75,7 +71,7 @@ def test_attributes_to_openff_molecule():
     isomorphic, atom_map = Molecule.are_isomorphic(mol, mol2, return_atom_map=True)
     assert isomorphic is True
     # make sure the molecules are in the same order
-    assert atom_map == dict((i, i) for i in range(mol.n_atoms))
+    assert atom_map == {i: i for i in range(mol.n_atoms)}
 
 
 @pytest.mark.parametrize(

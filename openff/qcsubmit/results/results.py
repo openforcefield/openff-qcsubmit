@@ -9,17 +9,12 @@ import abc
 import logging
 import warnings
 from collections import defaultdict
+from collections.abc import Iterable
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Type,
+    Literal,
     TypeVar,
-    Union,
 )
 
 import numpy
@@ -36,7 +31,6 @@ from qcportal.singlepoint import (
     SinglepointRecord,
 )
 from qcportal.torsiondrive import TorsiondriveDataset, TorsiondriveRecord
-from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import BaseModel, Field, validator
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
@@ -89,13 +83,13 @@ class _BaseResultCollection(BaseModel, abc.ABC):
     QCFractal which are not necessarily stored in the same datasets.
     """
 
-    entries: Dict[str, List[_BaseResult]] = Field(
+    entries: dict[str, list[_BaseResult]] = Field(
         ...,
         description="The entries stored in this collection in a dictionary of the form "
         "``collection.entries['qcfractal_address'] = [record_1, ..., record_N]``.",
     )
 
-    provenance: Dict[str, Any] = Field(
+    provenance: dict[str, Any] = Field(
         {},
         description="A dictionary which can contain provenance information about "
         "how and why this collection was curated.",
@@ -105,9 +99,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
     def _validate_entries(cls, values):
         for client_address, entries in values.items():
             record_ids = {entry.record_id for entry in entries}
-            assert len(entries) == len(
-                record_ids
-            ), f"duplicate entries were found for {client_address}"
+            assert len(entries) == len(record_ids), f"duplicate entries were found for {client_address}"
 
         return values
 
@@ -119,15 +111,13 @@ class _BaseResultCollection(BaseModel, abc.ABC):
     @property
     def n_molecules(self) -> int:
         """Returns the number of unique molecules referenced by this collection."""
-        return len(
-            {entry.inchi_key for entries in self.entries.values() for entry in entries}
-        )
+        return len({entry.inchi_key for entries in self.entries.values() for entry in entries})
 
     @classmethod
     @abc.abstractmethod
     def from_datasets(
         cls: T,
-        datasets: Union[QCPDataset, Iterable[QCPDataset]],
+        datasets: QCPDataset | Iterable[QCPDataset],
         spec_name: str = "default",
     ) -> T:
         """Retrieve the COMPLETE record ids referenced by the specified datasets.
@@ -148,7 +138,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
     def from_server(
         cls: T,
         client: qcportal.PortalClient,
-        datasets: Union[str, Iterable[str]],
+        datasets: str | Iterable[str],
         spec_name: str = "default",
     ) -> T:
         """Retrieve (and deduplicate) the COMPLETE record ids referenced by the
@@ -169,15 +159,11 @@ class _BaseResultCollection(BaseModel, abc.ABC):
         raise NotImplementedError()
 
     @staticmethod
-    def _validate_record_types(
-        records: List[SinglepointRecord], expected_type: Type[BaseRecord]
-    ):
+    def _validate_record_types(records: list[SinglepointRecord], expected_type: type[BaseRecord]):
         """A helper method which raises a ``RecordTypeError`` if all records in the list
         are not of the specified type."""
 
-        incorrect_types = [
-            record for record in records if not isinstance(record, expected_type)
-        ]
+        incorrect_types = [record for record in records if not isinstance(record, expected_type)]
 
         if len(incorrect_types) > 0:
             incorrect_types_dict = defaultdict(set)
@@ -188,17 +174,17 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             raise RecordTypeError(
                 f"The collection contained a records which were of the wrong type. "
                 f"This collection should only store {expected_type.__name__} records."
-                f"{dict(**incorrect_types_dict)}"
+                f"{dict(**incorrect_types_dict)}",
             )
 
     @abc.abstractmethod
-    def to_records(self) -> List[Tuple[BaseRecord, Molecule]]:
+    def to_records(self) -> list[tuple[BaseRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
         """
         raise NotImplementedError()
 
-    def filter(self, *filters: "ResultFilter"):
+    def filter(self, *filters: ResultFilter):
         """Filter this collection by applying a set of filters sequentially, returning
         a new collection containing only the retained entries.
 
@@ -256,7 +242,7 @@ class _BaseResultCollection(BaseModel, abc.ABC):
                 entry.molecule.to_smiles(isomeric=False, mapped=False): entry.molecule
                 for entries in self.entries.values()
                 for entry in entries
-            }.values()
+            }.values(),
         )
 
         return smirnoff_coverage(unique_molecules, force_field, verbose)
@@ -277,7 +263,7 @@ class BasicResultCollection(_BaseResultCollection):
 
     type: Literal["BasicResultCollection"] = "BasicResultCollection"
 
-    entries: Dict[str, List[BasicResult]] = Field(
+    entries: dict[str, list[BasicResult]] = Field(
         ...,
         description="The entries stored in this collection in a dictionary of the form "
         "``collection.entries['qcfractal_address'] = [record_1, ..., record_N]``.",
@@ -286,16 +272,14 @@ class BasicResultCollection(_BaseResultCollection):
     @classmethod
     def from_datasets(
         cls,
-        datasets: Union[SinglepointDataset, Iterable[SinglepointDataset]],
+        datasets: SinglepointDataset | Iterable[SinglepointDataset],
         spec_name: str = "default",
     ) -> BasicResultCollection:
         if isinstance(datasets, QCPDataset):
             datasets = [datasets]
 
         if not all(isinstance(dataset, SinglepointDataset) for dataset in datasets):
-            raise TypeError(
-                "A ``BasicResultCollection`` can only be created from ``SinglepointDataset`` objects."
-            )
+            raise TypeError("A ``BasicResultCollection`` can only be created from ``SinglepointDataset`` objects.")
 
         result_records = defaultdict(dict)
 
@@ -309,28 +293,21 @@ class BasicResultCollection(_BaseResultCollection):
             dataset.fetch_entries()
 
             if spec_name not in dataset.specifications:
-                raise KeyError(
-                    f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification"
-                )
+                raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
 
             for entry_name, spec_name, record in dataset.iterate_records(
-                specification_names=spec_name, status=RecordStatusEnum.complete
+                specification_names=spec_name,
+                status=RecordStatusEnum.complete,
             ):
                 total_entries += 1
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.molecule
 
-                cmiles = (
-                    molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
-                )
+                cmiles = molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
                 if not cmiles:
-                    cmiles = molecule.extras.get(
-                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                    )
+                    cmiles = molecule.extras.get("canonical_isomeric_explicit_hydrogen_mapped_smiles")
                 if not cmiles:
-                    cmiles = entry.attributes.get(
-                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                    )
+                    cmiles = entry.attributes.get("canonical_isomeric_explicit_hydrogen_mapped_smiles")
                 if not cmiles:
                     logger.info(f"MISSING CMILES! entry = {entry_name}")
                     missing_cmiles += 1
@@ -342,14 +319,10 @@ class BasicResultCollection(_BaseResultCollection):
                 # may be some TK specific edge cases we don't want
                 # exceptions for such as OE and nitrogen stereochemistry.
                 if inchi_key is None:
-                    tmp_mol = Molecule.from_mapped_smiles(
-                        cmiles, allow_undefined_stereo=True
-                    )
+                    tmp_mol = Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
                     inchi_key = tmp_mol.to_inchikey(fixed_hydrogens=True)
 
-                br = BasicResult(
-                    record_id=record.id, cmiles=cmiles, inchi_key=inchi_key
-                )
+                br = BasicResult(record_id=record.id, cmiles=cmiles, inchi_key=inchi_key)
                 result_records[client.address][record.id] = br
 
         if missing_cmiles > 0:
@@ -359,21 +332,16 @@ class BasicResultCollection(_BaseResultCollection):
                 "optimization datasets (often with the same name as the "
                 "singlepoint dataset). "
                 "See OptimizationResultCollection.to_basic_result_collection "
-                "for a way to convert to a BasicResultCollection."
+                "for a way to convert to a BasicResultCollection.",
             )
 
-        return cls(
-            entries={
-                address: [*records.values()]
-                for address, records in result_records.items()
-            }
-        )
+        return cls(entries={address: [*records.values()] for address, records in result_records.items()})
 
     @classmethod
     def from_server(
         cls,
         client: qcportal.PortalClient,
-        datasets: Union[str, Iterable[str]],
+        datasets: str | Iterable[str],
         spec_name: str = "default",
     ) -> BasicResultCollection:
         if isinstance(datasets, str):
@@ -381,14 +349,11 @@ class BasicResultCollection(_BaseResultCollection):
 
         # noinspection PyTypeChecker
         return cls.from_datasets(
-            [
-                client.get_dataset("singlepoint", dataset_name)
-                for dataset_name in datasets
-            ],
+            [client.get_dataset("singlepoint", dataset_name) for dataset_name in datasets],
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[SinglepointRecord, Molecule]]:
+    def to_records(self) -> list[tuple[SinglepointRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 
@@ -407,9 +372,7 @@ class BasicResultCollection(_BaseResultCollection):
 
                 # OpenFF molecule
                 try:
-                    molecule: Molecule = Molecule.from_mapped_smiles(
-                        record.cmiles, allow_undefined_stereo=True
-                    )
+                    molecule: Molecule = Molecule.from_mapped_smiles(record.cmiles, allow_undefined_stereo=True)
                 except ValueError:
                     warnings.warn(
                         f"Skipping record with ID {rec.id} because it has an invalid CMILES {record.cmiles}",
@@ -417,9 +380,7 @@ class BasicResultCollection(_BaseResultCollection):
                     )
                     continue
 
-                molecule.add_conformer(
-                    numpy.array(rec.molecule.geometry, float).reshape(-1, 3) * unit.bohr
-                )
+                molecule.add_conformer(numpy.array(rec.molecule.geometry, float).reshape(-1, 3) * unit.bohr)
 
                 records_and_molecules.append((rec, molecule))
 
@@ -439,7 +400,7 @@ class OptimizationResultCollection(_BaseResultCollection):
 
     type: Literal["OptimizationResultCollection"] = "OptimizationResultCollection"
 
-    entries: Dict[str, List[OptimizationResult]] = Field(
+    entries: dict[str, list[OptimizationResult]] = Field(
         ...,
         description="The entries stored in this collection in a dictionary of the form "
         "``collection.entries['qcfractal_address'] = [record_1, ..., record_N]``.",
@@ -448,16 +409,15 @@ class OptimizationResultCollection(_BaseResultCollection):
     @classmethod
     def from_datasets(
         cls,
-        datasets: Union[OptimizationDataset, Iterable[OptimizationDataset]],
+        datasets: OptimizationDataset | Iterable[OptimizationDataset],
         spec_name: str = "default",
-    ) -> "OptimizationResultCollection":
+    ) -> OptimizationResultCollection:
         if isinstance(datasets, QCPDataset):
             datasets = [datasets]
 
         if not all(isinstance(dataset, OptimizationDataset) for dataset in datasets):
             raise TypeError(
-                "A ``OptimizationResultCollection`` can only be created from "
-                "``OptimizationDataset`` objects."
+                "A ``OptimizationResultCollection`` can only be created from " "``OptimizationDataset`` objects.",
             )
 
         result_records = defaultdict(dict)
@@ -470,27 +430,20 @@ class OptimizationResultCollection(_BaseResultCollection):
             dataset.fetch_entries()
 
             if spec_name not in dataset.specifications:
-                raise KeyError(
-                    f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification"
-                )
+                raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
 
             for entry_name, spec_name, record in dataset.iterate_records(
-                specification_names=spec_name, status=RecordStatusEnum.complete
+                specification_names=spec_name,
+                status=RecordStatusEnum.complete,
             ):
                 entry = dataset.get_entry(entry_name)
                 molecule = entry.initial_molecule
 
-                cmiles = (
-                    molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
-                )
+                cmiles = molecule.identifiers.canonical_isomeric_explicit_hydrogen_mapped_smiles
                 if not cmiles:
-                    cmiles = molecule.extras.get(
-                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                    )
+                    cmiles = molecule.extras.get("canonical_isomeric_explicit_hydrogen_mapped_smiles")
                 if not cmiles:
-                    cmiles = entry.attributes.get(
-                        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                    )
+                    cmiles = entry.attributes.get("canonical_isomeric_explicit_hydrogen_mapped_smiles")
                 if not cmiles:
                     logger.info(f"MISSING CMILES! entry = {entry_name}")
                     continue
@@ -504,28 +457,22 @@ class OptimizationResultCollection(_BaseResultCollection):
                         )
                     except ValueError:
                         warnings.warn(
-                            f"Skipping entry {entry.name} with invalid CMILES {entry.attributes['canonical_isomeric_explicit_hydrogen_mapped_smiles']}",
+                            f"Skipping entry {entry.name} with invalid CMILES "
+                            f"{entry.attributes['canonical_isomeric_explicit_hydrogen_mapped_smiles']}",
                             UserWarning,
                         )
                         continue
                     inchi_key = mol.to_inchikey(fixed_hydrogens=True)
-                opt_rec = OptimizationResult(
-                    record_id=record.id, cmiles=cmiles, inchi_key=inchi_key
-                )
+                opt_rec = OptimizationResult(record_id=record.id, cmiles=cmiles, inchi_key=inchi_key)
                 result_records[client.address][record.id] = opt_rec
 
-        return cls(
-            entries={
-                address: [*entries.values()]
-                for address, entries in result_records.items()
-            }
-        )
+        return cls(entries={address: [*entries.values()] for address, entries in result_records.items()})
 
     @classmethod
     def from_server(
         cls,
         client: qcportal.PortalClient,
-        datasets: Union[str, Iterable[str]],
+        datasets: str | Iterable[str],
         spec_name: str = "default",
     ) -> OptimizationResultCollection:
         if isinstance(datasets, str):
@@ -533,14 +480,11 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         # noinspection PyTypeChecker
         return cls.from_datasets(
-            [
-                client.get_dataset("Optimization", dataset_name)
-                for dataset_name in datasets
-            ],
+            [client.get_dataset("Optimization", dataset_name) for dataset_name in datasets],
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[OptimizationRecord, Molecule]]:
+    def to_records(self) -> list[tuple[OptimizationRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 
@@ -556,9 +500,7 @@ class OptimizationResultCollection(_BaseResultCollection):
 
             rec_ids = [result.record_id for result in results]
             # Do one big request to save time
-            opt_records = client.get_optimizations(
-                rec_ids, include=["initial_molecule", "final_molecule"]
-            )
+            opt_records = client.get_optimizations(rec_ids, include=["initial_molecule", "final_molecule"])
             # Sort out which records from the request line up with which results
             opt_rec_id_to_result = dict()
             for result in results:
@@ -568,14 +510,10 @@ class OptimizationResultCollection(_BaseResultCollection):
                         opt_rec_id_to_result[result.record_id] = result
                         opt_record_found = True
                         break
-                assert (
-                    opt_record_found
-                ), "didn't find a corresponding record for a result"
+                assert opt_record_found, "didn't find a corresponding record for a result"
 
                 try:
-                    molecule: Molecule = Molecule.from_mapped_smiles(
-                        result.cmiles, allow_undefined_stereo=True
-                    )
+                    molecule: Molecule = Molecule.from_mapped_smiles(result.cmiles, allow_undefined_stereo=True)
                 except ValueError:
                     warnings.warn(
                         f"Skipping record with ID {opt_record.id} because it has an invalid CMILES {result.cmiles}",
@@ -583,10 +521,7 @@ class OptimizationResultCollection(_BaseResultCollection):
                     )
                     continue
                 molecule.add_conformer(
-                    numpy.array(opt_record.final_molecule.geometry, float).reshape(
-                        -1, 3
-                    )
-                    * unit.bohr
+                    numpy.array(opt_record.final_molecule.geometry, float).reshape(-1, 3) * unit.bohr,
                 )
 
                 records_and_molecules.append((opt_record, molecule))
@@ -610,9 +545,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         result_records = defaultdict(list)
 
         for record, molecule in records_and_molecules:
-            result_records[record._client.address].append(
-                (record.final_molecule_id, molecule)
-            )
+            result_records[record._client.address].append((record.final_molecule_id, molecule))
 
         result_entries = defaultdict(list)
 
@@ -623,25 +556,21 @@ class OptimizationResultCollection(_BaseResultCollection):
             mol_ids = [i[0] for i in result_records[client_address]]
             sp_records = client.query_singlepoints(molecule_id=mol_ids, driver=driver)
             # Then sort out which return value from the query lines up with which record
-            mol_id_2_rec_id = dict([(spr.molecule_id, spr.id) for spr in sp_records])
+            mol_id_2_rec_id = {spr.molecule_id: spr.id for spr in sp_records}
 
             for molecule_id, molecule in result_records[client_address]:
                 try:
                     record_id = mol_id_2_rec_id[molecule_id]
                 except KeyError:
-                    warnings.warn(
-                        f"No singlepoint record found for {driver=} and {molecule_id=}. Skipping."
-                    )
+                    warnings.warn(f"No singlepoint record found for {driver=} and {molecule_id=}. Skipping.")
                     continue
 
                 result_entries[client_address].append(
                     BasicResult(
                         record_id=record_id,
-                        cmiles=molecule.to_smiles(
-                            isomeric=True, explicit_hydrogens=True, mapped=True
-                        ),
+                        cmiles=molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True),
                         inchi_key=molecule.to_inchikey(fixed_hydrogens=True),
-                    )
+                    ),
                 )
 
         return BasicResultCollection(entries=result_entries)
@@ -652,8 +581,8 @@ class OptimizationResultCollection(_BaseResultCollection):
         description: str,
         tagline: str,
         driver: SinglepointDriver,
-        metadata: Optional[Metadata] = None,
-        qc_specifications: Optional[List[QCSpec]] = None,
+        metadata: Metadata | None = None,
+        qc_specifications: list[QCSpec] | None = None,
     ) -> BasicDataset:
         """Create a basic dataset from the results of the current dataset.
 
@@ -674,14 +603,12 @@ class OptimizationResultCollection(_BaseResultCollection):
             The created basic dataset.
         """
 
-        records_by_cmiles: Dict[str, List[Tuple[OptimizationRecord, Molecule]]] = (
-            defaultdict(list)
-        )
+        records_by_cmiles: dict[str, list[tuple[OptimizationRecord, Molecule]]] = defaultdict(list)
 
         for record, molecule in self.to_records():
-            records_by_cmiles[
-                molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)
-            ].append((record, molecule))
+            records_by_cmiles[molecule.to_smiles(isomeric=True, explicit_hydrogens=True, mapped=True)].append(
+                (record, molecule),
+            )
 
         dataset = BasicDataset(
             dataset_name=dataset_name,
@@ -692,10 +619,7 @@ class OptimizationResultCollection(_BaseResultCollection):
             qc_specifications=(
                 {"default": QCSpec()}
                 if qc_specifications is None
-                else {
-                    qc_specification.spec_name: qc_specification
-                    for qc_specification in qc_specifications
-                }
+                else {qc_specification.spec_name: qc_specification for qc_specification in qc_specifications}
             ),
         )
 
@@ -704,9 +628,7 @@ class OptimizationResultCollection(_BaseResultCollection):
             base_molecule._conformers = [m.conformers[0] for _, m in records]
 
             dataset.add_molecule(
-                index=base_molecule.to_smiles(
-                    isomeric=True, explicit_hydrogens=False, mapped=False
-                ),
+                index=base_molecule.to_smiles(isomeric=True, explicit_hydrogens=False, mapped=False),
                 molecule=None,
                 initial_molecules=[rec.final_molecule for rec, _ in records],
                 attributes=MoleculeAttributes.from_openff_molecule(base_molecule),
@@ -730,7 +652,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
 
     type: Literal["TorsionDriveResultCollection"] = "TorsionDriveResultCollection"
 
-    entries: Dict[str, List[TorsionDriveResult]] = Field(
+    entries: dict[str, list[TorsionDriveResult]] = Field(
         ...,
         description="The entries stored in this collection in a dictionary of the form "
         "``collection.entries['qcfractal_address'] = [record_1, ..., record_N]``.",
@@ -739,16 +661,15 @@ class TorsionDriveResultCollection(_BaseResultCollection):
     @classmethod
     def from_datasets(
         cls,
-        datasets: Union[TorsiondriveDataset, Iterable[TorsiondriveDataset]],
+        datasets: TorsiondriveDataset | Iterable[TorsiondriveDataset],
         spec_name: str = "default",
-    ) -> "TorsionDriveResultCollection":
+    ) -> TorsionDriveResultCollection:
         if isinstance(datasets, QCPDataset):
             datasets = [datasets]
 
         if not all(isinstance(dataset, TorsiondriveDataset) for dataset in datasets):
             raise TypeError(
-                "A ``TorsionDriveResultCollection`` can only be created from "
-                "``TorsiondriveDataset`` objects."
+                "A ``TorsionDriveResultCollection`` can only be created from " "``TorsiondriveDataset`` objects.",
             )
 
         result_records = defaultdict(dict)
@@ -761,58 +682,43 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             dataset.fetch_entries()
 
             if spec_name not in dataset.specifications:
-                raise KeyError(
-                    f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification"
-                )
+                raise KeyError(f"The {dataset.name} dataset does not contain a '{spec_name}' compute specification")
 
             for entry_name, spec_name, record in dataset.iterate_records(
-                specification_names=spec_name, status=RecordStatusEnum.complete
+                specification_names=spec_name,
+                status=RecordStatusEnum.complete,
             ):
                 entry = dataset.get_entry(entry_name)
 
-                cmiles = entry.attributes[
-                    "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-                ]
+                cmiles = entry.attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"]
                 inchi_key = entry.attributes.get("fixed_hydrogen_inchi_key")
 
                 if inchi_key is None:
-                    tmp_mol = Molecule.from_mapped_smiles(
-                        cmiles, allow_undefined_stereo=True
-                    )
+                    tmp_mol = Molecule.from_mapped_smiles(cmiles, allow_undefined_stereo=True)
                     inchi_key = tmp_mol.to_inchikey(fixed_hydrogens=True)
 
-                td_rec = TorsionDriveResult(
-                    record_id=record.id, cmiles=cmiles, inchi_key=inchi_key
-                )
+                td_rec = TorsionDriveResult(record_id=record.id, cmiles=cmiles, inchi_key=inchi_key)
                 result_records[client.address][record.id] = td_rec
 
-        return cls(
-            entries={
-                address: [*entries.values()]
-                for address, entries in result_records.items()
-            }
-        )
+        return cls(entries={address: [*entries.values()] for address, entries in result_records.items()})
 
     @classmethod
     def from_server(
         cls,
         client: qcportal.PortalClient,
-        datasets: Union[str, Iterable[str]],
+        datasets: str | Iterable[str],
         spec_name: str = "default",
-    ) -> "TorsionDriveResultCollection":
+    ) -> TorsionDriveResultCollection:
         if isinstance(datasets, str):
             datasets = [datasets]
 
         # noinspection PyTypeChecker
         return cls.from_datasets(
-            [
-                client.get_dataset("Torsiondrive", dataset_name)
-                for dataset_name in datasets
-            ],
+            [client.get_dataset("Torsiondrive", dataset_name) for dataset_name in datasets],
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[TorsiondriveRecord, Molecule]]:
+    def to_records(self) -> list[tuple[TorsiondriveRecord, Molecule]]:
         """Returns the native QCPortal record objects for each of the records referenced
         in this collection along with a corresponding OpenFF molecule object.
 
@@ -829,15 +735,11 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             # retrieve all torsiondrives at once, including their
             # minimum_optimizations
             record_ids = [r.record_id for r in records]
-            torsion_drive_records = client.get_torsiondrives(
-                record_ids, include=["minimum_optimizations"]
-            )
+            torsion_drive_records = client.get_torsiondrives(record_ids, include=["minimum_optimizations"])
             for record, rec in zip(records, torsion_drive_records):
                 # OpenFF molecule
                 try:
-                    molecule: Molecule = Molecule.from_mapped_smiles(
-                        record.cmiles, allow_undefined_stereo=True
-                    )
+                    molecule: Molecule = Molecule.from_mapped_smiles(record.cmiles, allow_undefined_stereo=True)
                 except ValueError:
                     warnings.warn(
                         f"Skipping record with ID {rec.id} because it has an invalid CMILES {record.cmiles}",
@@ -852,9 +754,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                 opt_final_molecule_ids = [r.final_molecule_id for r in opt_records]
                 opt_final_molecules = client.get_molecules(opt_final_molecule_ids)
                 # Map of torsion drive keys to minimum optimization
-                qc_grid_molecules = list(
-                    zip(rec.minimum_optimizations.keys(), opt_final_molecules)
-                )
+                qc_grid_molecules = list(zip(rec.minimum_optimizations.keys(), opt_final_molecules))
 
                 # order the ids so the conformers follow the torsiondrive scan range
                 # x[0] is the torsiondrive key, ie Tuple[float]
@@ -877,7 +777,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         dataset_name: str,
         description: str,
         tagline: str,
-        metadata: Optional[Metadata] = None,
+        metadata: Metadata | None = None,
     ) -> OptimizationDataset:
         """Create an optimization dataset from the results of the current torsion drive
         dataset. This will result in many constrained optimizations for each molecule.
@@ -897,9 +797,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         """
         raise NotImplementedError()
 
-    def smirnoff_coverage(
-        self, force_field: ForceField, verbose: bool = False, driven_only: bool = False
-    ):
+    def smirnoff_coverage(self, force_field: ForceField, verbose: bool = False, driven_only: bool = False):
         """Returns a summary of how many unique molecules within this collection
         would be assigned each of the parameters in a force field.
 
@@ -926,15 +824,12 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         """
 
         if not driven_only:
-            return super(TorsionDriveResultCollection, self).smirnoff_coverage(
-                force_field, verbose
-            )
+            return super().smirnoff_coverage(force_field, verbose)
 
         records_and_molecules = self.to_records()
 
         molecules = [
-            (molecule, tuple(record.specification.keywords.dihedrals[0]))
-            for record, molecule in records_and_molecules
+            (molecule, tuple(record.specification.keywords.dihedrals[0])) for record, molecule in records_and_molecules
         ]
 
         return smirnoff_torsion_coverage(molecules, force_field, verbose)

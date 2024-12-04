@@ -2,12 +2,11 @@
 Components to expand stereochemistry and tautomeric states of molecules.
 """
 
-from typing import List, Optional, Tuple
+from typing import Literal
 
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils import ToolkitRegistry
 from qcelemental.util import which_import
-from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import Field
 from openff.qcsubmit.common_structures import ComponentProperties
@@ -36,9 +35,7 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
     type: Literal["EnumerateTautomers"] = "EnumerateTautomers"
     # custom settings for the class
-    max_tautomers: int = Field(
-        20, description="The maximum number of tautomers that should be generated."
-    )
+    max_tautomers: int = Field(20, description="The maximum number of tautomers that should be generated.")
 
     @classmethod
     def description(cls) -> str:
@@ -52,13 +49,12 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
     def properties(cls) -> ComponentProperties:
         return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
-    def _apply(
-        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
-    ) -> ComponentResult:
+    def _apply(self, molecules: list[Molecule], toolkit_registry: ToolkitRegistry) -> ComponentResult:
         """
         Enumerate tautomers of the input molecule.
 
-        The input molecules tautomers are enumerated using the desired backend toolkit and are returned along with the input molecule.
+        The input molecules tautomers are enumerated using the desired backend toolkit and are returned along with the
+        input molecule.
 
          Parameters:
             molecules: The list of molecules the component should be applied on.
@@ -74,7 +70,8 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
         for molecule in molecules:
             try:
                 tautomers = molecule.enumerate_tautomers(
-                    max_states=self.max_tautomers, toolkit_registry=toolkit_registry
+                    max_states=self.max_tautomers,
+                    toolkit_registry=toolkit_registry,
                 )
                 for tautomer in tautomers:
                     result.add_molecule(tautomer)
@@ -89,26 +86,32 @@ class EnumerateTautomers(ToolkitValidator, CustomWorkflowComponent):
 
 class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     """
-    Enumerate the stereo centers and bonds of a molecule using the backend toolkits through the OFFTK, only well defined
-    molecules are returned by this component, this is check via a OFFTK round trip.
+    Enumerate the stereo centers and bonds of a molecule using the backend toolkits through the OFFTK, only well
+    defined molecules are returned by this component, this is check via a OFFTK round trip.
     """
 
     type: Literal["EnumerateStereoisomers"] = "EnumerateStereoisomers"
     undefined_only: bool = Field(
         False,
-        description="If we should only enumerate parts of the molecule with undefined stereochemistry or all stereochemistry.",
+        description=(
+            "If we should only enumerate parts of the molecule with undefined stereochemistry or all stereochemistry.",
+        ),
     )
-    max_isomers: int = Field(
-        20, description="The maximum number of stereoisomers to be generated."
-    )
+    max_isomers: int = Field(20, description="The maximum number of stereoisomers to be generated.")
     rationalise: bool = Field(
         True,
-        description="If we should check that the resulting molecules are physically possible by attempting to generate conformers for them.",
+        description=(
+            "If we should check that the resulting molecules are physically possible by attempting to generate "
+            "conformers for them.",
+        ),
     )
 
     @classmethod
     def description(cls) -> str:
-        return "Enumerate the stereo centers and bonds of the molecule, returing the input molecule if valid and any new molecules."
+        return (
+            "Enumerate the stereo centers and bonds of the molecule, returing the input molecule if valid and any new "
+            "molecules."
+        )
 
     @classmethod
     def fail_reason(cls) -> str:
@@ -118,9 +121,7 @@ class EnumerateStereoisomers(ToolkitValidator, CustomWorkflowComponent):
     def properties(cls) -> ComponentProperties:
         return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
-    def _apply(
-        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
-    ) -> ComponentResult:
+    def _apply(self, molecules: list[Molecule], toolkit_registry: ToolkitRegistry) -> ComponentResult:
         """
         Enumerate stereo centers and bonds of the input molecule
 
@@ -171,9 +172,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     """
 
     type: Literal["EnumerateProtomers"] = "EnumerateProtomers"
-    max_states: int = Field(
-        10, description="The maximum number of states that should be generated."
-    )
+    max_states: int = Field(10, description="The maximum number of states that should be generated.")
 
     @classmethod
     def is_available(cls) -> bool:
@@ -199,9 +198,7 @@ class EnumerateProtomers(ToolkitValidator, CustomWorkflowComponent):
     def properties(cls) -> ComponentProperties:
         return ComponentProperties(process_parallel=True, produces_duplicates=True)
 
-    def _apply(
-        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
-    ) -> ComponentResult:
+    def _apply(self, molecules: list[Molecule], toolkit_registry: ToolkitRegistry) -> ComponentResult:
         """
         Enumerate the protonation states of the molecule.
 
@@ -244,17 +241,17 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
 
     type: Literal["ScanEnumerator"] = "ScanEnumerator"
 
-    torsion_scans: List[Scan1D] = Field(
+    torsion_scans: list[Scan1D] = Field(
         [],
         description="A list of scan objects which describes the scan range and scan increment"
         "that should be used with the associated smarts pattern.",
     )
-    double_torsion_scans: List[Scan2D] = Field(
+    double_torsion_scans: list[Scan2D] = Field(
         [],
         description="A list of double scan objects which describes the scan ranges and scan increments,"
         "that should be used with each of the smarts patterns.",
     )
-    improper_scans: List[ImproperScan] = Field(
+    improper_scans: list[ImproperScan] = Field(
         [],
         description="A list of improper scan objects which describes the scan range and scan increment"
         "that should be used with the smarts pattern.",
@@ -275,7 +272,7 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
     def add_torsion_scan(
         self,
         smarts: str,
-        scan_rage: Optional[Tuple[int, int]] = None,
+        scan_rage: tuple[int, int] | None = None,
         scan_increment: int = 15,
     ) -> None:
         """
@@ -289,19 +286,15 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
             scan_increment:
                 The value in degrees between each grid point in the scan.
         """
-        self.torsion_scans.append(
-            Scan1D(
-                smarts1=smarts, scan_range1=scan_rage, scan_increment=[scan_increment]
-            )
-        )
+        self.torsion_scans.append(Scan1D(smarts1=smarts, scan_range1=scan_rage, scan_increment=[scan_increment]))
 
     def add_double_torsion(
         self,
         smarts1: str,
         smarts2: str,
-        scan_range1: Optional[Tuple[int, int]] = None,
-        scan_range2: Optional[Tuple[int, int]] = None,
-        scan_increments: List[int] = (15, 15),
+        scan_range1: tuple[int, int] | None = None,
+        scan_range2: tuple[int, int] | None = None,
+        scan_increments: list[int] = (15, 15),
     ) -> None:
         """
         Add a targeted 2D torsion scan to the scan enumerator.
@@ -325,14 +318,14 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
                 scan_range1=scan_range1,
                 scan_range2=scan_range2,
                 scan_increment=scan_increments,
-            )
+            ),
         )
 
     def add_improper_torsion(
         self,
         smarts: str,
         central_smarts: str,
-        scan_range: Optional[Tuple[int, int]] = None,
+        scan_range: tuple[int, int] | None = None,
         scan_increment: int = 15,
     ) -> None:
         """
@@ -354,25 +347,22 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
                 central_smarts=central_smarts,
                 scan_range=scan_range,
                 scan_increment=[scan_increment],
-            )
+            ),
         )
 
     def _get_unique_torsions(
-        self, matches: List[Tuple[int, int, int, int]], symmetry_classes: List[int]
-    ) -> List[Tuple[int, int, int, int]]:
+        self,
+        matches: list[tuple[int, int, int, int]],
+        symmetry_classes: list[int],
+    ) -> list[tuple[int, int, int, int]]:
         """
         Use the symmetry classes to condense the matches into unique torsions in the molecule by symmetry.
         """
-        torsions_by_symmetry = {
-            tuple(sorted(symmetry_classes[idx] for idx in match[1:3])): match
-            for match in matches
-        }
+        torsions_by_symmetry = {tuple(sorted(symmetry_classes[idx] for idx in match[1:3])): match for match in matches}
         unique_torsions = [*torsions_by_symmetry.values()]
         return unique_torsions
 
-    def _apply(
-        self, molecules: List[Molecule], toolkit_registry: ToolkitRegistry
-    ) -> ComponentResult:
+    def _apply(self, molecules: list[Molecule], toolkit_registry: ToolkitRegistry) -> ComponentResult:
         """
         Tag any dihedrals which match the defined set of targets in the enumerator.
         """
@@ -382,15 +372,9 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
         for molecule in molecules:
             symmetry_classes = get_symmetry_classes(molecule)
             molecule.properties["dihedrals"] = TorsionIndexer()
-            self._tag_torsions(
-                molecule, symmetry_classes, toolkit_registry=toolkit_registry
-            )
-            self._tag_double_torsions(
-                molecule, symmetry_classes, toolkit_registry=toolkit_registry
-            )
-            self._tag_improper_torsions(
-                molecule, symmetry_classes, toolkit_registry=toolkit_registry
-            )
+            self._tag_torsions(molecule, symmetry_classes, toolkit_registry=toolkit_registry)
+            self._tag_double_torsions(molecule, symmetry_classes, toolkit_registry=toolkit_registry)
+            self._tag_improper_torsions(molecule, symmetry_classes, toolkit_registry=toolkit_registry)
 
             indexer = molecule.properties["dihedrals"]
             if len(indexer.get_dihedrals) == 0:
@@ -403,7 +387,7 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
     def _tag_torsions(
         self,
         molecule: Molecule,
-        symmetry_classes: List[int],
+        symmetry_classes: list[int],
         toolkit_registry: ToolkitRegistry,
     ) -> None:
         """
@@ -413,12 +397,8 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
         indexer: TorsionIndexer = molecule.properties["dihedrals"]
 
         for torsion in self.torsion_scans:
-            matches = molecule.chemical_environment_matches(
-                query=torsion.smarts1, toolkit_registry=toolkit_registry
-            )
-            unique_torsions = self._get_unique_torsions(
-                matches=matches, symmetry_classes=symmetry_classes
-            )
+            matches = molecule.chemical_environment_matches(query=torsion.smarts1, toolkit_registry=toolkit_registry)
+            unique_torsions = self._get_unique_torsions(matches=matches, symmetry_classes=symmetry_classes)
             for tagged_torsion in unique_torsions:
                 indexer.add_torsion(
                     torsion=tagged_torsion,
@@ -433,7 +413,7 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
     def _tag_double_torsions(
         self,
         molecule: Molecule,
-        symmetry_classes: List[int],
+        symmetry_classes: list[int],
         toolkit_registry: ToolkitRegistry,
     ) -> None:
         """
@@ -444,20 +424,19 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
 
         for double_torsion in self.double_torsion_scans:
             matches1 = molecule.chemical_environment_matches(
-                query=double_torsion.smarts1, toolkit_registry=toolkit_registry
+                query=double_torsion.smarts1,
+                toolkit_registry=toolkit_registry,
             )
             matches2 = molecule.chemical_environment_matches(
-                query=double_torsion.smarts2, toolkit_registry=toolkit_registry
+                query=double_torsion.smarts2,
+                toolkit_registry=toolkit_registry,
             )
-            unique_torsions1 = self._get_unique_torsions(
-                matches=matches1, symmetry_classes=symmetry_classes
-            )
-            unique_torsions2 = self._get_unique_torsions(
-                matches=matches2, symmetry_classes=symmetry_classes
-            )
+            unique_torsions1 = self._get_unique_torsions(matches=matches1, symmetry_classes=symmetry_classes)
+            unique_torsions2 = self._get_unique_torsions(matches=matches2, symmetry_classes=symmetry_classes)
             for tagged_torsion1 in unique_torsions1:
                 symmetry_group1 = get_symmetry_group(
-                    atom_group=tagged_torsion1[1:3], symmetry_classes=symmetry_classes
+                    atom_group=tagged_torsion1[1:3],
+                    symmetry_classes=symmetry_classes,
                 )
                 for tagged_torsion2 in unique_torsions2:
                     symmetry_group2 = get_symmetry_group(
@@ -477,7 +456,7 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
     def _tag_improper_torsions(
         self,
         molecule: Molecule,
-        symmetry_classes: List[int],
+        symmetry_classes: list[int],
         toolkit_registry: ToolkitRegistry,
     ) -> None:
         """
@@ -487,19 +466,11 @@ class ScanEnumerator(ToolkitValidator, CustomWorkflowComponent):
         indexer: TorsionIndexer = molecule.properties["dihedrals"]
 
         for improper in self.improper_scans:
-            matches = molecule.chemical_environment_matches(
-                query=improper.smarts, toolkit_registry=toolkit_registry
-            )
-            unique_torsions = self._get_unique_torsions(
-                matches=matches, symmetry_classes=symmetry_classes
-            )
-            central_atoms = molecule.chemical_environment_matches(
-                improper.central_smarts
-            )
+            matches = molecule.chemical_environment_matches(query=improper.smarts, toolkit_registry=toolkit_registry)
+            unique_torsions = self._get_unique_torsions(matches=matches, symmetry_classes=symmetry_classes)
+            central_atoms = molecule.chemical_environment_matches(improper.central_smarts)
             for tagged_torsion in unique_torsions:
-                symmetry_group = get_symmetry_group(
-                    atom_group=tagged_torsion, symmetry_classes=symmetry_classes
-                )
+                symmetry_group = get_symmetry_group(atom_group=tagged_torsion, symmetry_classes=symmetry_classes)
                 for atom in central_atoms:
                     if atom[0] in tagged_torsion:
                         indexer.add_improper(
