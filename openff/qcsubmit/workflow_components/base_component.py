@@ -1,5 +1,5 @@
 import abc
-from typing import Literal
+from typing import Dict, Literal
 
 import tqdm
 from openff.toolkit.topology import Molecule
@@ -48,7 +48,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         ...
 
     @classmethod
-    def info(cls) -> dict[str, str]:
+    def info(cls) -> Dict[str, str]:
         """Returns a dictionary of the friendly descriptions of the class."""
         return dict(
             name=cls.__name__,
@@ -167,7 +167,7 @@ class CustomWorkflowComponent(BaseModel, abc.ABC):
         return result
 
     @abc.abstractmethod
-    def provenance(self, toolkit_registry: ToolkitRegistry) -> dict:
+    def provenance(self, toolkit_registry: ToolkitRegistry) -> Dict:
         """
         This function should detail the programs with version information and procedures called during activation
         of the workflow component.
@@ -205,7 +205,7 @@ class ToolkitValidator(BaseModel):
         [ToolkitValidator][qcsubmit.workflow_components.base_component.ToolkitValidator] mixin.
     """
 
-    def provenance(self, toolkit_registry: ToolkitRegistry) -> dict:
+    def provenance(self, toolkit_registry: ToolkitRegistry) -> Dict:
         """
         This component calls the OFFTK to perform the task and logs information on the backend toolkit used.
 

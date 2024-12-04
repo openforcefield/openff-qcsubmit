@@ -1,6 +1,6 @@
 import abc
 import os
-from typing import Literal, TypeVar
+from typing import Literal, Type, TypeVar
 
 import tqdm
 from openff.toolkit import topology as off
@@ -60,7 +60,7 @@ class BaseDatasetFactory(CommonBase, abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def _dataset_type(cls) -> type[BasicDataset]:
+    def _dataset_type(cls) -> Type[BasicDataset]:
         """Get the type of dataset made by this factory."""
         ...
 
@@ -495,7 +495,7 @@ class BasicDatasetFactory(BaseDatasetFactory):
     type: Literal["BasicDatasetFactory"] = "BasicDatasetFactory"
 
     @classmethod
-    def _dataset_type(cls) -> type[BasicDataset]:
+    def _dataset_type(cls) -> Type[BasicDataset]:
         return BasicDataset
 
     def _process_molecule(self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry) -> None:
@@ -536,7 +536,7 @@ class OptimizationDatasetFactory(BasicDatasetFactory):
     )
 
     @classmethod
-    def _dataset_type(cls) -> type[OptimizationDataset]:
+    def _dataset_type(cls) -> Type[OptimizationDataset]:
         return OptimizationDataset
 
     @validator("driver")
@@ -585,7 +585,7 @@ class TorsiondriveDatasetFactory(OptimizationDatasetFactory):
     optimization_program = GeometricProcedure.parse_obj({"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0})
 
     @classmethod
-    def _dataset_type(cls) -> type[TorsiondriveDataset]:
+    def _dataset_type(cls) -> Type[TorsiondriveDataset]:
         return TorsiondriveDataset
 
     def _linear_torsion_filter(self, dataset: T, molecule: off.Molecule, toolkit_registry: ToolkitRegistry) -> None:

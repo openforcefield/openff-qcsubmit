@@ -5,7 +5,7 @@ exclude = ["versioneer.py", "openff/qcsubmit/_version.py"]
 
 [tool.ruff.lint]
 ignore = ["E721","D105","D107","D200","D203","D212", "RUF012"]
-select = ["F", "E", "W", "UP", "RUF", "I"]
+select = ["F", "E", "W", "RUF", "I"]
 
 [tool.ruff.lint.per-file-ignores]
 "openff/qcsubmit/**/__init__.py" = ["F401"]

@@ -13,6 +13,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
+    Dict,
     Literal,
     Optional,
     Union,
@@ -66,7 +67,7 @@ class DatasetConfig(BaseModel):
         arbitrary_types_allowed: bool = True
         allow_mutation: bool = True
         validate_assignment: bool = True
-        json_encoders: dict[str, Any] = {
+        json_encoders: Dict[str, Any] = {
             np.ndarray: lambda v: v.flatten().tolist(),
             Enum: lambda v: v.value,
         }
@@ -81,7 +82,7 @@ class ResultsConfig(BaseModel):
     class Config:
         arbitrary_types_allowed: bool = True
         allow_mutation: bool = False
-        json_encoders: dict[str, Any] = {
+        json_encoders: Dict[str, Any] = {
             np.ndarray: lambda v: v.flatten().tolist(),
             Enum: lambda v: v.value,
         }
@@ -166,7 +167,7 @@ class TDSettings(DatasetConfig):
         "start new optimizations, in unit of a.u. I.e. if energy_upper_limit = 0.05, current global "
         "minimum energy is -9.9 , then a new task starting with energy -9.8 will be skipped.",
     )
-    additional_keywords: dict[str, Any] = Field(
+    additional_keywords: Dict[str, Any] = Field(
         {},
         description="Additional keywords to add to the torsiondrive's optimization runs",
     )
@@ -178,7 +179,7 @@ class _BaseSolvent(ResultsConfig, abc.ABC):
     """
 
     @abc.abstractmethod
-    def add_keywords(self, keyword_data: dict) -> dict:
+    def add_keywords(self, keyword_data: Dict) -> dict:
         """Add the keywords of this solvent model to the keyword data dict."""
         ...
 
@@ -401,7 +402,7 @@ class PCMSettings(_BaseSolvent):
         Cavity {{{cavity_str}}}"""
         return pcm_string
 
-    def add_keywords(self, keyword_data: dict) -> dict:
+    def add_keywords(self, keyword_data: Dict) -> dict:
         keyword_data["pcm"] = True
         keyword_data["pcm__input"] = self.to_string()
         return keyword_data
@@ -431,7 +432,7 @@ class DDXSettings(_BaseSolvent):
         ),
     )
 
-    def add_keywords(self, keyword_data: dict) -> dict:
+    def add_keywords(self, keyword_data: Dict) -> dict:
         keyword_data["ddx"] = True
         ddx_data = self.dict()
         if self.ddx_solvent_epsilon is None:
@@ -492,7 +493,7 @@ class QCSpec(ResultsConfig):
         ],
         description="The SCF properties which should be extracted after every single point calculation.",
     )
-    keywords: dict[str, StrictStr | StrictInt | StrictFloat | StrictBool | list[StrictFloat]] = Field(
+    keywords: Dict[str, StrictStr | StrictInt | StrictFloat | StrictBool | list[StrictFloat]] = Field(
         {},
         # None,
         description="An optional set of program specific computational keywords that "
@@ -641,7 +642,7 @@ class QCSpec(ResultsConfig):
         """Return the qcelmental schema for this method and basis."""
         return Model(method=self.method, basis=self.basis)
 
-    def qc_keywords(self, properties: bool = False) -> dict[str, Any]:
+    def qc_keywords(self, properties: bool = False) -> Dict[str, Any]:
         """
         Return the formatted keywords for this calculation.
 
@@ -671,7 +672,7 @@ class QCSpecificationHandler(BaseModel):
     A mixin class for handling the QCSpecification
     """
 
-    qc_specifications: dict[str, QCSpec] = Field(
+    qc_specifications: Dict[str, QCSpec] = Field(
         {"default": QCSpec()},
         description="The QCSpecifications which will be computed for this dataset.",
     )
@@ -830,7 +831,7 @@ class Metadata(DatasetConfig):
         description="The name that will be given to the collection once it is put into QCArchive, this is updated "
         "when attached to a dataset.",
     )
-    short_description: constr(min_length=8, regex="[a-zA-Z]") | None = Field(
+    short_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = Field(
         None,
         description="A short informative description of the dataset.",
     )
@@ -841,7 +842,7 @@ class Metadata(DatasetConfig):
             "showing how the dataset was created.",
         ),
     )
-    long_description: constr(min_length=8, regex="[a-zA-Z]") | None = Field(
+    long_description: Optional[constr(min_length=8, regex="[a-zA-Z]")] = Field(
         None,
         description="A long description of the purpose of the dataset and the molecules within.",
     )

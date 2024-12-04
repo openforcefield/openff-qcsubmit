@@ -5,7 +5,9 @@ from collections.abc import Generator
 from typing import (
     TYPE_CHECKING,
     Any,
+    Dict,
     Literal,
+    Type,
     TypeVar,
 )
 
@@ -75,12 +77,12 @@ class _BaseDataset(abc.ABC, CommonBase):
         description="A long description of the datasets purpose and details about the molecules within.",
     )
     metadata: Metadata = Field(Metadata(), description="The metadata describing the dataset.")
-    provenance: dict[str, str] = Field(
+    provenance: Dict[str, str] = Field(
         {},
         description="A dictionary of the software and versions used to generate the dataset.",
     )
-    dataset: dict[str, DatasetEntry] = Field({}, description="The actual dataset to be stored in QCArchive.")
-    filtered_molecules: dict[str, FilterEntry] = Field(
+    dataset: Dict[str, DatasetEntry] = Field({}, description="The actual dataset to be stored in QCArchive.")
+    filtered_molecules: Dict[str, FilterEntry] = Field(
         {},
         description="The set of workflow components used to generate the dataset with any filtered molecules.",
     )
@@ -105,7 +107,7 @@ class _BaseDataset(abc.ABC, CommonBase):
 
     @classmethod
     @abc.abstractmethod
-    def _entry_class(cls) -> type[E]:
+    def _entry_class(cls) -> Type[E]:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -374,8 +376,8 @@ class _BaseDataset(abc.ABC, CommonBase):
         self,
         molecules: off.Molecule | list[off.Molecule],
         component: str,
-        component_settings: dict[str, Any],
-        component_provenance: dict[str, str],
+        component_settings: Dict[str, Any],
+        component_provenance: Dict[str, str],
     ) -> None:
         """
         Filter a molecule or list of molecules by the component they failed.
@@ -412,8 +414,8 @@ class _BaseDataset(abc.ABC, CommonBase):
         self,
         index: str,
         molecule: off.Molecule | None,
-        extras: dict[str, Any] | None = None,
-        keywords: dict[str, Any] | None = None,
+        extras: Dict[str, Any] | None = None,
+        keywords: Dict[str, Any] | None = None,
         **kwargs,
     ) -> None:
         """
@@ -737,7 +739,7 @@ class BasicDataset(_BaseDataset):
     type: Literal["DataSet"] = "DataSet"
 
     @classmethod
-    def _entry_class(cls) -> type[DatasetEntry]:
+    def _entry_class(cls) -> Type[DatasetEntry]:
         return DatasetEntry
 
     def __add__(self, other: "BasicDataset") -> "BasicDataset":
@@ -880,10 +882,10 @@ class OptimizationDataset(BasicDataset):
         OptimizationProtocols(),
         description="Protocols regarding the manipulation of Optimization output data.",
     )
-    dataset: dict[str, OptimizationEntry] = {}
+    dataset: Dict[str, OptimizationEntry] = {}
 
     @classmethod
-    def _entry_class(cls) -> type[OptimizationEntry]:
+    def _entry_class(cls) -> Type[OptimizationEntry]:
         return OptimizationEntry
 
     @validator("driver")
@@ -1088,7 +1090,7 @@ class TorsiondriveDataset(OptimizationDataset):
         torsiondrive entry.
     """
 
-    dataset: dict[str, TorsionDriveEntry] = {}
+    dataset: Dict[str, TorsionDriveEntry] = {}
     type: Literal["TorsionDriveDataset"] = "TorsionDriveDataset"
     optimization_procedure: GeometricProcedure = GeometricProcedure.parse_obj(
         {"enforce": 0.1, "reset": True, "qccnv": True, "epsilon": 0.0},
@@ -1115,7 +1117,7 @@ class TorsiondriveDataset(OptimizationDataset):
     )
 
     @classmethod
-    def _entry_class(cls) -> type[TorsionDriveEntry]:
+    def _entry_class(cls) -> Type[TorsionDriveEntry]:
         return TorsionDriveEntry
 
     def __add__(self, other: "TorsiondriveDataset") -> "TorsiondriveDataset":

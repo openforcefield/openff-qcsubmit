@@ -2,7 +2,7 @@
 All of the individual dataset entry types are defined here.
 """
 
-from typing import Any, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 import networkx as nx
 import numpy as np
@@ -60,14 +60,14 @@ class DatasetEntry(DatasetConfig):
         ...,
         description="The complete set of required cmiles attributes for the molecule.",
     )
-    extras: dict[str, Any] | None = Field(
+    extras: Dict[str, Any] | None = Field(
         {},
         description=(
             "Any extra information that should be injected into the QCElemental models before being submited like the "
             "cmiles information.",
         ),
     )
-    keywords: dict[str, Any] | None = Field(
+    keywords: Dict[str, Any] | None = Field(
         {},
         description="Any extra keywords that should be used in the QCArchive calculation should be passed here.",
     )
@@ -293,11 +293,11 @@ class FilterEntry(DatasetConfig):
         ...,
         description="The name of the component ran, this should be one of the components registered with qcsubmit.",
     )
-    component_settings: dict[str, Any] = Field(
+    component_settings: Dict[str, Any] = Field(
         ...,
         description="The run time settings of the component used to filter the molecules.",
     )
-    component_provenance: dict[str, str] = Field(
+    component_provenance: Dict[str, str] = Field(
         ...,
         description="A dictionary of the version information of all dependencies of the component.",
     )

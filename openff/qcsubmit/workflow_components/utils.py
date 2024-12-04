@@ -1,6 +1,7 @@
 """WorkFlow related utility classes and functions."""
 
 import os
+from typing import Dict
 
 import numpy as np
 import openff.toolkit.topology as off
@@ -278,17 +279,17 @@ class TorsionIndexer(DatasetConfig):
     A class to keep track of the torsions highlighted for scanning, with methods for combining and deduplication.
     """
 
-    torsions: dict[tuple[int, int], SingleTorsion] = Field(
+    torsions: Dict[tuple[int, int], SingleTorsion] = Field(
         {},
         description="A dictionary of the torsions to be scanned grouped by the central bond in the torsion.",
     )
-    double_torsions: dict[tuple[tuple[int, int], tuple[int, int]], DoubleTorsion] = Field(
+    double_torsions: Dict[tuple[tuple[int, int], tuple[int, int]], DoubleTorsion] = Field(
         {},
         description=(
             "A dictionary of the 2D torsions to be scanned grouped by the sorted combination of the central bonds.",
         ),
     )
-    impropers: dict[int, ImproperTorsion] = Field(
+    impropers: Dict[int, ImproperTorsion] = Field(
         {},
         description="A dictionary of the improper torsions to be scanned grouped by the central atom in the torsion.",
     )
@@ -418,7 +419,7 @@ class TorsionIndexer(DatasetConfig):
     def update(
         self,
         torsion_indexer: "TorsionIndexer",
-        reorder_mapping: dict[int, int] | None = None,
+        reorder_mapping: Dict[int, int] | None = None,
     ) -> None:
         """
         Update the current torsion indexer with another.
@@ -476,7 +477,7 @@ class TorsionIndexer(DatasetConfig):
             )
 
     @staticmethod
-    def _reorder_torsion(torsion: tuple[int, int, int, int], mapping: dict[int, int]) -> tuple[int, int, int, int]:
+    def _reorder_torsion(torsion: tuple[int, int, int, int], mapping: Dict[int, int]) -> tuple[int, int, int, int]:
         """
         Reorder the given torsion based on the mapping.
 
@@ -523,8 +524,8 @@ class ComponentResult:
     def __init__(
         self,
         component_name: str,
-        component_description: dict[str, str],
-        component_provenance: dict[str, str],
+        component_description: Dict[str, str],
+        component_provenance: Dict[str, str],
         molecules: list[off.Molecule] | off.Molecule | None = None,
         input_file: str | None = None,
         input_directory: str | None = None,
@@ -552,13 +553,13 @@ class ComponentResult:
                 Set to True if it is sure that all molecules will be unique in this result
         """
 
-        self._molecules: dict[str, off.Molecule] = {}
-        self._filtered: dict[str, off.Molecule] = {}
+        self._molecules: Dict[str, off.Molecule] = {}
+        self._filtered: Dict[str, off.Molecule] = {}
         self.component_name: str = component_name
-        self.component_description: dict = component_description
-        self.component_provenance: dict = component_provenance
+        self.component_description: Dict = component_description
+        self.component_provenance: Dict = component_provenance
         self.skip_unique_check: bool = skip_unique_check
-        self._unit_conversion: dict[str, unit.Unit] = {
+        self._unit_conversion: Dict[str, unit.Unit] = {
             "nanometer": unit.nanometers,
             "nanometers": unit.nanometers,
             "angstrom": unit.angstrom,
