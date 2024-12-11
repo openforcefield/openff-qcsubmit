@@ -112,9 +112,7 @@ def test_pcm_solver(data):
     solver, error = data
     if error is not None:
         with pytest.raises(error):
-            _ = PCMSettings(
-                units="au", medium_Solvent="water", medium_SolverType=solver
-            )
+            _ = PCMSettings(units="au", medium_Solvent="water", medium_SolverType=solver)
     else:
         pcm = PCMSettings(units="au", medium_Solvent="water", medium_SolverType=solver)
         assert pcm.medium_SolverType == solver

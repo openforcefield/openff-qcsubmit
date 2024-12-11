@@ -72,9 +72,7 @@ def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, i
             elif rec.status == RecordStatusEnum.complete:
                 finished += 1
             else:
-                raise RuntimeError(
-                    f"Unrecognized status ({rec.status}) for record: {rec}"
-                )
+                raise RuntimeError(f"Unrecognized status ({rec.status}) for record: {rec}")
         if finished == len(recs):
             return True
     else:
@@ -120,9 +118,7 @@ def check_added_specs(ds, dataset):
         assert specification.description == spec.spec_description
         break
     else:
-        raise RuntimeError(
-            f"The requested compute specification was not found in the dataset {ds.specifications}"
-        )
+        raise RuntimeError(f"The requested compute specification was not found in the dataset {ds.specifications}")
 
 
 def check_metadata(ds, dataset):
@@ -201,9 +197,7 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
     await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds=ds, dataset=dataset)
@@ -216,7 +210,7 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
         query = list(
             ds.iterate_records(
                 specification_names="default",
-            )
+            ),
         )
         # make sure all of the conformers were submitted
         assert len(query) == len(molecules)
@@ -224,9 +218,9 @@ def test_basic_submissions_single_spec(fulltest_client, specification):
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert record.return_result is not None
-            assert record.specification.dict(
-                include={"method", "program", "basis"}
-            ) == spec.dict(include={"method", "program", "basis"})
+            assert record.specification.dict(include={"method", "program", "basis"}) == spec.dict(
+                include={"method", "program", "basis"},
+            )
 
 
 def test_basic_submissions_property_driver(fulltest_client, water):
@@ -266,9 +260,7 @@ def test_basic_submissions_property_driver(fulltest_client, water):
     dataset.submit(client=client)
     await_results(client)
 
-    ds = client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
     # make sure all specifications were added
     check_added_specs(ds=ds, dataset=dataset)
 
@@ -334,9 +326,7 @@ def test_basic_submissions_multiple_spec(fulltest_client, conformer_water):
     await_results(client, ids=[1, 2, 3, 4])
 
     # make sure of the results are complete
-    ds = client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds=ds, dataset=dataset)
@@ -352,9 +342,9 @@ def test_basic_submissions_multiple_spec(fulltest_client, conformer_water):
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
             assert record.return_result is not None
-            assert record.specification.dict(
-                include={"method", "program", "basis"}
-            ) == spec.dict(include={"method", "program", "basis"})
+            assert record.specification.dict(include={"method", "program", "basis"}) == spec.dict(
+                include={"method", "program", "basis"},
+            )
 
 
 @pytest.mark.parametrize(
@@ -381,7 +371,11 @@ def test_basic_submissions_multiple_spec(fulltest_client, conformer_water):
     ],
 )
 def test_basic_submissions_single_solvent_spec(
-    fulltest_client, solvent_model, solvent_energy, solvent_evidence, water
+    fulltest_client,
+    solvent_model,
+    solvent_energy,
+    solvent_evidence,
+    water,
 ):
     """Test submitting a basic dataset to a snowflake server with pcm water in the specification."""
 
@@ -425,9 +419,7 @@ def test_basic_submissions_single_solvent_spec(
     await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     check_metadata(ds, dataset)
 
@@ -438,7 +430,7 @@ def test_basic_submissions_single_solvent_spec(
         query = list(
             ds.iterate_records(
                 specification_names=spec_name,
-            )
+            ),
         )
         assert len(query) == 1  # only used 1 molecule above
         for name, _, record in query:
@@ -449,21 +441,17 @@ def test_basic_submissions_single_solvent_spec(
             assert record.properties[solvent_energy] < 0
             # make sure the correct solvent was used
             assert solvent_evidence in record.stdout
-            assert record.specification.dict(
-                include={"method", "basis", "program"}
-            ) == spec.dict(include={"method", "basis", "program"})
+            assert record.specification.dict(include={"method", "basis", "program"}) == spec.dict(
+                include={"method", "basis", "program"},
+            )
 
 
 @pytest.mark.parametrize(
     "dataset_data",
     [
         pytest.param((BasicDatasetFactory, BasicDataset), id="Dataset"),
-        pytest.param(
-            (OptimizationDatasetFactory, OptimizationDataset), id="OptimizationDataset"
-        ),
-        pytest.param(
-            (TorsiondriveDatasetFactory, TorsiondriveDataset), id="TorsiondriveDataset"
-        ),
+        pytest.param((OptimizationDatasetFactory, OptimizationDataset), id="OptimizationDataset"),
+        pytest.param((TorsiondriveDatasetFactory, TorsiondriveDataset), id="TorsiondriveDataset"),
     ],
 )
 def test_adding_compute(fulltest_client, dataset_data):
@@ -521,9 +509,7 @@ def test_adding_compute(fulltest_client, dataset_data):
     await_services(fulltest_client, max_iter=30)
 
     # make sure of the results are complete
-    ds = client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds, dataset)
@@ -582,9 +568,7 @@ def test_adding_compute(fulltest_client, dataset_data):
         for spec_name, specification in ds.specifications.items():
             spec = dataset.qc_specifications[spec_name]
             s = specification.specification
-            assert (
-                s.optimization_specification.qc_specification.driver == dataset.driver
-            )
+            assert s.optimization_specification.qc_specification.driver == dataset.driver
             assert s.optimization_specification.program == "geometric"
             assert s.optimization_specification.qc_specification.program == spec.program
             assert s.optimization_specification.qc_specification.method == spec.method
@@ -640,9 +624,7 @@ def test_basic_submissions_wavefunction(fulltest_client, conformer_water):
     await_results(client)
 
     # make sure of the results are complete
-    ds = client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds, dataset)
@@ -653,7 +635,7 @@ def test_basic_submissions_wavefunction(fulltest_client, conformer_water):
     query = list(
         ds.iterate_records(
             specification_names="default",
-        )
+        ),
     )
     assert len(query) == 2
     for _, _, result in query:
@@ -687,12 +669,8 @@ def test_optimization_submissions_with_constraints(fulltest_client):
     )
     # build some constraints
     constraints = Constraints()
-    constraints.add_set_constraint(
-        constraint_type="dihedral", indices=[2, 0, 1, 5], value=60, bonded=True
-    )
-    constraints.add_freeze_constraint(
-        constraint_type="distance", indices=[0, 1], bonded=True
-    )
+    constraints.add_set_constraint(constraint_type="dihedral", indices=[2, 0, 1, 5], value=60, bonded=True)
+    constraints.add_freeze_constraint(constraint_type="distance", indices=[0, 1], bonded=True)
     # add the molecule
     index = ethane.to_smiles()
     dataset.add_molecule(index=index, molecule=ethane, constraints=constraints)
@@ -703,9 +681,7 @@ def test_optimization_submissions_with_constraints(fulltest_client):
     await_results(client, check_fn=PortalClient.get_optimizations)
 
     # make sure of the results are complete
-    ds = client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
     query = ds.iterate_records(specification_names="default")
     for name, spec, record in query:
         assert record.status is RecordStatusEnum.complete
@@ -719,9 +695,7 @@ def test_optimization_submissions_with_constraints(fulltest_client):
     final_molecule = record.final_molecule
     initial_molecule = record.initial_molecule
     assert pytest.approx(final_molecule.measure((2, 0, 1, 5)), abs=1e-2) == 60
-    assert initial_molecule.measure((0, 1)) == pytest.approx(
-        final_molecule.measure((0, 1))
-    )
+    assert initial_molecule.measure((0, 1)) == pytest.approx(final_molecule.measure((0, 1)))
 
 
 @pytest.mark.parametrize(
@@ -761,9 +735,7 @@ def test_optimization_submissions(fulltest_client, specification):
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
     factory = OptimizationDatasetFactory(driver=driver)
-    factory.add_qc_spec(
-        **qc_spec, spec_name="default", spec_description="test", overwrite=True
-    )
+    factory.add_qc_spec(**qc_spec, spec_name="default", spec_description="test", overwrite=True)
 
     dataset = factory.create_dataset(
         dataset_name=f"Test optimizations info {program}, {driver}",
@@ -787,14 +759,10 @@ def test_optimization_submissions(fulltest_client, specification):
     # now submit again
     dataset.submit(client=client)
 
-    await_results(
-        client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1, 2]
-    )
+    await_results(client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1, 2])
 
     # make sure of the results are complete
-    ds = client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds, dataset)
@@ -835,9 +803,7 @@ def test_optimization_submissions(fulltest_client, specification):
                 assert "scf quadrupole" in result.properties.keys()
 
 
-@pytest.mark.xfail(
-    reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206"
-)
+@pytest.mark.xfail(reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206")
 def test_optimization_submissions_with_pcm(fulltest_client):
     """Test submitting an Optimization dataset to a snowflake server with PCM."""
     program = "psi4"
@@ -881,9 +847,7 @@ def test_optimization_submissions_with_pcm(fulltest_client):
     # snowflake.await_results()
 
     # make sure of the results are complete
-    ds = fulltest_client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds, dataset)
@@ -953,9 +917,7 @@ def test_torsiondrive_scan_keywords(fulltest_client):
     await_services(fulltest_client, max_iter=30)
 
     # make sure of the results are complete
-    ds = fulltest_client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     # get the entry
     query = list(ds.iterate_records(specification_names="openff-1.1.0"))
@@ -1000,28 +962,20 @@ def test_torsiondrive_constraints(fulltest_client):
     )
     entry = dataset.dataset["1"]
     # add the constraints
-    entry.add_constraint(
-        constraint="freeze", constraint_type="dihedral", indices=[7, 0, 1, 5]
-    )
-    entry.add_constraint(
-        constraint="freeze", constraint_type="dihedral", indices=[0, 1, 5, 6]
-    )
+    entry.add_constraint(constraint="freeze", constraint_type="dihedral", indices=[7, 0, 1, 5])
+    entry.add_constraint(constraint="freeze", constraint_type="dihedral", indices=[0, 1, 5, 6])
 
     dataset.submit(client=fulltest_client)
     await_services(fulltest_client, max_iter=300)
 
     # make sure the result is complete
-    ds = fulltest_client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     query = ds.iterate_records(
         specification_names="uff",
     )
     for name, spec, record in query:
-        constraints = record.optimizations[(0,)][0].specification.keywords[
-            "constraints"
-        ]
+        constraints = record.optimizations[(0,)][0].specification.keywords["constraints"]
         # constraints = opt.keywords["constraints"]
         # make sure both the freeze and set constraints are passed on
         assert "set" in constraints
@@ -1071,9 +1025,7 @@ def test_torsiondrive_submissions(fulltest_client, specification):
     molecule = Molecule.from_mapped_smiles("[H:1][C:2]([H:3])([H:4])[O:5][H:6]")
 
     factory = TorsiondriveDatasetFactory(driver=driver)
-    factory.add_qc_spec(
-        **qc_spec, spec_name="default", spec_description="test", overwrite=True
-    )
+    factory.add_qc_spec(**qc_spec, spec_name="default", spec_description="test", overwrite=True)
 
     dataset = factory.create_dataset(
         dataset_name=f"Test torsiondrives info {program}, {driver}",
@@ -1104,9 +1056,7 @@ def test_torsiondrive_submissions(fulltest_client, specification):
     # snowflake.await_services(max_iter=50)
 
     # make sure of the results are complete
-    ds = fulltest_client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     # check the metadata
     check_metadata(ds, dataset)
@@ -1129,12 +1079,8 @@ def test_torsiondrive_submissions(fulltest_client, specification):
         assert got == want
 
         # check the qc spec keywords
-        got = ds.specifications[
-            spec_name
-        ].specification.optimization_specification.qc_specification.keywords
-        want = dataset._get_specifications()[
-            spec_name
-        ].optimization_specification.qc_specification.keywords
+        got = ds.specifications[spec_name].specification.optimization_specification.qc_specification.keywords
+        want = dataset._get_specifications()[spec_name].optimization_specification.qc_specification.keywords
         assert "maxiter" in got
         assert "scf_properties" in got
         assert got == want
@@ -1144,7 +1090,7 @@ def test_torsiondrive_submissions(fulltest_client, specification):
         # query the dataset
         for entry_name, spec_name, record in ds.iterate_records():
             # this will take some time so make sure it is running with no error
-            assert record.status.value == "complete", print(record.dict())
+            assert record.status.value == "complete", f"{record.dict()}"
             assert record.error is None
             assert len(record.final_energies) == 2
 
@@ -1153,12 +1099,8 @@ def test_torsiondrive_submissions(fulltest_client, specification):
     "factory_type",
     [
         pytest.param(BasicDatasetFactory, id="BasicDataset ignore_errors"),
-        pytest.param(
-            OptimizationDatasetFactory, id="OptimizationDataset ignore_errors"
-        ),
-        pytest.param(
-            TorsiondriveDatasetFactory, id="TorsiondriveDataset ignore_errors"
-        ),
+        pytest.param(OptimizationDatasetFactory, id="OptimizationDataset ignore_errors"),
+        pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset ignore_errors"),
     ],
 )
 def test_ignore_errors_all_datasets(fulltest_client, factory_type, capsys):
@@ -1197,9 +1139,7 @@ def test_ignore_errors_all_datasets(fulltest_client, factory_type, capsys):
         dataset.submit(client=fulltest_client, ignore_errors=True, verbose=True)
 
     info = capsys.readouterr()
-    assert (
-        info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
-    )
+    assert info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
 
 
 @pytest.mark.parametrize(
@@ -1243,9 +1183,7 @@ def test_index_not_changed(fulltest_client, factory_type):
     dataset.submit(client=fulltest_client)
 
     # pull the dataset and make sure our index is present
-    ds = fulltest_client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
 
     if dataset.type == "DataSet":
         query = ds.get_record("my_unique_index", "parsley")
@@ -1292,9 +1230,7 @@ def test_adding_dataset_entry_fail(fulltest_client, factory_type, capsys):
     # make sure all expected index get submitted
     dataset.submit(client=fulltest_client, verbose=True)
     info = capsys.readouterr()
-    assert (
-        info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
-    )
+    assert info.out == f"Number of new entries: {dataset.n_records}/{dataset.n_records}\n"
 
     # now add a new spec and try and submit again
     dataset.clear_qcspecs()
@@ -1313,12 +1249,8 @@ def test_adding_dataset_entry_fail(fulltest_client, factory_type, capsys):
 @pytest.mark.parametrize(
     "factory_type",
     [
-        pytest.param(
-            OptimizationDatasetFactory, id="OptimizationDataset expand compute"
-        ),
-        pytest.param(
-            TorsiondriveDatasetFactory, id="TorsiondriveDataset expand compute"
-        ),
+        pytest.param(OptimizationDatasetFactory, id="OptimizationDataset expand compute"),
+        pytest.param(TorsiondriveDatasetFactory, id="TorsiondriveDataset expand compute"),
     ],
 )
 def test_expanding_compute(fulltest_client, factory_type):
@@ -1351,9 +1283,7 @@ def test_expanding_compute(fulltest_client, factory_type):
     # make sure all expected index get submitted
     dataset.submit(client=fulltest_client)
     # grab the dataset and check the history
-    ds = fulltest_client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
     assert ds.specifications.keys() == {"default"}
 
     # now make another dataset to expand the compute
@@ -1376,9 +1306,7 @@ def test_expanding_compute(fulltest_client, factory_type):
     dataset.submit(client=fulltest_client)
 
     # now grab the dataset again and check the tasks list
-    ds = fulltest_client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
     assert ds.specifications.keys() == {"default", "parsley2"}
     # make sure a record has been made
     assert len([*ds.iterate_records()]) == 2
@@ -1427,9 +1355,7 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     else:
         await_services(fulltest_client, max_iter=120)
 
-    ds = fulltest_client.get_dataset(
-        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
-    )
+    ds = fulltest_client.get_dataset(legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name)
     assert ds.specifications.keys() == {"default"}
     results = result_collection_type.from_datasets(datasets=ds)
     assert results.n_molecules == 1
@@ -1438,17 +1364,13 @@ def test_invalid_cmiles(fulltest_client, factory_type, result_collection_type):
     # Single points and optimizations look here
     fulltest_client.modify_molecule(
         1,
-        identifiers={
-            "canonical_isomeric_explicit_hydrogen_mapped_smiles": "[H:4][C:2](=[O:1])[OH:3]"
-        },
+        identifiers={"canonical_isomeric_explicit_hydrogen_mapped_smiles": "[H:4][C:2](=[O:1])[OH:3]"},
         overwrite_identifiers=True,
     )
     # Do this to flush the local cache and fetch the modified molecule from the server
     entries = [*ds.iterate_entries(force_refetch=True)]
     # Torsiondrives look here
-    entries[0].attributes[
-        "canonical_isomeric_explicit_hydrogen_mapped_smiles"
-    ] = "[H:4][C:2](=[O:1])[OH:3]"
+    entries[0].attributes["canonical_isomeric_explicit_hydrogen_mapped_smiles"] = "[H:4][C:2](=[O:1])[OH:3]"
     ds._cache_data.update_entries(entries)
     results = result_collection_type.from_datasets(datasets=ds)
     assert results.n_molecules == 1

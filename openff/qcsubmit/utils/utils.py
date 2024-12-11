@@ -1,17 +1,7 @@
 import logging
 import os
+from collections.abc import Callable, Generator, Iterable, Sequence
 from contextlib import contextmanager
-from typing import (
-    Callable,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
 
 from openff.toolkit import topology as off
 from openff.toolkit.utils.toolkits import (
@@ -36,13 +26,13 @@ class _CachedPortalClient(PortalClient):
         self,
         address: str,
         cache_dir: str,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         verify: bool = True,
         show_motd: bool = True,
         *,
         cache_max_size: int = 0,
-        memory_cache_key: Optional[str] = None,
+        memory_cache_key: str | None = None,
     ):
         """Parameters
         ----------
@@ -76,9 +66,7 @@ class _CachedPortalClient(PortalClient):
             cache_max_size=cache_max_size,
             memory_cache_key=memory_cache_key,
         )
-        self.record_cache = RecordCache(
-            os.path.join(self.cache.cache_dir, "cache.sqlite"), read_only=False
-        )
+        self.record_cache = RecordCache(os.path.join(self.cache.cache_dir, "cache.sqlite"), read_only=False)
 
     def __repr__(self) -> str:
         """A short representation of the current PortalClient.
@@ -88,18 +76,18 @@ class _CachedPortalClient(PortalClient):
         str
             The desired representation.
         """
-        ret = "CachedPortalClient(server_name='{}', address='{}', username='{}', cache_dir='{}')".format(
-            self.server_name, self.address, self.username, self.cache.cache_dir
+        return (
+            f"CachedPortalClient(server_name='{self.server_name}', address='{self.address}', "
+            f"username='{self.username}', cache_dir='{self.cache.cache_dir}')",
         )
-        return ret
 
     def get_optimizations(
         self,
-        record_ids: Union[int, Sequence[int]],
+        record_ids: int | Sequence[int],
         missing_ok: bool = False,
         *,
-        include: Optional[Iterable[str]] = None,
-    ) -> Union[Optional[OptimizationRecord], List[Optional[OptimizationRecord]]]:
+        include: Iterable[str] | None = None,
+    ) -> OptimizationRecord | None | list[OptimizationRecord | None]:
         """Obtain optimization records with the specified IDs.
 
         Records will be returned in the same order as the record ids.
@@ -124,7 +112,7 @@ class _CachedPortalClient(PortalClient):
         if missing_ok:
             logger.warning(
                 "missing_ok was set to True, but CachedPortalClient"
-                " doesn't actually support this so it's being set to False"
+                " doesn't actually support this so it's being set to False",
             )
         if unpack := not isinstance(record_ids, Sequence):
             record_ids = [record_ids]
@@ -143,11 +131,11 @@ class _CachedPortalClient(PortalClient):
 
     def get_singlepoints(
         self,
-        record_ids: Union[int, Sequence[int]],
+        record_ids: int | Sequence[int],
         missing_ok: bool = False,
         *,
-        include: Optional[Iterable[str]] = None,
-    ) -> Union[Optional[SinglepointRecord], List[Optional[SinglepointRecord]]]:
+        include: Iterable[str] | None = None,
+    ) -> SinglepointRecord | None | list[SinglepointRecord | None]:
         """
         Obtain singlepoint records with the specified IDs.
 
@@ -173,7 +161,7 @@ class _CachedPortalClient(PortalClient):
         if missing_ok:
             logger.warning(
                 "missing_ok was set to True, but CachedPortalClient"
-                " doesn't actually support this so it's being set to False"
+                " doesn't actually support this so it's being set to False",
             )
         if unpack := not isinstance(record_ids, Sequence):
             record_ids = [record_ids]
@@ -192,11 +180,11 @@ class _CachedPortalClient(PortalClient):
 
     def get_torsiondrives(
         self,
-        record_ids: Union[int, Sequence[int]],
+        record_ids: int | Sequence[int],
         missing_ok: bool = False,
         *,
-        include: Optional[Iterable[str]] = None,
-    ) -> Union[Optional[TorsiondriveRecord], List[Optional[TorsiondriveRecord]]]:
+        include: Iterable[str] | None = None,
+    ) -> TorsiondriveRecord | None | list[TorsiondriveRecord | None]:
         """
         Obtain torsiondrive records with the specified IDs.
 
@@ -222,7 +210,7 @@ class _CachedPortalClient(PortalClient):
         if missing_ok:
             logger.warning(
                 "missing_ok was set to True, but CachedPortalClient"
-                " doesn't actually support this so it's being set to False"
+                " doesn't actually support this so it's being set to False",
             )
         if unpack := not isinstance(record_ids, Sequence):
             record_ids = [record_ids]
@@ -320,9 +308,7 @@ def get_data(relative_path):
     fn = resource_filename("openff.qcsubmit", os.path.join("data", relative_path))
 
     if not os.path.exists(fn):
-        raise ValueError(
-            f"Sorry! {fn} does not exist. If you just added it, you'll have to re-install"
-        )
+        raise ValueError(f"Sorry! {fn} does not exist. If you just added it, you'll have to re-install")
 
     return fn
 
@@ -330,7 +316,8 @@ def get_data(relative_path):
 def check_missing_stereo(molecule: off.Molecule) -> bool:
     """
     Get if the given molecule has missing stereo by round trip and catching stereo errors.
-    Here we use the RDKit backend explicitly for this check as this avoids nitrogen stereochemistry issues with the toolkit.
+    Here we use the RDKit backend explicitly for this check as this avoids nitrogen stereochemistry issues with the
+    toolkit.
 
     Parameters
     ----------
@@ -354,7 +341,7 @@ def check_missing_stereo(molecule: off.Molecule) -> bool:
         return True
 
 
-def clean_strings(string_list: List[str]) -> List[str]:
+def clean_strings(string_list: list[str]) -> list[str]:
     """
     Clean up a list of strings ready to be cast to numbers.
     """
@@ -365,29 +352,28 @@ def clean_strings(string_list: List[str]) -> List[str]:
     return clean_string
 
 
-def remap_list(target_list: List[int], mapping: Dict[int, int]) -> List[int]:
+def remap_list(target_list: list[int], mapping: dict[int, int]) -> list[int]:
     """
     Take a list of atom indices and remap them using the given mapping.
     """
     return [mapping[x] for x in target_list]
 
 
-def condense_molecules(molecules: List[off.Molecule]) -> off.Molecule:
+def condense_molecules(molecules: list[off.Molecule]) -> off.Molecule:
     """
-    Take a list of identical molecules in different conformers and collapse them making sure that they are in the same order.
+    Take a list of identical molecules in different conformers and collapse them making sure that they are in the same
+    order.
     """
     molecule = molecules.pop()
     for conformer in molecules:
-        _, atom_map = off.Molecule.are_isomorphic(
-            conformer, molecule, return_atom_map=True
-        )
+        _, atom_map = off.Molecule.are_isomorphic(conformer, molecule, return_atom_map=True)
         mapped_mol = conformer.remap(atom_map)
         for geometry in mapped_mol.conformers:
             molecule.add_conformer(geometry)
     return molecule
 
 
-def chunk_generator(iterable: List, chunk_size: int) -> Generator[List, None, None]:
+def chunk_generator(iterable: list, chunk_size: int) -> Generator[list, None, None]:
     """
     Take an iterable and return a list of lists of the specified size.
 
@@ -399,7 +385,7 @@ def chunk_generator(iterable: List, chunk_size: int) -> Generator[List, None, No
         yield iterable[i : i + chunk_size]
 
 
-def get_torsion(bond: off.Bond) -> Tuple[int, int, int, int]:
+def get_torsion(bond: off.Bond) -> tuple[int, int, int, int]:
     """
     Create a torsion tuple which will be restrained in the torsiondrive.
 
@@ -413,8 +399,8 @@ def get_torsion(bond: off.Bond) -> Tuple[int, int, int, int]:
         If there is more than one possible combination of atoms the heaviest set are selected to be restrained.
     """
 
-    atoms: List[off.Atom] = [bond.atom1, bond.atom2]
-    terminal_atoms: Dict[off.Atom, off.atom] = dict()
+    atoms: list[off.Atom] = [bond.atom1, bond.atom2]
+    terminal_atoms: dict[off.Atom, off.atom] = dict()
 
     for atom in atoms:
         for neighbour in atom.bonded_atoms:
@@ -433,11 +419,11 @@ def get_torsion(bond: off.Bond) -> Tuple[int, int, int, int]:
             atoms[0].molecule_atom_index,
             atoms[1].molecule_atom_index,
             terminal_atoms[atoms[1]].molecule_atom_index,
-        ]
+        ],
     )
 
 
-def get_symmetry_classes(molecule: off.Molecule) -> List[int]:
+def get_symmetry_classes(molecule: off.Molecule) -> list[int]:
     """Calculate the symmetry classes of each atom in the molecule using the backend toolkits."""
 
     try:
@@ -452,19 +438,13 @@ def get_symmetry_classes(molecule: off.Molecule) -> List[int]:
         oe_mol = molecule.to_openeye()
         oechem.OEPerceiveSymmetry(oe_mol)
 
-        symmetry_classes_by_index = {
-            a.GetIdx(): a.GetSymmetryClass() for a in oe_mol.GetAtoms()
-        }
-        symmetry_classes = [
-            symmetry_classes_by_index[i] for i in range(molecule.n_atoms)
-        ]
+        symmetry_classes_by_index = {a.GetIdx(): a.GetSymmetryClass() for a in oe_mol.GetAtoms()}
+        symmetry_classes = [symmetry_classes_by_index[i] for i in range(molecule.n_atoms)]
 
     return symmetry_classes
 
 
-def get_symmetry_group(
-    atom_group: Tuple[int, ...], symmetry_classes: List[int]
-) -> Tuple[int, ...]:
+def get_symmetry_group(atom_group: tuple[int, ...], symmetry_classes: list[int]) -> tuple[int, ...]:
     """
     For the list of atom groups calculate their symmetry class for the given molecule.
     """

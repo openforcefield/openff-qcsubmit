@@ -136,9 +136,7 @@ def test_deserializer_error():
         deserialize("missing_file.json")
 
 
-@pytest.mark.parametrize(
-    "serializer", [pytest.param(".json", id="Json"), pytest.param(".yaml", id="yaml")]
-)
+@pytest.mark.parametrize("serializer", [pytest.param(".json", id="Json"), pytest.param(".yaml", id="yaml")])
 def test_serializer_round_trips(serializer):
     """
     Test serializing data to and from file with no compression.
@@ -162,9 +160,7 @@ def test_serializer_round_trips(serializer):
         pytest.param("bz2", id="bz2"),
     ],
 )
-@pytest.mark.parametrize(
-    "serialization", [pytest.param("json", id="Json"), pytest.param("yaml", id="yaml")]
-)
+@pytest.mark.parametrize("serialization", [pytest.param("json", id="Json"), pytest.param("yaml", id="yaml")])
 def test_compression_serialization_round_trip_file_name(serialization, compression):
     """
     Test all of the different serialization and compression combinations.
@@ -172,9 +168,7 @@ def test_compression_serialization_round_trip_file_name(serialization, compressi
     """
     # get data in a dict format
     data = deserialize(get_data("settings_with_workflow.json"))
-    file_name = "".join(
-        ["settings_with_workflow", ".", serialization, ".", compression]
-    )
+    file_name = "".join(["settings_with_workflow", ".", serialization, ".", compression])
     # now export the file and read back
     with temp_directory():
         serialize(serializable=data, file_name=file_name, compression=None)
@@ -191,9 +185,7 @@ def test_compression_serialization_round_trip_file_name(serialization, compressi
         pytest.param("bz2", id="bz2"),
     ],
 )
-@pytest.mark.parametrize(
-    "serialization", [pytest.param("json", id="Json"), pytest.param("yaml", id="yaml")]
-)
+@pytest.mark.parametrize("serialization", [pytest.param("json", id="Json"), pytest.param("yaml", id="yaml")])
 def test_compression_serialization_round_trip(serialization, compression):
     """
     Test all of the different serialization and compression combinations.

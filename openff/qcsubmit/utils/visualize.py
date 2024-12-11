@@ -1,16 +1,15 @@
 import copy
-from typing import List, Optional
+from typing import Literal
 
 from openff.toolkit.topology import Molecule
 from openff.toolkit.utils.toolkits import OPENEYE_AVAILABLE, RDKIT_AVAILABLE
-from typing_extensions import Literal
 
 
 def molecules_to_pdf(
-    molecules: List[Molecule],
+    molecules: list[Molecule],
     file_name: str,
     columns: int = 4,
-    toolkit: Optional[Literal["openeye", "rdkit"]] = None,
+    toolkit: Literal["openeye", "rdkit"] | None = None,
 ):
     """Create a pdf file of the molecules with any driven dihedrals (as specified by
     including the 'dihedrals' in the molecules property dictionary) highlighted using
@@ -31,8 +30,7 @@ def molecules_to_pdf(
     if toolkit is not None:
         if toolkit.lower() not in toolkits:
             raise ValueError(
-                f"The requested toolkit backend: {toolkit} is not supported, chose "
-                f"from {toolkits.keys()}"
+                f"The requested toolkit backend: {toolkit} is not supported, chose " f"from {toolkits.keys()}",
             )
 
         toolkits = {toolkit: toolkits[toolkit]}
@@ -42,13 +40,10 @@ def molecules_to_pdf(
         if available:
             return pdf_func(molecules, file_name, columns)
 
-    raise ImportError(
-        "No backend toolkit was found to generate the pdf please install openeye "
-        "and/or rdkit."
-    )
+    raise ImportError("No backend toolkit was found to generate the pdf please install openeye " "and/or rdkit.")
 
 
-def _create_openeye_pdf(molecules: List[Molecule], file_name: str, columns: int):
+def _create_openeye_pdf(molecules: list[Molecule], file_name: str, columns: int):
     """Make the pdf of the molecules using OpenEye."""
 
     from openeye import oechem, oedepict
@@ -64,9 +59,7 @@ def _create_openeye_pdf(molecules: List[Molecule], file_name: str, columns: int)
     ropts.SetPageMargins(10)
     report = oedepict.OEReport(ropts)
     cellwidth, cellheight = report.GetCellWidth(), report.GetCellHeight()
-    opts = oedepict.OE2DMolDisplayOptions(
-        cellwidth, cellheight, oedepict.OEScale_Default * 0.5
-    )
+    opts = oedepict.OE2DMolDisplayOptions(cellwidth, cellheight, oedepict.OEScale_Default * 0.5)
     opts.SetAromaticStyle(oedepict.OEAromaticStyle_Circle)
     pen = oedepict.OEPen(oechem.OEBlack, oechem.OEBlack, oedepict.OEFill_On, 1.0)
     opts.SetDefaultBondPen(pen)
@@ -114,9 +107,7 @@ def _create_openeye_pdf(molecules: List[Molecule], file_name: str, columns: int)
 
             class CentralBondInTorsion(oechem.OEUnaryBondPred):
                 def __call__(self, bond):
-                    return (bond.GetBgn().GetIdx() in center_bonds) and (
-                        bond.GetEnd().GetIdx() in center_bonds
-                    )
+                    return (bond.GetBgn().GetIdx() in center_bonds) and (bond.GetEnd().GetIdx() in center_bonds)
 
             atoms = mol.GetAtoms(AtomInTorsion())
             bonds = mol.GetBonds(NoBond())
@@ -143,7 +134,7 @@ def _create_openeye_pdf(molecules: List[Molecule], file_name: str, columns: int)
     oedepict.OEWriteReport(file_name, report)
 
 
-def _create_rdkit_pdf(molecules: List[Molecule], file_name: str, columns: int):
+def _create_rdkit_pdf(molecules: list[Molecule], file_name: str, columns: int):
     """
     Make the pdf of the molecules using rdkit.
     """

@@ -1,6 +1,6 @@
 import copy
 from collections import defaultdict
-from typing import Dict, Iterable, List, Tuple
+from collections.abc import Iterable
 
 import networkx as nx
 import numpy
@@ -12,8 +12,10 @@ from tqdm import tqdm
 
 
 def smirnoff_coverage(
-    molecules: Iterable[Molecule], force_field: ForceField, verbose: bool = False
-) -> Dict[str, Dict[str, int]]:
+    molecules: Iterable[Molecule],
+    force_field: ForceField,
+    verbose: bool = False,
+) -> dict[str, dict[str, int]]:
     """Returns a summary of how many of the specified molecules would be assigned each
     of the parameters in a force field.
 
@@ -45,9 +47,7 @@ def smirnoff_coverage(
 
         for handler_name, parameter_labels in full_labels.items():
             for parameter in parameter_labels.values():
-                coverage[handler_name][parameter.smirks].add(
-                    molecule.to_smiles(mapped=False, isomeric=False)
-                )
+                coverage[handler_name][parameter.smirks].add(molecule.to_smiles(mapped=False, isomeric=False))
 
     # Convert the defaultdict objects back into ordinary dicts so that users get
     # KeyError exceptions when trying to access missing handlers / smirks.
@@ -58,7 +58,7 @@ def smirnoff_coverage(
 
 
 def smirnoff_torsion_coverage(
-    molecules: Iterable[Tuple[Molecule, Tuple[int, int, int, int]]],
+    molecules: Iterable[tuple[Molecule, tuple[int, int, int, int]]],
     force_field: ForceField,
     verbose: bool = False,
 ):
@@ -98,9 +98,7 @@ def smirnoff_torsion_coverage(
         if smiles in labelled_molecules:
             continue
 
-        labelled_molecules[smiles] = force_field.label_molecules(
-            molecule.to_topology()
-        )[0]
+        labelled_molecules[smiles] = force_field.label_molecules(molecule.to_topology())[0]
 
     coverage = defaultdict(lambda: defaultdict(set))
 
@@ -115,9 +113,7 @@ def smirnoff_torsion_coverage(
         full_labels = labelled_molecules[smiles]
 
         tagged_molecule = copy.deepcopy(molecule)
-        tagged_molecule.properties["atom_map"] = {
-            j: i + 1 for i, j in enumerate(dihedral)
-        }
+        tagged_molecule.properties["atom_map"] = {j: i + 1 for i, j in enumerate(dihedral)}
         tagged_smiles = tagged_molecule.to_smiles(isomeric=False, mapped=True)
 
         dihedral_indices = {*dihedral[1:3]}
@@ -139,10 +135,7 @@ def smirnoff_torsion_coverage(
                 if (
                     handler_name in {"Bonds", "Angles", "ImproperTorsions"}
                     and all(pair != dihedral_indices for pair in consecutive_pairs)
-                ) or (
-                    handler_name == "ProperTorsions"
-                    and consecutive_pairs[1] != dihedral_indices
-                ):
+                ) or (handler_name == "ProperTorsions" and consecutive_pairs[1] != dihedral_indices):
                     continue
 
                 coverage[handler_name][parameter.smirks].add(tagged_smiles)
@@ -153,7 +146,7 @@ def smirnoff_torsion_coverage(
     }
 
 
-def split_openff_molecule(molecule: Molecule) -> List[Molecule]:
+def split_openff_molecule(molecule: Molecule) -> list[Molecule]:
     """
     For a gievn openff molecule split it into its component parts if it is actually a multi-component system.
 
@@ -161,10 +154,7 @@ def split_openff_molecule(molecule: Molecule) -> List[Molecule]:
         molecule:
             The openff.toolkit.topology.Molecule which should be split.
     """
-    sub_graphs = [
-        sorted(sub_graph)
-        for sub_graph in nx.connected_components(molecule.to_networkx())
-    ]
+    sub_graphs = [sorted(sub_graph) for sub_graph in nx.connected_components(molecule.to_networkx())]
     if len(sub_graphs) == 1:
         return [
             molecule,
@@ -199,7 +189,7 @@ def split_openff_molecule(molecule: Molecule) -> List[Molecule]:
     return component_molecules
 
 
-def combine_openff_molecules(molecules: List[Molecule]) -> Molecule:
+def combine_openff_molecules(molecules: list[Molecule]) -> Molecule:
     """
     Combine a list of molecules with equal numbers of conformers into one.
     """

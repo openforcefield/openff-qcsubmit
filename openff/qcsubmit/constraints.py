@@ -2,9 +2,7 @@
 Constraint base classes and methods.
 """
 
-from typing import List, Tuple, Union
-
-from typing_extensions import Literal
+from typing import Literal
 
 from openff.qcsubmit._pydantic import Field, ValidationError, validator
 from openff.qcsubmit.common_structures import ResultsConfig
@@ -16,12 +14,10 @@ ConstraintType = Literal["distance", "angle", "dihedral", "xyz"]
 class Constraint(ResultsConfig):
     type: Literal["basic_constraint"] = "basic_constraint"
 
-    indices: Tuple[int, ...] = Field(
-        ..., description="The indices of the atoms which are to be constrained."
-    )
+    indices: tuple[int, ...] = Field(..., description="The indices of the atoms which are to be constrained.")
 
     @validator("indices")
-    def _order_and_check_indices(cls, indices: Tuple[int, ...]) -> Tuple[int, ...]:
+    def _order_and_check_indices(cls, indices: tuple[int, ...]) -> tuple[int, ...]:
         """
         Check all indices are unique and then order them to make comparisons between constraints easier.
         """
@@ -45,15 +41,18 @@ class Constraint(ResultsConfig):
         exclude = kwargs.get("exclude", set()) or set()
         exclude.add("bonded")
         kwargs["exclude"] = exclude
-        return super(Constraint, self).dict(*args, **kwargs)
+        return super().dict(*args, **kwargs)
 
 
 class DistanceConstraint(Constraint):
     type: Literal["distance"] = "distance"
-    indices: Tuple[int, int]
+    indices: tuple[int, int]
     bonded: bool = Field(
         True,
-        description="If this is a bonded constraint, this will trigger a validation step to ensure all of the atoms are bonded.",
+        description=(
+            "If this is a bonded constraint, this will trigger a validation step to ensure all of the atoms are "
+            "bonded.",
+        ),
     )
 
 
@@ -63,7 +62,7 @@ class DistanceConstraintSet(DistanceConstraint):
 
 class AngleConstraint(DistanceConstraint):
     type: Literal["angle"] = "angle"
-    indices: Tuple[int, int, int]
+    indices: tuple[int, int, int]
 
 
 class AngleConstraintSet(AngleConstraint):
@@ -72,7 +71,7 @@ class AngleConstraintSet(AngleConstraint):
 
 class DihedralConstraint(DistanceConstraint):
     type: Literal["dihedral"] = "dihedral"
-    indices: Tuple[int, int, int, int]
+    indices: tuple[int, int, int, int]
 
 
 class DihedralConstraintSet(DihedralConstraint):
@@ -81,18 +80,18 @@ class DihedralConstraintSet(DihedralConstraint):
 
 class PositionConstraint(Constraint):
     type: Literal["xyz"] = "xyz"
-    indices: Tuple[int, ...]
+    indices: tuple[int, ...]
 
 
 class PositionConstraintSet(PositionConstraint):
-    indices: Tuple[int]
-    value: Union[str, Tuple[float, float, float]] = Field(
+    indices: tuple[int]
+    value: str | tuple[float, float, float] = Field(
         ...,
         description="The value the constraint should be set to, a value or possition.",
     )
 
     @validator("value")
-    def _format_position(cls, value: Union[str, List[float]]) -> str:
+    def _format_position(cls, value: str | list[float]) -> str:
         """
         The position must be a space separated string so we do conversion here.
         """
@@ -110,9 +109,7 @@ class PositionConstraintSet(PositionConstraint):
             if len(value) == 3:
                 split_value = value
         if split_value is None:
-            raise ConstraintError(
-                "Position constraints require a valid 3 number position as a string or list/tuple."
-            )
+            raise ConstraintError("Position constraints require a valid 3 number position as a string or list/tuple.")
 
         # now make sure each value is a valid float and convert to the correct string
         try:
@@ -120,29 +117,23 @@ class PositionConstraintSet(PositionConstraint):
             return str_value
 
         except ValueError as e:
-            raise ConstraintError(
-                "Position constraints require a valid 3 float position"
-            ) from e
+            raise ConstraintError("Position constraints require a valid 3 float position") from e
 
 
 class Constraints(ResultsConfig):
     """
-    A constraints holder which validates the constraints type and data structure however the indices are not checked for connection as this is not required.
+    A constraints holder which validates the constraints type and data structure however the indices are not checked
+    for connection as this is not required.
     """
 
-    freeze: List[
-        Union[
-            DihedralConstraint, AngleConstraint, DistanceConstraint, PositionConstraint
-        ]
-    ] = Field([], description="The list of freeze type constraints.")
-    set: List[
-        Union[
-            DihedralConstraintSet,
-            AngleConstraintSet,
-            DistanceConstraintSet,
-            PositionConstraintSet,
-        ]
-    ] = Field([], description="The list of set type constraints.")
+    freeze: list[DihedralConstraint | AngleConstraint | DistanceConstraint | PositionConstraint] = Field(
+        [],
+        description="The list of freeze type constraints.",
+    )
+    set: list[(DihedralConstraintSet | AngleConstraintSet | DistanceConstraintSet | PositionConstraintSet)] = Field(
+        [],
+        description="The list of set type constraints.",
+    )
     _constraint_types_freeze = {
         "distance": DistanceConstraint,
         "angle": AngleConstraint,
@@ -156,48 +147,47 @@ class Constraints(ResultsConfig):
         "xyz": PositionConstraintSet,
     }
 
-    def add_freeze_constraint(
-        self, constraint_type: ConstraintType, indices: List[int], bonded: bool = True
-    ) -> None:
+    def add_freeze_constraint(self, constraint_type: ConstraintType, indices: list[int], bonded: bool = True) -> None:
         """
-        Add a new freeze constraint to the constraint holder after validating it and making sure it is not already present.
+        Add a new freeze constraint to the constraint holder after validating it and making sure it is not already
+        present.
 
         Parameters:
             constraint_type: The type of frozen constraint to be generated
             indices: The indices of the atoms which will be constrained
-            bonded: If the atoms in the constraint are bonded, this will trigger a connection check when added to a dataset.
+            bonded: If the atoms in the constraint are bonded, this will trigger a connection check when added to a
+                dataset.
         """
         kwargs = {"bonded": bonded, "indices": indices}
         try:
-            constraint = self._constraint_types_freeze[constraint_type.lower()](
-                **kwargs
-            )
+            constraint = self._constraint_types_freeze[constraint_type.lower()](**kwargs)
             if constraint not in self.freeze:
                 self.freeze.append(constraint)
         except KeyError:
             raise ConstraintError(
-                f"The constraint type {constraint_type} is not supported please chose from {self._constraint_types_freeze.keys()}"
+                f"The constraint type {constraint_type} is not supported please chose from "
+                f"{self._constraint_types_freeze.keys()}",
             )
         except ValidationError as e:
-            raise ConstraintError(
-                "A valid constraint could not be built due to the above validation error."
-            ) from e
+            raise ConstraintError("A valid constraint could not be built due to the above validation error.") from e
 
     def add_set_constraint(
         self,
         constraint_type: ConstraintType,
-        indices: List[int],
-        value: Union[float, List[float], str],
+        indices: list[int],
+        value: float | list[float] | str,
         bonded: bool = True,
     ) -> None:
         """
-        Add a new set constraint to the constraint holder after validating it and making sure it is not already present.
+        Add a new set constraint to the constraint holder after validating it and making sure it is not already
+        present.
 
         Parameters:
             constraint_type: The type of constraint to be generated
             indices: The indices of the atoms which will be constrained
             value: The value the constraint should be set to
-            bonded: If the atoms in the constraint are bonded, this will trigger a connection check when added to a dataset.
+            bonded: If the atoms in the constraint are bonded, this will trigger a connection check when added to a
+                dataset.
         """
         kwargs = {"bonded": bonded, "indices": indices, "value": value}
         try:
@@ -206,12 +196,11 @@ class Constraints(ResultsConfig):
                 self.set.append(constraint)
         except KeyError:
             raise ConstraintError(
-                f"The constraint type {constraint_type} is not supported please chose from {self._constraint_types_set.keys()}"
+                f"The constraint type {constraint_type} is not supported please chose from "
+                f"{self._constraint_types_set.keys()}",
             )
         except ValidationError as e:
-            raise ConstraintError(
-                "A valid constraint could not be built due to the above validation error."
-            ) from e
+            raise ConstraintError("A valid constraint could not be built due to the above validation error.") from e
 
     @property
     def has_constraints(self) -> bool:

@@ -52,3 +52,5 @@ dependencies:
 
   # Shim for QCFractal deployment issues
   - apsw >=3.42
+
+  - openff-utilities =0.1.12
