@@ -54,5 +54,6 @@ dependencies:
   - openff-units=0.2.1
   - postgresql
 
-  # Shim for QCFractal deployment issues
+  # Shims for QCFractal deployment issues
   - apsw >=3.42
+  - parsl <2024.12.09
