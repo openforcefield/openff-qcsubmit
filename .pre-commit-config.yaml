@@ -26,7 +26,7 @@ repos:
     additional_dependencies:
       - 'flake8-all-not-strings'
 - repo: https://github.com/nbQA-dev/nbQA
-  rev: 1.8.7
+  rev: 1.9.1
   hooks:
     - id: nbqa-isort
     - id: nbqa-flake8
