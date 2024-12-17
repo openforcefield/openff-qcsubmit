@@ -17,6 +17,10 @@ Releases are given with dates in DD-MM-YYYY format.
 * [PR #300:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/299) where methods to retrieve `BasicResultCollection` and `OptimizationResultCollection` objects from QCArchive would crash if an entry was missing a CMILES.
 * [PR #303:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/297) where `OptimizationResultCollection.create_basic_dataset` was not reusing molecule IDs from QCArchive.
 
+### Miscellaneous
+* [PR #308:] Switches version handling to use `versioningit`.
+* [PR #308:] Consolidates most config files to `pyproject.toml`.
+* [PR #308:] Use `pyproject.toml` for Python build setup.
 
 ## 0.53.0 / 12-8-2024
 
@@ -163,6 +167,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #294:]: https://github.com/openforcefield/openff-qcsubmit/pull/294
 [PR #300:]: https://github.com/openforcefield/openff-qcsubmit/pull/300
 [PR #303:]: https://github.com/openforcefield/openff-qcsubmit/pull/303
+[PR #308:]: https://github.com/openforcefield/openff-qcsubmit/pull/308
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl

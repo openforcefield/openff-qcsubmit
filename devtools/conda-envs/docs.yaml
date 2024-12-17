@@ -7,8 +7,9 @@ channels:
 dependencies:
 
   # Base depends
-  - python
+  - python <3.13
   - pip
+  - versioningit
   - setuptools
 
   # Sphinx specific

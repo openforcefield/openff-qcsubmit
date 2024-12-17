@@ -8,7 +8,9 @@ dependencies:
 
   # Base depends
   - python
+  - versioningit
   - pip
+  - setuptools
 
   # Testing
   - pytest
@@ -49,6 +51,3 @@ dependencies:
   # Optional
   - openmmforcefields
   - openff-fragmenter-base >=0.2.0
-
-  # Shim for QCFractal deployment issues
-  - apsw >=3.42
