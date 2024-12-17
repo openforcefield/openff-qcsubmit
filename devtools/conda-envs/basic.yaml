@@ -51,7 +51,3 @@ dependencies:
   # Optional
   - openmmforcefields
   - openff-fragmenter-base >=0.2.0
-
-  # Shims for QCFractal deployment issues
-  - apsw >=3.42
-  - parsl <2024.12.09
