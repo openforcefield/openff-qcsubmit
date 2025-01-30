@@ -8,7 +8,11 @@ from qcportal.optimization import OptimizationSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import BaseModel, Field, validator
-from openff.qcsubmit.validators import literal_lower, literal_upper, check_geometric_convergence
+from openff.qcsubmit.validators import (
+    check_geometric_convergence,
+    literal_lower,
+    literal_upper,
+)
 
 
 class GeometricProcedure(BaseModel):
@@ -49,16 +53,16 @@ class GeometricProcedure(BaseModel):
 
            'energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3'
 
-            Note that the units are Hartrees for energy and Bohr for distances. 
+            Note that the units are Hartrees for energy and Bohr for distances.
 
-            It is also possible to request that the optimization exit 
-            gracefully after hitting the maximum number of iterations by including 
+            It is also possible to request that the optimization exit
+            gracefully after hitting the maximum number of iterations by including
             an optional `maxiter` flag to the end of the string:
-            
+
             'energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3 maxiter'
 
             This can be used to run a few optimization steps to partially relax a molecule and eliminate high forces.
-            Nothing should follow the `maxiter` flag specified here in `convergence_set`. 
+            Nothing should follow the `maxiter` flag specified here in `convergence_set`.
             To specify the maximum number of iterations, please use the separate `maxiter` _keyword_.
     """
 

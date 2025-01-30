@@ -38,6 +38,7 @@ def literal_upper(literal: str) -> str:
     """
     return literal.upper()
 
+
 def check_geometric_convergence(convergence_keywords: str) -> str:
     """
     Ensure GeomeTRIC convergence criteria are valid
@@ -45,45 +46,48 @@ def check_geometric_convergence(convergence_keywords: str) -> str:
     # If custom keywords are provided, check the format and values
     convergence_keyword_list = convergence_keywords.split()
     if len(convergence_keyword_list) > 1:
-        allowed_keys = ['energy','grms','gmax','drms','dmax','maxiter']
-        
+        allowed_keys = ["energy", "grms", "gmax", "drms", "dmax", "maxiter"]
+
         # Check if keywords are in allowed keys accepted by GeomeTRIC
-        for i,keyword in enumerate(convergence_keyword_list):
-            if i % 2 == 0: # Keywords with even index should be one of the allowed keys
+        for i, keyword in enumerate(convergence_keyword_list):
+            if i % 2 == 0:  # Keywords with even index should be one of the allowed keys
                 if keyword.lower() in allowed_keys:
                     # Make sure `maxiter` isn't followed by anything
-                    if keyword.lower() == 'maxiter':
+                    if keyword.lower() == "maxiter":
                         if i + 1 < len(convergence_keyword_list):
                             raise AssertionError(
                                 f"maxiter must be the last flag, and nothing should follow the maxiter flag specified here in convergence_set. To specify the maximum number of iterations, please use the separate maxiter keyword."
                             )
                     # Make sure corresponding entry can be converted to a float to be used as a convergence criterion
                     else:
-                        float(convergence_keyword_list[i+1]) 
+                        float(convergence_keyword_list[i + 1])
                 else:
                     raise AssertionError(
                         f"Provided convergence option not valid. Options accepted by GeomeTRIC: GAU, NWCHEM_LOOSE, GAU_LOOSE, TURBOMOLE, INTERFRAG_TIGHT, GAU_TIGHT, GAU_VERYTIGHT. Alternatively, provide a custom option using the format 'energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3 (optional: maxiter)'"
                     )
-            else: # Keywords with an odd index should be a float
+            else:  # Keywords with an odd index should be a float
                 float(keyword)
-        
+
         return convergence_keywords
-    
+
     # Otherwise ensure the one-word keyword is valid.
-    else: 
-        allowed_keys = ["GAU",
-                        "NWCHEM_LOOSE",
-                        "GAU_LOOSE",
-                        "TURBOMOLE",
-                        "INTERFRAG_TIGHT",
-                        "GAU_TIGHT",
-                        "GAU_VERYTIGHT"]
+    else:
+        allowed_keys = [
+            "GAU",
+            "NWCHEM_LOOSE",
+            "GAU_LOOSE",
+            "TURBOMOLE",
+            "INTERFRAG_TIGHT",
+            "GAU_TIGHT",
+            "GAU_VERYTIGHT",
+        ]
         if convergence_keywords.upper() not in allowed_keys:
             raise AssertionError(
                 f"Provided convergence option not valid. Options accepted by GeomeTRIC: GAU, NWCHEM_LOOSE, GAU_LOOSE, TURBOMOLE, INTERFRAG_TIGHT, GAU_TIGHT, GAU_VERYTIGHT. Alternatively, provide a custom option using the format 'energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3 (optional: maxiter)'"
             )
         else:
             return convergence_keywords.upper()
+
 
 def check_improper_connection(
     improper: Tuple[int, int, int, int], molecule: off.Molecule
