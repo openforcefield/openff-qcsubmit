@@ -8,10 +8,7 @@ from qcportal.optimization import OptimizationSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import BaseModel, Field, validator
-from openff.qcsubmit.validators import (
-    check_geometric_convergence,
-    literal_lower,
-)
+from openff.qcsubmit.validators import check_geometric_convergence, literal_lower
 
 
 class GeometricProcedure(BaseModel):
