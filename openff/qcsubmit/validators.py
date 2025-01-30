@@ -56,14 +56,14 @@ def check_geometric_convergence(convergence_keywords: str) -> str:
                     if keyword.lower() == "maxiter":
                         if i + 1 < len(convergence_keyword_list):
                             raise AssertionError(
-                                f"maxiter must be the last flag, and nothing should follow the maxiter flag specified here in convergence_set. To specify the maximum number of iterations, please use the separate maxiter keyword."
+                                "maxiter must be the last flag, and nothing should follow the maxiter flag specified here in convergence_set. To specify the maximum number of iterations, please use the separate maxiter keyword."
                             )
                     # Make sure corresponding entry can be converted to a float to be used as a convergence criterion
                     else:
                         float(convergence_keyword_list[i + 1])
                 else:
                     raise AssertionError(
-                        f"Provided convergence option not valid. Options accepted by GeomeTRIC: GAU, NWCHEM_LOOSE, GAU_LOOSE, TURBOMOLE, INTERFRAG_TIGHT, GAU_TIGHT, GAU_VERYTIGHT. Alternatively, provide a custom option using the format 'energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3 (optional: maxiter)'"
+                        "Provided convergence option not valid. Options accepted by GeomeTRIC: GAU, NWCHEM_LOOSE, GAU_LOOSE, TURBOMOLE, INTERFRAG_TIGHT, GAU_TIGHT, GAU_VERYTIGHT. Alternatively, provide a custom option using the format 'energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3 (optional: maxiter)'"
                     )
             else:  # Keywords with an odd index should be a float
                 float(keyword)
@@ -83,7 +83,7 @@ def check_geometric_convergence(convergence_keywords: str) -> str:
         ]
         if convergence_keywords.upper() not in allowed_keys:
             raise AssertionError(
-                f"Provided convergence option not valid. Options accepted by GeomeTRIC: GAU, NWCHEM_LOOSE, GAU_LOOSE, TURBOMOLE, INTERFRAG_TIGHT, GAU_TIGHT, GAU_VERYTIGHT. Alternatively, provide a custom option using the format 'energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3 (optional: maxiter)'"
+                "Provided convergence option not valid. Options accepted by GeomeTRIC: GAU, NWCHEM_LOOSE, GAU_LOOSE, TURBOMOLE, INTERFRAG_TIGHT, GAU_TIGHT, GAU_VERYTIGHT. Alternatively, provide a custom option using the format 'energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3 (optional: maxiter)'"
             )
         else:
             return convergence_keywords.upper()
