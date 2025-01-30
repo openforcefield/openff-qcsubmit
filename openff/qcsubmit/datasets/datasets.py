@@ -1016,6 +1016,17 @@ class OptimizationDataset(BasicDataset):
     def _get_specifications(self) -> Dict[str, OptimizationSpecification]:
         opt_kw = self.optimization_procedure.get_optimzation_keywords()
 
+        # Handle custom convergence set dictionary
+        if type(opt_kw['convergence_set']) == dict:
+            convergence_set_string = ''
+            for key in opt_kw['convergence_set'].keys():
+                if key.lower() == 'maxiter':
+                    convergence_set_string += key.lower()
+                else:
+                    convergence_set_string += " {} {} ".format(key.lower(), str(opt_kw['convergence_set'][key]))
+            opt_kw['convergence_set'] = convergence_set_string
+
+
         ret = {}
 
         for spec_name, spec in self.qc_specifications.items():
