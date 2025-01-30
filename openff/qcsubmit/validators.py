@@ -38,6 +38,28 @@ def literal_upper(literal: str) -> str:
     """
     return literal.upper()
 
+def check_geometric_convergence(convergence_keywords: Union[dict,str]) -> Union[dict,str]:
+    """
+    Ensure GeomeTRIC convergence criteria are valid
+    """
+    # If custom keywords are provided, check them
+    if type(convergence_keywords) == dict:
+        allowed_keys = ['energy','grms','gmax','drms','dmax','maxiter']
+        
+        # Check if key is in allowed keys accepted by GeomeTRIC
+        for key in convergence_keywords.keys():
+            if key.lower() in allowed_keys:
+                # Make sure key can be converted to a float to be used as a convergence criterion
+                if key.lower() != 'maxiter':
+                    float(convergence_keywords[key]) 
+            else:
+                raise AssertionError('Provided convergence option not valid. Options accepted by GeomeTRIC: energy, grms, gmax, drms, dmax, maxiter')
+                
+        return convergence_keywords
+    
+    # Otherwise let the Literal validator handle it
+    else: 
+        return convergence_keywords.upper()
 
 def check_improper_connection(
     improper: Tuple[int, int, int, int], molecule: off.Molecule

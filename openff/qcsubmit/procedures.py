@@ -2,13 +2,13 @@
 The procedure settings controllers
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 from qcportal.optimization import OptimizationSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import BaseModel, Field, validator
-from openff.qcsubmit.validators import literal_lower, literal_upper
+from openff.qcsubmit.validators import literal_lower, literal_upper, check_geometric_convergence
 
 
 class GeometricProcedure(BaseModel):
@@ -44,6 +44,30 @@ class GeometricProcedure(BaseModel):
             +-------------------+---------------------+--------+---------+--------+--------+-------+
             | `GAU_VERYTIGHT`   | Gaussian very tight | 1e-6   | 1e-6    | 2e-6   | 4e-6   | 6e-6  |
             +-------------------+---------------------+--------+---------+--------+--------+-------+
+
+        One can also request custom convergence criteria using a dictionary with the following format:
+
+           {'energy': 1e-6,
+            'grms': 3e-4,
+            'gmax': 4.5e-4,
+            'drms': 1.2e-3,
+            'dmax': 1.8e-3 }
+
+            Note that the units are Hartrees for energy and Bohr for distances. 
+
+            It is also possible to request that the optimization exit 
+            gracefully after hitting the maximum number of iterations by including 
+            an additional `maxiter` key to the `convergence_set` dictionary as follows:
+            
+            {'energy': 1e-6,
+             'grms': 3e-4,
+             'gmax': 4.5e-4,
+             'drms': 1.2e-3,
+             'dmax': 1.8e-3
+             'maxiter': '' }
+
+            Note that the entry corresponding to the `maxiter` key will be ignored. 
+            To specify the maximum number of iterations, please use the separate `maxiter` _keyword_.
     """
 
     program: Literal["geometric"] = Field(
@@ -75,7 +99,7 @@ class GeometricProcedure(BaseModel):
     trust: float = Field(0.1, description="Starting value of the trust radius.")
     tmax: float = Field(0.3, description="Maximum value of trust radius.")
     maxiter: int = Field(300, description="Maximum number of optimization cycles.")
-    convergence_set: Literal[
+    convergence_set: Union[Literal[
         "GAU",
         "NWCHEM_LOOSE",
         "GAU_LOOSE",
@@ -83,7 +107,8 @@ class GeometricProcedure(BaseModel):
         "INTERFRAG_TIGHT",
         "GAU_TIGHT",
         "GAU_VERYTIGHT",
-    ] = Field(
+        "TEST"
+    ],Dict] = Field(
         "GAU",
         description="The set of convergence criteria to be used for the optimisation.",
     )
@@ -97,7 +122,7 @@ class GeometricProcedure(BaseModel):
         title = "GeometricProcedure"
 
     _convergence_set_check = validator("convergence_set", pre=True, allow_reuse=True)(
-        literal_upper
+        check_geometric_convergence
     )
     _coordsys_check = validator("coordsys", pre=True, allow_reuse=True)(literal_lower)
 
