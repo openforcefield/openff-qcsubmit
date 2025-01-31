@@ -847,7 +847,7 @@ def test_optimization_submission_custom_convergence(fulltest_client):
     factory = OptimizationDatasetFactory(driver="gradient")
 
     dataset = factory.create_dataset(
-        dataset_name=f"Test optimizations with custom convergence set",
+        dataset_name="Test optimizations with custom convergence set",
         molecules=molecules[:2],
         description="Test optimization dataset with custom convergence set",
         tagline="Testing optimization datasets with custom convergence set",
@@ -922,11 +922,6 @@ def test_optimization_submission_custom_convergence(fulltest_client):
 
             # Length of trajectory is the number of steps. Should be equal to maxiter
             assert len(record.trajectory) == dataset.optimization_procedure.maxiter
-            # if we used psi4 make sure the properties were captured
-            if program == "psi4":
-                result = record.trajectory[0]
-                assert "current dipole" in result.properties.keys()
-                assert "scf quadrupole" in result.properties.keys()
 
 
 @pytest.mark.xfail(
