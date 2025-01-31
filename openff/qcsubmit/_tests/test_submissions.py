@@ -40,6 +40,8 @@ from openff.qcsubmit.results import (
 )
 from openff.qcsubmit.utils import get_data
 
+from openff.qcsubmit.procedures import GeometricProcedure
+from openff.qcsubmit._pydantic import ValidationError
 
 def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, ids=[1]):
     import time
@@ -828,6 +830,96 @@ def test_optimization_submissions(fulltest_client, specification):
             # since we only chose to keep `initial_and_final` trajectory,
             # should only have two results
             assert len(record.trajectory) == 2
+            # if we used psi4 make sure the properties were captured
+            if program == "psi4":
+                result = record.trajectory[0]
+                assert "current dipole" in result.properties.keys()
+                assert "scf quadrupole" in result.properties.keys()
+
+
+def test_optimization_submission_custom_convergence(fulltest_client):
+    """Test submitting an Optimization dataset to a snowflake server."""
+
+    client = fulltest_client
+
+    qc_spec, driver = specification
+    program = qc_spec["program"]
+    if not has_program(program):
+        pytest.skip(f"Program '{program}' not found.")
+
+    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
+
+    factory = OptimizationDatasetFactory(driver=driver)
+
+    dataset = factory.create_dataset(
+        dataset_name=f"Test optimizations info {program}, {driver} with custom convergence set",
+        molecules=molecules[:2],
+        description="Test optimization dataset with custom convergence set",
+        tagline="Testing optimization datasets with custom convergence set",
+    )
+    # add just mm spec
+    dataset.add_qc_spec(
+        method="hf",
+        basis="sto-3g",
+        program="psi4",
+        spec_name="hf_sto3g",
+        spec_description="hf/sto-3g",
+        overwrite=True,
+    )
+
+    # force a validation error with the GeometricProcedure
+    with pytest.raises(ValidationError):
+        dataset.optimization_procedure = GeometricProcedure(convergence_set='energy 1e-4 maxiter grms 5')
+
+
+    # re-add the GeometricProcedure so we can submit the data
+    dataset.optimization_procedure = GeometricProcedure(convergence_set='energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3 maxiter',maxiter=2)
+
+    # now submit 
+    dataset.submit(client=client)
+
+    await_results(
+        client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1, 2]
+    )
+
+    # make sure of the results are complete
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
+
+    # check the metadata
+    check_metadata(ds, dataset)
+
+    # check the optimization spec
+    # ds is a qcportal OptimizationDataset, and dataset is our
+    # OptimizationDataset, kinda confusing
+    for spec_name, specification in ds.specifications.items():
+        spec = dataset.qc_specifications[spec_name]
+
+        s = specification.specification
+        assert s.qc_specification.driver == dataset.driver
+        assert s.qc_specification.program == spec.program
+        assert s.qc_specification.method == spec.method
+        assert s.qc_specification.basis == spec.basis
+        assert specification.description == spec.spec_description
+
+        # check the keywords
+        got = s.keywords
+        want = dataset._get_specifications()[spec_name].keywords
+        assert got == want
+
+    for spec in dataset.qc_specifications.values():
+        # query the dataset
+        query = ds.iterate_records(specification_names="default")
+
+        for name, spec, record in query:
+            assert record.status == RecordStatusEnum.complete
+            assert record.error is None
+            # Make sure convergence set was captured
+            assert record.specification.keywords['convergence_set'].lower() == dataset.optimization_procedure.convergence_set.lower()
+
+            # Length of trajectory is the number of steps. Should be equal to maxiter
+            assert len(record.trajectory) == dataset.optimization_procedure.maxiter
             # if we used psi4 make sure the properties were captured
             if program == "psi4":
                 result = record.trajectory[0]
