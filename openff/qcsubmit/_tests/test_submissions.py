@@ -844,7 +844,7 @@ def test_optimization_submission_custom_convergence(fulltest_client):
 
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
-    factory = OptimizationDatasetFactory(driver='gradient')
+    factory = OptimizationDatasetFactory(driver="gradient")
 
     dataset = factory.create_dataset(
         dataset_name=f"Test optimizations with custom convergence set",
