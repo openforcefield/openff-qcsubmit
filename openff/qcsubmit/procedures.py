@@ -2,7 +2,7 @@
 The procedure settings controllers
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from qcportal.optimization import OptimizationSpecification
 from typing_extensions import Literal
@@ -44,6 +44,44 @@ class GeometricProcedure(BaseModel):
             +-------------------+---------------------+--------+---------+--------+--------+-------+
             | `GAU_VERYTIGHT`   | Gaussian very tight | 1e-6   | 1e-6    | 2e-6   | 4e-6   | 6e-6  |
             +-------------------+---------------------+--------+---------+--------+--------+-------+
+
+            The recommended use case is to provide the name of one of these sets with the `convergence_set` keyword.
+
+        Alternatively, you can provide a custom convergence criteria set by providing a list of strings to the `converge` keyword.
+        These should be provided in the following format, with the `convergence_set` keyword set to 'CUSTOM':
+        
+            ```
+            convergence_set = 'CUSTOM',
+            converge = ['energy', '1e-6', 'grms', '3e-4', 'gmax', '4.5e-4', 'drms', '1.2e-3', 'dmax', '1.8e-3']
+            ```
+            
+            Not all the flags are required, please see the GeomeTRIC documentation for more information on custom convergence criteria sets.
+            Note that the units are are Hartree for energies and Bohr for distances. 
+            
+            The `maxiter` flag can also be passed to the `converge` keyword to tell the program to exit gracefully upon reaching the maximum number of iterations.
+            This can be used to run a few optimization steps to relax excessively high forces.
+            It can be passed with a list of custom criteria:
+
+            ```
+            convergence_set = 'CUSTOM',
+            converge = ['energy', '1e-6', 'grms', '3e-4', 'gmax', '4.5e-4', 'drms', '1.2e-3', 'dmax', '1.8e-3', 'maxiter']
+            ```
+
+            It can also be used in conjunction with one of the `convergence_set` options:
+
+            ```
+            convergence_set = 'GAU',
+            converge = ['maxiter']
+            ```
+
+            The `maxiter` flag to the `converge` keyword should not be followed by anything; to set the maximum number of iterations, please use the separate `maxiter` keyword:
+
+            ```
+            convergence_set = 'GAU',
+            converge = ['maxiter']
+            maxiter = 5
+            ```
+         
     """
 
     program: Literal["geometric"] = Field(
@@ -83,6 +121,7 @@ class GeometricProcedure(BaseModel):
         "INTERFRAG_TIGHT",
         "GAU_TIGHT",
         "GAU_VERYTIGHT",
+        "CUSTOM"
     ] = Field(
         "GAU",
         description="The set of convergence criteria to be used for the optimisation.",
@@ -90,6 +129,10 @@ class GeometricProcedure(BaseModel):
     constraints: Dict = Field(
         {},
         description="The list of constraints orginsed by set and freeze that should be used in the optimization",
+    )
+    converge: Optional[List[str]] = Field(
+        None,
+        description="(Optional): The custom-specified convergence criteria to be used for the optimization. If none provided, will fall back to the option provided in convergence_set.",
     )
 
     class Config:
@@ -100,6 +143,8 @@ class GeometricProcedure(BaseModel):
         literal_upper
     )
     _coordsys_check = validator("coordsys", pre=True, allow_reuse=True)(literal_lower)
+
+    # Resolve conflicts between convergence options
 
     def get_optimzation_keywords(self) -> Dict[str, Any]:
         """
