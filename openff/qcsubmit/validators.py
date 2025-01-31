@@ -85,7 +85,6 @@ def check_custom_converge(convergence_keyword_list: list) -> list:
                 f"Invalid flag provided in converge. Allowed flags are {allowed_keys}. Flags must be provided as a list with the following format: ['energy', '1e-6', 'grms', '3e-4', 'gmax', '4.5e-4', 'drms', '1.2e-3', 'dmax', '1.8e-3', 'maxiter']. Provided option was {convergence_keyword_list}"
             )
     return convergence_keyword_list
-            
 
 def check_improper_connection(
     improper: Tuple[int, int, int, int], molecule: off.Molecule

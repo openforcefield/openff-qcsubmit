@@ -2,12 +2,12 @@
 The procedure settings controllers
 """
 
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List
 
 from qcportal.optimization import OptimizationSpecification
 from typing_extensions import Literal
 
-from openff.qcsubmit._pydantic import BaseModel, Field, validator
+from openff.qcsubmit._pydantic import BaseModel, Field, validator, root_validator
 from openff.qcsubmit.validators import literal_lower, literal_upper, check_custom_converge
 
 
@@ -130,8 +130,8 @@ class GeometricProcedure(BaseModel):
         {},
         description="The list of constraints orginsed by set and freeze that should be used in the optimization",
     )
-    converge: Optional[List[str]] = Field(
-        None,
+    converge: List = Field(
+        [],
         description="(Optional): The custom-specified convergence criteria to be used for the optimization. If none provided, will fall back to the option provided in convergence_set.",
     )
 
@@ -147,7 +147,27 @@ class GeometricProcedure(BaseModel):
     )
     _coordsys_check = validator("coordsys", pre=True, allow_reuse=True)(literal_lower)
 
-    # Resolve conflicts between convergence options
+    @root_validator()
+    def check_convergence_all(cls, values):
+        convergence_set = values.get("convergence_set")
+        convergence_keywords = values.get("converge")
+
+        # Make sure that if a custom convergence set is provided via the converge keyword, the convergence_set keyword is set to 'CUSTOM'
+        if len(convergence_keywords) > 0 and convergence_set != "CUSTOM":
+            # It is okay to provide only maxiter to converge, and use a regular convergence_set
+            if len(convergence_keywords) == 1 and convergence_keywords[0].lower() == "maxiter":
+                pass
+            else:
+                raise ValueError(
+                    f"Received convergence_set = {convergence_set} and converge = {convergence_keywords}. If a custom convergence criteria set is provided via the converge keyword, the convergence_set keyword must be set to 'CUSTOM'."
+                )
+        
+        # Make sure that if convergence_set = CUSTOM, the converge keyword is not empty
+        elif convergence_set == 'CUSTOM' and len(convergence_keywords) < 2:
+            raise ValueError(
+                f"Received convergence_set = {convergence_set} and converge = {convergence_keywords}. If convergence_set = 'CUSTOM', the convergence criteria must be specified by converge = ['energy','1e-6',...]."
+            )
+        return values
 
     def get_optimzation_keywords(self) -> Dict[str, Any]:
         """
