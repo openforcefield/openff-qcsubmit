@@ -842,22 +842,17 @@ def test_optimization_submission_custom_convergence(fulltest_client):
 
     client = fulltest_client
 
-    qc_spec, driver = specification
-    program = qc_spec["program"]
-    if not has_program(program):
-        pytest.skip(f"Program '{program}' not found.")
-
     molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
 
-    factory = OptimizationDatasetFactory(driver=driver)
+    factory = OptimizationDatasetFactory(driver='gradient')
 
     dataset = factory.create_dataset(
-        dataset_name=f"Test optimizations info {program}, {driver} with custom convergence set",
+        dataset_name=f"Test optimizations with custom convergence set",
         molecules=molecules[:2],
         description="Test optimization dataset with custom convergence set",
         tagline="Testing optimization datasets with custom convergence set",
     )
-    # add just mm spec
+    # add spec
     dataset.add_qc_spec(
         method="hf",
         basis="sto-3g",
