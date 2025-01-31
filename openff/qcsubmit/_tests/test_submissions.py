@@ -12,6 +12,7 @@ from qcportal import PortalClient
 from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
+from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit.common_structures import (
     DDXSettings,
     MoleculeAttributes,
@@ -33,6 +34,7 @@ from openff.qcsubmit.factories import (
     OptimizationDatasetFactory,
     TorsiondriveDatasetFactory,
 )
+from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.results import (
     BasicResultCollection,
     OptimizationResultCollection,
@@ -40,8 +42,6 @@ from openff.qcsubmit.results import (
 )
 from openff.qcsubmit.utils import get_data
 
-from openff.qcsubmit.procedures import GeometricProcedure
-from openff.qcsubmit._pydantic import ValidationError
 
 def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, ids=[1]):
     import time
@@ -869,13 +869,17 @@ def test_optimization_submission_custom_convergence(fulltest_client):
 
     # force a validation error with the GeometricProcedure
     with pytest.raises(ValidationError):
-        dataset.optimization_procedure = GeometricProcedure(convergence_set='energy 1e-4 maxiter grms 5')
-
+        dataset.optimization_procedure = GeometricProcedure(
+            convergence_set="energy 1e-4 maxiter grms 5"
+        )
 
     # re-add the GeometricProcedure so we can submit the data
-    dataset.optimization_procedure = GeometricProcedure(convergence_set='energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3 maxiter',maxiter=2)
+    dataset.optimization_procedure = GeometricProcedure(
+        convergence_set="energy 1e-6 grms 3e-4 gmax 4.5e-4 drms 1.2e-3 dmax 1.8e-3 maxiter",
+        maxiter=2,
+    )
 
-    # now submit 
+    # now submit
     dataset.submit(client=client)
 
     await_results(
@@ -916,7 +920,10 @@ def test_optimization_submission_custom_convergence(fulltest_client):
             assert record.status == RecordStatusEnum.complete
             assert record.error is None
             # Make sure convergence set was captured
-            assert record.specification.keywords['convergence_set'].lower() == dataset.optimization_procedure.convergence_set.lower()
+            assert (
+                record.specification.keywords["convergence_set"].lower()
+                == dataset.optimization_procedure.convergence_set.lower()
+            )
 
             # Length of trajectory is the number of steps. Should be equal to maxiter
             assert len(record.trajectory) == dataset.optimization_procedure.maxiter
