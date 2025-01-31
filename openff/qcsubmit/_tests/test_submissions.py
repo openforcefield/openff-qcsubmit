@@ -852,13 +852,13 @@ def test_optimization_submission_custom_convergence(fulltest_client):
         description="Test optimization dataset with custom convergence set",
         tagline="Testing optimization datasets with custom convergence set",
     )
-    # add spec
+    # add just mm spec
     dataset.add_qc_spec(
-        method="hf",
-        basis="sto-3g",
-        program="psi4",
-        spec_name="hf_sto3g",
-        spec_description="hf/sto-3g",
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="default",
+        spec_description="mm default spec",
         overwrite=True,
     )
 
