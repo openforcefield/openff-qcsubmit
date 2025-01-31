@@ -2,13 +2,13 @@
 The procedure settings controllers
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 from qcportal.optimization import OptimizationSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import BaseModel, Field, validator
-from openff.qcsubmit.validators import literal_lower, literal_upper
+from openff.qcsubmit.validators import literal_lower, literal_upper, check_custom_converge
 
 
 class GeometricProcedure(BaseModel):
@@ -141,6 +141,9 @@ class GeometricProcedure(BaseModel):
 
     _convergence_set_check = validator("convergence_set", pre=True, allow_reuse=True)(
         literal_upper
+    )
+    _converge_check = validator("converge", pre=True, allow_reuse=True)(
+        check_custom_converge
     )
     _coordsys_check = validator("coordsys", pre=True, allow_reuse=True)(literal_lower)
 
