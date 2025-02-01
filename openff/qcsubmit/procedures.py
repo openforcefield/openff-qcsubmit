@@ -7,8 +7,12 @@ from typing import Any, Dict, List
 from qcportal.optimization import OptimizationSpecification
 from typing_extensions import Literal
 
-from openff.qcsubmit._pydantic import BaseModel, Field, validator, root_validator
-from openff.qcsubmit.validators import literal_lower, literal_upper, check_custom_converge
+from openff.qcsubmit._pydantic import BaseModel, Field, root_validator, validator
+from openff.qcsubmit.validators import (
+    check_custom_converge,
+    literal_lower,
+    literal_upper,
+)
 
 
 class GeometricProcedure(BaseModel):
@@ -49,15 +53,15 @@ class GeometricProcedure(BaseModel):
 
         Alternatively, you can provide a custom convergence criteria set by providing a list of strings to the `converge` keyword.
         These should be provided in the following format, with the `convergence_set` keyword set to 'CUSTOM':
-        
+
             ```
             convergence_set = 'CUSTOM',
             converge = ['energy', '1e-6', 'grms', '3e-4', 'gmax', '4.5e-4', 'drms', '1.2e-3', 'dmax', '1.8e-3']
             ```
-            
+
             Not all the flags are required, please see the GeomeTRIC documentation for more information on custom convergence criteria sets.
-            Note that the units are are Hartree for energies and Bohr for distances. 
-            
+            Note that the units are are Hartree for energies and Bohr for distances.
+
             The `maxiter` flag can also be passed to the `converge` keyword to tell the program to exit gracefully upon reaching the maximum number of iterations.
             This can be used to run a few optimization steps to relax excessively high forces.
             It can be passed with a list of custom criteria:
@@ -81,7 +85,7 @@ class GeometricProcedure(BaseModel):
             converge = ['maxiter']
             maxiter = 5
             ```
-         
+
     """
 
     program: Literal["geometric"] = Field(
@@ -121,7 +125,7 @@ class GeometricProcedure(BaseModel):
         "INTERFRAG_TIGHT",
         "GAU_TIGHT",
         "GAU_VERYTIGHT",
-        "CUSTOM"
+        "CUSTOM",
     ] = Field(
         "GAU",
         description="The set of convergence criteria to be used for the optimisation.",
@@ -155,15 +159,18 @@ class GeometricProcedure(BaseModel):
         # Make sure that if a custom convergence set is provided via the converge keyword, the convergence_set keyword is set to 'CUSTOM'
         if len(convergence_keywords) > 0 and convergence_set != "CUSTOM":
             # It is okay to provide only maxiter to converge, and use a regular convergence_set
-            if len(convergence_keywords) == 1 and convergence_keywords[0].lower() == "maxiter":
+            if (
+                len(convergence_keywords) == 1
+                and convergence_keywords[0].lower() == "maxiter"
+            ):
                 pass
             else:
                 raise ValueError(
                     f"Received convergence_set = {convergence_set} and converge = {convergence_keywords}. If a custom convergence criteria set is provided via the converge keyword, the convergence_set keyword must be set to 'CUSTOM'."
                 )
-        
+
         # Make sure that if convergence_set = CUSTOM, the converge keyword is not empty
-        elif convergence_set == 'CUSTOM' and len(convergence_keywords) < 2:
+        elif convergence_set == "CUSTOM" and len(convergence_keywords) < 2:
             raise ValueError(
                 f"Received convergence_set = {convergence_set} and converge = {convergence_keywords}. If convergence_set = 'CUSTOM', the convergence criteria must be specified by converge = ['energy','1e-6',...]."
             )
@@ -179,10 +186,10 @@ class GeometricProcedure(BaseModel):
         exclude = {"program"}
         if self.constraints is not None:
             exclude.add("constraints")
-        if self.convergence_set == 'CUSTOM':
-            exclude.add('convergence_set')
+        if self.convergence_set == "CUSTOM":
+            exclude.add("convergence_set")
         if len(self.converge) == 0:
-            exclude.add('converge')
+            exclude.add("converge")
 
         return self.dict(exclude=exclude)
 
