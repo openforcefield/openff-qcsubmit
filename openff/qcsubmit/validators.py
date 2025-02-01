@@ -63,7 +63,7 @@ def check_custom_converge(convergence_keyword_list: list) -> list:
             # If not maxiter, next number should be a string, but able to be made into a float
             else:
                 try:
-                    assert type(convergence_keyword_list[i + 1]) == str
+                    assert convergence_keyword_list[i + 1].isinstance(str)
                     float(convergence_keyword_list[i + 1])
                 except (AssertionError, TypeError):
                     raise AssertionError(
@@ -74,7 +74,7 @@ def check_custom_converge(convergence_keyword_list: list) -> list:
         elif convergence_keyword_list[i - 1].lower() in allowed_keys:
 
             try:
-                assert type(keyword) == str
+                assert keyword.isinstance(str)
                 float(keyword)
             except (AssertionError, TypeError):
                 raise AssertionError(
