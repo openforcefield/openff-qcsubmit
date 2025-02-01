@@ -179,6 +179,10 @@ class GeometricProcedure(BaseModel):
         exclude = {"program"}
         if self.constraints is not None:
             exclude.add("constraints")
+        if self.convergence_set == 'CUSTOM':
+            exclude.add('convergence_set')
+        if len(self.converge) == 0:
+            exclude.add('converge')
 
         return self.dict(exclude=exclude)
 
