@@ -39,7 +39,8 @@ from openff.qcsubmit.results import (
     TorsionDriveResultCollection,
 )
 from openff.qcsubmit.utils import get_data
-
+from openff.qcsubmit.procedures import GeometricProcedure
+from openff.qcsubmit._pydantic import ValidationError
 
 def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, ids=[1]):
     import time
@@ -834,6 +835,114 @@ def test_optimization_submissions(fulltest_client, specification):
                 assert "current dipole" in result.properties.keys()
                 assert "scf quadrupole" in result.properties.keys()
 
+
+@pytest.mark.parametrize(
+    "opt_keywords",
+    [
+        pytest.param(
+            ("CUSTOM",
+             ['energy','1e-4','maxiter',],
+             3,
+             'custom convergence with maxiter'
+             ),
+            id="Custom convergence with maxiter",
+        ),
+        pytest.param(
+            ("GAU",
+             ['maxiter',],
+             3,
+            "Default conv with maxiter"
+             ),
+            id="Default conv with maxiter",
+        ),
+        pytest.param(
+            ("CUSTOM",
+             ['energy', '1e-4', 'grms', '3e-2', 'gmax', '4.5e-1', 'drms', '1.2e-3', 'dmax', '1.8e-1',],
+             300,
+            "Custom convergence, no maxiter"
+             ),
+            id="Custom convergence, no maxiter",
+        ),
+    ],
+)
+def test_optimization_submissions_convergence(fulltest_client,opt_keywords):
+    """Test submitting an Optimization dataset with custom convergence options."""
+
+    client = fulltest_client
+
+    convergence_set, converge, maxit, ds_suffix = opt_keywords
+
+    ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
+    mols = [ethane]
+
+    dataset = OptimizationDataset(
+        dataset_name="Test optimizations with converge " + ds_suffix,
+        description="Test optimization dataset with constraints",
+        dataset_tagline="Testing optimization datasets",
+        molecules = mols
+    )
+
+    dataset.clear_qcspecs()
+    dataset.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="test spec",
+        spec_description="test spec",
+        overwrite=True,
+    )
+
+    # force a validation error with the GeometricProcedure
+    with pytest.raises(ValidationError):
+        dataset.optimization_procedure = GeometricProcedure(
+            convergence_set="GAU maxiter"
+        )
+    with pytest.raises(ValidationError):
+        dataset.optimization_procedure = GeometricProcedure(
+            converge=["GAU", "maxiter"]
+        )
+
+    # re-add the GeometricProcedure so we can submit the data
+    dataset.optimization_procedure = GeometricProcedure(program='geometric', 
+                                                        maxiter=maxit, 
+                                                        convergence_set=convergence_set,
+                                                        converge = converge)
+
+    # only save final gradients, results, if --converge maxiter not requested
+    if 'maxiter' not in converge:
+        dataset.protocols = OptimizationProtocols(trajectory="initial_and_final")
+
+    # now submit
+    dataset.submit(client=client)
+
+    await_results(
+        client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1, 2, 3]
+    )
+
+    # make sure of the results are complete
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
+
+    query = ds.iterate_records(specification_names="test spec")
+
+    for name, spec, record in query:
+        assert record.status == RecordStatusEnum.complete
+        assert record.error is None
+
+        assert (
+            [key.lower() for key in record.specification.keywords['converge']]
+            == dataset.optimization_procedure.converge
+        )
+
+        # Length of trajectory is the number of steps. Should be equal to maxiter + 1
+        # if --converge maxiter was requested
+        if 'maxiter' in converge:
+            assert len(record.trajectory) == dataset.optimization_procedure.maxiter +1
+
+        # If not, since we only chose to keep `initial_and_final` trajectory,
+        # should only have two results
+        assert len(record.trajectory) == 2
 
 @pytest.mark.xfail(
     reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206"
