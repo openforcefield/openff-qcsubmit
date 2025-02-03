@@ -12,6 +12,7 @@ from qcportal import PortalClient
 from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
+from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit.common_structures import (
     DDXSettings,
     MoleculeAttributes,
@@ -33,14 +34,14 @@ from openff.qcsubmit.factories import (
     OptimizationDatasetFactory,
     TorsiondriveDatasetFactory,
 )
+from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.results import (
     BasicResultCollection,
     OptimizationResultCollection,
     TorsionDriveResultCollection,
 )
 from openff.qcsubmit.utils import get_data
-from openff.qcsubmit.procedures import GeometricProcedure
-from openff.qcsubmit._pydantic import ValidationError
+
 
 def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, ids=[1]):
     import time
@@ -840,32 +841,52 @@ def test_optimization_submissions(fulltest_client, specification):
     "opt_keywords",
     [
         pytest.param(
-            ("CUSTOM",
-             ['energy','1e-4','maxiter',],
-             3,
-             'custom convergence with maxiter'
-             ),
+            (
+                "CUSTOM",
+                [
+                    "energy",
+                    "1e-4",
+                    "maxiter",
+                ],
+                3,
+                "custom convergence with maxiter",
+            ),
             id="Custom convergence with maxiter",
         ),
         pytest.param(
-            ("GAU",
-             ['maxiter',],
-             3,
-            "Default conv with maxiter"
-             ),
+            (
+                "GAU",
+                [
+                    "maxiter",
+                ],
+                3,
+                "Default conv with maxiter",
+            ),
             id="Default conv with maxiter",
         ),
         pytest.param(
-            ("CUSTOM",
-             ['energy', '1e-4', 'grms', '3e-2', 'gmax', '4.5e-1', 'drms', '1.2e-3', 'dmax', '1.8e-1',],
-             300,
-            "Custom convergence, no maxiter"
-             ),
+            (
+                "CUSTOM",
+                [
+                    "energy",
+                    "1e-4",
+                    "grms",
+                    "3e-2",
+                    "gmax",
+                    "4.5e-1",
+                    "drms",
+                    "1.2e-3",
+                    "dmax",
+                    "1.8e-1",
+                ],
+                300,
+                "Custom convergence, no maxiter",
+            ),
             id="Custom convergence, no maxiter",
         ),
     ],
 )
-def test_optimization_submissions_convergence(fulltest_client,opt_keywords):
+def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
     """Test submitting an Optimization dataset with custom convergence options."""
 
     client = fulltest_client
@@ -879,7 +900,7 @@ def test_optimization_submissions_convergence(fulltest_client,opt_keywords):
         dataset_name="Test optimizations with converge " + ds_suffix,
         description="Test optimization dataset with constraints",
         dataset_tagline="Testing optimization datasets",
-        molecules = mols
+        molecules=mols,
     )
 
     dataset.clear_qcspecs()
@@ -898,18 +919,18 @@ def test_optimization_submissions_convergence(fulltest_client,opt_keywords):
             convergence_set="GAU maxiter"
         )
     with pytest.raises(ValidationError):
-        dataset.optimization_procedure = GeometricProcedure(
-            converge=["GAU", "maxiter"]
-        )
+        dataset.optimization_procedure = GeometricProcedure(converge=["GAU", "maxiter"])
 
     # re-add the GeometricProcedure so we can submit the data
-    dataset.optimization_procedure = GeometricProcedure(program='geometric', 
-                                                        maxiter=maxit, 
-                                                        convergence_set=convergence_set,
-                                                        converge = converge)
+    dataset.optimization_procedure = GeometricProcedure(
+        program="geometric",
+        maxiter=maxit,
+        convergence_set=convergence_set,
+        converge=converge,
+    )
 
     # only save final gradients, results, if --converge maxiter not requested
-    if 'maxiter' not in converge:
+    if "maxiter" not in converge:
         dataset.protocols = OptimizationProtocols(trajectory="initial_and_final")
 
     # now submit
@@ -930,19 +951,19 @@ def test_optimization_submissions_convergence(fulltest_client,opt_keywords):
         assert record.status == RecordStatusEnum.complete
         assert record.error is None
 
-        assert (
-            [key.lower() for key in record.specification.keywords['converge']]
-            == dataset.optimization_procedure.converge
-        )
+        assert [
+            key.lower() for key in record.specification.keywords["converge"]
+        ] == dataset.optimization_procedure.converge
 
         # Length of trajectory is the number of steps. Should be equal to maxiter + 1
         # if --converge maxiter was requested
-        if 'maxiter' in converge:
-            assert len(record.trajectory) == dataset.optimization_procedure.maxiter +1
+        if "maxiter" in converge:
+            assert len(record.trajectory) == dataset.optimization_procedure.maxiter + 1
 
         # If not, since we only chose to keep `initial_and_final` trajectory,
         # should only have two results
         assert len(record.trajectory) == 2
+
 
 @pytest.mark.xfail(
     reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206"
