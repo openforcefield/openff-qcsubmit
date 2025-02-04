@@ -20,6 +20,7 @@ from openff.qcsubmit.exceptions import (
     DihedralConnectionError,
     LinearTorsionError,
     MolecularComplexError,
+    InvalidConvergeSettingsError
 )
 
 SYMBOLS_TO_ELEMENTS: dict[str, int] = {val: key for key, val in SYMBOLS.items()}
@@ -56,7 +57,7 @@ def check_custom_converge(convergence_keyword_list: list) -> list:
             if keyword.lower() == "maxiter":
                 if i != len(convergence_keyword_list) - 1:
                     if convergence_keyword_list[i + 1].lower() not in allowed_keys:
-                        raise AssertionError(
+                        raise InvalidConvergeSettingsError(
                             f"No value should follow the maxiter flag specified here in converge. To specify the maximum number of iterations, please use the separate maxiter keyword. Provided value was {convergence_keyword_list[i + 1]}"
                         )
 
@@ -66,7 +67,7 @@ def check_custom_converge(convergence_keyword_list: list) -> list:
                     assert isinstance(convergence_keyword_list[i + 1], str)
                     float(convergence_keyword_list[i + 1])
                 except (AssertionError, TypeError):
-                    raise AssertionError(
+                    raise InvalidConvergeSettingsError(
                         f"The value following the keyword must be a string that can be converted to a float. Value for {keyword} is {convergence_keyword_list[i + 1]}, with type {type(convergence_keyword_list[i + 1])}"
                     )
 
@@ -77,12 +78,12 @@ def check_custom_converge(convergence_keyword_list: list) -> list:
                 assert isinstance(keyword, str)
                 float(keyword)
             except (AssertionError, TypeError):
-                raise AssertionError(
+                raise InvalidConvergeSettingsError(
                     f"The value following the keyword must be a string that can be converted to a float. Value for {convergence_keyword_list[i - 1]} is {keyword}, with type {type(keyword)}"
                 )
 
         else:
-            raise AssertionError(
+            raise InvalidConvergeSettingsError(
                 f"Invalid flag provided in converge. Allowed flags are {allowed_keys}. Flags must be provided as a list with the following format: ['energy', '1e-6', 'grms', '3e-4', 'gmax', '4.5e-4', 'drms', '1.2e-3', 'dmax', '1.8e-3', 'maxiter']. Provided option was {convergence_keyword_list}"
             )
     return convergence_keyword_list

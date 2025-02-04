@@ -13,6 +13,7 @@ from openff.qcsubmit.validators import (
     literal_lower,
     literal_upper,
 )
+from openff.qcsubmit.exceptions import ConflictingConvergeSettingsError
 
 
 class GeometricProcedure(BaseModel):
@@ -165,13 +166,13 @@ class GeometricProcedure(BaseModel):
             ):
                 pass
             else:
-                raise ValueError(
+                raise ConflictingConvergeSettingsError(
                     f"Received convergence_set = {convergence_set} and converge = {convergence_keywords}. If a custom convergence criteria set is provided via the converge keyword, the convergence_set keyword must be set to 'CUSTOM'."
                 )
 
         # Make sure that if convergence_set = CUSTOM, the converge keyword is not empty
         elif convergence_set == "CUSTOM" and len(convergence_keywords) < 2:
-            raise ValueError(
+            raise ConflictingConvergeSettingsError(
                 f"Received convergence_set = {convergence_set} and converge = {convergence_keywords}. If convergence_set = 'CUSTOM', the convergence criteria must be specified by converge = ['energy','1e-6',...]."
             )
         return values
