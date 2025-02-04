@@ -937,7 +937,13 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
     dataset.submit(client=client)
 
     await_results(
-        client, check_fn=PortalClient.get_optimizations, timeout=240, ids=[1, 2,]
+        client,
+        check_fn=PortalClient.get_optimizations,
+        timeout=240,
+        ids=[
+            1,
+            2,
+        ],
     )
 
     # make sure of the results are complete
