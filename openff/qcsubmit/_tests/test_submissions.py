@@ -892,18 +892,14 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
 
     client = fulltest_client
 
-    convergence_set, converge, maxit, ds_suffix = opt_keywords
+    convergence_set, converge,maxit, ds_suffix = opt_keywords
 
-    # ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
-    # mols = [ethane]
-    molecules = Molecule.from_file(get_data("butane_conformers.pdb"), "pdb")
-
+    ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
 
     dataset = OptimizationDataset(
         dataset_name="Test optimizations with converge " + ds_suffix,
         description="Test optimization dataset with constraints" + ds_suffix,
         dataset_tagline="Testing optimization datasets" + ds_suffix,
-        molecules=mols[:2],
     )
 
     dataset.clear_qcspecs()
@@ -911,12 +907,15 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
         method="openff-1.0.0",
         basis="smirnoff",
         program="openmm",
-        spec_name="test spec",
-        spec_description="test spec",
+        spec_name="test_spec",
+        spec_description="test_spec",
         overwrite=True,
     )
     
-
+    # add the molecule
+    index = ethane.to_smiles()
+    dataset.add_molecule(index=index, molecule=ethane)
+                         
     # force a validation error with the GeometricProcedure
     with pytest.raises(ValidationError):
         dataset.optimization_procedure = GeometricProcedure(
@@ -941,7 +940,7 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
     dataset.submit(client=client)
 
     await_results(
-        client, check_fn=PortalClient.get_optimizations, timeout=240
+        client, check_fn=PortalClient.get_optimizations, timeout=240, #ids = [1, 2]
     )
 
     # make sure of the results are complete
@@ -949,7 +948,7 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
         legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
     )
 
-    query = ds.iterate_records(specification_names="test spec")
+    query = ds.iterate_records(specification_names="test_spec")
 
     for name, spec, record in query:
         assert record.status == RecordStatusEnum.complete
