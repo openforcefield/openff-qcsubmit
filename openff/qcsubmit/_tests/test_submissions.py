@@ -892,7 +892,7 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
 
     client = fulltest_client
 
-    convergence_set, converge,maxit, ds_suffix = opt_keywords
+    convergence_set, converge, maxit, ds_suffix = opt_keywords
 
     ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
 
@@ -911,11 +911,11 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
         spec_description="test_spec",
         overwrite=True,
     )
-    
+
     # add the molecule
     index = ethane.to_smiles()
     dataset.add_molecule(index=index, molecule=ethane)
-                         
+
     # force a validation error with the GeometricProcedure
     with pytest.raises(ValidationError):
         dataset.optimization_procedure = GeometricProcedure(
@@ -940,7 +940,9 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
     dataset.submit(client=client)
 
     await_results(
-        client, check_fn=PortalClient.get_optimizations, timeout=240, #ids = [1, 2]
+        client,
+        check_fn=PortalClient.get_optimizations,
+        timeout=240,  # ids = [1, 2]
     )
 
     # make sure of the results are complete
