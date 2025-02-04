@@ -8,12 +8,12 @@ from qcportal.optimization import OptimizationSpecification
 from typing_extensions import Literal
 
 from openff.qcsubmit._pydantic import BaseModel, Field, root_validator, validator
+from openff.qcsubmit.exceptions import ConflictingConvergeSettingsError
 from openff.qcsubmit.validators import (
     check_custom_converge,
     literal_lower,
     literal_upper,
 )
-from openff.qcsubmit.exceptions import ConflictingConvergeSettingsError
 
 
 class GeometricProcedure(BaseModel):

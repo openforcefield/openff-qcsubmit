@@ -18,9 +18,9 @@ from openff.qcsubmit.exceptions import (
     BondConnectionError,
     ConstraintError,
     DihedralConnectionError,
+    InvalidConvergeSettingsError,
     LinearTorsionError,
     MolecularComplexError,
-    InvalidConvergeSettingsError
 )
 
 SYMBOLS_TO_ELEMENTS: dict[str, int] = {val: key for key, val in SYMBOLS.items()}
