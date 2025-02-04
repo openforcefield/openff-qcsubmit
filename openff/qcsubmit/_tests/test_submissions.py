@@ -846,7 +846,7 @@ def test_optimization_submissions(fulltest_client, specification):
                 "CUSTOM",
                 [
                     "energy",
-                    "1e-4",
+                    "1e-8",
                     "maxiter",
                 ],
                 3,
@@ -856,7 +856,7 @@ def test_optimization_submissions(fulltest_client, specification):
         ),
         pytest.param(
             (
-                "GAU",
+                "GAU_VERYTIGHT",
                 [
                     "maxiter",
                 ],
