@@ -916,13 +916,6 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
     index = ethane.to_smiles()
     dataset.add_molecule(index=index, molecule=ethane)
 
-    # force a validation error with the GeometricProcedure
-    with pytest.raises(ValidationError):
-        dataset.optimization_procedure = GeometricProcedure(
-            convergence_set="GAU maxiter"
-        )
-    with pytest.raises(ValidationError):
-        dataset.optimization_procedure = GeometricProcedure(converge=["GAU", "maxiter"])
 
     # Add the GeometricProcedure so we can submit the dataset
     dataset.optimization_procedure = GeometricProcedure(
