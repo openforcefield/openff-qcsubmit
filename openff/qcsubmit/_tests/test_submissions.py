@@ -41,6 +41,7 @@ from openff.qcsubmit.results import (
     TorsionDriveResultCollection,
 )
 from openff.qcsubmit.utils import get_data
+import regex as re
 
 
 def await_results(client, timeout=120, check_fn=PortalClient.get_singlepoints, ids=[1]):
@@ -523,7 +524,6 @@ def test_adding_compute(fulltest_client, dataset_data):
     await_services(fulltest_client, max_iter=30)
 
     # make sure of the results are complete
-    print(dataset.type)
     ds = client.get_dataset(
         legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
     )
@@ -924,7 +924,7 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
     with pytest.raises(ValidationError):
         dataset.optimization_procedure = GeometricProcedure(converge=["GAU", "maxiter"])
 
-    # re-add the GeometricProcedure so we can submit the data
+    # Add the GeometricProcedure so we can submit the dataset
     dataset.optimization_procedure = GeometricProcedure(
         program="geometric",
         maxiter=maxit,
@@ -942,7 +942,7 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
     await_results(
         client,
         check_fn=PortalClient.get_optimizations,
-        timeout=240,  # ids = [1, 2]
+        timeout=240,  
     )
 
     # make sure of the results are complete
@@ -952,24 +952,74 @@ def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
 
     query = ds.iterate_records(specification_names="test_spec")
 
+    # Dictionary to help parse GeomeTRIC output, relating the `--converge` keywords to output prints
+    keyword_to_stdout = {
+        'energy': r"\|Delta-E\|",
+        'grms':r"RMS-Grad ", 
+        'gmax':r"Max-Grad ",
+        'drms':r"RMS-Disp ",
+        'dmax':r"Max-Disp "
+    }
+    convergence_set_to_value = {
+        'GAU_VERYTIGHT': ['energy' ,'1.0e-6','grms','1.0e-6','gmax','2.0e-6','drms','4.0e-6','dmax','6.0e-6'],
+        'CUSTOM': converge
+    }
+
     for name, spec, record in query:
         assert record.status == RecordStatusEnum.complete
         assert record.error is None
 
+        # Check that the converge keywords were passed to the record's input
         assert [
             key.lower() for key in record.specification.keywords["converge"]
         ] == dataset.optimization_procedure.converge
 
-        # Length of trajectory is the number of steps. Should be equal to maxiter + 1
-        # if --converge maxiter was requested
+        if convergence_set != 'CUSTOM':
+            # Confirm that convergence_set was passed to record input
+            assert record.specification.keywords["convergence_set"] == dataset.optimization_procedure.convergence_set   
+
+        else:   
+            # Confirm that convergence_set is absent from record input
+            assert 'convergence_set' not in record.specification.keywords
+
+        # Parse the geomeTRIC output to check the convergence criteria were passed to GeomeTRIC
+        geometric_output = record.stdout
+
+        # Confirm that GeomeTRIC is using the requested convergence criteria
+        for i,key in enumerate(convergence_set_to_value[convergence_set]):
+            try: float(key) # Only want to check the string flags
+            except ValueError:
+                if key != 'maxiter':
+                    output_key = keyword_to_stdout[key]
+                    matches = re.findall(r"{} \< \d\.\d\de\-\d\d".format(output_key),geometric_output)
+                    assert len(matches) == 1
+                    assert float(matches[0].split()[-1]) == float(convergence_set_to_value[convergence_set][i+1])
+
+        # Checking --converge maxiter
+        using_converge_maxiter = (len(re.findall(r"Converge-on-maxiter set: Will exit with success if maximum number of iterations \({}\) is reached".format(maxit),geometric_output)) == 1)
+        converged_due_to_maxiter = (len(re.findall(r"Exiting normally because --converge maxiter was set",geometric_output)) == 1)
+
         if "maxiter" in converge:
+            # Length of trajectory is the number of steps. Should be equal to maxiter + 1
+            # if --converge maxiter was requested
             assert len(record.trajectory) == dataset.optimization_procedure.maxiter + 1
 
-        # If not, since we only chose to keep `initial_and_final` trajectory,
-        # should only have two results
-        else:
-            assert len(record.trajectory) == 2
+            # Confirm that maxiter is set and the correct max number of iterations was passed
+            assert using_converge_maxiter
 
+            # Confirm that it actually did exit due to maxiter
+            assert converged_due_to_maxiter
+       
+        else:
+            # If not using maxiter, should only have two results
+            # since we only chose to keep `initial_and_final` trajectory
+            assert len(record.trajectory) == 2  
+
+            # Confirm that maxiter is NOT set
+            assert not using_converge_maxiter
+
+            # Confirm that it did NOT exit due to maxiter
+            assert not converged_due_to_maxiter
 
 @pytest.mark.xfail(
     reason="Known issue with recent versions of pcm https://github.com/PCMSolver/pcmsolver/issues/206"
