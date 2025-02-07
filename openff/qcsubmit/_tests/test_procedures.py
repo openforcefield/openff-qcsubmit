@@ -137,7 +137,7 @@ def test_converge_validation_errors(converge):
     Make sure that invalid values of converge raise a ValidationError
     """
     with pytest.raises(ValidationError):
-        procedure = GeometricProcedure(converge=converge)
+        GeometricProcedure(converge=converge)
 
 
 @pytest.mark.parametrize(
@@ -154,7 +154,7 @@ def test_convergence_set_validation_errors(convergence_set):
     Make sure that invalid values of convergence_set raise a ValidationError
     """
     with pytest.raises(ValidationError):
-        procedure = GeometricProcedure(convergence_set=convergence_set)
+        GeometricProcedure(convergence_set=convergence_set)
 
 
 def test_convergence_set_attribute_error():
@@ -162,7 +162,7 @@ def test_convergence_set_attribute_error():
     Make sure that an AttributeError is raised if the user tries to set a converge list as convergence_set
     """
     with pytest.raises(AttributeError):
-        procedure = GeometricProcedure(convergence_set=["energy", "1e-8"])
+        GeometricProcedure(convergence_set=["energy", "1e-8"])
 
 
 @pytest.mark.parametrize(
@@ -194,6 +194,4 @@ def test_both_validation_errors(conv_keywords):
     """
     convergence_set, converge = conv_keywords
     with pytest.raises(ValidationError):
-        procedure = GeometricProcedure(
-            convergence_set=convergence_set, converge=converge
-        )
+        GeometricProcedure(convergence_set=convergence_set, converge=converge)

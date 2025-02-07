@@ -52,8 +52,8 @@ class GeometricProcedure(BaseModel):
 
             The recommended use case is to provide the name of one of these sets with the `convergence_set` keyword.
 
-        Alternatively, you can provide a custom convergence criteria set by providing a list of strings to the `converge` keyword.
-        These should be provided in the following format, with the `convergence_set` keyword set to 'CUSTOM':
+            Alternatively, you can provide a custom convergence criteria set by providing a list of strings to the `converge` keyword.
+            These should be provided in the following format, with the `convergence_set` keyword set to 'CUSTOM':
 
             ```
             convergence_set = 'CUSTOM',
@@ -167,13 +167,17 @@ class GeometricProcedure(BaseModel):
                 pass
             else:
                 raise ConflictingConvergeSettingsError(
-                    f"Received convergence_set = {convergence_set} and converge = {convergence_keywords}. If a custom convergence criteria set is provided via the converge keyword, the convergence_set keyword must be set to 'CUSTOM'."
+                    f"Received convergence_set = {convergence_set} and converge = {convergence_keywords}. If a custom "
+                    "convergence criteria set is provided via the converge keyword, the convergence_set keyword must "
+                    "be set to 'CUSTOM'."
                 )
 
         # Make sure that if convergence_set = CUSTOM, the converge keyword is not empty
         elif convergence_set == "CUSTOM" and len(convergence_keywords) < 2:
             raise ConflictingConvergeSettingsError(
-                f"Received convergence_set = {convergence_set} and converge = {convergence_keywords}. If convergence_set = 'CUSTOM', the convergence criteria must be specified by converge = ['energy','1e-6',...]."
+                f"Received convergence_set = {convergence_set} and converge = {convergence_keywords}. If "
+                "convergence_set = 'CUSTOM', the convergence criteria must be specified by "
+                "converge = ['energy','1e-6',...]."
             )
         return values
 

@@ -13,7 +13,6 @@ from qcportal import PortalClient
 from qcportal.record_models import RecordStatusEnum
 
 from openff.qcsubmit import workflow_components
-from openff.qcsubmit._pydantic import ValidationError
 from openff.qcsubmit.common_structures import (
     DDXSettings,
     MoleculeAttributes,

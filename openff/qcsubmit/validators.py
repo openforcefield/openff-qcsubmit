@@ -58,7 +58,9 @@ def check_custom_converge(convergence_keyword_list: list) -> list:
                 if i != len(convergence_keyword_list) - 1:
                     if convergence_keyword_list[i + 1].lower() not in allowed_keys:
                         raise InvalidConvergeSettingsError(
-                            f"No value should follow the maxiter flag specified here in converge. To specify the maximum number of iterations, please use the separate maxiter keyword. Provided value was {convergence_keyword_list[i + 1]}"
+                            "No value should follow the maxiter flag specified here in converge. To specify the "
+                            "maximum number of iterations, please use the separate maxiter keyword. Provided value "
+                            f"was {convergence_keyword_list[i + 1]}"
                         )
 
             # If not maxiter, next number should be a string, but able to be made into a float
@@ -68,10 +70,13 @@ def check_custom_converge(convergence_keyword_list: list) -> list:
                     float(convergence_keyword_list[i + 1])
                 except (AssertionError, TypeError):
                     raise InvalidConvergeSettingsError(
-                        f"The value following the keyword must be a string that can be converted to a float. Value for {keyword} is {convergence_keyword_list[i + 1]}, with type {type(convergence_keyword_list[i + 1])}"
+                        "The value following the keyword must be a string that can be converted to a float. Value "
+                        f"for {keyword} is {convergence_keyword_list[i + 1]}, with type "
+                        f"{type(convergence_keyword_list[i + 1])}"
                     )
 
-        # If the entry is not in the allowed keys, make sure the previous entry is a valid flag, and the current entry is a string that can be converted to a float
+        # If the entry is not in the allowed keys, make sure the previous entry is a valid flag, and the current entry
+        # is a string that can be converted to a float
         elif convergence_keyword_list[i - 1].lower() in allowed_keys:
 
             try:
