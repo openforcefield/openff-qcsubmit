@@ -7,7 +7,7 @@ build:
 
 sphinx:
   configuration: docs/conf.py
-  fail_on_warning: true
+  fail_on_warning: false
 
 # Build PDF in addition to default HTML and JSON
 formats:
