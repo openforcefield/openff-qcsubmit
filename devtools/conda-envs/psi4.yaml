@@ -19,7 +19,7 @@ dependencies:
   - pytest-xdist
   - requests-mock
   - nbval
-  - plotly
+  - plotly =5
   - nglview
 
   - qcengine >=0.25
