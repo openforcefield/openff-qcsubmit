@@ -15,6 +15,8 @@
 import os
 import sys
 
+import openff.qcsubmit
+
 sys.path.insert(0, os.path.abspath(os.pardir))
 
 
@@ -25,9 +27,9 @@ copyright = "2021, Open Force Field Consortium"
 author = "Open Force Field Consortium"
 
 # The short X.Y version
-version = ""
+version = openff.qcsubmit.__version__
 # The full version, including alpha/beta/rc tags
-release = ""
+release = openff.qcsubmit.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -100,11 +102,12 @@ intersphinx_mapping = {
         "https://open-forcefield-toolkit.readthedocs.io/en/latest/",
         None,
     ),
-    "qcportal": ("http://docs.qcarchive.molssi.org/projects/qcportal/en/latest/", None),
-    "qcelemental": (
-        "http://docs.qcarchive.molssi.org/projects/qcelemental/en/latest/",
-        None,
-    ),
+    # Broken
+    # "qcportal": ("http://docs.qcarchive.molssi.org/projects/qcportal/en/latest/", None),
+    # "qcelemental": (
+    #     "http://docs.qcarchive.molssi.org/projects/qcelemental/en/latest/",
+    #     None,
+    # ),
     "openff.docs": (
         "https://docs.openforcefield.org/en/latest/",
         None,
