@@ -13,7 +13,7 @@ dependencies:
   - setuptools
 
   # Sphinx specific
-  - sphinx >=4.4,<5.0
+  - sphinx =6
   - nbsphinx
   - nbsphinx-link
   - sphinx_rtd_theme
@@ -31,7 +31,7 @@ dependencies:
   - rdkit
   - pydantic
   - pyyaml
-  - qcportal =0.57
+  - qcportal >=0.52,<0.58
   - torsiondrive
   - basis_set_exchange
   - typing-extensions
