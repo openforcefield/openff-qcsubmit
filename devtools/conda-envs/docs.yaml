@@ -27,6 +27,7 @@ dependencies:
     # Standard dependencies
 
   - openff-toolkit-base
+  - openff-units =0.2
   - rdkit
   - pydantic
   - pyyaml

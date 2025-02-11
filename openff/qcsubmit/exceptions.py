@@ -217,3 +217,21 @@ class RecordTypeError(QCSubmitException):
 
     error_type = "record_type_error"
     header = "Record Type Error"
+
+
+class InvalidConvergeSettingsError(AssertionError):
+    """
+    Invalid converge options were passed to GeometricProcedure()
+    """
+
+    error_type = "invalid_converge_settings_error"
+    header = "Invalid Converge Settings Error"
+
+
+class ConflictingConvergeSettingsError(ValueError):
+    """
+    Conflicting converge and convergence_set options were passed to GeometricProcedure()
+    """
+
+    error_type = "conflicting_converge_settings_error"
+    header = "Conflicting Converge Settings Error"

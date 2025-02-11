@@ -5,6 +5,7 @@ Here we use the qcfractal snowflake fixture to set up the database.
 """
 
 import pytest
+import regex as re
 from openff.toolkit.topology import Molecule
 from qcelemental.models.procedures import OptimizationProtocols
 from qcengine.testing import has_program
@@ -33,6 +34,7 @@ from openff.qcsubmit.factories import (
     OptimizationDatasetFactory,
     TorsiondriveDatasetFactory,
 )
+from openff.qcsubmit.procedures import GeometricProcedure
 from openff.qcsubmit.results import (
     BasicResultCollection,
     OptimizationResultCollection,
@@ -833,6 +835,219 @@ def test_optimization_submissions(fulltest_client, specification):
                 result = record.trajectory[0]
                 assert "current dipole" in result.properties.keys()
                 assert "scf quadrupole" in result.properties.keys()
+
+
+@pytest.mark.parametrize(
+    "opt_keywords",
+    [
+        pytest.param(
+            (
+                "CUSTOM",
+                [
+                    "energy",
+                    "1e-8",
+                    "maxiter",
+                ],
+                3,
+                "custom convergence with maxiter",
+            ),
+            id="Custom convergence with maxiter",
+        ),
+        pytest.param(
+            (
+                "GAU_VERYTIGHT",
+                [
+                    "maxiter",
+                ],
+                3,
+                "Default conv with maxiter",
+            ),
+            id="Default conv with maxiter",
+        ),
+        pytest.param(
+            (
+                "CUSTOM",
+                [
+                    "energy",
+                    "1e-4",
+                    "grms",
+                    "3e-2",
+                    "gmax",
+                    "4.5e-1",
+                    "drms",
+                    "1.2e-3",
+                    "dmax",
+                    "1.8e-1",
+                ],
+                300,
+                "Custom convergence, no maxiter",
+            ),
+            id="Custom convergence, no maxiter",
+        ),
+    ],
+)
+def test_optimization_submissions_convergence(fulltest_client, opt_keywords):
+    """Test submitting an Optimization dataset with custom convergence options."""
+
+    client = fulltest_client
+
+    convergence_set, converge, maxit, ds_suffix = opt_keywords
+
+    ethane = Molecule.from_file(get_data("ethane.sdf"), "sdf")
+
+    dataset = OptimizationDataset(
+        dataset_name="Test optimizations with converge " + ds_suffix,
+        description="Test optimization dataset with constraints" + ds_suffix,
+        dataset_tagline="Testing optimization datasets" + ds_suffix,
+    )
+
+    dataset.clear_qcspecs()
+    dataset.add_qc_spec(
+        method="openff-1.0.0",
+        basis="smirnoff",
+        program="openmm",
+        spec_name="test_spec",
+        spec_description="test_spec",
+        overwrite=True,
+    )
+
+    # add the molecule
+    index = ethane.to_smiles()
+    dataset.add_molecule(index=index, molecule=ethane)
+
+    # Add the GeometricProcedure so we can submit the dataset
+    dataset.optimization_procedure = GeometricProcedure(
+        program="geometric",
+        maxiter=maxit,
+        convergence_set=convergence_set,
+        converge=converge,
+    )
+
+    # only save final gradients, results, if --converge maxiter not requested
+    if "maxiter" not in converge:
+        dataset.protocols = OptimizationProtocols(trajectory="initial_and_final")
+
+    # now submit
+    dataset.submit(client=client)
+
+    await_results(
+        client,
+        check_fn=PortalClient.get_optimizations,
+        timeout=240,
+    )
+
+    # make sure of the results are complete
+    ds = client.get_dataset(
+        legacy_qcsubmit_ds_type_to_next_qcf_ds_type[dataset.type], dataset.dataset_name
+    )
+
+    query = ds.iterate_records(specification_names="test_spec")
+
+    # Dictionary to help parse GeomeTRIC output, relating the `--converge` keywords to output prints
+    keyword_to_stdout = {
+        "energy": r"\|Delta-E\|",
+        "grms": r"RMS-Grad ",
+        "gmax": r"Max-Grad ",
+        "drms": r"RMS-Disp ",
+        "dmax": r"Max-Disp ",
+    }
+    convergence_set_to_value = {
+        "GAU_VERYTIGHT": [
+            "energy",
+            "1.0e-6",
+            "grms",
+            "1.0e-6",
+            "gmax",
+            "2.0e-6",
+            "drms",
+            "4.0e-6",
+            "dmax",
+            "6.0e-6",
+        ],
+        "CUSTOM": converge,
+    }
+
+    for name, spec, record in query:
+        assert record.status == RecordStatusEnum.complete
+        assert record.error is None
+
+        # Check that the converge keywords were passed to the record's input
+        assert [
+            key.lower() for key in record.specification.keywords["converge"]
+        ] == dataset.optimization_procedure.converge
+
+        if convergence_set != "CUSTOM":
+            # Confirm that convergence_set was passed to record input
+            assert (
+                record.specification.keywords["convergence_set"]
+                == dataset.optimization_procedure.convergence_set
+            )
+
+        else:
+            # Confirm that convergence_set is absent from record input
+            assert "convergence_set" not in record.specification.keywords
+
+        # Parse the geomeTRIC output to check the convergence criteria were passed to GeomeTRIC
+        geometric_output = record.stdout
+
+        # Confirm that GeomeTRIC is using the requested convergence criteria
+        for i, key in enumerate(convergence_set_to_value[convergence_set]):
+            try:
+                float(key)  # Only want to check the string flags
+            except ValueError:
+                if key != "maxiter":
+                    output_key = keyword_to_stdout[key]
+                    matches = re.findall(
+                        r"{} \< \d\.\d\de\-\d\d".format(output_key), geometric_output
+                    )
+                    assert len(matches) == 1
+                    assert float(matches[0].split()[-1]) == float(
+                        convergence_set_to_value[convergence_set][i + 1]
+                    )
+
+        # Checking --converge maxiter
+        using_converge_maxiter = (
+            len(
+                re.findall(
+                    r"Converge-on-maxiter set: Will exit with success if maximum number of iterations \({}\) is reached".format(
+                        maxit
+                    ),
+                    geometric_output,
+                )
+            )
+            == 1
+        )
+        converged_due_to_maxiter = (
+            len(
+                re.findall(
+                    r"Exiting normally because --converge maxiter was set",
+                    geometric_output,
+                )
+            )
+            == 1
+        )
+
+        if "maxiter" in converge:
+            # Length of trajectory is the number of steps. Should be equal to maxiter + 1
+            # if --converge maxiter was requested
+            assert len(record.trajectory) == dataset.optimization_procedure.maxiter + 1
+
+            # Confirm that maxiter is set and the correct max number of iterations was passed
+            assert using_converge_maxiter
+
+            # Confirm that it actually did exit due to maxiter
+            assert converged_due_to_maxiter
+
+        else:
+            # If not using maxiter, should only have two results
+            # since we only chose to keep `initial_and_final` trajectory
+            assert len(record.trajectory) == 2
+
+            # Confirm that maxiter is NOT set
+            assert not using_converge_maxiter
+
+            # Confirm that it did NOT exit due to maxiter
+            assert not converged_due_to_maxiter
 
 
 @pytest.mark.xfail(

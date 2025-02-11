@@ -39,14 +39,13 @@ dependencies:
   # this should be changed to openff-toolkit-base
 
   - openff-toolkit
-  - openff-units >=0.2.1
+  - openff-units ~=0.2.1
   - pydantic >1.10.17,<3
   - pyyaml
   - torsiondrive
   - basis_set_exchange
   - typing-extensions
   - h5py>=3.6.0
-  - psycopg2        # for qcfractal to pip-install without issue
 
   # Optional
   - openmmforcefields
