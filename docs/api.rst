@@ -6,7 +6,7 @@ Below is an outline of the API for ``openff-qcsubmit``. See the examples for det
 .. warning:: The ``openff-qcsubmit`` package is still pre-alpha, so the API is still in flux.
 
 Datasets
---------
+""""""""
 
 .. currentmodule:: openff.qcsubmit.datasets
 .. autosummary::
@@ -20,8 +20,6 @@ Datasets
     TorsiondriveDataset
     TorsionDriveEntry
     FilterEntry
-
-.. _factories:
 
 Factories
 """""""""
@@ -65,7 +63,7 @@ Constraints
     PositionConstraintSet
 
 Results
--------
+"""""""
 
 .. currentmodule:: openff.qcsubmit.results
 .. autosummary::
@@ -79,8 +77,8 @@ Results
     TorsionDriveResult
     TorsionDriveResultCollection
 
-Filters
-"""""""
+Results Filters
+"""""""""""""""
 
 .. currentmodule:: openff.qcsubmit.results.filters
 .. autosummary::
@@ -89,8 +87,6 @@ Filters
 
     ResultFilter
     CMILESResultFilter
-    ResultRecordFilter
-    ResultRecordGroupFilter
     SMILESFilter
     SMARTSFilter
     ChargeFilter
@@ -103,25 +99,9 @@ Filters
     ConformerRMSDFilter
     MinimumConformersFilter
 
-Caching
-"""""""
-
-.. currentmodule:: openff.qcsubmit.results.caching
-.. autosummary::
-    :nosignatures:
-    :toctree: api/generated/
-
-    clear_results_caches
-    batched_indices
-    cached_fractal_client
-    cached_query_procedures
-    cached_query_molecules
-    cached_query_basic_results
-    cached_query_optimization_results
-    cached_query_torsion_drive_results
 
 Workflow Components
--------------------
+"""""""""""""""""""
 
 .. currentmodule:: openff.qcsubmit.workflow_components
 .. autosummary::
@@ -183,7 +163,7 @@ State Enumeration
     ScanEnumerator
 
 Workflow Utilities
-"""""
+""""""""""""""""""
 
 .. currentmodule:: openff.qcsubmit.workflow_components
 .. autosummary::
@@ -201,7 +181,7 @@ Workflow Utilities
     TorsionIndexer
 
 Common Structures
------------------
+"""""""""""""""""
 
 .. currentmodule:: openff.qcsubmit.common_structures
 .. autosummary::
@@ -216,14 +196,13 @@ Common Structures
     QCSpec
     QCSpecificationHandler
     IndexCleaner
-    ClientHandler
     Metadata
     MoleculeAttributes
     SCFProperties
     CommonBase
 
 Utilities
----------
+"""""""""
 
 .. currentmodule:: openff.qcsubmit.utils
 .. autosummary::
@@ -234,7 +213,7 @@ Utilities
 	portal_client_manager
 
 Exceptions
-----------
+""""""""""
 
 .. currentmodule:: openff.qcsubmit.exceptions
 .. autosummary::
