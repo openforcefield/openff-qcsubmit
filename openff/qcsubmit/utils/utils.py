@@ -42,7 +42,6 @@ class _CachedPortalClient(PortalClient):
         show_motd: bool = True,
         *,
         cache_max_size: int = 0,
-        memory_cache_key: Optional[str] = None,
     ):
         """Parameters
         ----------
@@ -74,7 +73,6 @@ class _CachedPortalClient(PortalClient):
             show_motd=show_motd,
             cache_dir=cache_dir,
             cache_max_size=cache_max_size,
-            memory_cache_key=memory_cache_key,
         )
         self.record_cache = RecordCache(
             os.path.join(self.cache.cache_dir, "cache.sqlite"), read_only=False

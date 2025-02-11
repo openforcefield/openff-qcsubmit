@@ -16,6 +16,7 @@ Releases are given with dates in DD-MM-YYYY format.
 ### Bugfixes
 * [PR #300:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/299) where methods to retrieve `BasicResultCollection` and `OptimizationResultCollection` objects from QCArchive would crash if an entry was missing a CMILES.
 * [PR #303:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/297) where `OptimizationResultCollection.create_basic_dataset` was not reusing molecule IDs from QCArchive.
+* [PR #318:] Do not use `memory_cache_key`, which was dropped in QCPortal 0.58 and generally not used prior.
 
 ### Miscellaneous
 * [PR #308:] Switches version handling to use `versioningit`.
@@ -168,6 +169,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #300:]: https://github.com/openforcefield/openff-qcsubmit/pull/300
 [PR #303:]: https://github.com/openforcefield/openff-qcsubmit/pull/303
 [PR #308:]: https://github.com/openforcefield/openff-qcsubmit/pull/308
+[PR #318:]: https://github.com/openforcefield/openff-qcsubmit/pull/318
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
