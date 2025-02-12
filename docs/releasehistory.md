@@ -11,11 +11,12 @@ Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
 
-## Current development
+## 0.55.0 / 12-02-2025
+
+### New features
+* [PR #314:] Add custom convergence options and `--converge maxiter` to `GeometricProcedure`.
 
 ### Bugfixes
-* [PR #300:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/299) where methods to retrieve `BasicResultCollection` and `OptimizationResultCollection` objects from QCArchive would crash if an entry was missing a CMILES.
-* [PR #303:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/297) where `OptimizationResultCollection.create_basic_dataset` was not reusing molecule IDs from QCArchive.
 * [PR #318:] Do not use `memory_cache_key`, which was dropped in QCPortal 0.58 and generally not used prior.
 
 ### Miscellaneous
@@ -23,7 +24,18 @@ Releases are given with dates in DD-MM-YYYY format.
 * [PR #308:] Consolidates most config files to `pyproject.toml`.
 * [PR #308:] Use `pyproject.toml` for Python build setup.
 
-## 0.53.0 / 12-8-2024
+## 0.54.0 / 07-11-2024
+
+### Behavior changes
+- [PR #295:] Use new Pydantic v1 backdoor.
+
+### Bugfixes
+* [PR #300:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/299) where methods to retrieve `BasicResultCollection` and `OptimizationResultCollection` objects from QCArchive would crash if an entry was missing a CMILES.
+* [PR #303:] Fixes [an issue](https://github.com/openforcefield/openff-qcsubmit/issues/297) where `OptimizationResultCollection.create_basic_dataset` was not reusing molecule IDs from QCArchive.
+
+
+
+## 0.53.0 / 13-08-2024
 
 ### Bugfixes
 * [PR #294:] Fixes [a bug](https://github.com/openforcefield/openff-qcsubmit/issues/223) in ConformerRMSDFilter where automorphs are sometimes incorrectly handled, leading to incorrect atom mappings used in RMSD calculations.  
@@ -166,6 +178,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #289:]: https://github.com/openforcefield/openff-qcsubmit/pull/289
 [PR #290:]: https://github.com/openforcefield/openff-qcsubmit/pull/290
 [PR #294:]: https://github.com/openforcefield/openff-qcsubmit/pull/294
+[PR #295:]: https://github.com/openforcefield/openff-qcsubmit/pull/295
 [PR #300:]: https://github.com/openforcefield/openff-qcsubmit/pull/300
 [PR #303:]: https://github.com/openforcefield/openff-qcsubmit/pull/303
 [PR #308:]: https://github.com/openforcefield/openff-qcsubmit/pull/308
