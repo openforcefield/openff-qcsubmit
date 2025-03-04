@@ -39,7 +39,7 @@ dependencies:
   - openff-interchange-base <0.4.2  # 0.4.2 conflicts with openmmforcefields
   - openff-units ~=0.2.1
   - rdkit
-  - pydantic >1.10.17,<3
+  - pydantic
   - pyyaml
   - torsiondrive
   - basis_set_exchange

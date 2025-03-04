@@ -18,7 +18,7 @@ defaults:
 jobs:
   test:
 
-    name: ${{ matrix.cfg.os }}, 🐍=${{ matrix.python-version }}, program=${{ matrix.cfg.conda-env }}, pydantic=${{ matrix.pydantic-version }}
+    name: ${{ matrix.cfg.os }}, 🐍=${{ matrix.python-version }}, program=${{ matrix.cfg.conda-env }}
     runs-on: ${{ matrix.cfg.os }}
 
     strategy:
@@ -26,13 +26,10 @@ jobs:
       matrix:
         python-version:
           - "3.10"
-        pydantic-version:
-          - "2"
+          - "3.11"
+          - "3.12"
         cfg:
           - os: ubuntu-latest
-            conda-env: basic
-
-          - os: macOS-13
             conda-env: basic
 
           - os: macOS-latest
@@ -50,16 +47,14 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Conda Environment
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v2
 
         with:
           environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
           create-args: >-
             python=${{ matrix.python-version }}
-            pydantic=${{ matrix.pydantic-version }}
 
       - name: License OpenEye
-
         run: |
           echo "${SECRET_OE_LICENSE}" > ${OE_LICENSE}
           python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
