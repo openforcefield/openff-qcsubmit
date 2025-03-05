@@ -36,8 +36,8 @@ dependencies:
   ### Core dependencies.
 
   - openff-toolkit-base
-  - openff-interchange-base <0.4.2  # 0.4.2 conflicts with openmmforcefields
-  - openff-units ~=0.2.1
+  - openff-interchange-base
+  - openff-units
   - rdkit
   - pydantic
   - pyyaml
@@ -47,7 +47,7 @@ dependencies:
   - h5py>=3.6.0
 
   # Optional
-  - openmmforcefields >=0.9.0
+  - openmmforcefields ~=0.14.2
   - openff-fragmenter-base >=0.2.0
   - openmm
 
