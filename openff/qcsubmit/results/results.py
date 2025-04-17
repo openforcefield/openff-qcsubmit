@@ -41,7 +41,7 @@ from typing_extensions import Literal
 from openff.qcsubmit._pydantic import BaseModel, Field, validator
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
 from openff.qcsubmit.datasets import BasicDataset
-from openff.qcsubmit.exceptions import RecordTypeError
+from openff.qcsubmit.exceptions import RecordStillRunningError, RecordTypeError
 from openff.qcsubmit.utils.smirnoff import smirnoff_coverage, smirnoff_torsion_coverage
 
 if TYPE_CHECKING:
@@ -850,6 +850,25 @@ class TorsionDriveResultCollection(_BaseResultCollection):
                 opt_records = client.get_optimizations(opt_ids)
                 # retrieve all final_molecules at once
                 opt_final_molecule_ids = [r.final_molecule_id for r in opt_records]
+
+                if None in opt_final_molecule_ids:
+                    # if a torsiondrive is still running, some molecule IDs will be None and the error
+                    # can bubble up to downstream packages in confusing ways. Difficult to test and shouldn't
+                    # happen often. See for more context:
+                    # https://github.com/openforcefield/openff-bespokefit/issues/393
+
+                    # TODO: the same could potentially also happen with OptimizationResultCollection
+
+                    bad_record_ids = [
+                        r.id for r in opt_records if r.final_molecule_id is None
+                    ]
+
+                    raise RecordStillRunningError(
+                        f"Some scan point(s) within TorsionDrive {rec.id=} do not yet have a complete optimization. "
+                        f"(`.final_molecule_id` is None). The relevant minimum optimization records are {bad_record_ids=}. "
+                        "This is likely because the TorsionDrive has not finished computing."
+                    )
+
                 opt_final_molecules = client.get_molecules(opt_final_molecule_ids)
                 # Map of torsion drive keys to minimum optimization
                 qc_grid_molecules = list(
