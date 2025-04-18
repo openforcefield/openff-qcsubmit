@@ -235,3 +235,9 @@ class ConflictingConvergeSettingsError(ValueError):
 
     error_type = "conflicting_converge_settings_error"
     header = "Conflicting Converge Settings Error"
+
+
+class RecordStillRunningError(QCSubmitException):
+
+    error_type = "record_still_running_error"
+    header = "Record Still Running Error"
