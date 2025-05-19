@@ -131,6 +131,7 @@ def mock_optimization_result_collection(
                     # compute_history=list(),
                     # ),
                     client=_PortalClient(address=address),
+                    base_url_prefix="api/v1"
                 ),
                 molecules[address][int(entry.record_id) - 1],
             )
