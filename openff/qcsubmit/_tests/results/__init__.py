@@ -74,6 +74,7 @@ def mock_basic_result_collection(molecules, monkeypatch) -> BasicResultCollectio
                     # compute_history=list(),
                     status=RecordStatusEnum.complete,
                     client=_PortalClient(address=address),
+                    base_url_prefix="api/v1",
                 ),
                 molecules[address][int(entry.record_id) - 1],
             )
@@ -131,6 +132,7 @@ def mock_optimization_result_collection(
                     # compute_history=list(),
                     # ),
                     client=_PortalClient(address=address),
+                    base_url_prefix="api/v1",
                 ),
                 molecules[address][int(entry.record_id) - 1],
             )
@@ -188,6 +190,7 @@ def mock_torsion_drive_result_collection(
                     ],
                     status=RecordStatusEnum.complete,
                     client=_PortalClient(address=address),
+                    base_url_prefix="api/v1",
                     is_service=True,
                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),

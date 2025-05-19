@@ -128,6 +128,7 @@ class _CachedPortalClient(PortalClient):
             record_ids = [record_ids]
         res = get_records_with_cache(
             client=self,
+            base_url_prefix="api/v1",
             record_cache=self.record_cache,
             record_type=OptimizationRecord,
             record_ids=record_ids,
@@ -177,6 +178,7 @@ class _CachedPortalClient(PortalClient):
             record_ids = [record_ids]
         res = get_records_with_cache(
             client=self,
+            base_url_prefix="api/v1",
             record_cache=self.record_cache,
             record_type=SinglepointRecord,
             record_ids=record_ids,
@@ -226,6 +228,7 @@ class _CachedPortalClient(PortalClient):
             record_ids = [record_ids]
         res = get_records_with_cache(
             client=self,
+            base_url_prefix="api/v1",
             record_cache=self.record_cache,
             record_type=TorsiondriveRecord,
             record_ids=record_ids,
