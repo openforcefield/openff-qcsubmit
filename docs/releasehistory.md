@@ -11,6 +11,12 @@ Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
 
+## 0.56.0 / 05-19-2025
+
+### Bugfixes
+* [PR #340:] Updates `get_X` methods and tests for [API changes](https://github.com/openforcefield/openff-qcsubmit/issues/339) in QCFractal 0.61. 
+
+
 ## 0.55.0 / 12-02-2025
 
 ### New features
@@ -183,6 +189,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #303:]: https://github.com/openforcefield/openff-qcsubmit/pull/303
 [PR #308:]: https://github.com/openforcefield/openff-qcsubmit/pull/308
 [PR #318:]: https://github.com/openforcefield/openff-qcsubmit/pull/318
+[PR #340:]: https://github.com/openforcefield/openff-qcsubmit/pull/340
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
