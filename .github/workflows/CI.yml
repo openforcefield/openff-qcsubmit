@@ -10,7 +10,7 @@ on:
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
-  
+
 defaults:
   run:
     shell: bash -l {0}
@@ -36,6 +36,9 @@ jobs:
 
           - os: ubuntu-latest
             conda-env: psi4
+
+          - os: ubuntu-latest
+            conda-env: edge
 
     env:
       OE_LICENSE: ${{ github.workspace }}/oe_license.txt

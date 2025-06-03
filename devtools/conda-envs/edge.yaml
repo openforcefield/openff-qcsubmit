@@ -1,0 +1,60 @@
+name: qcsubmit-test-bleeding-edge
+
+channels:
+  - openeye
+  - conda-forge
+
+dependencies:
+
+  # Base depends
+  - python
+  - versioningit
+  - pip
+  - setuptools
+
+  # Testing
+  - pytest
+  - pytest-cov
+  - pytest-randomly
+  - pytest-xdist
+  - pytest-randomly
+  - requests-mock
+  - nbval
+  - plotly =5
+  - nglview
+
+  - qcengine >=0.32
+  - qcelemental >=0.29.0
+  - qcfractal >=0.61
+  - qcarchivetesting >=0.61
+  - qcportal >=0.61
+
+  - postgresql
+
+  - openeye-toolkits !=2024.1.1
+
+  ### Core dependencies.
+
+  # openmmforcefields brings in the full toolkit; if that is ever re-packaged
+  # this should be changed to openff-toolkit-base
+
+  - openff-toolkit
+  - openff-interchange-base
+  - openff-units
+  - pydantic
+  - pyyaml
+  - torsiondrive
+  - basis_set_exchange
+  - typing-extensions
+  - h5py>=3.6.0
+
+  # Optional
+  - openmmforcefields ~=0.14.2
+  - openff-fragmenter-base >=0.2.0
+
+  - pip:
+    - git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcportal
+    - git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcfractal
+    - git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcarchivetesting
+    - git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcfractalcompute
+    - git+https://github.com/MolSSI/QCElemental.git
