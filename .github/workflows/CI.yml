@@ -18,7 +18,7 @@ defaults:
 jobs:
   test:
 
-    name: ${{ matrix.cfg.os }}, 🐍=${{ matrix.python-version }}, program=${{ matrix.cfg.conda-env }}, bleeding-edge=${{ matrix.cfg.bleeding-edge }}
+    name: ${{ matrix.cfg.os }}, 🐍=${{ matrix.python-version }}, program=${{ matrix.cfg.conda-env }}, bleeding-edge=${{ matrix.bleeding-edge }}
     runs-on: ${{ matrix.cfg.os }}
 
     strategy:
@@ -64,7 +64,7 @@ jobs:
           SECRET_OE_LICENSE: ${{ secrets.OE_LICENSE }}
 
       - name: Optionally install development upstreams
-        if: ${{ matrix.cfg.bleeding-edge == true }}
+        if: ${{ matrix.bleeding-edge == true }}
         run: |
           python -m pip install \
           git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcportal \
