@@ -22,7 +22,6 @@ jobs:
     runs-on: ${{ matrix.cfg.os }}
 
     strategy:
-      fail-fast: false
       matrix:
         python-version:
           - "3.11"
@@ -66,12 +65,14 @@ jobs:
       - name: Optionally install development upstreams
         if: ${{ matrix.bleeding-edge == true }}
         run: |
+          micromamba remove --force qcportal qcfractal qcarchivetesting qcfractalcompute qcengine qcelemental
           python -m pip install \
           git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcportal \
           git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcfractal \
           git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcarchivetesting \
           git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcfractalcompute \
-          git+https://github.com/MolSSI/QCElemental.git
+          git+https://github.com/MolSSI/QCElemental.git \
+          git+https://github.com/MolSSI/QCEngine.git
 
           micromamba list
           pip list
