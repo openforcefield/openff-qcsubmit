@@ -64,7 +64,7 @@ jobs:
           SECRET_OE_LICENSE: ${{ secrets.OE_LICENSE }}
 
       - name: Optionally install development upstreams
-        if: ${{ matrix.cfg.bleeding-edge == True }}
+        if: ${{ matrix.cfg.bleeding-edge == true }}
         run: |
           python -m pip install \
           git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcportal \
