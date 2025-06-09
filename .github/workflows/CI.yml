@@ -73,7 +73,8 @@ jobs:
           git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcarchivetesting \
           git+https://github.com/MolSSI/QCFractal.git#subdirectory=qcfractalcompute \
           git+https://github.com/MolSSI/QCElemental.git \
-          git+https://github.com/MolSSI/QCEngine.git
+          git+https://github.com/MolSSI/QCEngine.git \
+          git+https://github.com/MolSSI/QCManyBody.git
 
       - name: Install Package
         run: python -m pip install .
