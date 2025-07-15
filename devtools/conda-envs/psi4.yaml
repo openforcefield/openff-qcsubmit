@@ -52,3 +52,5 @@ dependencies:
   - openmm
 
   - postgresql
+  - pip: 
+    - git+https://github.com/MolSSI/QCFractal/tree/cache_serial.git@main
