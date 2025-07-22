@@ -52,4 +52,7 @@ dependencies:
   - openmmforcefields ~=0.14.2
   - openff-fragmenter-base >=0.2.0
   - pip: 
-    - git+https://github.com/MolSSI/QCFractal/tree/cache_serial.git@main
+    - git+https://github.com/MolSSI/QCFractal.git@cache_serial#subdirectory=qcfractal
+    - git+https://github.com/MolSSI/QCFractal.git@cache_serial#subdirectory=qcfractalcompute
+    - git+https://github.com/MolSSI/QCFractal.git@cache_serial#subdirectory=qcportal
+    - git+https://github.com/MolSSI/QCFractal.git@cache_serial#subdirectory=qcarchivetesting
