@@ -6,10 +6,10 @@ results from a QCFractal instance.
 from __future__ import annotations
 
 import abc
-from collections.abc import Sequence
 import logging
 import warnings
 from collections import defaultdict
+from collections.abc import Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -397,7 +397,9 @@ class BasicResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self, include: Iterable[str] = ("Molecule",)) -> List[Tuple[SinglepointRecord, Molecule]]:
+    def to_records(
+        self, include: Iterable[str] = ("Molecule",)
+    ) -> List[Tuple[SinglepointRecord, Molecule]]:
         """Download all records referenced in this collection from QCFractal.
 
         Returns the native QCPortal record objects for each of the records
@@ -628,7 +630,9 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
-    def to_basic_result_collection(self, driver: Iterable[SinglepointDriver] | None = None) -> BasicResultCollection:
+    def to_basic_result_collection(
+        self, driver: Iterable[SinglepointDriver] | None = None
+    ) -> BasicResultCollection:
         """
         Get a collection of the single point results from the end of each optimization.
 
