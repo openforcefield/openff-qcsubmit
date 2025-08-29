@@ -6,6 +6,7 @@ results from a QCFractal instance.
 from __future__ import annotations
 
 import abc
+from collections.abc import Sequence
 import logging
 import warnings
 from collections import defaultdict
@@ -192,9 +193,17 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             )
 
     @abc.abstractmethod
-    def to_records(self) -> List[Tuple[BaseRecord, Molecule]]:
-        """Returns the native QCPortal record objects for each of the records referenced
-        in this collection along with a corresponding OpenFF molecule object.
+    def to_records(self, include: Iterable[str]) -> List[Tuple[BaseRecord, Molecule]]:
+        """Download all records referenced in this collection from QCFractal.
+
+        Returns the native QCPortal record objects for each of the records
+        referenced in this collection along with a corresponding OpenFF Molecule
+        object.
+
+        Parameters
+        ==========
+        include
+            The fields to download when the record is collected.
         """
         raise NotImplementedError()
 
@@ -388,11 +397,19 @@ class BasicResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[SinglepointRecord, Molecule]]:
-        """Returns the native QCPortal record objects for each of the records referenced
-        in this collection along with a corresponding OpenFF molecule object.
+    def to_records(self, include: Iterable[str] = ("Molecule",)) -> List[Tuple[SinglepointRecord, Molecule]]:
+        """Download all records referenced in this collection from QCFractal.
+
+        Returns the native QCPortal record objects for each of the records
+        referenced in this collection along with a corresponding OpenFF Molecule
+        object.
 
         Each molecule will contain the conformer referenced by the record.
+
+        Parameters
+        ==========
+        include
+            The fields to download when the record is collected.
         """
         from openff.qcsubmit.utils.utils import _default_portal_client
 
@@ -403,7 +420,7 @@ class BasicResultCollection(_BaseResultCollection):
 
             # TODO - batching/chunking (maybe in portal?)
             for record in records:
-                rec = client.get_singlepoints(record.record_id, include=["molecule"])
+                rec = client.get_singlepoints(record.record_id, include=include)
 
                 # OpenFF molecule
                 try:
@@ -540,12 +557,30 @@ class OptimizationResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[OptimizationRecord, Molecule]]:
-        """Returns the native QCPortal record objects for each of the records referenced
-        in this collection along with a corresponding OpenFF molecule object.
+    def to_records(
+        self,
+        include: Iterable[str] = ("initial_molecule", "final_molecule"),
+    ) -> List[Tuple[OptimizationRecord, Molecule]]:
+        """Download all records referenced in this collection from QCFractal.
+
+        Returns the native QCPortal record objects for each of the records
+        referenced in this collection along with a corresponding OpenFF Molecule
+        object.
 
         Each molecule will contain the minimum energy conformer referenced by the
         record.
+
+        Parameters
+        ==========
+        include
+            The fields to download when the record is collected.
+
+        Notes
+        =====
+        By default, this function does not download ``"trajectory"`` field,
+        and so the resulting records do not include any gradients or forces. To
+        download a complete record of the minimum energy conformer's calculation,
+        including forces, see :py:meth:`to_basic_result_collection`.
         """
         from openff.qcsubmit.utils.utils import _default_portal_client
 
@@ -593,17 +628,30 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
-    def to_basic_result_collection(self, driver) -> BasicResultCollection:
-        """Returns a basic results collection which references results records which
+    def to_basic_result_collection(self, driver: Iterable[SinglepointDriver] | None = None) -> BasicResultCollection:
+        """
+        Get a collection of the single point results from the end of each optimization.
+
+        Returns a basic results collection which references results records which
         were created from the *final* structure of one of the optimizations in this
         collection, and used the same program, method, and basis as the parent
         optimization record.
 
-        Returns:
-            The results collection referencing records created from the final optimized
-            structures referenced by this collection.
+        Parameters
+        ==========
+        driver
+            Return only those records whose driver is in this list. If omitted
+            or ``None``, include all drivers.
+
+        Returns
+        =======
+        The results collection referencing records created from the final
+        optimized structures referenced by this collection.
         """
         from openff.qcsubmit.utils.utils import _default_portal_client
+
+        # If driver is None, set it to all drivers
+        driver = tuple(SinglepointDriver) if driver is None else tuple(driver)
 
         records_and_molecules = self.to_records()
 
@@ -812,12 +860,23 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[TorsiondriveRecord, Molecule]]:
-        """Returns the native QCPortal record objects for each of the records referenced
-        in this collection along with a corresponding OpenFF molecule object.
+    def to_records(
+        self,
+        include: Iterable[str] = ("minimum_optimizations",),
+    ) -> List[Tuple[TorsiondriveRecord, Molecule]]:
+        """Download all records referenced in this collection from QCFractal.
+
+        Returns the native QCPortal record objects for each of the records
+        referenced in this collection along with a corresponding OpenFF Molecule
+        object.
 
         Each molecule will contain the minimum energy conformer referenced by the
         record.
+
+        Parameters
+        ==========
+        include
+            The fields to download when the record is collected.
         """
         from openff.qcsubmit.utils.utils import _default_portal_client
 
