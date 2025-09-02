@@ -398,7 +398,7 @@ class BasicResultCollection(_BaseResultCollection):
         )
 
     def to_records(
-        self, include: Iterable[str] = ("Molecule",)
+        self, include: Iterable[str] = ("molecule",)
     ) -> List[Tuple[SinglepointRecord, Molecule]]:
         """Download all records referenced in this collection from QCFractal.
 
@@ -411,11 +411,15 @@ class BasicResultCollection(_BaseResultCollection):
         Parameters
         ==========
         include
-            The fields to download when the record is collected.
+            The fields to download when the record is collected. The
+            ``"molecule"`` field is always downloaded.
         """
         from openff.qcsubmit.utils.utils import _default_portal_client
 
         records_and_molecules = []
+
+        if "molecule" not in include:
+            include = ("molecule", *include)
 
         for client_address, records in self.entries.items():
             client = _default_portal_client(client_address)
@@ -575,7 +579,8 @@ class OptimizationResultCollection(_BaseResultCollection):
         Parameters
         ==========
         include
-            The fields to download when the record is collected.
+            The fields to download when the record is collected. The
+            ``"final_molecule"`` field is always downloaded.
 
         Notes
         =====
@@ -588,13 +593,16 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         records_and_molecules = []
 
+        if "final_molecule" not in include:
+            include = ("final_molecule", *include)
+
         for client_address, results in self.entries.items():
             client = _default_portal_client(client_address)
 
             rec_ids = [result.record_id for result in results]
             # Do one big request to save time
             opt_records = client.get_optimizations(
-                rec_ids, include=["initial_molecule", "final_molecule"]
+                rec_ids, include=include
             )
             # Sort out which records from the request line up with which results
             opt_rec_id_to_result = dict()
@@ -880,11 +888,15 @@ class TorsionDriveResultCollection(_BaseResultCollection):
         Parameters
         ==========
         include
-            The fields to download when the record is collected.
+            The fields to download when the record is collected. The
+            ``"minimum_optimizations"`` field is always downloaded.
         """
         from openff.qcsubmit.utils.utils import _default_portal_client
 
         records_and_molecules = []
+
+        if "minimum_optimizations" not in include:
+            include = ("minimum_optimizations", *include)
 
         for client_address, records in self.entries.items():
             client = _default_portal_client(client_address)
@@ -893,7 +905,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             # minimum_optimizations
             record_ids = [r.record_id for r in records]
             torsion_drive_records = client.get_torsiondrives(
-                record_ids, include=["minimum_optimizations"]
+                record_ids, include=include
             )
             for record, rec in zip(records, torsion_drive_records):
                 # OpenFF molecule
