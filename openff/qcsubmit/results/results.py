@@ -9,7 +9,6 @@ import abc
 import logging
 import warnings
 from collections import defaultdict
-from collections.abc import Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
