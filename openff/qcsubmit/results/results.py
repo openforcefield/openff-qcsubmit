@@ -636,7 +636,8 @@ class OptimizationResultCollection(_BaseResultCollection):
         return records_and_molecules
 
     def to_basic_result_collection(
-        self, driver: Iterable[SinglepointDriver] | None = None
+        self,
+        driver: SinglepointDriver | Iterable[SinglepointDriver] | None = None,
     ) -> BasicResultCollection:
         """
         Get a collection of the single point results from the end of each optimization.
@@ -660,7 +661,7 @@ class OptimizationResultCollection(_BaseResultCollection):
         from openff.qcsubmit.utils.utils import _default_portal_client
 
         # If driver is None, set it to all drivers
-        driver = tuple(SinglepointDriver) if driver is None else tuple(driver)
+        driver = tuple(SinglepointDriver) if driver is None else driver
 
         records_and_molecules = self.to_records()
 
