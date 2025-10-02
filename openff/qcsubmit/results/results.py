@@ -192,9 +192,17 @@ class _BaseResultCollection(BaseModel, abc.ABC):
             )
 
     @abc.abstractmethod
-    def to_records(self) -> List[Tuple[BaseRecord, Molecule]]:
-        """Returns the native QCPortal record objects for each of the records referenced
-        in this collection along with a corresponding OpenFF molecule object.
+    def to_records(self, include: Iterable[str]) -> List[Tuple[BaseRecord, Molecule]]:
+        """Download all records referenced in this collection from QCFractal.
+
+        Returns the native QCPortal record objects for each of the records
+        referenced in this collection along with a corresponding OpenFF Molecule
+        object.
+
+        Parameters
+        ==========
+        include
+            The fields to download when the record is collected.
         """
         raise NotImplementedError()
 
@@ -388,22 +396,36 @@ class BasicResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[SinglepointRecord, Molecule]]:
-        """Returns the native QCPortal record objects for each of the records referenced
-        in this collection along with a corresponding OpenFF molecule object.
+    def to_records(
+        self, include: Iterable[str] = ("molecule",)
+    ) -> List[Tuple[SinglepointRecord, Molecule]]:
+        """Download all records referenced in this collection from QCFractal.
+
+        Returns the native QCPortal record objects for each of the records
+        referenced in this collection along with a corresponding OpenFF Molecule
+        object.
 
         Each molecule will contain the conformer referenced by the record.
+
+        Parameters
+        ==========
+        include
+            The fields to download when the record is collected. The
+            ``"molecule"`` field is always downloaded.
         """
         from openff.qcsubmit.utils.utils import _default_portal_client
 
         records_and_molecules = []
+
+        if "molecule" not in include:
+            include = ("molecule", *include)
 
         for client_address, records in self.entries.items():
             client = _default_portal_client(client_address)
 
             # TODO - batching/chunking (maybe in portal?)
             for record in records:
-                rec = client.get_singlepoints(record.record_id, include=["molecule"])
+                rec = client.get_singlepoints(record.record_id, include=include)
 
                 # OpenFF molecule
                 try:
@@ -540,25 +562,45 @@ class OptimizationResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[OptimizationRecord, Molecule]]:
-        """Returns the native QCPortal record objects for each of the records referenced
-        in this collection along with a corresponding OpenFF molecule object.
+    def to_records(
+        self,
+        include: Iterable[str] = ("initial_molecule", "final_molecule"),
+    ) -> List[Tuple[OptimizationRecord, Molecule]]:
+        """Download all records referenced in this collection from QCFractal.
+
+        Returns the native QCPortal record objects for each of the records
+        referenced in this collection along with a corresponding OpenFF Molecule
+        object.
 
         Each molecule will contain the minimum energy conformer referenced by the
         record.
+
+        Parameters
+        ==========
+        include
+            The fields to download when the record is collected. The
+            ``"final_molecule"`` field is always downloaded.
+
+        Notes
+        =====
+        By default, this function does not download ``"trajectory"`` field,
+        and so the resulting records do not include any gradients or forces. To
+        download a complete record of the minimum energy conformer's calculation,
+        including forces, see :py:meth:`to_basic_result_collection`.
         """
         from openff.qcsubmit.utils.utils import _default_portal_client
 
         records_and_molecules = []
+
+        if "final_molecule" not in include:
+            include = ("final_molecule", *include)
 
         for client_address, results in self.entries.items():
             client = _default_portal_client(client_address)
 
             rec_ids = [result.record_id for result in results]
             # Do one big request to save time
-            opt_records = client.get_optimizations(
-                rec_ids, include=["initial_molecule", "final_molecule"]
-            )
+            opt_records = client.get_optimizations(rec_ids, include=include)
             # Sort out which records from the request line up with which results
             opt_rec_id_to_result = dict()
             for result in results:
@@ -593,17 +635,33 @@ class OptimizationResultCollection(_BaseResultCollection):
 
         return records_and_molecules
 
-    def to_basic_result_collection(self, driver) -> BasicResultCollection:
-        """Returns a basic results collection which references results records which
+    def to_basic_result_collection(
+        self,
+        driver: SinglepointDriver | Iterable[SinglepointDriver] | None = None,
+    ) -> BasicResultCollection:
+        """
+        Get a collection of the single point results from the end of each optimization.
+
+        Returns a basic results collection which references results records which
         were created from the *final* structure of one of the optimizations in this
         collection, and used the same program, method, and basis as the parent
         optimization record.
 
-        Returns:
-            The results collection referencing records created from the final optimized
-            structures referenced by this collection.
+        Parameters
+        ==========
+        driver
+            Return only those records whose driver is in this list. If omitted
+            or ``None``, include all drivers.
+
+        Returns
+        =======
+        The results collection referencing records created from the final
+        optimized structures referenced by this collection.
         """
         from openff.qcsubmit.utils.utils import _default_portal_client
+
+        # If driver is None, set it to all drivers
+        driver = tuple(SinglepointDriver) if driver is None else driver
 
         records_and_molecules = self.to_records()
 
@@ -812,16 +870,31 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             spec_name,
         )
 
-    def to_records(self) -> List[Tuple[TorsiondriveRecord, Molecule]]:
-        """Returns the native QCPortal record objects for each of the records referenced
-        in this collection along with a corresponding OpenFF molecule object.
+    def to_records(
+        self,
+        include: Iterable[str] = ("minimum_optimizations",),
+    ) -> List[Tuple[TorsiondriveRecord, Molecule]]:
+        """Download all records referenced in this collection from QCFractal.
+
+        Returns the native QCPortal record objects for each of the records
+        referenced in this collection along with a corresponding OpenFF Molecule
+        object.
 
         Each molecule will contain the minimum energy conformer referenced by the
         record.
+
+        Parameters
+        ==========
+        include
+            The fields to download when the record is collected. The
+            ``"minimum_optimizations"`` field is always downloaded.
         """
         from openff.qcsubmit.utils.utils import _default_portal_client
 
         records_and_molecules = []
+
+        if "minimum_optimizations" not in include:
+            include = ("minimum_optimizations", *include)
 
         for client_address, records in self.entries.items():
             client = _default_portal_client(client_address)
@@ -830,7 +903,7 @@ class TorsionDriveResultCollection(_BaseResultCollection):
             # minimum_optimizations
             record_ids = [r.record_id for r in records]
             torsion_drive_records = client.get_torsiondrives(
-                record_ids, include=["minimum_optimizations"]
+                record_ids, include=include
             )
             for record, rec in zip(records, torsion_drive_records):
                 # OpenFF molecule
