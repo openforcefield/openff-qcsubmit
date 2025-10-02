@@ -11,6 +11,16 @@ Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
 
+## 0.57.0 / 10-02-2025
+
+### API extensions
+* [PR #352:] Add `include` argument to `to_records()` to enable users to select which fields to download (and hint to user that not all fields are downloaded by default!)
+
+### Documentation updates
+* [PR #352:] Revise docstrings for to_records() to better reflect their purpose
+* [PR #352:] Add a note to OptimizationResultCollection.to_records() docstring to explain that the user may want to call .to_basic_result_collection() first
+* [PR #352:] Revise docstring of to_basic_result_collection() with more details
+
 ## 0.56.0 / 05-19-2025
 
 ### Bugfixes
