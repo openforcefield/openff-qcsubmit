@@ -32,3 +32,7 @@ repos:
     - id: nbqa-flake8
       args:
         - '--select=F'
+- repo: https://github.com/tox-dev/pyproject-fmt
+  rev: v2.7.0
+  hooks:
+    - id: pyproject-fmt
