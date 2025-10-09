@@ -3,8 +3,6 @@ API
 
 Below is an outline of the API for ``openff-qcsubmit``. See the examples for details on how to use these objects.
 
-.. warning:: The ``openff-qcsubmit`` package is still pre-alpha, so the API is still in flux.
-
 Datasets
 """"""""
 

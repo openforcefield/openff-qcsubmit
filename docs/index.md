@@ -7,10 +7,6 @@ QCSubmit helps to curate and contribute new quantum chemical (QC) datasets to th
 [QCArchive]: https://qcarchive.molssi.org/
 [QCFractal]: http://docs.qcarchive.molssi.org/projects/qcfractal/en/latest/
 
-:::{warning} 
-`openff-qcsubmit` is still pre-alpha. It is not fully tested and the API is still in flux.
-:::
-
 
 :::{toctree}
 ---
