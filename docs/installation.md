@@ -1,11 +1,11 @@
 # Installation
 
-## Installing using conda
+## Installing using mamba
 
-The recommended way to install QCSubmit is via the `conda` package manger:
+The recommended way to install QCSubmit is via the `mamba` package manger:
 
 ```bash
-conda install -c conda-forge openff-qcsubmit
+mamba install -c conda-forge openff-qcsubmit
 ```
 
 If you do not have Conda installed, see the [OpenFF installation guide](openff.docs:install)
@@ -15,7 +15,7 @@ If you do not have Conda installed, see the [OpenFF installation guide](openff.d
 If you have access to the OpenEye toolkits (namely `oechem`, `oequacpac`, `oeomega` and `oedepict`), we recommend installing these also as these can speed up various operations performed by this framework significantly:
 
 ```bash
-conda install -c openeye openeye-toolkits
+mamba install -c openeye openeye-toolkits
 ```
 
 ## Installing from source
@@ -30,12 +30,12 @@ cd openff-qcsubmit
 Create a custom conda environment which contains the required dependencies and activate it:
 
 ```bash
-conda env create --name openff-qcsubmit --file devtools/conda-envs/basic.yaml
-conda activate openff-qcsubmit
+mamba env create --name openff-qcsubmit --file devtools/conda-envs/basic.yaml
+mamba activate openff-qcsubmit
 ```
 
 Finally, install the `openff-qcsubmit` package into the current environment:
 
 ```bash
-python setup.py develop
+python -m pip install -e .
 ```
