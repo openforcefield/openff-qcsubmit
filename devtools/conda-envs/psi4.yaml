@@ -12,9 +12,6 @@ dependencies:
   - pip
   - setuptools
 
-  # Temporary
-  - numpy <2.4
-
   # Testing
   - pytest
   - pytest-cov
