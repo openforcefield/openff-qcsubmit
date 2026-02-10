@@ -41,6 +41,7 @@ dependencies:
   - openff-toolkit
   - openff-interchange-base
   - openff-units
+  - openff-utilities
   - pydantic
   - pyyaml
   - torsiondrive
