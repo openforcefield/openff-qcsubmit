@@ -10,7 +10,7 @@ dependencies:
   - python <3.13
   - pip
   - versioningit
-  - setuptools =81
+  - setuptools
 
   # Sphinx specific
   - sphinx =6

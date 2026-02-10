@@ -10,7 +10,7 @@ dependencies:
   - python
   - versioningit
   - pip
-  - setuptools =81
+  - setuptools
 
   # Testing
   - pytest
