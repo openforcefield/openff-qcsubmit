@@ -24,7 +24,6 @@ dynamic = [ "version" ]
 
 [tool.setuptools.packages.find]
 include = [ 'openff.qcsubmit*' ]
-exclude = [ 'openff.qcsubmit._tests.data*' ]
 
 [tool.black]
 line-length = 88
