@@ -22,8 +22,8 @@ classifiers = [
 ]
 dynamic = [ "version" ]
 
-[tool.setuptools.packages]
-find = {}
+[tool.setuptools.packages.find]
+include = [ 'openff.qcsubmit*' ]
 
 [tool.black]
 line-length = 88
