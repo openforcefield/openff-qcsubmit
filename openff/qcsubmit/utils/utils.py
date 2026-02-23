@@ -18,6 +18,7 @@ from openff.toolkit.utils.toolkits import (
     RDKitToolkitWrapper,
     UndefinedStereochemistryError,
 )
+from openff.utilities import get_data_file_path
 from qcportal import PortalClient
 from qcportal.cache import RecordCache, get_records_with_cache
 from qcportal.optimization.record_models import OptimizationRecord
@@ -306,26 +307,22 @@ def portal_client_manager(portal_client_fn: Callable[[str], PortalClient]):
         _default_portal_client = original_client_fn
 
 
-def get_data(relative_path):
+def get_data(relative_path: str) -> str:
     """
     Get the file path to some data in the qcsubmit package.
 
     Parameters:
         relative_path: The relative path to the data
     """
-
-    import os
-
-    from pkg_resources import resource_filename
-
-    fn = resource_filename("openff.qcsubmit", os.path.join("data", relative_path))
-
-    if not os.path.exists(fn):
-        raise ValueError(
-            f"Sorry! {fn} does not exist. If you just added it, you'll have to re-install"
+    try:
+        return get_data_file_path(
+            relative_path=relative_path,
+            package_name="openff.qcsubmit",
         )
-
-    return fn
+    except FileNotFoundError as error:
+        raise ValueError(
+            f"Sorry! {relative_path} does not exist. If you just added it, you'll have to re-install"
+        ) from error
 
 
 def check_missing_stereo(molecule: off.Molecule) -> bool:
