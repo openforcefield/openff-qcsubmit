@@ -11,6 +11,10 @@ Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
 
+## Current development
+
+* [PR #367:] Do not use `pkg_resources`
+
 ## 0.57.0 / 10-02-2025
 
 ### API extensions
@@ -200,6 +204,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #308:]: https://github.com/openforcefield/openff-qcsubmit/pull/308
 [PR #318:]: https://github.com/openforcefield/openff-qcsubmit/pull/318
 [PR #340:]: https://github.com/openforcefield/openff-qcsubmit/pull/340
+[PR #367:]: https://github.com/openforcefield/openff-qcsubmit/pull/367
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
