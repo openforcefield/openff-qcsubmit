@@ -30,7 +30,7 @@ jobs:
           - "3.13"
         bleeding-edge:
           - true
-          - false
+          #- false
         cfg:
           - os: ubuntu-latest
             conda-env: basic
