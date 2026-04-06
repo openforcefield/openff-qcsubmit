@@ -7,14 +7,14 @@ repos:
   - id: check-yaml
   - id: debug-statements
 - repo: https://github.com/psf/black-pre-commit-mirror
-  rev: 25.12.0
+  rev: 26.3.1
   hooks:
   - id: black
     files: ^openff
   - id: black-jupyter
     files: ^examples
 - repo: https://github.com/PyCQA/isort
-  rev: 7.0.0
+  rev: 8.0.1
   hooks:
   - id: isort
     files: ^openff
@@ -33,6 +33,6 @@ repos:
       args:
         - '--select=F'
 - repo: https://github.com/tox-dev/pyproject-fmt
-  rev: v2.11.1
+  rev: v2.21.0
   hooks:
     - id: pyproject-fmt
