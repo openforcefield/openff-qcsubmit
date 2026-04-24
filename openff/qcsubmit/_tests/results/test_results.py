@@ -371,8 +371,7 @@ def test_optimization_create_basic_dataset():
     # Training Coverage Supplement v1.0" dataset used in issue #297. the first
     # fails the round-trip in the previous create_basic_dataset implementation
     # but the next two work with either
-    opt = OptimizationResultCollection.parse_raw(
-        """
+    opt = OptimizationResultCollection.parse_raw("""
         {
             "entries": {
                 "https://api.qcarchive.molssi.org:443/": [
@@ -399,8 +398,7 @@ def test_optimization_create_basic_dataset():
             "provenance": {},
             "type": "OptimizationResultCollection"
         }
-        """
-    )
+        """)
 
     opt_hashes = {rec.final_molecule.get_hash() for rec, _mol in opt.to_records()}
 
