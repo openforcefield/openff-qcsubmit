@@ -12,41 +12,22 @@ readme = "README.md"
 license = "MIT"
 license-files = [ "LICENSE" ]
 authors = [ { name = "Open Force Field Consortium", email = "info@openforcefield.org" } ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
 dynamic = [ "version" ]
 
-[tool.setuptools.packages.find]
-include = [ 'openff.qcsubmit*' ]
+[tool.setuptools]
+packages.find.include = [ "openff.qcsubmit*" ]
 
 [tool.black]
 line-length = 88
-target-version = [ 'py311' ]
-exclude = '''
-
-(
-  /(
-      \.eggs         # exclude a few common directories in the
-    | \.git          # root of the project
-    | \.hg
-    | \.mypy_cache
-    | \.tox
-    | \.venv
-    | _build
-    | buck-out
-    | build
-    | dist
-  )/
-  | _tests           # also separately exclude a file named foo.py in
-                     # the root of the project
-)
-'''
+target-version = [ "py312" ]
+exclude = "openff/qcsubmit/_tests"
 
 [tool.isort]
 multi_line_output = 3
@@ -55,21 +36,19 @@ force_grid_wrap = 0
 use_parentheses = true
 line_length = 88
 
-[tool.pytest.ini_options]
-filterwarnings = [
+[tool.pytest]
+ini_options.filterwarnings = [
   "ignore::DeprecationWarning",
   "ignore::PendingDeprecationWarning",
 ]
 
-[tool.coverage.run]
-omit = [
+[tool.coverage]
+run.omit = [
   "*/*/_tests/*",
 ]
-
-[tool.coverage.report]
-exclude_lines = [
-  "pragma: no cover",
+report.exclude_lines = [
   "if TYPE_CHECKING:",
+  "pragma: no cover",
   "raise NotImplementedError",
 ]
 
