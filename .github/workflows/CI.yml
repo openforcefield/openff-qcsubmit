@@ -102,7 +102,7 @@ jobs:
           python -m pytest $PYTEST_ARGS $NB_ARGS examples
 
       - name: Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
