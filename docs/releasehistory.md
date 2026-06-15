@@ -13,6 +13,7 @@ Releases are given with dates in DD-MM-YYYY format.
 
 ## Current development
 
+* [PR #3XX:] Switches version handling to use `setuptools-scm`.
 * [PR #367:] Do not use `pkg_resources`
 
 ## 0.57.0 / 10-02-2025
