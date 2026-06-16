@@ -14,6 +14,8 @@ Releases are given with dates in DD-MM-YYYY format.
 ## Current development
 
 * [PR #367:] Do not use `pkg_resources`
+* [PR #382:] Update tests for deprecation of fulltest_client in QC* 0.56 and removal of mdtraj as a hard dependency of openff-toolkit.
+
 
 ## 0.57.0 / 10-02-2025
 
@@ -205,6 +207,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #318:]: https://github.com/openforcefield/openff-qcsubmit/pull/318
 [PR #340:]: https://github.com/openforcefield/openff-qcsubmit/pull/340
 [PR #367:]: https://github.com/openforcefield/openff-qcsubmit/pull/367
+[PR #283:]: https://github.com/openforcefield/openff-qcsubmit/pull/382
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
