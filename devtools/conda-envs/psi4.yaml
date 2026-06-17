@@ -23,7 +23,7 @@ dependencies:
 
   - qcengine >=0.25
   - qcelemental >=0.25.1
-  - qcfractal >=0.56
+  - qcfractal >=0.65
   - qcarchivetesting
   - qcportal
 
@@ -49,5 +49,6 @@ dependencies:
   - openmmforcefields ~=0.14.2
   - openff-fragmenter-base >=0.2.0
   - openmm
+  - mdtraj
 
   - postgresql
