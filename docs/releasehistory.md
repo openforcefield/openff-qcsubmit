@@ -207,7 +207,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #318:]: https://github.com/openforcefield/openff-qcsubmit/pull/318
 [PR #340:]: https://github.com/openforcefield/openff-qcsubmit/pull/340
 [PR #367:]: https://github.com/openforcefield/openff-qcsubmit/pull/367
-[PR #283:]: https://github.com/openforcefield/openff-qcsubmit/pull/382
+[PR #382:]: https://github.com/openforcefield/openff-qcsubmit/pull/382
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
