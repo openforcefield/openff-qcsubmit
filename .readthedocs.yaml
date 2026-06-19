@@ -4,9 +4,6 @@ build:
   os: ubuntu-24.04
   tools:
     python: "mambaforge-latest"
-  jobs:
-    pre_build:
-      - mamba list
 
 python:
   install:
