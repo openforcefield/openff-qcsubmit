@@ -4,6 +4,7 @@ build:
   os: ubuntu-24.04
   tools:
     python: "mambaforge-latest"
+
 python:
   install:
     - method: pip
