@@ -9,7 +9,6 @@ dependencies:
   # Base depends
   - python =3.12
   - pip
-  - versioningit
   - setuptools
 
   # Sphinx specific

@@ -8,7 +8,6 @@ dependencies:
 
   # Base depends
   - python
-  - versioningit
   - pip
   - setuptools
 
