@@ -553,6 +553,7 @@ class QCSpec(ResultsConfig):
                         GAFFTemplateGenerator,
                         SMIRNOFFTemplateGenerator,
                     )
+
                     ommffs_installed = True
                 except ModuleNotFoundError:
                     ommffs_installed = False

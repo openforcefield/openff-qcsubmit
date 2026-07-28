@@ -192,9 +192,7 @@ def test_gaff_method_is_accepted():
             "The Basis not-a-real-basis is not supported",
         ),
         (
-            dict(
-                method="not-a-real-forcefield", basis="smirnoff", program="openmm"
-            ),
+            dict(method="not-a-real-forcefield", basis="smirnoff", program="openmm"),
             "The method not-a-real-forcefield is not supported",
         ),
         (
