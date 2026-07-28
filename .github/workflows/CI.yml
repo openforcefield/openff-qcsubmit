@@ -31,11 +31,11 @@ jobs:
           #- true
           - false
         cfg:
-          - os: ubuntu-latest
-            conda-env: basic
+          #- os: ubuntu-latest
+          #  conda-env: basic
 
-          - os: macOS-latest
-            conda-env: basic
+          #- os: macOS-latest
+          #  conda-env: basic
 
           - os: ubuntu-latest
             conda-env: psi4

@@ -49,6 +49,6 @@ dependencies:
   - h5py>=3.6.0
 
   # Optional
-  - openmmforcefields >=0.14.2
+  - openmmforcefields ~=0.14.2
   - openff-fragmenter-base >=0.2.0
   - mdtraj
