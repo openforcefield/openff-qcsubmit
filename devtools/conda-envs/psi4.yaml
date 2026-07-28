@@ -29,7 +29,7 @@ dependencies:
 
   - openeye-toolkits !=2024.1.1
 
-  - psi4 >=1.9.1
+  - psi4 >=1.10.1
   - pyddx
 
   ### Core dependencies.
@@ -46,7 +46,7 @@ dependencies:
   - h5py>=3.6.0
 
   # Optional
-  - openmmforcefields ~=0.14.2
+  - openmmforcefields >=0.14.2
   - openff-fragmenter-base >=0.2.0
   - openmm
   - mdtraj
