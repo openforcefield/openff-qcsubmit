@@ -1,9 +1,28 @@
+import builtins
+
 import pytest
 from openff.toolkit.topology import Molecule
 
 from openff.qcsubmit._tests import does_not_raise
 from openff.qcsubmit.common_structures import Metadata, MoleculeAttributes, QCSpec
 from openff.qcsubmit.exceptions import DatasetInputError, QCSpecificationError
+
+
+def _block_import(*module_prefixes):
+    """
+    Return a stand-in for `builtins.__import__` that raises ModuleNotFoundError
+    for any import whose name starts with one of the given prefixes, and
+    otherwise behaves normally. Used to simulate an optional dependency (e.g.
+    openmmforcefields) not being installed.
+    """
+    real_import = builtins.__import__
+
+    def blocked_import(name, *args, **kwargs):
+        if any(name.startswith(prefix) for prefix in module_prefixes):
+            raise ModuleNotFoundError(f"No module named {name!r} (blocked for testing)")
+        return real_import(name, *args, **kwargs)
+
+    return blocked_import
 
 
 def test_attributes_from_openff_molecule():
@@ -123,3 +142,142 @@ def test_scf_prop_validation():
 
     with pytest.raises(QCSpecificationError):
         QCSpec(scf_properties=["ddec_charges"])
+
+
+@pytest.mark.parametrize(
+    "method",
+    [
+        "openff_unconstrained-1.0.0.offxml",
+        "openff-1.0.0.offxml",
+        "openff-1.0.0",
+    ],
+)
+def test_openmm_method_preserves_offxml_extension(method):
+    """
+    Regression test: QCSpec used to unconditionally strip a trailing ".offxml"
+    off of `method` before storing it. This silently turned a request for the
+    *constrained* force field variant (e.g. "openff-1.0.0.offxml") into the
+    bare shorthand "openff-1.0.0", which openmmforcefields resolves to the
+    *unconstrained* variant instead - a silent, wrong-physics bug rather than
+    an error. The user-provided spelling (up to lowercasing) must survive
+    unchanged.
+    """
+    spec = QCSpec(method=method, basis="smirnoff", program="openmm")
+    assert spec.method == method.lower()
+
+
+def test_bare_unconstrained_method_rejected():
+    """
+    "openff_unconstrained-X.Y.Z" (no .offxml extension) is not a name that
+    openmmforcefields' SMIRNOFFTemplateGenerator recognizes: it isn't in the
+    curated shorthand list (bare "openff-X.Y.Z" names, which already resolve
+    to the unconstrained variant) and it isn't a valid filename on its own.
+    This should be rejected here, rather than passing validation and later
+    failing deep inside SystemGenerator with a confusing error.
+    """
+    with pytest.raises(QCSpecificationError):
+        QCSpec(method="openff_unconstrained-1.0.0", basis="smirnoff", program="openmm")
+
+
+def test_gaff_method_is_accepted():
+    spec = QCSpec(method="gaff-2.2.20", basis="antechamber", program="openmm")
+    assert spec.method == "gaff-2.2.20"
+
+
+@pytest.mark.parametrize(
+    "kwargs, match",
+    [
+        (
+            dict(method="openff-2.3.0", basis="not-a-real-basis", program="openmm"),
+            "The Basis not-a-real-basis is not supported",
+        ),
+        (
+            dict(
+                method="not-a-real-forcefield", basis="smirnoff", program="openmm"
+            ),
+            "The method not-a-real-forcefield is not supported",
+        ),
+        (
+            dict(
+                method="not-a-real-gaff-version",
+                basis="antechamber",
+                program="openmm",
+            ),
+            "The method not-a-real-gaff-version is not supported",
+        ),
+        (
+            dict(method="uff", basis="not-none", program="rdkit"),
+            r"choose from \(None,\)",
+        ),
+    ],
+)
+def test_qcspec_invalid_combinations_raise(kwargs, match):
+    with pytest.raises(QCSpecificationError, match=match):
+        QCSpec(**kwargs)
+
+
+def test_openmm_validation_skipped_without_openmmforcefields(monkeypatch):
+    """
+    openmmforcefields is an optional dependency. If it isn't installed, QCSpec
+    construction must still succeed - just with method-name validation
+    skipped and a warning raised - rather than a hard failure.
+    """
+    monkeypatch.setattr(builtins, "__import__", _block_import("openmmforcefields"))
+
+    with pytest.warns(UserWarning, match="openmmforcefields is not installed"):
+        spec = QCSpec(method="openff-2.3.0", basis="smirnoff", program="openmm")
+
+    assert spec.method == "openff-2.3.0"
+
+
+def test_openmm_spec_deserialization_without_openmmforcefields(monkeypatch):
+    """
+    QCSpec validation runs on every pydantic deserialization of a stored
+    dataset (it's a pydantic field type, not just a constructor called at
+    submission time), not just at first construction. Loading a
+    previously-created OpenMM/SMIRNOFF dataset spec must not require
+    openmmforcefields to be installed, or simply inspecting/retrieving an old
+    dataset becomes impossible on a lightweight (openff-toolkit-only) install.
+    """
+    monkeypatch.setattr(builtins, "__import__", _block_import("openmmforcefields"))
+
+    with pytest.warns(UserWarning, match="openmmforcefields is not installed"):
+        spec = QCSpec.parse_obj(
+            {"method": "openff-2.3.0", "basis": "smirnoff", "program": "openmm"}
+        )
+
+    assert spec.method == "openff-2.3.0"
+
+
+def test_default_qcspec_does_not_require_openmmforcefields(monkeypatch):
+    """
+    The default (psi4) QCSpec, and any other non-"openmm" program, must never
+    even attempt to import openmmforcefields: it's an optional dependency, and
+    the overwhelming majority of QCSpecs - including the bare `QCSpec()` used
+    when retrieving/exporting datasets - have nothing to do with OpenMM.
+    """
+    monkeypatch.setattr(builtins, "__import__", _block_import("openmmforcefields"))
+
+    QCSpec()  # should not raise
+
+
+def test_unrelated_module_not_found_error_is_not_masked(monkeypatch):
+    """
+    Regression test: the ModuleNotFoundError guard around the
+    openmmforcefields import must not be so wide that it also swallows an
+    unrelated ModuleNotFoundError raised later while building the
+    allowed-methods list (e.g. from a broken third-party offxml plugin during
+    force field discovery). Such a failure must propagate normally, not be
+    silently reinterpreted as "openmmforcefields is not installed".
+    """
+    import openff.toolkit.typing.engines.smirnoff as smirnoff_mod
+
+    def broken_get_available_force_fields():
+        raise ModuleNotFoundError("No module named 'some_unrelated_broken_plugin'")
+
+    monkeypatch.setattr(
+        smirnoff_mod, "get_available_force_fields", broken_get_available_force_fields
+    )
+
+    with pytest.raises(ModuleNotFoundError, match="some_unrelated_broken_plugin"):
+        QCSpec(method="openff-2.3.0.offxml", basis="smirnoff", program="openmm")
