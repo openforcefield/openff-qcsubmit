@@ -11,7 +11,11 @@ Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
 
-## Current development
+### API/Behavior Changes
+
+* [PR #394:] Updates for openmmforcefields 0.16. When using the `openmm` program, QCSubmit passes `method` names as if they were small molecule force fields. The interpretation of this field has changed in OMMFFs 0.16 so strings like `openff_unconstrained-1.1.0` now need to be written as full OFFXML names like `openff_unconstrained-1.1.0.offxml`. This behavior change passes through to QCSubmit's `method` field. See https://github.com/openmm/openmmforcefields/releases/tag/0.16.0 for details.
+
+### Testing/packaging updates
 
 * [PR #381:] Switches version handling to use `setuptools-scm`.
 * [PR #367:] Do not use `pkg_resources`
