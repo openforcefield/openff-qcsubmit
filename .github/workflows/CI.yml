@@ -53,6 +53,7 @@ jobs:
           environment-file: devtools/conda-envs/${{ matrix.cfg.conda-env }}.yaml
           create-args: >-
             python=${{ matrix.python-version }}
+          micromamba-version: '2.8.1'
 
       - name: License OpenEye
         run: |
