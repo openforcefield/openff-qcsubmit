@@ -6,6 +6,7 @@ import abc
 import copy
 import getpass
 import re
+import warnings
 from datetime import date, datetime
 from enum import Enum
 from typing import (
@@ -514,35 +515,11 @@ class QCSpec(ResultsConfig):
         """
         Validate the combination of method, basis and program.
         """
-        from openff.toolkit.typing.engines.smirnoff import get_available_force_fields
-
-        try:
-            from openmmforcefields.generators.template_generators import (
-                GAFFTemplateGenerator,
-            )
-
-            gaff_forcefields = GAFFTemplateGenerator.INSTALLED_FORCEFIELDS
-
-        except ModuleNotFoundError:
-            gaff_forcefields = [
-                "gaff-1.4",
-                "gaff-1.8",
-                "gaff-1.81",
-                "gaff-2.1",
-                "gaff-2.11",
-            ]
-
-        # set up the valid method basis and program combinations
+        # Set up the valid method basis and program combinations.
+        # We validate program=openmm later because we get its supported
+        # methods/bases from a live API point, but it's an optional dep
+        # so we import-guard it.
         ani_methods = {"ani1x", "ani1ccx", "ani2x"}
-        openff_forcefields = list(
-            ff.split(".offxml")[0].lower() for ff in get_available_force_fields()
-        )
-
-        openmm_forcefields = {
-            "smirnoff": openff_forcefields,
-            "antechamber": gaff_forcefields,
-        }
-
         xtb_methods = {
             "gfn0-xtb",
             "gfn0xtb",
@@ -554,37 +531,80 @@ class QCSpec(ResultsConfig):
             "gfnff",
         }
         rdkit_methods = {"uff", "mmff94", "mmff94s"}
-        settings = {
-            "openmm": openmm_forcefields,
-            "torchani": {None: ani_methods},
-            "xtb": {None: xtb_methods},
-            "rdkit": {None: rdkit_methods},
-        }
+        known_programs = {"openmm", "torchani", "xtb", "rdkit"}
 
-        if program.lower() in settings:
+        if program.lower() in known_programs:
             # make sure PCM is not set
             if implicit_solvent is not None:
                 raise QCSpecificationError(
-                    "PCM and DDX can only be used with PSI4 please set implicit solvent to None."
+                    "PCM and DDX can only be used with PSI4. Please set implicit solvent to None."
                 )
-            # we need to make sure it is valid in the above list
-            program_settings = settings.get(program.lower(), None)
-            if program_settings is None:
-                raise QCSpecificationError(
-                    f"The program {program.lower()} is not supported please use one of the following {settings.keys()}"
-                )
-            allowed_methods = program_settings.get(basis, None)
-            if allowed_methods is None:
-                raise QCSpecificationError(
-                    f"The Basis {basis} is not supported for the program {program}, chose from {program_settings.keys()}"
-                )
-            # now we need to check the methods
-            # strip the offxml if present
-            method = method.split(".offxml")[0].lower()
-            if method not in allowed_methods:
-                raise QCSpecificationError(
-                    f"The method {method} is not supported for the program {program} with basis {basis}, please chose from {allowed_methods}"
-                )
+
+            if program.lower() == "openmm":
+                known_openmm_bases = ("smirnoff", "antechamber")
+                if basis not in known_openmm_bases:
+                    raise QCSpecificationError(
+                        f"The Basis {basis} is not supported for the program {program}, choose "
+                        f"from {known_openmm_bases}"
+                    )
+
+                try:
+                    from openmmforcefields.generators.template_generators import (
+                        GAFFTemplateGenerator,
+                        SMIRNOFFTemplateGenerator,
+                    )
+
+                    ommffs_installed = True
+                except ModuleNotFoundError:
+                    ommffs_installed = False
+
+                if not ommffs_installed:
+                    warnings.warn(
+                        "openmmforcefields is not installed, so the requested OpenMM "
+                        f"method {method!r} (basis={basis!r}) could not be validated. "
+                        "Install openmmforcefields (e.g. `conda install -c conda-forge "
+                        "openmmforcefields`) to enable this check.",
+                        stacklevel=2,
+                    )
+                else:
+                    from openff.toolkit.typing.engines.smirnoff import (
+                        get_available_force_fields,
+                    )
+
+                    # Force field names are filenames (or shorthand keys tied
+                    # 1:1 to filenames), which are case sensitive - unlike
+                    # `program`/`basis`, `method` must not be lowercased here.
+                    allowed_methods = {
+                        "smirnoff": list(get_available_force_fields())
+                        + SMIRNOFFTemplateGenerator.INSTALLED_FORCEFIELDS,
+                        "antechamber": GAFFTemplateGenerator.INSTALLED_FORCEFIELDS,
+                    }[basis]
+                    if method not in allowed_methods:
+                        raise QCSpecificationError(
+                            f"The method {method} is not supported for the program {program} with "
+                            f"basis {basis}, please choose from {allowed_methods}"
+                        )
+            else:
+                # torchani, xtb, and rdkit don't take a basis, so this is
+                # just a fixed lookup of allowed methods per program.
+                allowed_bases = (None,)
+                if basis not in allowed_bases:
+                    raise QCSpecificationError(
+                        f"The Basis {basis} is not supported for the program {program}, choose from {allowed_bases}"
+                    )
+
+                allowed_methods = {
+                    "torchani": ani_methods,
+                    "xtb": xtb_methods,
+                    "rdkit": rdkit_methods,
+                }[program.lower()]
+
+                method = method.lower()
+                if method not in allowed_methods:
+                    raise QCSpecificationError(
+                        f"The method {method} is not supported for the program {program} with "
+                        f"basis {basis}, please choose from {allowed_methods}"
+                    )
 
         if keywords is None:
             keywords = {}

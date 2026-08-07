@@ -31,6 +31,9 @@ dependencies:
 
   - psi4 >=1.10.1
   - pyddx
+  # Current best reference for this pin (please update if a more visible issue is opened)
+  # https://github.com/psi4/psi4/pull/3464#issuecomment-5189313038
+  - libxc-c =7.0.0
 
   ### Core dependencies.
 
@@ -46,7 +49,7 @@ dependencies:
   - h5py>=3.6.0
 
   # Optional
-  - openmmforcefields ~=0.14.2
+  - openmmforcefields >=0.15.0
   - openff-fragmenter-base >=0.2.0
   - openmm
   - mdtraj

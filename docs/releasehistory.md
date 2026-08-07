@@ -11,7 +11,37 @@ Releases are given with dates in DD-MM-YYYY format.
 
 <!--## Version / Date DD-MM-YYYY -->
 
-## Current development
+### API/Behavior Changes
+
+[PR #394:] Updates for openmmforcefields 0.16. When using the `openmm` program and `smirnoff` basis, 
+QCSubmit passes `method` names to QCEngine, which passes them to openmm/openmmforcefields as if they 
+were small molecule force fields.
+* This PR removes some sanitization of force field names. Earlier versions of QCSubmit used to lowercase 
+  and strip the `.offxml` suffix from force fields before sending them to QCEngine (and thereby openmmforcefields).
+  This is no longer the case, QCSubmit now passes SMIRNOFF `method` names to QCEngine unchanged. 
+* The interpretation/application of SMIRNOFF force fields has changed in openmmforcefields 0.16. 
+  Notably, **openmmforcefields used to unconditionally strip `<Constraints>` from SMIRNOFF force fields and then 
+  re-apply constraints based on a separate argument (the `constraints` kwarg)**. As of openmmforcefields
+  0.16, the `<Constraints>` section is no longer stripped, and the final set of constraints applied is the UNION
+  of those requested by the SMIRNOFF force field and those requested by the `constraints` kwarg passed to 
+  openmmforcefields.
+
+This table shows the behavior of QCSubmit+QCEngine+OpenMMForceFields before and after these changes:
+
+|                                   | OpenMMForceFields <0.16 and QCSubmit <=0.57.0                                | OpenMMForceFields >=0.16 and QCSubmit >0.57.0                              |
+|-----------------------------------|------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| openff-X.Y.Z                      | Applies openff-X.Y.Z.offxml with <Constraints> section deleted               | Applies openff_unconstrained-X.Y.Z.offxml per SMIRNOFF spec (minor change) |
+| openff-X.Y.Z.offxml               | QCSubmit deletes `.offxml` suffix so behavior is identical to row above      | Applies openff-X.Y.Z.offxml per SMIRNOFF spec (MAJOR change)               |
+| openff_unconstrained-X.Y.Z        | Applies openff_unconstrained-X.Y.Z.offxml with <Constraints> section deleted | Raises an error                                                            |
+| openff_unconstrained-X.Y.Z.offxml | QCSubmit deletes `.offxml` suffix so behavior is identical to row above      | Applies openff_unconstrained-X.Y.Z.offxml per SMIRNOFF spec (minor change) |
+
+To the best of Jeff's knowledge, OpenFF [has not submitted](https://github.com/search?q=repo%3Aopenforcefield%2Fqca-dataset-submission+%22method%22%3A+%22openff+path%3A*json&type=code) 
+any datasets to QCArchive that A) would encounter the "MAJOR change" case above or B) use the now-forbidden 
+`openff_unconstrained-X.Y.Z` string, so all QC datasets should still be readable and computations reproducible (modulo
+water constraints). See https://github.com/openmm/openmmforcefields/releases/tag/0.16.0 for details on the 
+openmmforcefields release.
+
+### Testing/packaging updates
 
 * [PR #381:] Switches version handling to use `setuptools-scm`.
 * [PR #367:] Do not use `pkg_resources`
@@ -211,6 +241,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #381:]: https://github.com/openforcefield/openff-qcsubmit/pull/381
 [PR #382:]: https://github.com/openforcefield/openff-qcsubmit/pull/382
 [PR #387:]: https://github.com/openforcefield/openff-qcsubmit/pull/387
+[PR #394:]: https://github.com/openforcefield/openff-qcsubmit/pull/394
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
