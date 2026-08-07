@@ -558,7 +558,6 @@ class QCSpec(ResultsConfig):
                 except ModuleNotFoundError:
                     ommffs_installed = False
 
-                method = method.lower()
                 if not ommffs_installed:
                     warnings.warn(
                         "openmmforcefields is not installed, so the requested OpenMM "
@@ -572,6 +571,9 @@ class QCSpec(ResultsConfig):
                         get_available_force_fields,
                     )
 
+                    # Force field names are filenames (or shorthand keys tied
+                    # 1:1 to filenames), which are case sensitive - unlike
+                    # `program`/`basis`, `method` must not be lowercased here.
                     allowed_methods = {
                         "smirnoff": list(get_available_force_fields())
                         + SMIRNOFFTemplateGenerator.INSTALLED_FORCEFIELDS,
@@ -582,7 +584,6 @@ class QCSpec(ResultsConfig):
                             f"The method {method} is not supported for the program {program} with "
                             f"basis {basis}, please choose from {allowed_methods}"
                         )
-                    method = method.lower()
             else:
                 # torchani, xtb, and rdkit don't take a basis, so this is
                 # just a fixed lookup of allowed methods per program.
