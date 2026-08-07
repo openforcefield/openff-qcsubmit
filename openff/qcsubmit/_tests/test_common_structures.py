@@ -172,6 +172,24 @@ def test_openmm_method_preserves_offxml_extension(method):
     assert spec.method == method
 
 
+def test_openmm_method_is_case_sensitive():
+    """
+    Regression test: force field names are case-sensitive filenames, unlike
+    `program`/`basis`, so QCSpec must not lowercase `method` before comparing
+    it against the installed force fields. The real installed file is
+    "openff-1.0.0-RC1.offxml" (uppercase RC); the otherwise-identical
+    lowercase spelling isn't a real file and must be rejected rather than
+    silently accepted via case-insensitive matching.
+    """
+    pytest.importorskip("openmmforcefields")
+
+    spec = QCSpec(method="openff-1.0.0-RC1.offxml", basis="smirnoff", program="openmm")
+    assert spec.method == "openff-1.0.0-RC1.offxml"
+
+    with pytest.raises(QCSpecificationError):
+        QCSpec(method="openff-1.0.0-rc1.offxml", basis="smirnoff", program="openmm")
+
+
 def test_bare_unconstrained_method_rejected():
     """
     Starting in openmmforcefields 0.16.0,
