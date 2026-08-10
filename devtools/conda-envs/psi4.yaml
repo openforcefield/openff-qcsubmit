@@ -31,9 +31,6 @@ dependencies:
 
   - psi4 >=1.9.1
   - pyddx
-  # Current best reference for this pin (please update if a more visible issue is opened)
-  # https://github.com/psi4/psi4/pull/3464#issuecomment-5189313038
-  - libxc-c =7.0.0
 
   ### Core dependencies.
 
