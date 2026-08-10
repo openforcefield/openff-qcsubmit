@@ -736,7 +736,7 @@ def test_optimization_submissions_with_constraints(fulltest_client):
         pytest.param(
             (
                 {
-                    "method": "openff_unconstrained-1.0.0",
+                    "method": "openff_unconstrained-1.0.0.offxml",
                     "basis": "smirnoff",
                     "program": "openmm",
                 },
@@ -1145,7 +1145,7 @@ def test_torsiondrive_scan_keywords(fulltest_client):
     factory.add_workflow_components(scan_enum)
     factory.clear_qcspecs()
     factory.add_qc_spec(
-        method="openff_unconstrained-1.1.0",
+        method="openff_unconstrained-1.1.0.offxml",
         basis="smirnoff",
         program="openmm",
         spec_description="scan range test",
@@ -1257,7 +1257,7 @@ def test_torsiondrive_constraints(fulltest_client):
         pytest.param(
             (
                 {
-                    "method": "openff_unconstrained-1.1.0",
+                    "method": "openff_unconstrained-1.1.0.offxml",
                     "basis": "smirnoff",
                     "program": "openmm",
                 },
