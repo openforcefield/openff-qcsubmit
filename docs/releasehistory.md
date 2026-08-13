@@ -9,7 +9,9 @@ Releases follow the ``major.minor.micro`` scheme recommended by
 
 Releases are given with dates in DD-MM-YYYY format.
 
-<!--## Version / Date DD-MM-YYYY -->
+<!--## Version / Date YYYY-MM-DD -->
+
+## 0.58.0 / 2026-08-13
 
 ### API/Behavior Changes
 
@@ -48,7 +50,7 @@ openmmforcefields release.
 * [PR #382:] Update tests for deprecation of fulltest_client in QC* 0.56 and removal of mdtraj as a hard dependency of openff-toolkit.
 * [PR #387:] Add OMSF Code of Conduct.
 
-## 0.57.0 / 10-02-2025
+## 0.57.0 / 2025-10-02
 
 ### API extensions
 * [PR #352:] Add `include` argument to `to_records()` to enable users to select which fields to download (and hint to user that not all fields are downloaded by default!)
@@ -58,13 +60,13 @@ openmmforcefields release.
 * [PR #352:] Add a note to OptimizationResultCollection.to_records() docstring to explain that the user may want to call .to_basic_result_collection() first
 * [PR #352:] Revise docstring of to_basic_result_collection() with more details
 
-## 0.56.0 / 05-19-2025
+## 0.56.0 / 2025-05-19
 
 ### Bugfixes
 * [PR #340:] Updates `get_X` methods and tests for [API changes](https://github.com/openforcefield/openff-qcsubmit/issues/339) in QCFractal 0.61. 
 
 
-## 0.55.0 / 12-02-2025
+## 0.55.0 / 2025-12-02
 
 ### New features
 * [PR #314:] Add custom convergence options and `--converge maxiter` to `GeometricProcedure`.
@@ -77,7 +79,7 @@ openmmforcefields release.
 * [PR #308:] Consolidates most config files to `pyproject.toml`.
 * [PR #308:] Use `pyproject.toml` for Python build setup.
 
-## 0.54.0 / 07-11-2024
+## 0.54.0 / 2024-07-11
 
 ### Behavior changes
 - [PR #295:] Use new Pydantic v1 backdoor.
@@ -88,13 +90,13 @@ openmmforcefields release.
 
 
 
-## 0.53.0 / 13-08-2024
+## 0.53.0 / 2024-08-13
 
 ### Bugfixes
 * [PR #294:] Fixes [a bug](https://github.com/openforcefield/openff-qcsubmit/issues/223) in ConformerRMSDFilter where automorphs are sometimes incorrectly handled, leading to incorrect atom mappings used in RMSD calculations.  
 
 
-## 0.52.0 / 22-07-2024
+## 0.52.0 / 2024-07-22
 
 ### API breaking changes
 * [PR #288:] Adds a new named argument, `properties=False` to `QCSpec.qc_keywords`, changing it from a property to a method. 
@@ -111,7 +113,7 @@ openmmforcefields release.
 * [PR #289:] Add `workflow_components.RECAPFragmenter` to fragment molecules using the rdkit implementation of RECAP [@jthorton]
 * [PR #290:] Add support for the DDX implicit solvent interface in Psi4 [@jthorton]
 
-## 0.51.0 / 23-04-2024
+## 0.51.0 / 2024-04-23
 
 ### Behaviors changed
 
@@ -122,7 +124,7 @@ openmmforcefields release.
 * [PR #277:] Updates for QCPortal 0.54 (#275) and OpenFF Toolkit 0.16 (#278) [@bennybp @mattwthompson @j-wags]
 
 
-## 0.50.3 / 24-03-2024
+## 0.50.3 / 2024-03-24
 
 ### Bugfixes
 
@@ -134,7 +136,7 @@ openmmforcefields release.
 
 * [PR #270:] Speed up `TorsionDriveResultCollection.to_records` by batching requests [@ntBre]
 
-## 0.50.2 / 24-01-2024
+## 0.50.2 / 2024-01-24
 
 ### New Features
 
@@ -153,13 +155,13 @@ openmmforcefields release.
 
 * [PR #252:] Update constrained torsiondrive test to use a smaller molecule to avoid CI runs timing out. (#252) [@j-wags]
 
-## 0.50.1 / 10-11-2023
+## 0.50.1 / 2023-11-10
 
 ### Bugfixes
 
 * [PR #237:] Correctly use `openff.units` in `TorsionDriveResultCollection.to_records()` and the same method of other classes. (#237) [@chapincavender]
 
-## 0.50.0 / 31-10-2023
+## 0.50.0 / 2023-10-31
 
 For more information on this release, see https://github.com/openforcefield/openff-qcsubmit/releases/tag/0.50.0
 
@@ -171,14 +173,14 @@ For more information on this release, see https://github.com/openforcefield/open
 
 * [PR #235:] Update `versioneer` for Python 3.12 compatibility (#235) [@Yoshanuikabundi]
 
-## 0.4.0 / 11-15-2022
+## 0.4.0 / 2022-11-15
 
 ### New Features
 
 * [PR #204:] Compatibility OpenFF Toolkit 0.11.x (#204) [@Yoshanuikabundi]
 
 
-## 0.3.2 / 08-11-2022
+## 0.3.2 / 2022-08-11
 
 ### New Features
 
@@ -187,7 +189,7 @@ For more information on this release, see https://github.com/openforcefield/open
 * [PR #206:] Support more QC programs provided by QCEngine [@mattwthompson]
 
 
-## 0.3.1 / 08-03-2022
+## 0.3.1 / 2022-08-03
 
 ### Bugfixes
 
