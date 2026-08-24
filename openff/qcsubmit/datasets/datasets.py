@@ -1032,7 +1032,7 @@ class OptimizationDataset(BasicDataset):
                 program=self.optimization_procedure.program,
                 qc_specification=qc_spec,
                 keywords=opt_kw,
-                protocols=self.protocols,
+                protocols=self.protocols.model_dict(),
             )
 
         return ret

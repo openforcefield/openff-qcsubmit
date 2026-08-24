@@ -40,8 +40,8 @@ jobs:
           - os: ubuntu-latest
             conda-env: psi4
 
-    env:
-      OE_LICENSE: ${{ github.workspace }}/oe_license.txt
+    #env:
+    #  OE_LICENSE: ${{ github.workspace }}/oe_license.txt
 
     steps:
       - uses: actions/checkout@v7
@@ -54,12 +54,12 @@ jobs:
           create-args: >-
             python=${{ matrix.python-version }}
 
-      - name: License OpenEye
-        run: |
-          echo "${SECRET_OE_LICENSE}" > ${OE_LICENSE}
-          python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
-        env:
-          SECRET_OE_LICENSE: ${{ secrets.OE_LICENSE }}
+      #- name: License OpenEye
+      #  run: |
+      #    echo "${SECRET_OE_LICENSE}" > ${OE_LICENSE}
+      #    python -c "from openeye import oechem; assert oechem.OEChemIsLicensed()"
+      #  env:
+      #    SECRET_OE_LICENSE: ${{ secrets.OE_LICENSE }}
 
       - name: Optionally install development upstreams
         if: ${{ matrix.bleeding-edge == true }}
