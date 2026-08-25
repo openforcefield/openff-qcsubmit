@@ -176,7 +176,7 @@ def mock_torsion_drive_result_collection(
                     id=entry.record_id,
                     specification=TorsiondriveSpecification(
                         program="torsiondrive",
-                        keywords=TDKeywords(dihedrals=[], grid_spacing=[]),
+                        keywords=TDKeywords(dihedrals=[], grid_spacing=[]).dict(),
                         optimization_specification=OptimizationSpecification(
                             program="geometric",
                             keywords={},

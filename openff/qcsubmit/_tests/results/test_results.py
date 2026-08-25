@@ -180,6 +180,8 @@ def test_base_validate_record_types():
                 ),
             ),
             initial_molecule_id=1,
+            final_molecule_id=1,
+            energies=[],
             status=RecordStatusEnum.complete,
             is_service=False,
             created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
