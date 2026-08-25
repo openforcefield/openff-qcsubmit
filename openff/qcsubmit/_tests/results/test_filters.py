@@ -229,7 +229,7 @@ def test_connectivity_filter():
         # client=_PortalClient(address=address)
         properties=None,
         manager_name=None,
-        creator_user=None
+        creator_user=None,
     )
 
     connectivity_filter = ConnectivityFilter()
@@ -260,7 +260,7 @@ def test_record_status_filter():
         is_service=False,
         properties=None,
         manager_name=None,
-        creator_user=None
+        creator_user=None,
     )
 
     status_filter = RecordStatusFilter(status=RecordStatusEnum.complete)

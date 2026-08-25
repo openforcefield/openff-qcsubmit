@@ -202,7 +202,7 @@ def mock_torsion_drive_result_collection(
                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                     properties=None,
                     manager_name=None,
-                    creator_user=None
+                    creator_user=None,
                 ),
                 molecules[address][int(entry.record_id) - 1],
             )

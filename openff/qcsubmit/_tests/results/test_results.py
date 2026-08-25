@@ -166,7 +166,7 @@ def test_base_validate_record_types():
             id=1,
             properties=None,
             manager_name=None,
-            creator_user=None
+            creator_user=None,
         ),
         OptimizationRecord(
             # OptimizationRecord(
@@ -189,7 +189,7 @@ def test_base_validate_record_types():
             id=1,
             properties=None,
             manager_name=None,
-            creator_user=None
+            creator_user=None,
         ),
     ]
 
@@ -504,7 +504,7 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
                     # compute_history=list(),
                     properties=None,
                     manager_name=None,
-                    creator_user=None
+                    creator_user=None,
                     # )
                 ),
                 molecule,
