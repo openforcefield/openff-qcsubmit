@@ -227,6 +227,9 @@ def test_connectivity_filter():
         status=RecordStatusEnum.complete,
         is_service=False,
         # client=_PortalClient(address=address)
+        properties=None,
+        manager_name=None,
+        creator_user=None
     )
 
     connectivity_filter = ConnectivityFilter()
@@ -255,6 +258,9 @@ def test_record_status_filter():
         molecule_id=1,
         status=RecordStatusEnum.complete,
         is_service=False,
+        properties=None,
+        manager_name=None,
+        creator_user=None
     )
 
     status_filter = RecordStatusFilter(status=RecordStatusEnum.complete)
