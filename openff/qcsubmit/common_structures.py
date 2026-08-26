@@ -27,8 +27,8 @@ from typing import (
 import numpy as np
 from openff.toolkit.topology import Molecule
 from qcelemental import constants
-from qcelemental.models.common_models import Model
-from qcelemental.models.results import WavefunctionProtocolEnum
+from qcelemental.models.v1.common_models import Model
+from qcelemental.models.v1.results import WavefunctionProtocolEnum
 from qcportal.singlepoint import SinglepointDriver
 
 from openff.qcsubmit._pydantic import (

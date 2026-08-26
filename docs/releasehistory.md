@@ -11,6 +11,13 @@ Releases are given with dates in YYYY-MM-DD format.
 
 <!--## Version / Date YYYY-MM-DD -->
 
+## 0.59.0 / 2026-08-28
+
+### API/Behavior Changes
+
+[PR #398:] Updates for QCPortal 0.70/QCElemental 0.50. After these changes, QCSubmit requires QCElemental >=0.50 but 
+may continue to work with older versions of QCPortal. [@bennybp] [@j-wags]
+
 ## 0.58.0 / 2026-08-13
 
 ### API/Behavior Changes
@@ -244,6 +251,7 @@ For more information on this release, see https://github.com/openforcefield/open
 [PR #382:]: https://github.com/openforcefield/openff-qcsubmit/pull/382
 [PR #387:]: https://github.com/openforcefield/openff-qcsubmit/pull/387
 [PR #394:]: https://github.com/openforcefield/openff-qcsubmit/pull/394
+[PR #398:]: https://github.com/openforcefield/openff-qcsubmit/pull/398
 
 [@jthorton]: https://github.com/jthorton
 [@dotsdl]: https://github.com/dotsdl
@@ -253,3 +261,4 @@ For more information on this release, see https://github.com/openforcefield/open
 [@j-wags]: https://github.com/j-wags
 [@pavankum]: https://github.com/pavankum
 [@ntBre]: https://github.com/ntBre
+[@bennybp]: https://github.com/bennybp

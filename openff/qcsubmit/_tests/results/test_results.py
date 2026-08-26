@@ -164,6 +164,9 @@ def test_base_validate_record_types():
             created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
             modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
             id=1,
+            properties=None,
+            manager_name=None,
+            creator_user=None,
         ),
         OptimizationRecord(
             # OptimizationRecord(
@@ -177,11 +180,16 @@ def test_base_validate_record_types():
                 ),
             ),
             initial_molecule_id=1,
+            final_molecule_id=1,
+            energies=[],
             status=RecordStatusEnum.complete,
             is_service=False,
             created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
             modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
             id=1,
+            properties=None,
+            manager_name=None,
+            creator_user=None,
         ),
     ]
 
@@ -494,6 +502,9 @@ def test_torsion_smirnoff_coverage(public_client, monkeypatch):
                     created_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                     modified_on=datetime.datetime(2022, 4, 21, 0, 0, 0),
                     # compute_history=list(),
+                    properties=None,
+                    manager_name=None,
+                    creator_user=None,
                     # )
                 ),
                 molecule,
