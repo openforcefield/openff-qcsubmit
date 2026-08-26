@@ -22,7 +22,7 @@ dependencies:
   - nglview
 
   - qcengine >=0.25
-  - qcelemental >=0.25.1
+  - qcelemental >=0.50.0
   - qcfractal >=0.65
   - qcarchivetesting
   - qcportal
