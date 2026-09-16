@@ -15,7 +15,7 @@ Releases are given with dates in YYYY-MM-DD format.
 
 ### API/Behavior Changes
 
-[PR #398:] Updates for QCPortal 0.70/QCElemental 0.50. After these changes, QCSubmit requires QCElemental >=0.50 but 
+[PR #398:] Updates for QCPortal 0.70/QCElemental 0.50. After these changes, QCSubmit requires QCElemental >=0.51.2 but 
 may continue to work with older versions of QCPortal. [@bennybp] [@j-wags]
 
 ## 0.58.0 / 2026-08-13
