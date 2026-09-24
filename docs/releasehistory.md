@@ -11,7 +11,7 @@ Releases are given with dates in YYYY-MM-DD format.
 
 <!--## Version / Date YYYY-MM-DD -->
 
-## 0.59.0 / 2026-08-28
+## 0.59.0 / 2026-09-24
 
 ### API/Behavior Changes
 
