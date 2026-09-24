@@ -766,7 +766,9 @@ class OptimizationResultCollection(_BaseResultCollection):
                     isomeric=True, explicit_hydrogens=False, mapped=False
                 ),
                 molecule=None,
-                initial_molecules=[rec.final_molecule for rec, _ in records],
+                initial_molecules=[
+                    rec.final_molecule.convert_v(1) for rec, _ in records
+                ],
                 attributes=MoleculeAttributes.from_openff_molecule(base_molecule),
                 extras=base_record.extras,
                 keywords=base_record.specification.keywords,

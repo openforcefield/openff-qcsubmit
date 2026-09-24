@@ -847,15 +847,17 @@ class BasicDataset(_BaseDataset):
                     name = index + f"-{tag + j}"
                     entries.append(
                         SinglepointDatasetNewEntry(
-                            name=name, molecule=molecule, attributes=entry.attributes
+                            name=name,
+                            molecule=molecule.dict(),
+                            attributes=entry.attributes.dict(),
                         )
                     )
             else:
                 entries.append(
                     SinglepointDatasetNewEntry(
                         name=entry_name,
-                        molecule=entry.initial_molecules[0],
-                        attributes=entry.attributes,
+                        molecule=entry.initial_molecules[0].dict(),
+                        attributes=entry.attributes.dict(),
                     )
                 )
 
@@ -1032,7 +1034,7 @@ class OptimizationDataset(BasicDataset):
                 program=self.optimization_procedure.program,
                 qc_specification=qc_spec,
                 keywords=opt_kw,
-                protocols=self.protocols,
+                protocols=self.protocols.dict(),
             )
 
         return ret
@@ -1042,7 +1044,7 @@ class OptimizationDataset(BasicDataset):
 
         for entry_name, entry in self.dataset.items():
             # TODO this probably needs even more keywords
-            opt_kw = dict(constraints=entry.constraints)
+            opt_kw = dict(constraints=entry.constraints.dict())
             opt_kw.update(entry.keywords)
             if len(entry.initial_molecules) > 1:
                 # check if the index has a number tag
@@ -1054,18 +1056,18 @@ class OptimizationDataset(BasicDataset):
                     entries.append(
                         OptimizationDatasetNewEntry(
                             name=name,
-                            initial_molecule=molecule,
+                            initial_molecule=molecule.dict(),
                             additional_keywords=opt_kw,
-                            attributes=entry.attributes,
+                            attributes=entry.attributes.dict(),
                         )
                     )
             else:
                 entries.append(
                     OptimizationDatasetNewEntry(
                         name=entry_name,
-                        initial_molecule=entry.initial_molecules[0],
+                        initial_molecule=entry.initial_molecules[0].dict(),
                         additional_keywords=opt_kw,
-                        attributes=entry.attributes,
+                        attributes=entry.attributes.dict(),
                     )
                 )
 
@@ -1251,7 +1253,7 @@ class TorsiondriveDataset(OptimizationDataset):
             spec = OptimizationSpecification(
                 program=self.optimization_procedure.program,
                 qc_specification=qc_spec,
-                protocols=self.protocols,
+                protocols=self.protocols.dict(),
             )
             ret[spec_name] = TorsiondriveSpecification(
                 optimization_specification=spec,
@@ -1274,15 +1276,15 @@ class TorsiondriveDataset(OptimizationDataset):
 
             td_keywords.update(entry.keywords.dict(exclude_defaults=True))
 
-            opt_keywords = dict(constraints=entry.constraints)
+            opt_keywords = dict(constraints=entry.constraints.dict())
 
             entries.append(
                 TorsiondriveDatasetNewEntry(
                     name=entry_name,
-                    initial_molecules=entry.initial_molecules,
+                    initial_molecules=[m.dict() for m in entry.initial_molecules],
                     additional_keywords=td_keywords,
                     additional_optimization_keywords=opt_keywords,
-                    attributes=entry.attributes,
+                    attributes=entry.attributes.dict(),
                 )
             )
 
