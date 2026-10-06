@@ -51,4 +51,5 @@ dependencies:
   - openmm
   - mdtraj
 
-  - postgresql
+  # Downpin is temporary, pending a release with https://github.com/MolSSI/QCFractal/pull/1038
+  - postgresql <18

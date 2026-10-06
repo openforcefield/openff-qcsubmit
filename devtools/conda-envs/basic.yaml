@@ -27,8 +27,8 @@ dependencies:
   - qcfractal >=0.65
   - qcarchivetesting
   - qcportal
-
-  - postgresql
+  # Downpin is temporary, pending a release with https://github.com/MolSSI/QCFractal/pull/1038
+  - postgresql <18
 
   - openeye-toolkits !=2024.1.1
 
