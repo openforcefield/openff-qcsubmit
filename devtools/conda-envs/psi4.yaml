@@ -52,4 +52,5 @@ dependencies:
   - mdtraj
 
   # Downpin is temporary, pending a release with https://github.com/MolSSI/QCFractal/pull/1038
-  - postgresql <18
+  - sqlalchemy <2.1
+  - postgresql
