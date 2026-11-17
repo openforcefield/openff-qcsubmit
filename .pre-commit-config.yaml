@@ -7,30 +7,30 @@ repos:
   - id: check-yaml
   - id: debug-statements
 - repo: https://github.com/psf/black-pre-commit-mirror
-  rev: 26.3.1
+  rev: 26.10.1
   hooks:
   - id: black
     files: ^openff|^examples
 - repo: https://github.com/PyCQA/isort
-  rev: 8.0.1
+  rev: 10.0.0b3
   hooks:
   - id: isort
     files: ^openff
 - repo: https://github.com/PyCQA/flake8
-  rev: 7.3.0
+  rev: 7.5.0
   hooks:
   - id: flake8
     files: ^openff
     additional_dependencies:
       - 'flake8-all-not-strings'
 - repo: https://github.com/nbQA-dev/nbQA
-  rev: 1.9.1
+  rev: 1.10.0
   hooks:
     - id: nbqa-isort
     - id: nbqa-flake8
       args:
         - '--select=F'
 - repo: https://github.com/tox-dev/pyproject-fmt
-  rev: v2.21.0
+  rev: v2.30.6
   hooks:
     - id: pyproject-fmt
